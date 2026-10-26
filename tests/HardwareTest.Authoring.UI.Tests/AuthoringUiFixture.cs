@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -19,6 +20,13 @@ internal sealed class AuthoringUiFixture : IDisposable
         {
             File.Copy(file, Path.Combine(WorkspaceRoot, Path.GetFileName(file)));
         }
+
+        // Most existing interaction tests use an explicitly flat modern sequence.
+        // Dedicated legacy migration tests remove this marker before opening the fixture.
+        var samplePath = Path.Combine(WorkspaceRoot, "sample.TapPlan");
+        var sample = System.Xml.Linq.XDocument.Load(samplePath);
+        sample.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+        sample.Save(samplePath);
 
         Preferences = new AuthoringPreferencesStore(Path.Combine(_root, "preferences", AuthoringPreferencesStore.FileName));
         Preferences.Load();
@@ -208,8 +216,17 @@ internal sealed class AuthoringUiFixture : IDisposable
     private async Task RemoveFixtureAsync()
     {
         await ViewModel.StopRecoveryAsync().ConfigureAwait(false);
-        try { Directory.Delete(_root, recursive: true); }
-        catch (DirectoryNotFoundException) { }
+        // Stopping a pipeline releases UI awaiters immediately; its obsolete read-only
+        // scan can still be closing a package manifest on Windows. Retry only transient
+        // sharing failures, while continuing to surface persistent cleanup errors.
+        var elapsed = Stopwatch.StartNew();
+        while (true)
+        {
+            try { Directory.Delete(_root, recursive: true); return; }
+            catch (DirectoryNotFoundException) { return; }
+            catch (IOException) when (elapsed.Elapsed < TimeSpan.FromSeconds(10))
+            { await Task.Delay(25).ConfigureAwait(false); }
+        }
     }
 
     private async Task CloseWindowAsync()

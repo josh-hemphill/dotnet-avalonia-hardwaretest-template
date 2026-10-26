@@ -8,12 +8,16 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class AuthoringHardwareDefinitionTests
 {
     [AvaloniaFact]
-    public void Visible_adapter_binding_review_cancel_apply_history_and_save_reopen_preserve_type_address_and_step_ids()
+    public async Task Visible_adapter_binding_review_cancel_apply_history_and_save_reopen_preserve_type_address_and_step_ids()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("binding"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var ids = vm.SelectedProgram!.Measure.Select(n => n.NodeId).ToArray();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
@@ -42,10 +46,12 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Global_definition_roundtrip_stable_identity_explicit_membership_isolation_and_reviewed_removal_history()
+    public async Task Global_definition_roundtrip_stable_identity_explicit_membership_isolation_and_reviewed_removal_history()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain(); var vm = fixture.ViewModel;
         vm.CreateDemoProgram("one"); vm.CreateDemoProgram("two"); vm.SelectProgram("one");
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain();
         fixture.Type(fixture.Control<TextBox>("New hardware definition name"), "BENCH");
@@ -77,9 +83,11 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Adapter_configuration_rejection_and_workspace_catalog_creation_do_not_change_program_membership()
+    public async Task Adapter_configuration_rejection_and_workspace_catalog_creation_do_not_change_program_membership()
     {
-        using var fixture = new AuthoringUiFixture(rememberWorkspace: true); var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true); var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain(); var vm = fixture.ViewModel;
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain();
         var before = vm.SelectedProgram;
         fixture.Type(fixture.Control<TextBox>("New required field"), "fixtureId"); Click(fixture, "Add required field");
@@ -92,16 +100,22 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Changing_visible_adapter_to_current_library_roundtrips_lifecycle_type_address_and_configuration()
+    public async Task Changing_visible_adapter_to_current_library_roundtrips_lifecycle_type_address_and_configuration()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
         manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
             System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
-        var window = fixture.Show(); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain(); var vm = fixture.ViewModel;
         CurrentHardwareUiFixture.Prepare(fixture);
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         vm.InitializePlan(new("physical") { Instruments = [new("DMM", typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!, "MOCK::0")], IdentityInstrumentSlot = "DMM" });
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
         var selected = AuthoringInstrumentCatalog.All.Single(a => a.TypeId == CurrentHardwareUiFixture.TypeId);
@@ -121,12 +135,14 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Bound_hardware_package_status_refreshes_with_selected_home_and_same_home_is_noop()
+    public async Task Bound_hardware_package_status_refreshes_with_selected_home_and_same_home_is_noop()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         WritePackagePayload(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath),
             AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest Basic"), includePayload: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         var program = vm.SelectedProgram;
@@ -136,6 +152,8 @@ public sealed class AuthoringHardwareDefinitionTests
 
         var missingHome = Path.Combine(fixture.WorkspaceRoot, "missing-home");
         vm.OpenTapHomeOverride = missingHome; AuthoringUiFixture.Drain();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var missingRows = table.ItemsSource;
         Assert.NotSame(availableRows, missingRows);
         ExpandPackageDetails(table);
@@ -143,8 +161,12 @@ public sealed class AuthoringHardwareDefinitionTests
         Assert.DoesNotContain(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
 
         vm.OpenTapHomeOverride = " " + missingHome + " "; AuthoringUiFixture.Drain();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.Same(missingRows, table.ItemsSource);
         vm.OpenTapHomeOverride = string.Empty; AuthoringUiFixture.Drain();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.NotSame(missingRows, table.ItemsSource);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
         Assert.Same(program, vm.SelectedProgram);
@@ -158,7 +180,7 @@ public sealed class AuthoringHardwareDefinitionTests
     [InlineData("InstrumentComponents.OpenTap", "missing metadata")]
     [InlineData("InstrumentComponents.OpenTap", "missing payload")]
     [InlineData("InstrumentComponents.OpenTap", "valid")]
-    public void Bound_hardware_table_inspects_workspace_default_home_when_override_is_empty(string package, string state)
+    public async Task Bound_hardware_table_inspects_workspace_default_home_when_override_is_empty(string package, string state)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         if (package == AuthoringInstrumentCatalog.LibraryPackage) CurrentHardwareUiFixture.Discover(fixture);
@@ -173,6 +195,8 @@ public sealed class AuthoringHardwareDefinitionTests
                 System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         }
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         if (package == AuthoringInstrumentCatalog.LibraryPackage)
         {
@@ -201,20 +225,26 @@ public sealed class AuthoringHardwareDefinitionTests
     }
 
     [AvaloniaFact]
-    public void Bound_hardware_table_prefers_valid_override_to_missing_workspace_default_home()
+    public async Task Bound_hardware_table_prefers_valid_override_to_missing_workspace_default_home()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var adapter = AuthoringInstrumentCatalog.All.Single(a => a.RequiredPackage == "HardwareTest Basic");
         var overrideHome = Path.Combine(fixture.WorkspaceRoot, "selected-home");
         WritePackagePayload(overrideHome, adapter, includePayload: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         var table = fixture.Control<ItemsControl>("Hardware binding table");
         ExpandPackageDetails(table);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
         fixture.ViewModel.OpenTapHomeOverride = overrideHome; AuthoringUiFixture.Drain();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "HardwareTest Basic: available");
         fixture.ViewModel.OpenTapHomeOverride = string.Empty; AuthoringUiFixture.Drain();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         ExpandPackageDetails(table);
         Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("package metadata is missing", StringComparison.Ordinal) == true);
     }

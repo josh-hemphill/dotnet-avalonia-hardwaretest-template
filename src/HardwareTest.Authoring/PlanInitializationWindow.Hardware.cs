@@ -1,4 +1,6 @@
+using System.ComponentModel;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace HardwareTest.Authoring;
 
@@ -10,9 +12,45 @@ public sealed partial class PlanInitializationWindow
     }
     private readonly List<HardwareChoice> _hardwareChoices = [];
     private HardwareChoice? SelectedHardware => _hardware.SelectedItem as HardwareChoice;
+    private bool _refreshingHardwareChoices;
+    private bool _hardwareRefreshQueued;
 
-    private void ShowHardwareChoices()
+    private void ObserveHardwareChoices()
     {
+        Opened += (_, _) =>
+        {
+            _vm.PropertyChanged += OnHardwareEnvironmentChanged;
+            QueueHardwareChoicesRefresh();
+        };
+        Closed += (_, _) => _vm.PropertyChanged -= OnHardwareEnvironmentChanged;
+    }
+
+    private void OnHardwareEnvironmentChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(AuthoringWorkspaceViewModel.InstrumentTypeChoices)) QueueHardwareChoicesRefresh();
+    }
+
+    private void QueueHardwareChoicesRefresh()
+    {
+        if (_hardwareRefreshQueued || !HardwareChoiceOwnerCurrent()) return;
+        _hardwareRefreshQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _hardwareRefreshQueued = false;
+            if (!HardwareChoiceOwnerCurrent()) return;
+            ShowHardwareChoices(preserveSelection: true);
+            // Environment publication already contains readiness. Do not start
+            // another package scan or construct a plan just to refresh this list.
+            ShowHardware(assessPlan: false);
+        });
+    }
+
+    private bool HardwareChoiceOwnerCurrent() => IsVisible && _ownerIsCurrent?.Invoke() != false
+        && _workspaceSession == _vm.WorkspaceSessionId && ReferenceEquals(_workspace, _vm.Workspace);
+
+    private void ShowHardwareChoices(bool preserveSelection = false)
+    {
+        var selected = preserveSelection ? SelectedHardware : null;
         _hardwareChoices.Clear();
         _hardwareChoices.Add(new("No hardware yet"));
         foreach (var adapter in _vm.InstrumentTypeChoices.Where(a => AuthoringInstrumentCatalog.IsLibrary(a.TypeId)))
@@ -27,8 +65,21 @@ public sealed partial class PlanInitializationWindow
                 + (index == _retainedResourceIndex ? " — changed or removed from catalog" : " — " + _resourceOrigins[index])
                 + " — settings: " + (resource.Settings.Count == 0 ? "defaults" : string.Join(", ", resource.Settings.Select(p => p.Key + "=" + p.Value))), adapter, resource));
         }
-        _hardware.ItemsSource = _hardwareChoices.ToArray();
-        _hardware.SelectedIndex = 0;
+        var replacement = selected is null ? null : _hardwareChoices.FirstOrDefault(choice =>
+            selected.Resource is { } resource ? choice.Resource is { } candidate && SameResource(resource, candidate)
+                : choice.Resource is null && choice.Adapter?.TypeId == selected.Adapter?.TypeId);
+        if (replacement is null && selected is not null)
+        {
+            replacement = selected;
+            _hardwareChoices.Add(replacement);
+        }
+        _refreshingHardwareChoices = true;
+        try
+        {
+            _hardware.ItemsSource = _hardwareChoices.ToArray();
+            _hardware.SelectedItem = replacement ?? _hardwareChoices[0];
+        }
+        finally { _refreshingHardwareChoices = false; }
     }
 
     private void SelectHardwareType(string id)
@@ -51,8 +102,9 @@ public sealed partial class PlanInitializationWindow
         return [new InstrumentRef(_slot.Text ?? "", adapter.TypeId, _address.Text ?? "") { Settings = settings }];
     }
 
-    private void ShowHardware()
+    private void ShowHardware(bool assessPlan = true)
     {
+        if (_refreshingHardwareChoices) return;
         var choice = SelectedHardware;
         SuggestSlot(choice);
         var library = choice?.Adapter is { } selectedAdapter && AuthoringInstrumentCatalog.IsLibrary(selectedAdapter.TypeId);
@@ -75,7 +127,7 @@ public sealed partial class PlanInitializationWindow
         }
         try
         {
-            var result = _vm.ReviewPlanInitialization(Request());
+            var result = assessPlan ? _vm.ReviewPlanInitialization(Request()) : null;
             _readiness.Text = resources.Count == 0
                 ? _vm.LibraryEnvironmentReadinessText + "\nChoose an installed library device, reuse a binding, or save without hardware. If Instrument Components choices are missing, open Environment, declare the library dependency, then prepare/import its package. Your inputs are retained."
                 : string.Join("\n", resources.Select(resource =>
@@ -86,10 +138,11 @@ public sealed partial class PlanInitializationWindow
                     return $"{adapter.DisplayName} · {adapter.Description}\n{adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — declare in Environment")}\n"
                         + (AuthoringInstrumentCatalog.IsLibrary(resource.TypeId) ? (_vm.InstrumentTypeChoices.Any(a => a.TypeId == resource.TypeId) ? "Ready in selected home — compatible installed package reused.\n" : "Unavailable in selected home — open Environment.\n") + "Library identity and cleanup steps can be generated; review output-off/reset for your device. Voltage and average-voltage measurements are unavailable for this device in this form. Turn off the first measurement to save a hardware scaffold. Library measurement recipes are not supported by this authoring form." : "Explicit Mock DMM demo voltage tasks.");
                 }));
-            _readiness.Text += "\n" + string.Join("\n", result.Issues.Where(i => i.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal) || i.Code == "INVALID_OPENTAP_HOME").Select(i => i.Message));
+            if (result is not null)
+                _readiness.Text += "\n" + string.Join("\n", result.Issues.Where(i => i.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal) || i.Code == "INVALID_OPENTAP_HOME").Select(i => i.Message));
             if (choice?.Resource is { } retained && _retainedResourceIndex >= 0 && SameResource(retained, _reusable[_retainedResourceIndex]))
                 _readiness.Text += "\nPreviously selected reusable instrument changed or was removed. Its original address and configuration are retained; review this retained choice or explicitly choose another instrument.";
-            _coverage.Text = "Generated cleanup slots: " + (_shutdown.IsChecked == true ? string.Join(", ", result.Draft.Cleanup.InstrumentSlots) : "disabled")
+            _coverage.Text = "Generated cleanup slots: " + (_shutdown.IsChecked == true ? string.Join(", ", result?.Draft.Cleanup.InstrumentSlots ?? resources.Select(resource => resource.SlotName).ToArray()) : "disabled")
                 + ". These actions run on the bench after measurements; review model-specific safety. Package preparation belongs in Environment.";
         }
         catch (Exception error) { _readiness.Text = error.Message; }

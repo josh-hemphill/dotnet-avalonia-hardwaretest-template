@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
 using HardwareTest.Widgets.MeasurementPlot;
 using HardwareTest.Widgets.Presentation;
 
@@ -13,6 +14,11 @@ public sealed class OperatorPreviewPane : UserControl
 {
     private readonly StackPanel _board = new() { Spacing = 12 };
     private AuthoringWorkspaceViewModel? _session;
+    private bool _attached;
+    private bool _applyQueued;
+    private bool _needsApply = true;
+    private IReadOnlyList<BoardPreviewTile>? _renderedTiles;
+    private string? _emptyMessage;
 
     public OperatorPreviewPane()
     {
@@ -29,32 +35,41 @@ public sealed class OperatorPreviewPane : UserControl
         AutomationProperties.SetName(this, "Operator preview chrome");
         DataContextChanged += (_, _) => HookSession();
         SizeChanged += (_, _) => ConstrainCharts();
-        LayoutUpdated += (_, _) => ConstrainCharts();
+        LayoutUpdated += (_, _) =>
+        {
+            // A tab can remain bound while its content is hidden. Delay widget
+            // construction until it is actually shown, and consume only the latest result.
+            if (_needsApply) QueueApply();
+            if (IsEffectivelyVisible) ConstrainCharts();
+        };
     }
 
     protected override void OnAttachedToVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        _attached = true;
         HookSession();
-        Apply();
     }
 
     protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
     {
+        _attached = false;
         UnhookSession();
+        _needsApply = true;
         base.OnDetachedFromVisualTree(e);
     }
 
     private void HookSession()
     {
         UnhookSession();
-        if (DataContext is AuthoringWorkspaceViewModel session)
+        if (_attached && DataContext is AuthoringWorkspaceViewModel session)
         {
             _session = session;
             session.PropertyChanged += OnSessionChanged;
         }
 
-        Apply();
+        _needsApply = true;
+        QueueApply();
     }
 
     private void UnhookSession()
@@ -70,19 +85,38 @@ public sealed class OperatorPreviewPane : UserControl
 
     private void OnSessionChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.BoardTiles))
+        if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.BoardTiles) or nameof(AuthoringWorkspaceViewModel.PreviewBusy))
         {
-            Apply();
+            _needsApply = true;
+            QueueApply();
         }
+    }
+
+    private void QueueApply()
+    {
+        if (!_attached || !IsEffectivelyVisible || _applyQueued) return;
+        _applyQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _applyQueued = false;
+            if (!_attached || !IsEffectivelyVisible) return;
+            _needsApply = false;
+            Apply();
+        }, DispatcherPriority.Background);
     }
 
     private void Apply()
     {
-        _board.Children.Clear();
         var tiles = _session?.BoardTiles ?? [];
+        var message = tiles.Count != 0 ? null : _session?.PreviewBusy == true ? "Updating preview…"
+            : _session?.Preview.Note ?? "Add acquisitions and calculations to see the board preview.";
+        if (ReferenceEquals(tiles, _renderedTiles) && message == _emptyMessage) return;
+        _renderedTiles = tiles;
+        _emptyMessage = message;
+        _board.Children.Clear();
         if (tiles.Count == 0)
         {
-            _board.Children.Add(new TextBlock { Text = "Add acquisitions and calculations to see the board preview.", TextWrapping = TextWrapping.Wrap });
+            _board.Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap });
             return;
         }
         foreach (var tile in tiles) _board.Children.Add(new BoardPreviewTileView(tile));

@@ -96,7 +96,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.Redo();
         Assert.Equal("saved name", vm.DisplayName);
         Assert.False(vm.HasUnsavedChanges);
-        vm.SelectMeasure(0);
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
         vm.YUnit = "changed unit";
         compiler.FailSave = false;
         vm.SaveSidecar();

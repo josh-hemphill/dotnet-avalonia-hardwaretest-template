@@ -2,12 +2,13 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    public FormulaDeploymentStatus? FormulaDeploymentStatus => HasFormula && SelectedMetric is { } metric
+    public FormulaDeploymentStatus? FormulaDeploymentStatus => _previewDispatch is not null ? CachedPreview.Deployment : HasFormula && SelectedMetric is { } metric
         ? FormulaDeploymentClassifier.Classify(metric, SelectedProgram, nodeId: SelectedPreviewNodeId) : null;
     public string FormulaRecordingEvidence
     {
         get
         {
+            if (_previewDispatch is not null) return CachedPreview.RecordingEvidence;
             if (!HasFormula || SelectedMetric is not { } metric) return string.Empty;
             if (SelectedDataset is not { } dataset) return FormulaDeploymentClassifier.DescribeRecording(metric, null);
             if (dataset.Run.Samples.Any(sample => sample.StepRunId is not null || sample.IterationIndex is not null))
@@ -33,7 +34,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<FormulaCatalog.Item> DeployableFormulaCompletions => FormulaCompletions.Where(item => item.Packs).ToArray();
     public IReadOnlyList<FormulaCatalog.Item> ExplorationFormulaCompletions => FormulaCompletions.Where(item => !item.Packs && item.Kind == "function").ToArray();
     public IReadOnlyList<FormulaCatalog.Item> FormulaChannelCompletions => FormulaCompletions.Where(item => item.Kind == "channel").ToArray();
-    public IReadOnlyList<string> ExcludedExplorationFormulas => Programs.SelectMany(draft =>
+    public IReadOnlyList<string> ExcludedExplorationFormulas => _previewDispatch is not null ? CachedPreview.ExcludedFormulas : Programs.SelectMany(draft =>
         AuthoringDependencyIndex.Build(draft).Nodes.Where(node => AuthoringFormulaDeployment.ExcludedNodes(draft).Contains(node.NodeId)).Select(node => $"{draft.PlanId}: {node.ProducedChannel} (exploration)")).ToArray();
 
     private void RaiseFormulaDeployment()

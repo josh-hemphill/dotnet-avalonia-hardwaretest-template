@@ -11,7 +11,7 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class BoardPreviewScopeUiTests
 {
     [AvaloniaFact]
-    public void Actual_inspector_recording_evidence_and_status_follow_same_output_formula_selection()
+    public async Task Actual_inspector_recording_evidence_and_status_follow_same_output_formula_selection()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         MetricNode Input(string key) => new(new MetricDraft(key, key, PresentationRoles.Timeseries, "V", null, null,
@@ -42,24 +42,26 @@ public sealed class BoardPreviewScopeUiTests
         var path = Path.Combine(fixture.WorkspaceRoot, "scoped.json");
         File.WriteAllText(path, JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord));
         vm.ImportRecording(path, "scoped");
-        void Select(Guid id)
+        async Task Select(Guid id)
         {
             vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id));
+            await fixture.WaitForPreviewAsync();
             AuthoringUiFixture.Drain();
         }
         var evidence = fixture.Control<TextBlock>("Selected recording formula evidence");
         var status = fixture.Control<TextBlock>("Formula deployment status");
-        Select(first.NodeId);
+        await Select(first.NodeId);
         Assert.Contains("2 source execution(s)", evidence.Text);
         Assert.Equal("Deployable recipe", status.Text);
-        Select(second.NodeId);
+        await Select(second.NodeId);
         Assert.Contains("1 source execution(s)", evidence.Text);
         vm.FormulaSource = "mean(missing)";
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Contains("0 source execution(s)", evidence.Text);
         Assert.Contains("missing", evidence.Text);
         Assert.Equal("Missing deployment requirements", status.Text);
-        Select(first.NodeId);
+        await Select(first.NodeId);
         Assert.Contains("2 source execution(s)", evidence.Text);
         Assert.DoesNotContain("missing", evidence.Text);
         Assert.Equal("Deployable recipe", status.Text);

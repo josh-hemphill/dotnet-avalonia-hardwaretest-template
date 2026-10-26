@@ -15,9 +15,10 @@ public sealed class AuthoringCatalogLifecycleTests
     [InlineData("enter")]
     [InlineData("escape")]
     [InlineData("dismiss")]
-    public void Global_only_dirty_state_is_visible_in_real_lifecycle_modal_and_Pack_guard_and_cancels_safely(string route)
+    public async Task Global_only_dirty_state_is_visible_in_real_lifecycle_modal_and_Pack_guard_and_cancels_safely(string route)
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture);
+        await fixture.WaitForReadinessAsync();
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Pack workspace").IsEnabled); Assert.Contains("workspace catalog", fixture.Control<TextBlock>("Pack save guard").Text); Assert.Contains("Save All", fixture.Control<TextBlock>("Pack save guard").Text);
         fixture.Window!.Close(); AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows);
@@ -52,18 +53,21 @@ public sealed class AuthoringCatalogLifecycleTests
     }
 
     [AvaloniaFact]
-    public void UI_SaveAll_reports_catalog_success_separately_and_preview_warning_does_not_make_persistence_fail()
+    public async Task UI_SaveAll_reports_catalog_success_separately_and_preview_warning_does_not_make_persistence_fail()
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture); fixture.ViewModel.OpenTapHomeOverride = "invalid\0home";
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); var result = fixture.ViewModel.LastSaveAllResult!;
         Assert.True(result.Succeeded); Assert.True(result.WorkspaceCatalogSaved); Assert.Empty(result.SavedProgramIds); Assert.Null(result.WorkspaceCatalogFailure);
         Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Saved workspace catalog");
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        await fixture.ViewModel.WaitForBuildInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.Contains("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text); Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.Contains("fixtureId", AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest.Catalogs!.RequiredFields);
     }
 
     [AvaloniaFact]
-    public void Shown_SaveAll_preserves_invalid_document_feedback_after_valid_save_and_home_correction()
+    public async Task Shown_SaveAll_preserves_invalid_document_feedback_after_valid_save_and_home_correction()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Warning feedback programs";
@@ -74,8 +78,13 @@ public sealed class AuthoringCatalogLifecycleTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.Equal(["a-invalid", "z-valid"], vm.LastSaveAllResult.SavedProgramIds);
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
+        await vm.WaitForEnvironmentInspectionAsync();
+        await vm.WaitForBuildInspectionAsync();
         var saved = File.ReadAllBytes(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("a-invalid"));
-        vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "valid-missing-home"); AuthoringUiFixture.Drain();
+        vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "valid-missing-home");
+        await vm.WaitForEnvironmentInspectionAsync();
+        await vm.WaitForBuildInspectionAsync();
+        AuthoringUiFixture.Drain();
         Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
         Assert.DoesNotContain("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text);
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
@@ -87,9 +96,10 @@ public sealed class AuthoringCatalogLifecycleTests
     }
 
     [AvaloniaFact]
-    public void Catalog_and_many_program_changes_scroll_in_lifecycle_modal_with_all_choices_inside_minimum_window()
+    public async Task Catalog_and_many_program_changes_scroll_in_lifecycle_modal_with_all_choices_inside_minimum_window()
     {
         using var fixture = Loaded(); StageGlobalOnly(fixture);
+        await fixture.WaitForReadinessAsync();
         for (var i = 0; i < 35; i++)
         {
             fixture.ViewModel.InitializePlan(new($"global-{i:00}-{new string('x', 110)}") { Instruments = [] });

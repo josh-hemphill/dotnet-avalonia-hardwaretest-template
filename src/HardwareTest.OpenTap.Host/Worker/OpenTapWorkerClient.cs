@@ -476,8 +476,13 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         progress?.Report(reported);
     }
 
-    private void ApplyFromProgress(OpenTapProgress progress)
+    internal void ApplyFromProgress(OpenTapProgress progress)
     {
+        // Listener telemetry can arrive after the authoritative interaction frame.
+        // Its default AwaitingOperator=false does not acknowledge the pending prompt;
+        // Resume/Abort snapshots and terminal progress own that transition.
+        if (!progress.AwaitingOperator && !progress.IsCompleted && _pendingInteraction is not null)
+            return;
         _awaitingOperator = progress.AwaitingOperator;
         _operatorPrompt = progress.OperatorPromptMessage;
         if (progress.InteractionRequest is not null)

@@ -1,7 +1,10 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
@@ -35,6 +38,7 @@ public partial class SequenceEditorView
             _dragging = false;
             var target = RowAt(e.GetPosition(SequenceList));
             if (target?.NodeId is { } targetId) Vm?.ReorderSequence(source.Value, targetId);
+            else Vm?.ReportSequenceDropFailure("Drop on an item in the same group. To move between groups, use Item actions → Move to section.");
             e.Handled = true;
         }, RoutingStrategies.Tunnel);
         SequenceList.PointerCaptureLost += (_, _) => { _dragNode = null; _dragging = false; Cursor = null; };
@@ -85,8 +89,19 @@ public partial class SequenceEditorView
         menu.Items.Add(Action("Move to section…", vm.CanEditSequence && vm.SelectedSequence?.Section == SequenceSection.Measure,
             () => Inspector()?.FocusSectionDestination()));
         menu.Items.Add(Action(vm.HasSectionEditor ? "Duplicate section" : "Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
-        menu.Items.Add(Action("Move up", vm.CanMoveSequence, () => vm.MoveSelectedSequence(-1)));
-        menu.Items.Add(Action("Move down", vm.CanMoveSequence, () => vm.MoveSelectedSequence(1)));
+        MenuItem MoveAction(string title, string enabled, string reason, int direction)
+        {
+            var explanation = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 280 };
+            explanation.Bind(TextBlock.TextProperty, new Binding(reason) { Source = vm });
+            var item = new MenuItem { Header = new StackPanel { Spacing = 3, Children = { new TextBlock { Text = title }, explanation } } };
+            item.Bind(IsEnabledProperty, new Binding(enabled) { Source = vm });
+            item.Bind(AutomationProperties.HelpTextProperty, new Binding(reason) { Source = vm });
+            AutomationProperties.SetName(item, title);
+            item.Click += (_, _) => vm.MoveSelectedSequence(direction);
+            return item;
+        }
+        menu.Items.Add(MoveAction("Move up", nameof(vm.CanMoveSequenceUp), nameof(vm.MoveSequenceUpReason), -1));
+        menu.Items.Add(MoveAction("Move down", nameof(vm.CanMoveSequenceDown), nameof(vm.MoveSequenceDownReason), 1));
         menu.Items.Add(new Separator());
         menu.Items.Add(Action(vm.RemoveSequenceActionTitle, vm.CanRemoveSelectedSequence,
             () => OnRemoveSequence(this, new RoutedEventArgs())));
@@ -105,7 +120,7 @@ public partial class SequenceEditorView
         var header = vm.SequenceItems.FirstOrDefault(row => row.Section == section);
         if (header is not null) SequenceList.ScrollIntoView(header);
         vm.RecipeSearch = string.Empty;
-        vm.InsertionPosition = section == SequenceSection.Measure ? "End of Measure" : "End of section";
+        vm.InsertionPosition = section == SequenceSection.Measure ? "End of test steps" : "End of section";
         var recipe = section switch
         {
             SequenceSection.Setup => AuthoringRecipeIds.Prompt,

@@ -73,7 +73,7 @@ padding. A loading state communicates work without invented percentage progress.
   rename and reorder them, collapse their contents, and move tests between them.
   Removing a section keeps its tests. Sections organize execution without adding
   a formula scope boundary; repeat loops retain their isolation.
-  Source documents migrate from version 1 to version 2 on save. The independent
+  Source documents migrate from versions 1 and 2 to version 3 on save. The independent
   workspace schema remains version 1. Compiled groups carry an authoring-section
   marker so imported opaque groups retain their existing behavior.
   New sections start at the Measure root; Move to section can nest them. Dragging
@@ -164,7 +164,7 @@ uses a Formula consuming the Acquire output. No product guard was relaxed.
    the grouping and selection.
 5. Save and reopen, then compile the plan. Verify section names/order and tests
    survive, including empty and nested sections. Existing version-1 source documents
-   remain readable; saving produces version 2, which older app builds cannot edit.
+   remain readable; saving produces version 3, which older app builds cannot edit.
 
 No decision about whether to support custom sections remains open. The retained
 lifecycle policy is fixed Setup/Measure/Cleanup ordering with editable steps inside
@@ -314,3 +314,57 @@ hardware operation or native accessibility behavior.
   and tests do not validate Windows native screen readers, vendor VISA runtimes,
   actual device addresses or physical instrument execution. Execution-readiness
   copy explicitly separates package availability from vendor/runtime probing.
+
+## Configurable Measure and move explanations
+
+Follow-up branch: `fix/authoring-ui-thread-separation` (PR #235).
+
+- The middle of the authoring sequence contains ordinary editable sections and
+  steps. New plans start with a section named **Measure**. It can be renamed,
+  moved, duplicated, populated or removed using the same actions as any section.
+  **Setup** and **Shutdown** remain the fixed lifecycle boundaries.
+- Existing flat plans acquire an ordinary Measure section when opened for
+  authoring. Child identities and annotations remain intact. This conversion
+  occurs before the document session is established, leaves files untouched
+  until saving, and marks the compiled plan as needing regeneration. Plans that
+  already have root sections retain their organization.
+- A source marker and compiled-plan metadata distinguish legacy layout from
+  intentional flat or empty layouts. Removing the last section must stay removed
+  after saving, reopening or importing the compiled plan. Legacy recovery
+  checkpoints use the same normalization as saved sources.
+- Move up, move down and move-to-section expose their individual availability
+  and reasons. Dependencies still require producers before consumers; moving
+  across repeat scopes remains prohibited. Dragging reorders siblings; the
+  destination action moves between sections.
+- Movement and insertion checks run against detached snapshots in background
+  workers. Current session, document revision and selection guard publication;
+  stale work cannot apply an edit to a different program. Explicit edit
+  publication still uses the existing UI-owned history/snapshot transaction.
+
+Delegation: Core migration and persistence, movement behavior, insertion
+availability and UI presentation have separate owners. Independent reviews cover
+migration/recovery consistency and UI-thread ownership. The primary agent owns
+integration, validation and the review handoff. The current upstream Claude
+Frontend Design skill informs concise, adjacent explanations using the existing
+theme and keyboard-accessible controls.
+
+Visual review covers light/dark at 1280×800 and 960×600. See the
+[editable section](feedback-review/configurable-measure-dark.png) and
+[move explanations at minimum size](feedback-review/move-reasons-small.png).
+Move explanations wrap within the action flyout; its vertical scroll keeps
+remaining destinations reachable without horizontal layout expansion.
+
+Validation for this follow-up: the full headless UI run passed 464 tests;
+subsequent lifecycle changes were checked across 48 focused UI cases, with the
+corrected owner-loss fixture rerun successfully (5 recipe-threading tests).
+The full Core run exercised 1,935 cases with four platform skips; migration-related
+fixture assumptions and the Setup insertion defect found there were corrected.
+The 460-case affected-class rerun and final 16-case saving rerun resolved all
+observed failures. The real external Notes build-publication regression and all
+45 architecture checks passed. Formatting verification passed. Remote CI remains
+the final cross-platform check.
+
+Remaining scope: explicit save/compile, validation preparation, reconciliation,
+initialization review and some recovery cleanup still perform synchronous work.
+Background preparation of those transactions is separate from program switching
+and sequence availability; no product decision blocks this section behavior.

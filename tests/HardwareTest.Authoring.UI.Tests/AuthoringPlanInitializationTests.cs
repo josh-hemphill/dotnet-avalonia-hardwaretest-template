@@ -90,7 +90,7 @@ public sealed class AuthoringPlanInitializationTests
     }
 
     [AvaloniaFact]
-    public void Programs_entry_walks_all_six_stages_preserves_incomplete_text_and_opens_normal_document()
+    public async Task Programs_entry_walks_all_six_stages_preserves_incomplete_text_and_opens_normal_document()
     {
         using var fixture = Loaded();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
@@ -118,7 +118,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal("rail-checks", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.NotNull(fixture.ViewModel.SelectedSequence?.NodeId);
         Assert.False(fixture.ViewModel.HasUnsavedChanges, $"Dirty: {string.Join(", ", fixture.ViewModel.DirtyPrograms)}; catalog: {fixture.ViewModel.WorkspaceCatalogDirty}"); Assert.True(fixture.ViewModel.HasUncompiledSources);
-        Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "MISSING_INSTRUMENT_BINDING");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "MISSING_INSTRUMENT_BINDING");
         var id = fixture.ViewModel.SelectedSequence!.NodeId;
         fixture.ViewModel.DisplayName = "Edited"; Assert.True(fixture.ViewModel.CanUndo); fixture.ViewModel.Undo(); Assert.False(fixture.ViewModel.HasUnsavedChanges);
         fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("rail-checks");
@@ -187,7 +187,9 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var draft = fixture.ViewModel.SelectedProgram!; Assert.Equal("DMM", Assert.Single(draft.Instruments).SlotName);
         Assert.Single(draft.Setup.OfType<IdentitySetup>()); Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
-        var metric = Assert.IsType<MetricNode>(Assert.Single(draft.Measure)); Assert.Equal("rail.mean", metric.Metric.ChannelKey); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
+        var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
+        Assert.Equal("Measure", section.Name);
+        var metric = Assert.IsType<MetricNode>(Assert.Single(section.Children)); Assert.Equal("rail.mean", metric.Metric.ChannelKey); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
         Assert.False(File.Exists(Path.Combine(fixture.WorkspaceRoot, "demo-task.TapPlan")));
     }
 
@@ -206,14 +208,16 @@ public sealed class AuthoringPlanInitializationTests
         fixture.Control<CheckBox>("Include first measurement", dialog).IsChecked = false;
         Next(fixture, dialog, "Review and create"); Assert.Contains("VoltageTask", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.ViewModel.SelectedProgram!.Measure); Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.False(fixture.ViewModel.HasUnsavedChanges);
+        var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
+        Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.False(fixture.ViewModel.HasUnsavedChanges);
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan")); dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); AuthoringUiFixture.Drain();
         Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal(["optional-task"], new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
     }
 
     [AvaloniaFact]
-    public void Missing_mock_package_remains_visible_in_review_and_saved_reopened_draft()
+    public async Task Missing_mock_package_remains_visible_in_review_and_saved_reopened_draft()
     {
         using var fixture = Loaded();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-home");
@@ -231,20 +235,20 @@ public sealed class AuthoringPlanInitializationTests
         var instrument = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
         Assert.Equal("MOCK::BENCH", instrument.VisaAddress);
         Assert.Equal("Mock DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == instrument.TypeId).DisplayName);
-        Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("mock-voltage");
-        Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         var reopened = Assert.Single(fixture.ViewModel.SelectedProgram!.Instruments);
         Assert.Equal(instrument.TypeId, reopened.TypeId); Assert.Equal(instrument.SlotName, reopened.SlotName);
         Assert.Equal(instrument.VisaAddress, reopened.VisaAddress); Assert.Equal(instrument.Settings, reopened.Settings);
     }
 
     [AvaloniaFact]
-    public void Invalid_home_is_visible_in_shown_review_and_does_not_block_empty_creation_save_or_reopen()
+    public async Task Invalid_home_is_visible_in_shown_review_and_does_not_block_empty_creation_save_or_reopen()
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
-        vm.OpenTapHomeOverride = "invalid\0home"; AuthoringUiFixture.Drain();
+        vm.OpenTapHomeOverride = "invalid\0home"; await fixture.WaitForReadinessAsync(); AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         Type(fixture, dialog, "Stable plan ID", "invalid-home-empty");
@@ -254,19 +258,21 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(fixture.Window.OwnedWindows); Assert.False(vm.HasUnsavedChanges);
-        Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Measure);
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
+        Assert.Empty(vm.SelectedProgram!.Instruments);
+        var section = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
         Assert.NotEmpty(vm.IssuesSummary);
         vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.InitializePlan(new("invalid-home-unsaved") { Instruments = [] }); vm.DisplayName = "Edited incomplete plan"; AuthoringUiFixture.Drain();
-        Assert.True(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
+        Assert.True(vm.HasUnsavedChanges); await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
-        Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
+        await fixture.WaitForReadinessAsync(); Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
     }
 
     [AvaloniaFact]
-    public void Default_home_declared_mock_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
+    public async Task Default_home_declared_mock_payload_is_visible_in_hardware_review_and_saved_reopened_issues()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
@@ -289,17 +295,17 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains(home, fixture.Control<TextBlock>("Initialization review", dialog).Text);
         Assert.Contains("'HardwareTest Basic' is unavailable", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window.OwnedWindows);
         vm.SaveProgram("default-mock"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-mock"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Equal("MOCK::BENCH", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
         Assert.False(vm.HasUnsavedChanges);
         vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-missing-home"); AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains("other-missing-home", StringComparison.Ordinal));
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
-        Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
     }
 
     [AvaloniaFact]
@@ -307,6 +313,8 @@ public sealed class AuthoringPlanInitializationTests
     {
         using var fixture = Loaded();
         fixture.ViewModel.InitializePlan(new PlanInitializationRequest("enum-task") { StartingPoint = PlanStartingPoint.DemoVoltageTask });
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        sequence.SelectedIndex = fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric);
         AuthoringUiFixture.Drain();
         Assert.False(fixture.ViewModel.HasUnsavedChanges); Assert.False(fixture.ViewModel.CanUndo);
         var settings = fixture.Control<ItemsControl>("Recipe settings");
@@ -340,7 +348,7 @@ public sealed class AuthoringPlanInitializationTests
     [AvaloniaTheory]
     [InlineData(1)]
     [InlineData(3)]
-    public void Removing_last_nested_measurement_through_shown_editor_preserves_history_and_blocks_saved_build(int loopDepth)
+    public async Task Removing_last_nested_measurement_through_shown_editor_preserves_history_and_blocks_saved_build(int loopDepth)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Nested source readiness";
@@ -352,28 +360,30 @@ public sealed class AuthoringPlanInitializationTests
             IdentityInstrumentSlot = "DMM",
             Measurement = new(AuthoringRecipeIds.MeanGte, "DMM")
         });
+        var sequence = fixture.Control<ListBox>("Program sequence");
+        sequence.SelectedIndex = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric);
+        AuthoringUiFixture.Drain();
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
         for (var level = 1; level < loopDepth; level++)
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
-        Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();
-        var sequence = fixture.Control<ListBox>("Program sequence");
+        Assert.True(vm.SaveAll().Succeeded); await fixture.WaitForReadinessAsync(); Assert.True(vm.CanPack); AuthoringUiFixture.Drain();
         sequence.SelectedIndex = vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric); AuthoringUiFixture.Drain();
         var id = vm.SelectedSequence!.NodeId;
         var remove = fixture.Control<Button>("Remove selected"); remove.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(remove.Focus());
         AuthoringUiFixture.Click(remove); AuthoringUiFixture.Drain();
         Assert.Empty(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure));
-        Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
         AuthoringUiFixture.Click(fixture.Control<Button>("Undo selected program")); AuthoringUiFixture.Drain();
         Assert.Equal(id, vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Metric).NodeId);
-        Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
+        await fixture.WaitForReadinessAsync(); Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
         AuthoringUiFixture.Click(fixture.Control<Button>("Redo selected program")); AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.False(vm.HasUnsavedChanges); Assert.False(vm.CanPack);
         vm.Apply(); Assert.False(vm.CanPack);
         vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("nested-task"); AuthoringUiFixture.Drain();
-        Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure)); Assert.False(vm.CanPack);
+        Assert.Equal(loopDepth, vm.SequenceItems.Count(row => row.Kind == SequenceRowKind.Repeat)); Assert.False(vm.CanPack);
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4; AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Pack workspace").IsEffectivelyEnabled);
-        Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
+        await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "nested-task");
     }
 
     private static AuthoringUiFixture Loaded()

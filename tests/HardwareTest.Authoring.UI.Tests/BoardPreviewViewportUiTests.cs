@@ -15,7 +15,7 @@ public sealed class BoardPreviewViewportUiTests
     [InlineData(1280, 800, 14, 1)]
     [InlineData(960, 600, 20, 1.5)]
     [InlineData(1280, 800, 20, 1.5)]
-    public void Long_recording_provenance_keeps_source_controls_and_board_viewport_accessible(int width, int height, int fontSize, double scale)
+    public async Task Long_recording_provenance_keeps_source_controls_and_board_viewport_accessible(int width, int height, int fontSize, double scale)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(width, height);
@@ -33,6 +33,7 @@ public sealed class BoardPreviewViewportUiTests
         var path = Path.Combine(fixture.WorkspaceRoot, "long-provenance.json");
         File.WriteAllText(path, JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord));
         vm.ImportRecording(path, "long-provenance");
+        await fixture.WaitForPreviewAsync();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
         var board = fixture.Control<OperatorPreviewPane>("Operator preview chrome");

@@ -16,6 +16,16 @@ public static class AuthoringSourceWorkspaceLoader
             !sourceIds.Contains(Path.GetFileNameWithoutExtension(path))).ToArray()
         };
         var loaded = compiler.LoadAll(imports);
+        var migrations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var programs = loaded.Programs.Select(program =>
+        {
+            var path = imports.TapPlanPaths.FirstOrDefault(file => string.Equals(Path.GetFileNameWithoutExtension(file), program.PlanId, StringComparison.OrdinalIgnoreCase));
+            var normalized = path is not null && AuthoringMeasureSections.HasCompiledLayout(path)
+                ? program : AuthoringMeasureSections.Initialize(program);
+            if (!ReferenceEquals(program, normalized)) migrations.Add(program.PlanId);
+            return normalized;
+        }).ToArray();
+        loaded = loaded with { Programs = programs, MeasureSectionMigrations = migrations };
         return OverlaySources(loaded with { Files = files with { IsReadOnly = files.IsReadOnly || loaded.Files.IsReadOnly } });
     }
 
@@ -35,7 +45,7 @@ public static class AuthoringSourceWorkspaceLoader
         foreach (var id in store.ListDocumentIds())
         {
             var included = AuthoringBuildInclusion.Includes(loaded.Files.Manifest, id);
-            var result = store.Load(id);
+            var result = AuthoringMeasureSections.Normalize(store.Load(id));
             // Supported excluded sources remain authoritative for editing. Unsupported
             // excluded sources are unavailable individually, never a compiled fallback.
             if (result.Error is { } error)

@@ -19,10 +19,10 @@ public partial class MainWindow
         if (_viewModel.OperationBusy || _ownerClosed || !IsVisible || !ReferenceEquals(DataContext, _viewModel)) return;
         var workspace = _viewModel.Workspace;
         var session = _viewModel.WorkspaceSessionId;
-        var home = _viewModel.AuthoringHomeText;
+        var homeSetting = _viewModel.OpenTapHomeOverride;
         try { await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath); }
         catch (OperationCanceledException) { }
-        catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace) && session == _viewModel.WorkspaceSessionId && home == _viewModel.AuthoringHomeText && !_ownerClosed && IsVisible) _viewModel.ReportError(error.Message); }
+        catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace) && session == _viewModel.WorkspaceSessionId && homeSetting == _viewModel.OpenTapHomeOverride && !_ownerClosed && IsVisible) _viewModel.ReportError(error.Message); }
     }
     private void OnCancelOperation(object? sender, RoutedEventArgs e) => _viewModel.CancelOperation();
 }

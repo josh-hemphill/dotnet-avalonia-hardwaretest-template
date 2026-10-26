@@ -380,7 +380,7 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Equal("DMM", vm.CleanupInstrumentSlot);
         vm.IncludeSafeShutdown = false;
         Assert.False(vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
-        Assert.Contains("Cleanup skipped", vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup).Label, StringComparison.Ordinal);
+        Assert.Contains("Shutdown skipped", vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup).Label, StringComparison.Ordinal);
     }
 
     [Fact]

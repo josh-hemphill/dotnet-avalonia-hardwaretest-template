@@ -68,9 +68,14 @@ public sealed class LibraryColdWrapperTests
             }
             finally { if (!child.HasExited) { child.Kill(entireProcessTree: true); await child.WaitForExitAsync(); } }
             var cold = JsonSerializer.Deserialize(File.ReadAllBytes(coldPath), AuthoringDocumentJsonContext.Default.AuthoringDocumentDto)!.ToDraft();
+            var measurementSection = Assert.Single(cold.Measure.OfType<SectionNode>());
+            Assert.Equal("Measure", measurementSection.Name); Assert.Empty(measurementSection.Children);
+            Assert.Equal(Assert.Single(draft.Measure).NodeId, measurementSection.NodeId);
+            var preservedWrapper = Assert.Single(cold.Measure, node => node is not SectionNode);
+            Assert.Equal(identity ? 0 : 1, cold.Measure.ToList().IndexOf(preservedWrapper));
             var raw = shape == "group-in-repeat"
-                ? Assert.IsType<RawStepNode>(Assert.Single(Assert.IsType<RepeatNode>(Assert.Single(cold.Measure)).Children))
-                : Assert.IsType<RawStepNode>(Assert.Single(cold.Measure));
+                ? Assert.IsType<RawStepNode>(Assert.Single(Assert.IsType<RepeatNode>(preservedWrapper).Children))
+                : Assert.IsType<RawStepNode>(preservedWrapper);
             var expected = shape == "group-in-repeat" ? wrapper : outer;
             Assert.Equal(Guid.Parse((string)expected.Attribute("Id")!), raw.NodeId);
             Assert.Equal((string)expected.Attribute("type")!, raw.TypeName);

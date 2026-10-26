@@ -8,6 +8,14 @@ public partial class WorkspaceDefinitionsView : UserControl
     public WorkspaceDefinitionsView() => InitializeComponent();
 
     private AuthoringWorkspaceViewModel? Vm => DataContext as AuthoringWorkspaceViewModel;
+    // ItemsSource refreshes and inactive task controls may temporarily clear selection.
+    // Only an actual non-null choice writes back; model-driven clears still flow one way.
+    private void OnHardwareEditTypeChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { IsEffectivelyVisible: true, SelectedItem: AuthoringInstrumentAdapter adapter } && Vm is { } vm)
+            vm.HardwareEditType = adapter;
+    }
+
 
     private void OnAddRequiredField(object? sender, RoutedEventArgs e)
         => TryRun(() => Vm?.AddWorkspaceRequiredField());

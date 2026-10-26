@@ -101,7 +101,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Contains("OnAddRecipe(sender, e)", paletteCode, StringComparison.Ordinal);
         var preview = Read("WorkspacePreviewView.axaml.cs");
         Assert.Contains("ReferenceEquals(workspace, vm.Workspace)", preview, StringComparison.Ordinal);
-        Assert.Contains("vm.ImportRecording(path)", preview, StringComparison.Ordinal);
+        Assert.Contains("await vm.ImportRecordingAsync(path, ownerIsCurrent: CurrentSession)", preview, StringComparison.Ordinal);
         var hardware = Read("HardwareView.axaml.cs");
         Assert.Contains("ConfirmHardwareEditAsync()", hardware, StringComparison.Ordinal);
         Assert.Contains("ConfirmInstrumentRemovalAsync()", hardware, StringComparison.Ordinal);

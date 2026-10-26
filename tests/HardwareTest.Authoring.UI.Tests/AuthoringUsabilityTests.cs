@@ -63,7 +63,7 @@ public sealed class AuthoringUsabilityTests
     }
 
     [AvaloniaFact]
-    public void Hardware_exposes_physical_catalog_readiness_and_creation_without_leaving_membership_controls()
+    public async Task Hardware_exposes_physical_catalog_readiness_and_creation_without_leaving_membership_controls()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -79,6 +79,7 @@ public sealed class AuthoringUsabilityTests
             File.Copy(Path.Combine(package, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package, "package.xml"), Path.Combine(payload, "package.xml"));
         vm.OpenTapHomeOverride = home;
+        await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Drain();
         Assert.Contains("8 supported physical instrument types", fixture.Control<TextBlock>("Supported instrument types summary").Text);
         window.GetVisualDescendants().OfType<Expander>().Single(expander => Equals(expander.Header, "Browse available types")).IsExpanded = true;

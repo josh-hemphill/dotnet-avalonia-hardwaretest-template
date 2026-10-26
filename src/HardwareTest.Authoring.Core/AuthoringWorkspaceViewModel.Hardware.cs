@@ -29,8 +29,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             var inspection = HardwareInspection;
-            var availability = registered ? adapter.Availability(inspection.Home) : null;
-            summary = !registered ? "Unsupported authoring adapter"
+            var availability = registered ? _environmentInspection.Availability.GetValueOrDefault(adapter.TypeId)
+                ?? new AuthoringInstrumentAvailability(false, "Environment inspection required") : null;
+            summary = EnvironmentInspectionPending ? "Checking package readiness…" : !registered ? "Unsupported authoring adapter"
                 : inspection.Error is not null ? "Correct the authoring home"
                 : availability!.Available ? $"{adapter.RequiredPackage}: available"
                 : $"{adapter.RequiredPackage}: needs preparation";
@@ -52,15 +53,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public IReadOnlyList<AuthoringHardwareRow> SelectedHardwareRows
         => HardwareRows.Where(row => Same(row.SlotName, SelectedInstrumentSlot)).ToArray();
 
-    private (OpenTapHome? Home, string? Error) HardwareInspection
-    {
-        get
-        {
-            if (Workspace is not { } workspace) return (null, null);
-            return WorkspacePackPlan.TryResolveHomePath(workspace, OpenTapHomeOverride, out var path, out var error)
-                ? (new OpenTapHome(path!), null) : (null, error);
-        }
-    }
+    private (OpenTapHome? Home, string? Error) HardwareInspection => (_environmentInspection.Home, _environmentInspection.Error);
 
     public AuthoringInstrumentAdapter? HardwareEditType
     {
@@ -90,8 +83,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         try
         {
             var inspection = HardwareInspection;
-            recovery = inspection.Error is not null ? " Correct the authoring home in Environment."
-                : !adapter.Availability(inspection.Home).Available ? $" Open Environment to prepare or import {adapter.RequiredPackage} into the selected home." : string.Empty;
+            recovery = EnvironmentInspectionPending ? " Package readiness is being checked." : inspection.Error is not null ? " Correct the authoring home in Environment."
+                : !(_environmentInspection.Availability.GetValueOrDefault(adapter.TypeId)?.Available ?? false) ? $" Open Environment to prepare or import {adapter.RequiredPackage} into the selected home." : string.Empty;
         }
         catch (ArgumentException) { recovery = " Correct the authoring home in Environment."; }
         return $"{capability} {compatibility} Required package: {adapter.RequiredPackage}.{recovery}";
@@ -127,6 +120,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = instrument.VisaAddress;
         HardwareEditTimeout = instrument.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        OnPropertyChanged(nameof(HardwareEditType));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         RaiseHardwareEditorContext();
     }
@@ -203,6 +197,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(definition.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = definition.Address;
         HardwareEditTimeout = definition.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        OnPropertyChanged(nameof(HardwareEditType));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         RaiseHardwareEditorContext();
     }
@@ -271,6 +266,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaiseHardwareEditorContext();
         OnPropertyChanged(nameof(HardwareRows));
         OnPropertyChanged(nameof(SelectedHardwareRows));
+        OnPropertyChanged(nameof(HardwareEditType));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
         OnPropertyChanged(nameof(HardwareDefinitions));

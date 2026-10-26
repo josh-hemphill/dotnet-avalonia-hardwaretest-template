@@ -71,7 +71,7 @@ public static class AuthoringChrome
     public const string ProgramsPurpose = "Pick which locked plan you are editing.";
     public const string SequenceTitle = "Sequence";
     public const string SequencePurpose =
-        "Organize measurements into named device-system sections between fixed Setup and Cleanup phases.";
+        "Rename and arrange device-system sections between fixed Setup and Shutdown.";
     public const string InspectorTitle = "Inspector";
     public const string InspectorPurpose =
         "Edit this step’s metric, algorithm, or prompt — not the whole program.";
@@ -88,7 +88,7 @@ public static class AuthoringChrome
     public const string RequiredFieldsPurpose =
         "Require the operator session fields this program needs. serial, partNumber, revision, and operator map to the sidecar flags; add other ids for later operator surfaces.";
     public const string AddRecipeActionSummary =
-        "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; metrics to Measure; Repeat wraps the selected measurement; Safe Shutdown updates Cleanup.";
+        "Insert before or after the selected step, or at the end of its section. Identity/Prompt go to Setup; measurements go to the selected section; Repeat wraps the selected measurement; Safe Shutdown updates Shutdown.";
     public const string RecipeAddHint =
         "Steps edited outside this app re-open as read-only Raw rows after you save the TapPlan and re-open the workspace.";
     public const string RecipeAdvancedHint =
@@ -105,21 +105,21 @@ public static class AuthoringChrome
     public const string LastWorkspaceOffer = "Open last workspace";
     public const string RemoveSelectedTitle = "Remove selected";
     public const string RemoveSelectedPurpose =
-        "Remove the selected step. Removing a section or Repeat keeps its steps in run order. Safe Shutdown turns Cleanup off.";
+        "Remove the selected step. Removing a section or Repeat keeps its steps in run order. Safe Shutdown turns shutdown actions off.";
     public const string RemoveProgramTitle = "Remove program";
     public const string RemoveProgramPurpose =
         "Drop this program from the session. Deletes its TapPlan and sidecar when those files exist.";
     public const string SetupHeader = "Setup";
     public const string SetupPurpose = "Identity and operator prompts before measurements.";
-    public const string MeasureHeader = "Measure";
-    public const string MeasurePurpose = "Named sections, measurements, and repeats in execution order. Setup and Cleanup remain at the boundaries.";
-    public const string CleanupHeader = "Cleanup";
+    public const string MeasureHeader = "Test steps";
+    public const string MeasurePurpose = "Rename, reorder, and remove sections here. Setup and Shutdown remain at the boundaries.";
+    public const string CleanupHeader = "Shutdown";
     public const string CleanupPurpose =
         "Safe Shutdown after the suite for each selected instrument (unless sidecar excludes it).";
     public const string EmptyMeasureHint =
-        "Measure is empty. Add a recipe to the sequence (Acquire, Mean GTE, Formula).";
+        "No test steps yet. Add a section or choose Add step.";
     public const string TestGroupHint =
-        "Add named sections to organize device systems. Setup and Cleanup stay at the start and end.";
+        "Add, rename, and arrange sections by device system. Only Setup and Shutdown stay fixed.";
 }
 
 /// Flattens ProgramDraft into a sectioned, indented list (no TreeView).
@@ -149,7 +149,6 @@ public static class AuthoringSequence
             rows.Add(DescribeSetup(draft.Setup[i], i));
         }
 
-        rows.Add(Header(SequenceSection.Measure, AuthoringChrome.MeasureHeader, AuthoringChrome.MeasurePurpose));
         AppendMeasure(rows, draft.Measure, []);
 
         rows.Add(Header(SequenceSection.Cleanup, AuthoringChrome.CleanupHeader, AuthoringChrome.CleanupPurpose));
@@ -493,7 +492,7 @@ public static class AuthoringSequence
             true,
             0,
             0,
-            included ? "Safe Shutdown" : "Cleanup skipped",
+            included ? "Safe Shutdown" : "Shutdown skipped",
             included ? FormatCleanupDetail(draft) : "Sidecar excludes Safe Shutdown from Run Selected",
             [])
         { NodeId = draft.Cleanup.NodeId };

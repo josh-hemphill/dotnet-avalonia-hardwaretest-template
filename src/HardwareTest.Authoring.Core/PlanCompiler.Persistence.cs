@@ -20,7 +20,9 @@ public sealed partial class PlanCompiler
             using (var stream = new FileStream(tapTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
                 tapTempOwned = true;
-                plan.Save(stream);
+                using var serialized = new MemoryStream();
+                plan.Save(serialized);
+                AuthoringMeasureSections.WriteCompiledLayout(serialized, stream);
                 stream.Flush(flushToDisk: true);
             }
             using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))

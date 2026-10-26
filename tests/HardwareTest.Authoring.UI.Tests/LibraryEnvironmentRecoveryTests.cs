@@ -9,11 +9,13 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class LibraryEnvironmentRecoveryTests
 {
     [AvaloniaFact]
-    public void Missing_library_environment_route_retains_raw_inputs_and_resumes_without_installing()
+    public async Task Missing_library_environment_route_retains_raw_inputs_and_resumes_without_installing()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-library-home");
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         fixture.Control<TextBox>("Plan display name", dialog).Text = "Retained hardware task";
@@ -30,6 +32,8 @@ public sealed class LibraryEnvironmentRecoveryTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Declare Instrument Components dependency"));
         Assert.True(fixture.ViewModel.HasUnsavedChanges);
         Assert.True(fixture.ViewModel.CanUndoWorkspace);
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume New test plan"));
         dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         Assert.Equal("retained-hardware", fixture.Control<TextBox>("Stable plan ID", dialog).Text);
@@ -41,7 +45,7 @@ public sealed class LibraryEnvironmentRecoveryTests
     }
 
     [AvaloniaFact]
-    public void Actual_library_choices_and_retained_type_survive_home_change_with_honest_capability_copy()
+    public async Task Actual_library_choices_and_retained_type_survive_home_change_with_honest_capability_copy()
     {
         var package = PublishedLibraryFixture.PackageRoot;
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
@@ -52,6 +56,8 @@ public sealed class LibraryEnvironmentRecoveryTests
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
         var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
@@ -71,6 +77,8 @@ public sealed class LibraryEnvironmentRecoveryTests
         Assert.Equal("InstrumentComponents.OpenTap.DcPowerSupplyInstrument", state.HardwareTypeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "foreign-home");
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         dialog = new PlanInitializationWindow(fixture.ViewModel, retained: state); dialog.Show(fixture.Window); AuthoringUiFixture.Drain();
         Assert.Contains("DC Power Supply", fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem!.ToString());
         Assert.Equal("8123", fixture.Control<TextBox>("Instrument I/O timeout ms", dialog).Text);

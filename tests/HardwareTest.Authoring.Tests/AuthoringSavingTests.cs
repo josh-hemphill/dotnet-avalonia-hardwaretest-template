@@ -16,6 +16,13 @@ public sealed class AuthoringSavingTests : IDisposable
         Directory.CreateDirectory(_root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(_root, Path.GetFileName(file)));
+        // Saving tests use current flat plans; migration persistence has its own coverage.
+        foreach (var path in Directory.EnumerateFiles(_root, "*.TapPlan"))
+        {
+            var xml = System.Xml.Linq.XDocument.Load(path);
+            xml.Root!.SetAttributeValue(AuthoringMeasureSections.CompiledLayoutAttribute, "true");
+            xml.Save(path);
+        }
     }
 
     [Fact]
@@ -174,7 +181,13 @@ public sealed class AuthoringSavingTests : IDisposable
         var compiler = new RecordingCompiler { FailId = "new-program" };
         var vm = Open(compiler);
         vm.DisplayName = "saved other";
-        vm.CreateDemoProgram("new-program");
+        // Retain the initialized layout so this remains a sidecar-only dirty draft.
+        vm.InitializePlan(new PlanInitializationRequest("new-program")
+        {
+            Instruments = [new InstrumentRef("DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, "MOCK::INSTR0")],
+            IdentityInstrumentSlot = "DMM"
+        });
+        vm.DisplayName += " edited";
         var selected = vm.SelectedProgram;
         var result = vm.SaveAll();
         Assert.False(result.Succeeded);

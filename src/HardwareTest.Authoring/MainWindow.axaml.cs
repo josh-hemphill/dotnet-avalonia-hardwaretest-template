@@ -21,6 +21,12 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         _packOutputPicker = packOutputPicker;
         _offlinePackagePicker = offlinePackagePicker;
+        _viewModel.ConfigurePreviewProcessing(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
+        _viewModel.ConfigureEnvironmentInspection(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
+        _viewModel.ConfigureEditingIssueProcessing(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
+        _viewModel.ConfigureBuildInspection(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
+        _viewModel.ConfigureRecipeAvailability(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
+        _viewModel.ConfigureMovementAvailability(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => !_ownerClosed);
         InitializeComponent();
         DataContext = viewModel;
         InitializeShell();
@@ -30,7 +36,7 @@ public partial class MainWindow : Window
         _viewModel.ConfigureRecoveryDispatch(action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         _viewModel.ConfigureOperations(CreateOperationRunner(),
             action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
-        Closed += (_, _) => { _viewModel.StopRecovery(); _viewModel.StopOperations(); };
+        Closed += (_, _) => { _viewModel.StopRecovery(); _viewModel.StopOperations(); _viewModel.StopPreviewProcessing(); _viewModel.StopMovementAvailability(); _viewModel.StopRecipeAvailability(); _viewModel.StopEnvironmentInspection(); _viewModel.StopEditingIssueProcessing(); _viewModel.StopBuildInspection(); };
     }
 
     internal void OnAcceptRecovery(object? sender, RoutedEventArgs e)
@@ -71,6 +77,7 @@ public partial class MainWindow : Window
     {
         CommitFocusedEditor();
         TryRun(() => _viewModel.SaveAll());
+        RefreshGuidance();
     }
 
     private async void OnBootstrap(object? sender, RoutedEventArgs e)
@@ -83,12 +90,14 @@ public partial class MainWindow : Window
     {
         CommitFocusedEditor();
         TryRun(() => _viewModel.SaveSidecar());
+        RefreshGuidance();
     }
 
     private void OnApply(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
         TryRun(() => _viewModel.Apply());
+        RefreshGuidance();
     }
 
     internal async void OnCreateProgram(object? sender, RoutedEventArgs e)

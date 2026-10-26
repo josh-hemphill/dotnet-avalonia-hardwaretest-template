@@ -17,11 +17,12 @@ public sealed class AuthoringExpertCommandsTests
     }
 
     [AvaloniaFact]
-    public void Shown_dialog_selects_later_same_binding_with_distinct_settings_and_preserves_originals()
+    public async Task Shown_dialog_selects_later_same_binding_with_distinct_settings_and_preserves_originals()
     {
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
         CurrentHardwareUiFixture.Prepare(fixture);
+        await vm.WaitForEnvironmentInspectionAsync().WaitAsync(TimeSpan.FromSeconds(15));
         var physical = AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == CurrentHardwareUiFixture.TypeId);
         vm.InitializePlan(new PlanInitializationRequest("first-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "111" } }] });
         vm.InitializePlan(new PlanInitializationRequest("later-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "777" } }] });
@@ -281,6 +282,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.Equal(original + 1, vm.SelectedProgram!.Measure.Count);
         vm.CreateDemoProgram("issue-navigation"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
         vm.ChannelKey = "";
+        await fixture.WaitForReadinessAsync();
         var issue = vm.EditingIssues.First();
         vm.SelectProgram(issue.PlanId == "sample" ? "issue-navigation" : "sample");
         Assert.True(await fixture.Window.ExecuteCommandAsync("issue")); AuthoringUiFixture.Drain();
