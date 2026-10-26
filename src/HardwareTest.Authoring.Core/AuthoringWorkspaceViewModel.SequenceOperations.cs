@@ -53,7 +53,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool CanMoveSequence => CanEditSequence && SelectedSequence?.Section is SequenceSection.Setup or SequenceSection.Measure;
     public bool CanInsertRecipe => CanEditSequence && SelectedRecipe is not null && RecipePreflight() is null;
     public string SelectedRecipePrerequisites => SelectedRecipe is null ? "Search and choose a recipe."
-        : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
+        : RecipePreflight() ?? $"Ready to add {SelectedRecipe.Title}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
         : IsSequenceEmpty ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input

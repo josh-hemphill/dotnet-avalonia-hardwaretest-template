@@ -34,7 +34,7 @@ public static class AuthoringRecipeCatalog
     public static IReadOnlyList<AuthoringRecipe> Palette { get; } =
     [
         new(AuthoringRecipeIds.Identity, "Identity Check", "Check", "Confirm DUT serial against the instrument."),
-        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator action", "In-panel confirm. Never OpenTAP Dialog."),
+        new(AuthoringRecipeIds.Prompt, "Operator Prompt", "Operator action", "Pause for the operator to confirm a message."),
         new(AuthoringRecipeIds.Input, "Operator Input", "Operator action", "Typed fixture / operator fields."),
         new(AuthoringRecipeIds.Acquire, "Acquire Voltage", "Measure", "Waveform timeseries (ChannelKey VDC)."),
         new(AuthoringRecipeIds.MeanGte, "Mean GTE", "Check", "Scalar threshold on VDC.mean. Requires LimitSpec."),
