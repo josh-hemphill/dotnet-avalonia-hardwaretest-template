@@ -82,8 +82,9 @@ public static partial class AuthoringBuildService
         return new ReadOnlyDictionary<string, string?>(values.OrderBy(p => p.Key, StringComparer.Ordinal)
             .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
     }
+    // Platform/session state is preserved in the snapshot; these names do not redirect SDK inputs or outputs.
     private static readonly HashSet<string> PlatformPrivateEnvironmentNames = new(StringComparer.OrdinalIgnoreCase)
-        { "__CF_USER_TEXT_ENCODING", "__CFBundleIdentifier", "__COMPAT_LAYER", "_JAVA_OPTIONS", "_MSBUILDTLENABLED" };
+        { "__CF_USER_TEXT_ENCODING", "__CFBundleIdentifier", "__COMPAT_LAYER", "__PSLockDownPolicy", "_JAVA_OPTIONS", "_MSBUILDTLENABLED" };
     private static readonly HashSet<string> ShellOutputIdentityProperties = new(StringComparer.OrdinalIgnoreCase)
     {
         "AssemblyName", "PackageId", "TargetFramework", "TargetFrameworks", "TargetFrameworkMoniker",

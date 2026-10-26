@@ -9,7 +9,29 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
     public void Dispose() => AuthoringBuildSnapshotTests.CleanupOwnedFixtures();
 
     [Theory]
+    [InlineData("__PSLockDownPolicy")]
+    [InlineData("__pslockdownpolicy")]
+    public void PowerShell_policy_is_preserved_and_included_in_the_build_identity(string name)
+    {
+        var previous = Environment.GetEnvironmentVariable(name);
+        try
+        {
+            Environment.SetEnvironmentVariable(name, "4");
+            var captured = AuthoringBuildService.CaptureEnvironment();
+            var capturedName = captured.Keys.Single(key => key.Equals(name, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal("4", captured[capturedName]);
+            var identity = AuthoringBuildService.EnvironmentIdentity(captured).Single(p => p.Name == capturedName);
+            Assert.NotNull(identity.ValueSha256);
+            Environment.SetEnvironmentVariable(name, "8");
+            var changed = AuthoringBuildService.EnvironmentIdentity(AuthoringBuildService.CaptureEnvironment()).Single(p => p.Name == capturedName);
+            Assert.NotEqual(identity.ValueSha256, changed.ValueSha256);
+        }
+        finally { Environment.SetEnvironmentVariable(name, previous); }
+    }
+
+    [Theory]
     [InlineData("OutputPath")]
+    [InlineData("__PSLockDownPolicyCustom")]
     [InlineData("outputpath")]
     [InlineData("BaseOutputPath")]
     [InlineData("OutDir")]
