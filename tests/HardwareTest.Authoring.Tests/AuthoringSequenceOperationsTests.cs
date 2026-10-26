@@ -253,7 +253,7 @@ public sealed class AuthoringSequenceOperationsTests
         vm.InsertSelectedRecipe();
         vm.SelectedRecipeId = AuthoringRecipeIds.Repeat;
         Assert.True(vm.CanInsertRecipe);
-        Assert.Contains("Acquire VDC", vm.SelectedRecipePrerequisites, StringComparison.Ordinal);
+        Assert.Contains("Acquire VDC", vm.SequenceOperationTarget, StringComparison.Ordinal);
         vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
         vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [vm.SelectedProgram.Instruments[0] with { TypeId = "Unsupported.Instrument" }] });
         Assert.False(vm.CanInsertRecipe);
