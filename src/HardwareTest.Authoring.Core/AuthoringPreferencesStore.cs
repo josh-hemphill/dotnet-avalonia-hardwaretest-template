@@ -35,6 +35,8 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
         "programsRailCollapsed",
         "dockPreview",
         "issuesDrawerOpen",
+        "downloadRequiredPackages",
+        "packageRepositoryUrl",
     };
 
     public AuthoringPreferencesStore(string? filePath = null)

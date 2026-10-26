@@ -41,6 +41,10 @@ public sealed class AuthoringPreferences
     public bool SkipGuidance { get; set; }
 
     public bool ShowRawStepXml { get; set; } = true;
+
+    public bool DownloadRequiredPackages { get; set; }
+
+    public string PackageRepositoryUrl { get; set; } = AuthoringPackageDownloads.DefaultRepository;
 }
 
 public sealed class AuthoringPreferencesException : InvalidOperationException

@@ -6,6 +6,25 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class AuthoringAppSettingsTests
 {
     [Fact]
+    public void Package_download_preferences_persist_and_explicit_offline_preparation_wins()
+    {
+        var store = NewStore();
+        var vm = new AuthoringWorkspaceViewModel(preferences: store);
+        Assert.True(vm.ResolveBootstrapOptions(null).Offline);
+        vm.DownloadRequiredPackages = true;
+        vm.PackageRepositoryUrl = "https://packages.example.test/feed";
+        Assert.Null(vm.PackageRepositoryError);
+        var reload = new AuthoringWorkspaceViewModel(preferences: Reload(store.FilePath));
+        Assert.True(reload.DownloadRequiredPackages);
+        Assert.False(reload.ResolveBootstrapOptions(null).Offline);
+        Assert.Equal(vm.PackageRepositoryUrl, reload.ResolveBootstrapOptions(new() { Offline = false }).PackageRepositoryUrl);
+        Assert.True(reload.ResolveBootstrapOptions(new() { Offline = true }).Offline);
+        Assert.Equal("https://other.example.test", reload.ResolveBootstrapOptions(new() { PackageRepositoryUrl = "https://other.example.test" }).PackageRepositoryUrl);
+        reload.PackageRepositoryUrl = "http://invalid.example.test";
+        Assert.NotNull(reload.PackageRepositoryError);
+    }
+
+    [Fact]
     public void Open_remembers_last_workspace_and_offer_does_not_auto_open()
     {
         var workspace = NewWorkspace();

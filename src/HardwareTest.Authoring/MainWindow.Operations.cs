@@ -14,13 +14,14 @@ public partial class MainWindow
         return AuthoringChildProcessRunner.ForExecutable(File.Exists(appHost) ? appHost : assembly);
     }
 
-    private async Task RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null)
+    private async Task RunOperationAsync(AuthoringOperationKind kind, string? outputDirectory = null, string? offlinePackagePath = null,
+        bool downloadRequiredPackages = false)
     {
         if (_viewModel.OperationBusy || _ownerClosed || !IsVisible || !ReferenceEquals(DataContext, _viewModel)) return;
         var workspace = _viewModel.Workspace;
         var session = _viewModel.WorkspaceSessionId;
         var home = _viewModel.AuthoringHomeText;
-        try { await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath); }
+        try { await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath, downloadRequiredPackages); }
         catch (OperationCanceledException) { }
         catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace) && session == _viewModel.WorkspaceSessionId && home == _viewModel.AuthoringHomeText && !_ownerClosed && IsVisible) _viewModel.ReportError(error.Message); }
     }

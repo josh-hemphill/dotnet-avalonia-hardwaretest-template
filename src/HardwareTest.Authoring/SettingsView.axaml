@@ -17,6 +17,11 @@
           <TextBlock Text="Authoring environment" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock x:Name="OpenTapHomeLabel" Text="OpenTAP home override"/>
           <TextBox Text="{Binding OpenTapHomeOverride, UpdateSourceTrigger=LostFocus}" IsEnabled="{Binding PreferencesEditable}" PlaceholderText="Leave empty to use {workspace}/.authoring/opentap" AutomationProperties.Name="OpenTAP home override" AutomationProperties.LabeledBy="{Binding #OpenTapHomeLabel}" ToolTip.Tip="Used when Bootstrap has no --opentap-home / HomeDirectory. Headless --opentap-home still wins."/>
+          <CheckBox Content="Download missing required packages during preparation" IsChecked="{Binding DownloadRequiredPackages}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Automatically download required packages in settings"/>
+          <TextBlock Text="Package repository (HTTPS)"/>
+          <TextBox Text="{Binding PackageRepositoryUrl, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Package repository URL"/>
+          <TextBlock Text="{Binding PackageRepositoryError}" IsVisible="{Binding PackageRepositoryError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+          <TextBlock Text="Preparation uses installed and bundled packages first. Enable downloads to retrieve remaining required packages from this source. Manual download helpers and offline import are available in Environment." TextWrapping="Wrap" Classes="purpose"/>
         </StackPanel>
       </Border>
       <Border Classes="surface taskSection">

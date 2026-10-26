@@ -12,6 +12,7 @@ public partial class MainWindow
     internal async void OnPack(object? sender, RoutedEventArgs e) => await PickBuildOrImportAsync(false);
     internal async void OnImportOfflinePackage(object? sender, RoutedEventArgs e) => await PickBuildOrImportAsync(true);
     internal async void OnPrepareEnvironment(object? sender, RoutedEventArgs e) => await RunOperationAsync(AuthoringOperationKind.Bootstrap);
+    internal async void OnDownloadPackages(object? sender, RoutedEventArgs e) => await RunOperationAsync(AuthoringOperationKind.Bootstrap, downloadRequiredPackages: true);
 
     private async Task PickBuildOrImportAsync(bool import)
     {

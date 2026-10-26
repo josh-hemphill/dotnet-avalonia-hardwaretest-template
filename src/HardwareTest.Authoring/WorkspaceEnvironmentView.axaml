@@ -38,24 +38,34 @@
           <TextBlock Text="Prepare in three steps" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <TextBlock Text="1. Declare the instrument library if this plan uses physical hardware." TextWrapping="Wrap"/>
           <TextBlock Text="2. Save All to persist the requirements." TextWrapping="Wrap"/>
-          <TextBlock Text="3. Prepare bundled packages or import an offline package. Compatible installed packages are reused." TextWrapping="Wrap"/>
+          <TextBlock Text="3. Prepare packages. Compatible installed packages are reused; bundled packages are installed first." TextWrapping="Wrap"/>
           <TextBlock Text="{Binding EnvironmentRecoveryText}" Classes="purpose" TextWrapping="Wrap"/>
+          <CheckBox Content="Download missing required packages during preparation" IsChecked="{Binding DownloadRequiredPackages}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Automatically download required packages"/>
+          <TextBlock Text="Optional packages are not downloaded. Downloads use the repository below and install only into the selected authoring home." Classes="purpose" TextWrapping="Wrap"/>
+          <TextBlock Text="Package repository (HTTPS)" FontWeight="SemiBold"/>
+          <TextBox Text="{Binding PackageRepositoryUrl, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Environment package repository URL"/>
+          <TextBlock Text="{Binding PackageRepositoryError}" IsVisible="{Binding PackageRepositoryError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.Name="Environment repository validation" AutomationProperties.LiveSetting="Polite"/>
           <StackPanel Spacing="8" AutomationProperties.Name="Package sourcing guidance">
-            <TextBlock Text="Where to get packages" FontWeight="SemiBold"/>
-            <TextBlock Text="Prepare authoring environment installs the bundled compatible Instrument Components release offline. For another package or version, obtain its .TapPackage or .zip from the publisher or your team’s release artifacts, match the required version below, then choose Import offline package." TextWrapping="Wrap"/>
+            <TextBlock Text="Manual download fallback" FontWeight="SemiBold"/>
+            <TextBlock Text="If a download fails or your network is offline, obtain a .TapPackage or .zip from the package source, match the required version below, then choose Import offline package. You can import packages one at a time." TextWrapping="Wrap"/>
             <WrapPanel>
+              <Button Content="Open package repository" Click="OnOpenPackageRepository" Classes="authoringAction" AutomationProperties.Name="Open package repository" Margin="0,0,8,8"/>
               <Button Content="Open Instrument Components releases" Click="OnOpenLibraryReleases" Classes="authoringAction" AutomationProperties.Name="Open Instrument Components releases" Margin="0,0,8,8"/>
               <Button Content="Copy package requirements" Click="OnCopyPackageRequirements" Classes="authoringAction" AutomationProperties.Name="Copy package requirements" Margin="0,0,8,8"/>
             </WrapPanel>
-            <TextBlock Text="Copy requirements when requesting archives from your team or a vendor. The release link opens your browser; it does not download or install a package. Preparation uses bundled packages, and imports target only the selected home." Classes="purpose" TextWrapping="Wrap"/>
+            <TextBlock Text="Use Instrument Components releases for the supported instrument library. For private packages, request matching archives from your team or publisher. Source links open your browser." Classes="purpose" TextWrapping="Wrap"/>
             <TextBlock x:Name="PackageSourceFeedback" TextWrapping="Wrap" AutomationProperties.Name="Package sourcing result" AutomationProperties.LiveSetting="Polite"/>
           </StackPanel>
           <WrapPanel>
             <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" Margin="0,0,8,8"/>
             <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" Margin="0,0,8,8"/>
             <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction primaryAction" Margin="0,0,8,8"/>
+            <Button Content="Download missing packages now" Click="OnDownloadPackages" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Download missing required packages" Classes="authoringAction" Margin="0,0,8,8"/>
             <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction" Margin="0,0,8,8"/>
+            <Button Content="Cancel preparation" Click="OnCancelPreparation" IsVisible="{Binding OperationBusy}" Classes="authoringAction" AutomationProperties.Name="Cancel environment preparation" Margin="0,0,8,8"/>
           </WrapPanel>
+          <TextBlock Text="{Binding OperationStage}" IsVisible="{Binding OperationBusy}" TextWrapping="Wrap" AutomationProperties.Name="Environment preparation progress" AutomationProperties.LiveSetting="Polite"/>
+          <TextBlock Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.Name="Environment preparation error" AutomationProperties.LiveSetting="Assertive"/>
           <TextBlock Text="Required and installed package versions" FontWeight="SemiBold"/>
           <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
             <ItemsControl.ItemTemplate>

@@ -16,6 +16,44 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool PreferencesEditable => !PreferencesReadOnly;
 
+    public bool PackageDownloadSettingsEditable => PreferencesEditable && !OperationBusy;
+
+    public bool DownloadRequiredPackages
+    {
+        get => Prefs.DownloadRequiredPackages;
+        set
+        {
+            if (!PackageDownloadSettingsEditable || Prefs.DownloadRequiredPackages == value) return;
+            Prefs.DownloadRequiredPackages = value;
+            PersistPreferences();
+            OnPropertyChanged();
+        }
+    }
+
+    public string PackageRepositoryUrl
+    {
+        get => Prefs.PackageRepositoryUrl;
+        set
+        {
+            if (!PackageDownloadSettingsEditable || value == Prefs.PackageRepositoryUrl) return;
+            // Keep an invalid edit visible so it can be corrected without silently using another source.
+            Prefs.PackageRepositoryUrl = value?.Trim() ?? string.Empty;
+            PersistPreferences();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(PackageRepositoryError));
+            OnPropertyChanged(nameof(PackageRequirementsText));
+        }
+    }
+
+    public string? PackageRepositoryError
+    {
+        get
+        {
+            try { AuthoringPackageDownloads.RepositoryUri(PackageRepositoryUrl); return null; }
+            catch (AuthoringWorkspaceException error) { return error.Message; }
+        }
+    }
+
     public string ThemePreference
     {
         get => AuthoringThemePreference.Normalize(Prefs.ThemePreference);
@@ -158,7 +196,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             InstrumentComponentsPackagePath = options?.InstrumentComponentsPackagePath,
             TuiPackagePath = options?.TuiPackagePath,
             OfflinePackagePath = options?.OfflinePackagePath,
-            Offline = options?.Offline ?? true,
+            Offline = options?.Offline ?? !DownloadRequiredPackages,
+            PackageRepositoryUrl = options?.PackageRepositoryUrl ?? PackageRepositoryUrl,
+            Progress = options?.Progress,
         };
     }
 

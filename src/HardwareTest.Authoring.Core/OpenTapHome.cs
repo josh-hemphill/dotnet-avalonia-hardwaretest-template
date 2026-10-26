@@ -10,7 +10,11 @@ public sealed class BootstrapOptions
 
     public string? TuiPackagePath { get; init; }
 
-    public bool Offline { get; init; }
+    public bool Offline { get; init; } = true;
+
+    public string? PackageRepositoryUrl { get; init; }
+
+    public Action<string>? Progress { get; init; }
 
     public string? OfflinePackagePath { get; init; }
 }
