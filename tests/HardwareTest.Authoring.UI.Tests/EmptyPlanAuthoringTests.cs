@@ -24,6 +24,26 @@ public sealed class EmptyPlanAuthoringTests
         Assert.True(fixture.Control<ScrollViewer>("Selected step inspector").IsEffectivelyVisible);
     }
 
+    [AvaloniaFact]
+    public async Task First_measurement_keeps_the_default_section_and_an_explicit_recipe_choice()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        var window = fixture.Show(); fixture.OpenRememberedWorkspace();
+        fixture.ViewModel.InitializePlan(new("first-measurement"));
+        var sectionId = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId;
+        fixture.ViewModel.SelectedRecipeId = AuthoringRecipeIds.BandScalar; AuthoringUiFixture.Drain();
+        AuthoringUiFixture.Click(fixture.Control<Button>("Add first sequence step"));
+        var palette = Assert.Single(window.OwnedWindows);
+        await fixture.WaitForReadinessAsync();
+        Assert.Equal(AuthoringRecipeIds.BandScalar, fixture.ViewModel.SelectedRecipeId);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
+        Assert.Empty(window.OwnedWindows);
+        var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram.Measure));
+        Assert.Equal(sectionId, section.NodeId);
+        Assert.IsType<MetricNode>(Assert.Single(section.Children));
+        Assert.False(fixture.ViewModel.IsSequenceEmpty);
+    }
+
     [AvaloniaTheory]
     [InlineData(960, 600, 20)]
     [InlineData(1280, 800, 14)]

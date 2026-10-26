@@ -56,7 +56,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
-        : IsEmptySequence(SelectedProgram) || InsertionPosition is "End of matching phase" or "End of test steps" or "End of Measure" ? null
+        : IsSequenceEmpty ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
+            ? null : _sequenceItems.FirstOrDefault(row => row.IsSection)
+        : InsertionPosition is "End of matching phase" or "End of test steps" or "End of Measure" ? null
         : InsertionPosition == "End of section"
             ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
                 ? null : EndOfSelectedSection()
