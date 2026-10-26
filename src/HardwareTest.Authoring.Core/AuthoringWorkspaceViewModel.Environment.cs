@@ -2,45 +2,13 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    public string? EnvironmentPathError => Workspace is not null
-        && !WorkspacePackPlan.TryResolveHomePath(Workspace, Prefs.OpenTapHomeOverride, out _, out var error) ? error : null;
-    public IReadOnlyList<AuthoringPackageRequirement> EnvironmentPackages
-    {
-        get
-        {
-            if (Workspace is null) return [];
-            if (!WorkspacePackPlan.TryResolveHomePath(Workspace, Prefs.OpenTapHomeOverride, out var path, out var error))
-                return Workspace.Manifest.Dependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", false, false, error!))
-                    .Concat(Workspace.Manifest.OptionalDependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", true, false, error!))).ToArray();
-            return AuthoringEnvironmentAssessment.Packages(Workspace.Manifest, new(path!));
-        }
-    }
-    public IReadOnlyList<string> EnvironmentRuntimeFiles => Workspace is null ? []
-        : WorkspacePackPlan.TryResolveHomePath(Workspace, Prefs.OpenTapHomeOverride, out var path, out var error)
-            ? AuthoringEnvironmentAssessment.RuntimeFiles(new(path!)) : [error!];
-    public string LibraryEnvironmentReadinessText
-    {
-        get
-        {
-            var inspection = HardwareInspection;
-            return inspection.Error ?? AuthoringInstrumentCatalog.LibraryReadiness(inspection.Home).Reason!;
-        }
-    }
-
+    public string? EnvironmentPathError => _environmentInspection.Error;
+    public IReadOnlyList<AuthoringPackageRequirement> EnvironmentPackages => _environmentInspection.Packages;
+    public IReadOnlyList<string> EnvironmentRuntimeFiles => _environmentInspection.RuntimeFiles;
+    public string LibraryEnvironmentReadinessText => _environmentInspection.Error ?? _environmentInspection.Library.Reason ?? string.Empty;
     public bool RequiresInstrumentLibrary => Workspace?.Manifest.Dependencies.Any(dependency =>
         dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase)) == true;
-    public string StandaloneVisaReadinessText
-    {
-        get
-        {
-            var inspection = HardwareInspection;
-            if (inspection.Error is not null) return $"Cannot inspect the selected standalone/TUI home: {inspection.Error}";
-            if (inspection.Home is { } home)
-                return StandaloneVisaReadiness.ExecutionPrerequisite(home, RequiresInstrumentLibrary) ?? StandaloneVisaReadiness.Assess(home).Reason!;
-            return RequiresInstrumentLibrary ? "This workspace requires InstrumentComponents.OpenTap. Select a prepared library home to assess its standalone VISA provider."
-                : "Standalone VISA is optional; mock plans do not need it. Select a prepared library home to assess its provider.";
-        }
-    }
+    public string StandaloneVisaReadinessText => _environmentInspection.VisaText;
 
     public bool CanDeclareLibraryDependency => Workspace is { IsReadOnly: false } && !OperationBusy
         && !Workspace.Manifest.Dependencies.Any(d => d.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
@@ -58,14 +26,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public string EnvironmentRecoveryText => "Preparation uses saved requirements. Downloads are checked before updating the selected home. These actions do not install a bench.";
-    private IReadOnlyList<PackPreflightFinding> KnownEnvironmentBlockers => Workspace is not null && EnvironmentPathError is null
-        ? AuthoringEnvironmentAssessment.BuildBlockers(Workspace.Manifest, new(AuthoringHomeText), allowMissingHome: true) : [];
+    private IReadOnlyList<PackPreflightFinding> KnownEnvironmentBlockers => Workspace is null ? [] : _environmentInspection.Blockers;
     private bool HasKnownEnvironmentBlockers => KnownEnvironmentBlockers.Count != 0;
     private string EnvironmentBlockerText
     {
         get
         {
             var blockers = KnownEnvironmentBlockers;
+            if (EnvironmentInspectionPending) return "Checking the selected authoring environment before building…";
             return blockers.Any(f => f.Code is "PACK_RUNTIME_MISSING" or "PACK_HOME_UNSAFE")
                 ? "Repair unsafe or incomplete selected authoring home before building. " + blockers[0].Message
                 : "Prepare or import missing required authoring packages before building.";

@@ -153,17 +153,21 @@ public sealed class RecordingPickerTests
         replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
         Directory.CreateDirectory(Path.Combine(fixture.WorkspaceRoot, "recordings"));
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var requested = false;
+        var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var preview = new WorkspacePreviewView(new ControlledRecordingPicker(), (owner, directory) =>
         {
             Assert.Same(fixture.Window, owner); Assert.Equal(Path.Combine(fixture.WorkspaceRoot, "recordings"), directory.FullName);
-            requested = true; return completed.Task;
+            requested.TrySetResult(); return completed.Task;
         })
         { DataContext = fixture.ViewModel };
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         fixture.Window!.FindControl<ContentControl>("SeparatePreview")!.Content = preview; AuthoringUiFixture.Drain();
         var status = fixture.ViewModel.Status; var revision = fixture.ViewModel.SelectedDocument!.Revision;
-        var pending = preview.OpenRecordingFolderAsync(); Assert.True(requested); Assert.False(pending.IsCompleted);
+        var pending = preview.OpenRecordingFolderAsync();
+        // Folder existence is checked away from the dispatcher before the launcher
+        // starts. Change ownership only after the pending launcher owns this request.
+        await requested.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.False(pending.IsCompleted);
         if (replaceOwner) fixture.Window!.DataContext = replacement.ViewModel;
         Assert.Same(fixture.ViewModel, preview.DataContext);
         if (throws) completed.SetException(new IOException("Late obsolete folder failure")); else completed.SetResult(false);

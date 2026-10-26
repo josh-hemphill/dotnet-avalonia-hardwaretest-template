@@ -51,6 +51,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
+        Assert.True(vm.SaveAll().Succeeded); // Persist imported sections so preflight reaches home compatibility checks.
         var configured = Path.Combine(_root, "configured");
         vm.OpenTapHomeOverride = configured;
         var checker = new RecordingBlocker();
@@ -272,7 +273,9 @@ public sealed class PackProtectionTests : IDisposable
         if (!OperatingSystem.IsWindows()) return;
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
+        Assert.True(vm.SaveAll().Succeeded); // Persist the imported configurable-section migration first.
         var home = Bootstrap(vm.Workspace!);
+        vm.RefreshEnvironmentInspection();
         var attributes = File.GetAttributes(_workspace);
         try
         {

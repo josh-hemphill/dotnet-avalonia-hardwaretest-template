@@ -64,6 +64,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (_previewDispatch is not null) return CachedPreview.Preview;
             if (SelectedProgram is not null && SelectedMetric is { } selected)
             {
                 var identity = SelectedPreviewNodeId;
@@ -91,12 +92,13 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string PreviewKind => Preview.TileKind?.ToString() ?? "Text";
 
     public AuthoringPreviewChrome PreviewChrome
-        => AuthoringPreviewChromeBuilder.From(Preview, SelectedDataset?.Run.Events);
+        => _previewDispatch is not null ? CachedPreview.Chrome : AuthoringPreviewChromeBuilder.From(Preview, SelectedDataset?.Run.Events);
 
     public string PreviewNote
     {
         get
         {
+            if (_previewDispatch is not null && PreviewBusy) return "Updating preview…";
             if (!string.IsNullOrWhiteSpace(Preview.Note))
             {
                 return Preview.Note;
@@ -207,6 +209,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (_previewDispatch is not null) return CachedPreview.FormulaError;
             if (!HasFormula || SelectedMetric?.Source is not ExpressionAlgorithm expr)
             {
                 return string.Empty;

@@ -21,11 +21,11 @@ public partial class MainWindow
         var vm = _viewModel;
         var workspace = vm.Workspace;
         var session = vm.WorkspaceSessionId;
-        var home = vm.AuthoringHomeText;
+        var homeSetting = vm.OpenTapHomeOverride;
         var outputIntent = vm.PackPreview.LastOutputDirectory;
         bool CurrentOwner() => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
             && ReferenceEquals(vm.Workspace, workspace) && vm.WorkspaceSessionId == session
-            && vm.AuthoringHomeText == home && vm.PackPreview.LastOutputDirectory == outputIntent && !vm.OperationBusy;
+            && vm.OpenTapHomeOverride == homeSetting && vm.PackPreview.LastOutputDirectory == outputIntent && !vm.OperationBusy;
         string? path;
         _buildPickerInFlight = true;
         try

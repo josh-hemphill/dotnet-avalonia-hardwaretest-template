@@ -52,9 +52,15 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     public AuthoringWorkspaceViewModel(IPlanCompiler? compiler = null, IAuthoringPreferencesStore? preferences = null)
     {
         _usesDefaultCompiler = compiler is null;
-        _compiler = compiler ?? new PlanCompiler(libraryHomeProvider: () => HardwareInspection.Home);
+        _compiler = compiler ?? new PlanCompiler(libraryHomeProvider: ResolveCompilationHome);
         _preferences = preferences;
     }
+    // Explicit compilation must resolve the selected environment independently of an
+    // in-flight presentation scan. Pending UI readiness is not a missing compiler home.
+    private OpenTapHome? ResolveCompilationHome()
+        => Workspace is { } workspace && WorkspacePackPlan.TryResolveHomePath(workspace,
+            Prefs.OpenTapHomeOverride, out var home, out _) ? new OpenTapHome(home!) : null;
+
     public event PropertyChangedEventHandler? PropertyChanged;
     public IReadOnlyList<AuthoringRecipe> Recipes => AuthoringRecipeCatalog.Palette
         .Where(recipe => string.IsNullOrWhiteSpace(RecipeSearch) || $"{recipe.ListLabel} {recipe.Summary}".Contains(RecipeSearch, StringComparison.OrdinalIgnoreCase))
@@ -210,10 +216,11 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         CommitOpen(PrepareOpen(root));
     }
 
-    public PreparedAuthoringWorkspace PrepareOpen(string root)
+    public PreparedAuthoringWorkspace PrepareOpen(string root) => PrepareOpen(root, Prefs.OpenTapHomeOverride);
+
+    private PreparedAuthoringWorkspace PrepareOpen(string root, string? home)
     {
-        var draft = LoadWithSources(root);
-        var home = Prefs.OpenTapHomeOverride;
+        var draft = LoadWithSources(root, home);
         var preview = WorkspacePackPlan.Describe(draft.Files, string.IsNullOrWhiteSpace(home) ? null : home);
         var datasets = RunDatasetCatalog.List(draft.Files);
         return new PreparedAuthoringWorkspace(draft, preview, datasets);
@@ -224,6 +231,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         ArgumentNullException.ThrowIfNull(prepared);
         if (HasUnsavedChanges && !discardUnsavedChanges)
             throw new AuthoringWorkspaceException("Use Save All to save edited programs and workspace catalog changes, or explicitly discard them, before opening a workspace.");
+        prepared.Consume();
         var files = prepared.Draft.Files;
         _openingDatasets = prepared.Datasets;
         try
@@ -234,7 +242,8 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             WorkspaceCatalogDirty = false;
             WorkspaceCatalogSaveFailure = null;
             Workspace = files;
-            InitializeDocuments(prepared.Draft.Programs);
+            RequestEnvironmentInspection();
+            InitializeDocuments(prepared);
             _selectedInstrumentSlot = null;
             AssignSelectedProgram(Programs.FirstOrDefault());
             RefreshDirtyState();
@@ -249,7 +258,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(LastSaveAllResult));
             OnPropertyChanged(nameof(SaveAllResults));
             Error = null;
-            InitializeSourceState();
+            InitializeSourceState(prepared.SourceState);
             Status = $"{files.Manifest.DisplayName}: {Programs.Count} program(s)";
             RefreshDatasets();
             RememberLastWorkspace(files.Root);
@@ -470,6 +479,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             OnPropertyChanged(nameof(SelectedProgramRow));
             RaiseHistoryProperties();
         }
+        if (name == nameof(EditingIssues)) RequestEditingIssueRefresh();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }

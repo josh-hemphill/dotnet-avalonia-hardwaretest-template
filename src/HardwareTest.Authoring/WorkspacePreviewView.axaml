@@ -8,6 +8,7 @@
               <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,0"/>
               <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,0"/>
               <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,0"/>
+              <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,8,0"/>
             </WrapPanel>
             <TextBlock Text="{Binding DataSourceDetails}" TextWrapping="Wrap"/>
             <TextBlock Text="{Binding RecordingEmptyState}" TextWrapping="Wrap"/>

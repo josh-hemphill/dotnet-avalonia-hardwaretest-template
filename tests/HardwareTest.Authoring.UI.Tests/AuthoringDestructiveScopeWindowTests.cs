@@ -330,7 +330,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
         else
         {
             var workspace = vm.Workspace; var oldSession = vm.WorkspaceSessionId;
-            vm.CommitOpen(prepared, discardUnsavedChanges: true); await vm.StopRecoveryAsync(); vm.SelectProgram("slots");
+            vm.CommitOpen(new PreparedAuthoringWorkspace(prepared.Draft, prepared.PackPreview, prepared.Datasets), discardUnsavedChanges: true); await vm.StopRecoveryAsync(); vm.SelectProgram("slots");
             Assert.Same(workspace, vm.Workspace); Assert.NotEqual(oldSession, vm.WorkspaceSessionId);
         }
         var draft = vm.SelectedProgram; var revision = vm.SelectedDocument!.Revision; var status = vm.Status;

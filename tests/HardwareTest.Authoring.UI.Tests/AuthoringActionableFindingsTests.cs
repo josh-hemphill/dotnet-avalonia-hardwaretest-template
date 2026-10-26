@@ -11,7 +11,7 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class AuthoringActionableFindingsTests
 {
     [AvaloniaFact]
-    public void Issues_action_selects_program_node_and_focuses_actual_missing_threshold()
+    public async Task Issues_action_selects_program_node_and_focuses_actual_missing_threshold()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -20,9 +20,11 @@ public sealed class AuthoringActionableFindingsTests
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "mean(VDC)";
         vm.Threshold = "";
+        await fixture.WaitForReadinessAsync();
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         var program = vm.SelectedProgram.PlanId;
         vm.InitializePlan(new("other") { Instruments = [] });
+        await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -37,7 +39,7 @@ public sealed class AuthoringActionableFindingsTests
         Assert.True(fixture.Control<TextBox>("Threshold").IsFocused);
     }
     [AvaloniaFact]
-    public void Unsupported_filter_limits_issue_opens_program_settings_without_a_field_error()
+    public async Task Unsupported_filter_limits_issue_opens_program_settings_without_a_field_error()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -53,10 +55,12 @@ public sealed class AuthoringActionableFindingsTests
         });
         vm.SelectMeasure(vm.SelectedProgram.Measure.Count - 1);
         Assert.False(vm.ShowThreshold);
+        await fixture.WaitForReadinessAsync();
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         Assert.Equal("Open program settings", issue.NavigationLabel);
         var program = vm.SelectedProgram.PlanId;
         vm.InitializePlan(new("other") { Instruments = [] });
+        await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -72,7 +76,7 @@ public sealed class AuthoringActionableFindingsTests
     }
 
     [AvaloniaFact]
-    public void Ordinary_editing_issue_opens_its_node_without_a_field_error()
+    public async Task Ordinary_editing_issue_opens_its_node_without_a_field_error()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -82,12 +86,14 @@ public sealed class AuthoringActionableFindingsTests
         vm.SelectMeasure(1);
         vm.ChannelKey = channel;
         var node = vm.SelectedSequence!.NodeId;
+        await fixture.WaitForReadinessAsync();
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == "DUPLICATE_CHANNEL" && item.NodeId == node);
         Assert.Null(issue.Section);
         Assert.Null(issue.Field);
         Assert.Equal("Open location", issue.NavigationLabel);
         var program = vm.SelectedProgram!.PlanId;
         vm.InitializePlan(new("other") { Instruments = [] });
+        await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -105,7 +111,7 @@ public sealed class AuthoringActionableFindingsTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Queued_finding_focus_does_not_follow_a_changed_selection_or_revision(bool edit)
+    public async Task Queued_finding_focus_does_not_follow_a_changed_selection_or_revision(bool edit)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -114,10 +120,12 @@ public sealed class AuthoringActionableFindingsTests
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
         vm.FormulaSource = "mean(VDC)";
         vm.Threshold = "";
+        await fixture.WaitForReadinessAsync();
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram.Measure.Count - 1);
         var otherNode = vm.SelectedSequence!.NodeId;
+        await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Drain();
         Assert.True(fixture.Control<TextBox>("Formula expression").Focus());
         typeof(MainWindow).GetMethod("OnOpenFindingProgram", BindingFlags.Instance | BindingFlags.NonPublic)!

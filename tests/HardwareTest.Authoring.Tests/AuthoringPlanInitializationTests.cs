@@ -16,7 +16,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Empty_product_creation_is_durable_incomplete_and_never_inserts_mock_or_compiled_files()
     {
         var result = new AuthoringPlanInitializer().Create(Request() with { DisplayName = "Device checks" });
-        Assert.Empty(result.Draft.Instruments); Assert.Empty(result.Draft.Setup); Assert.Empty(result.Draft.Measure);
+        Assert.Empty(result.Draft.Instruments); Assert.Empty(result.Draft.Setup);
+        var section = Assert.IsType<SectionNode>(Assert.Single(result.Draft.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
         Assert.False(result.Draft.Cleanup.IncludeSafeShutdown);
         Assert.Contains(result.Issues, issue => issue.Code == "EMPTY_MEASURE");
         var document = new AuthoringDocumentStore(_root).Load("new-plan").Document!;
@@ -238,6 +240,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
         vm.OpenTapHomeOverride = available;
         File.Delete(Path.Combine(package, adapter.AssemblyFile));
+        vm.RefreshEnvironmentInspection();
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(adapter.AssemblyFile, StringComparison.Ordinal));
         Assert.Contains(adapter.AssemblyFile, Assert.Single(vm.HardwareRows).PackageStatus);
         vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);
@@ -254,7 +257,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
             RequireSerial = false,
             RequiredOperatorFields = ["partNumber", "fixtureId"]
         });
-        Assert.Empty(result.Draft.Instruments); Assert.Empty(result.Draft.Measure);
+        Assert.Empty(result.Draft.Instruments);
+        var section = Assert.IsType<SectionNode>(Assert.Single(result.Draft.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
         Assert.False(result.Draft.Sidecar.RequireSerial); Assert.True(result.Draft.Sidecar.RequirePartNumber);
         Assert.Contains("DemoVoltageTask", result.Review); Assert.Contains("fixtureId", result.Review);
     }
@@ -319,7 +324,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Equal("Mock DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == Assert.Single(first.Instruments).TypeId).DisplayName);
         Assert.Equal("DMM", Assert.Single(first.Setup.OfType<IdentitySetup>()).InstrumentSlot);
         Assert.Equal(["DMM"], first.Cleanup.InstrumentSlots); Assert.True(first.Cleanup.IncludeSafeShutdown);
-        Assert.Equal("rail.mean", Assert.IsType<MetricNode>(Assert.Single(first.Measure)).Metric.ChannelKey);
+        var measurementSection = Assert.IsType<SectionNode>(Assert.Single(first.Measure));
+        Assert.Equal("Measure", measurementSection.Name);
+        Assert.Equal("rail.mean", Assert.IsType<MetricNode>(Assert.Single(measurementSection.Children)).Metric.ChannelKey);
         var ids = AuthoringDependencyIndex.Build(first).Nodes.Select(node => node.NodeId).ToArray();
         Assert.DoesNotContain(Guid.Empty, ids); Assert.Equal(ids.Length, ids.Distinct().Count());
         Assert.Empty(ids.Intersect(AuthoringDependencyIndex.Build(second).Nodes.Select(node => node.NodeId)));
@@ -353,14 +360,17 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Measurement = new(AuthoringRecipeIds.Acquire, "") { SampleCount = "pending" } });
         Assert.Equal("new-plan", vm.SelectedProgram!.PlanId); Assert.NotNull(vm.SelectedSequence?.NodeId);
         Assert.False(vm.HasUnsavedChanges); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanUndo);
+        var measureSection = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure));
+        Assert.Equal("Measure", measureSection.Name);
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
         Assert.Equal("pending", vm.MetricSettingRows.Single(row => row.Key == "SampleCount").Value);
         var id = vm.SelectedSequence!.NodeId;
         vm.DisplayName = "changed"; Assert.True(vm.CanUndo); vm.Undo(); Assert.Equal("new-plan", vm.DisplayName); Assert.False(vm.HasUnsavedChanges);
         vm.Redo(); Assert.Equal("changed", vm.DisplayName); vm.Undo();
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
-        Assert.Equal(id, Assert.Single(vm.SelectedProgram!.Measure).NodeId);
+        Assert.Equal(id, Assert.Single(Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram!.Measure)).Children).NodeId);
         Assert.Contains("pending", vm.SelectedProgram.AuthoringState.IncompleteNumericText.Values);
-        vm.SelectMeasure(0); Assert.Equal("pending", vm.MetricSettingRows.Single(row => row.Key == "SampleCount").Value);
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id)); Assert.Equal("pending", vm.MetricSettingRows.Single(row => row.Key == "SampleCount").Value);
         vm.SetMetricSetting("SampleCount", "8"); Assert.Empty(vm.SelectedProgram.AuthoringState.IncompleteNumericText);
         vm.Undo();
         Assert.False(File.Exists(Path.Combine(_root, "new-plan.TapPlan")));
@@ -383,6 +393,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         });
         if (loopDepth > 0)
         {
+            vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
             vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Repeat);
             for (var level = 1; level < loopDepth; level++)
                 vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
@@ -395,7 +406,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
             vm.Redo(); Assert.Empty(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
             Assert.True(vm.SaveAll().Succeeded);
             vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
-            Assert.IsType<RepeatNode>(Assert.Single(vm.SelectedProgram!.Measure));
+            Assert.Equal(loopDepth, vm.SequenceItems.Count(row => row.Kind == SequenceRowKind.Repeat));
         }
         Assert.False(vm.CanPack);
         Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "new-plan");
@@ -416,11 +427,18 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.DoesNotContain(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
-        if (loopDepth == 0) vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Identity);
-        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Shutdown);
+        if (loopDepth == 0)
+        {
+            vm.ReplaceSelected(AuthoringSequenceOperations.Insert(vm.SelectedProgram!, AuthoringRecipeIds.Identity,
+                target: null, before: false, instrumentSlot: "BENCH"));
+        }
+        vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Section));
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
+        var correctedCriterion = AuthoringSequence.ResolveMeasure(vm.SelectedProgram!, vm.SelectedSequence!.IndexPath)!;
+        vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Shutdown);
         if (loopDepth > 0)
         {
-            IReadOnlyList<MeasureNode> corrected = [vm.SelectedProgram!.Measure.OfType<MetricNode>().Single()];
+            IReadOnlyList<MeasureNode> corrected = [correctedCriterion];
             for (var level = 0; level < loopDepth; level++) corrected = [new RepeatNode(2, corrected)];
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = corrected });
         }

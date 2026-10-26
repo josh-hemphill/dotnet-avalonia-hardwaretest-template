@@ -11,12 +11,14 @@ public sealed class HardwareGuidanceTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Secondary_hardware_panels_preserve_width_selection_and_unapplied_edits(bool dark)
+    public async Task Secondary_hardware_panels_preserve_width_selection_and_unapplied_edits(bool dark)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(960, 600);
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         fixture.NavigateTask(1);
         var vm = fixture.ViewModel;
         var slots = fixture.Control<ListBox>("Instruments");
@@ -53,12 +55,63 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Binding_editor_retains_values_but_requires_reload_after_slot_or_plan_changes()
+    public async Task Pending_environment_rescan_preserves_loaded_adapter_and_typed_values()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
+        await vm.WaitForEnvironmentInspectionAsync();
+        fixture.NavigateTask(1); vm.LoadHardwareEditor(); AuthoringUiFixture.Drain();
+        var type = fixture.Control<ComboBox>("Hardware adapter type");
+        var selected = type.SelectedItem;
+        Assert.NotNull(selected);
+        vm.HardwareEditAddress = "MOCK::PENDING";
+        vm.NewInstrumentSlot = "PENDING";
+        vm.NewInstrumentVisa = "MOCK::READY";
+        Assert.True(vm.CanAddInstrumentSlot);
+        var inspect = vm.EnvironmentInspector;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        vm.EnvironmentInspector = (workspace, home) =>
+        {
+            entered.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Inspection gate did not release.");
+            return inspect(workspace, home);
+        };
+        var pending = vm.RefreshEnvironmentInspectionAsync();
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            AuthoringUiFixture.Drain();
+            Assert.True(vm.EnvironmentInspectionPending);
+            Assert.Same(selected, type.SelectedItem);
+            Assert.Same(selected, vm.HardwareEditType);
+            Assert.Equal("MOCK::PENDING", vm.HardwareEditAddress);
+            Assert.False(vm.CanPack);
+            Assert.False(vm.CanAddInstrumentSlot);
+        }
+        finally { release.Set(); await pending; }
+        AuthoringUiFixture.Drain();
+        Assert.Same(selected, type.SelectedItem);
+        Assert.Equal("MOCK::PENDING", vm.HardwareEditAddress);
+        fixture.NavigateTask(6);
+        Assert.Same(selected, fixture.Control<ComboBox>("Hardware adapter type").SelectedItem);
+        fixture.NavigateTask(1);
+        Assert.Same(selected, fixture.Control<ComboBox>("Hardware adapter type").SelectedItem);
+        Assert.Same(selected, vm.HardwareEditType);
+    }
+
+    [AvaloniaFact]
+    public async Task Binding_editor_retains_values_but_requires_reload_after_slot_or_plan_changes()
+    {
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
+        var vm = fixture.ViewModel;
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         vm.SelectedInstrumentSlot = "DMM";
         fixture.NavigateTask(1); vm.LoadHardwareEditor();
         vm.HardwareEditAddress = "MOCK::UNAPPLIED";
@@ -79,12 +132,16 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Selecting_a_slot_shows_only_its_binding_and_loads_it_for_review()
+    public async Task Selecting_a_slot_shows_only_its_binding_and_loads_it_for_review()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
+        await vm.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         fixture.NavigateTask(1);
         var slots = fixture.Control<ListBox>("Instruments");
         slots.SelectedItem = vm.Instruments.Single(instrument => instrument.SlotName == "BENCH");
@@ -98,10 +155,12 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Unsupported_imported_type_is_distinguished_from_missing_package_without_changing_source()
+    public async Task Unsupported_imported_type_is_distinguished_from_missing_package_without_changing_source()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         const string importedType = "Vendor.CustomOscilloscope";
         vm.ReplaceSelected(vm.SelectedProgram! with { Instruments = [new("SCOPE", importedType, "TCPIP::bench::INSTR")] });
@@ -119,12 +178,16 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Missing_package_names_repair_and_keeps_full_paths_in_collapsed_details()
+    public async Task Missing_package_names_repair_and_keeps_full_paths_in_collapsed_details()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
         vm.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-home");
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         fixture.NavigateTask(1); vm.LoadHardwareEditor(); AuthoringUiFixture.Drain();
         var text = fixture.Control<TextBlock>("Selected adapter guidance").Text!;
         Assert.Contains("prepare or import HardwareTest Basic", text);
@@ -140,11 +203,13 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Binding_editor_explains_demo_and_unknown_types_and_links_to_package_recovery()
+    public async Task Binding_editor_explains_demo_and_unknown_types_and_links_to_package_recovery()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         var tabs = window.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 1;
         AuthoringUiFixture.Drain();
@@ -173,11 +238,13 @@ public sealed class HardwareGuidanceTests
     }
 
     [AvaloniaFact]
-    public void Deferring_an_address_explains_hardware_free_draft_without_mutating_program()
+    public async Task Deferring_an_address_explains_hardware_free_draft_without_mutating_program()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
         AuthoringUiFixture.Drain();
         var original = fixture.ViewModel.SelectedProgram;

@@ -7,7 +7,7 @@
       <Button Grid.Column="1" x:Name="SectionActionsButton" Content="Sections ▾" Classes="authoringAction" AutomationProperties.Name="Manage test sections" IsEnabled="{Binding CanEditSequence}">
         <Button.Flyout><Flyout><ScrollViewer Width="300" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
           <TextBlock Text="Device test sections" Classes="sectionTitle"/>
-          <TextBlock Text="Group tests by device system. Setup stays first and Cleanup stays last." Classes="purpose" TextWrapping="Wrap"/>
+          <TextBlock Text="Rename and arrange sections by device system. Only Setup and Shutdown stay fixed." Classes="purpose" TextWrapping="Wrap"/>
           <TextBlock x:Name="NewSectionLabel" Text="New section name"/>
           <TextBox Text="{Binding NewSectionName}" PlaceholderText="Power supply, communications…" AutomationProperties.Name="New section name" AutomationProperties.LabeledBy="{Binding #NewSectionLabel}"/>
           <Button Content="Add section" Click="OnAddSection" AutomationProperties.Name="Add section" Classes="authoringAction"/>
@@ -15,8 +15,8 @@
           <TextBlock Text="Jump to phase" Classes="sectionTitle"/>
           <WrapPanel>
             <Button Content="Setup" Click="OnJumpSection" Tag="Setup" Classes="authoringAction" AutomationProperties.Name="Manage Setup section"/>
-            <Button Content="Measure" Click="OnJumpSection" Tag="Measure" Classes="authoringAction" AutomationProperties.Name="Manage Measure section"/>
-            <Button Content="Cleanup" Click="OnJumpSection" Tag="Cleanup" Classes="authoringAction" AutomationProperties.Name="Manage Cleanup section"/>
+            <Button Content="Test steps" Click="OnJumpSection" Tag="Measure" Classes="authoringAction" AutomationProperties.Name="Manage test steps"/>
+            <Button Content="Shutdown" Click="OnJumpSection" Tag="Cleanup" Classes="authoringAction" AutomationProperties.Name="Manage Shutdown section"/>
           </WrapPanel>
         </StackPanel></ScrollViewer></Flyout></Button.Flyout>
       </Button>

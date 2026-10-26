@@ -100,6 +100,27 @@ public sealed class AuthoringLoadingTests
         Assert.False(fixture.ViewModel.LoadingBusy);
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Workspace_preparation_rejects_changed_session_or_home_without_an_owner_callback(bool changeHome)
+    {
+        using var compiler = new GatedCompiler();
+        using var fixture = new AuthoringUiFixture(compiler: compiler);
+        var prepared = new AuthoringWorkspaceViewModel().PrepareOpen(fixture.WorkspaceRoot);
+        var loading = fixture.ViewModel.OpenAsync(fixture.WorkspaceRoot, discardUnsavedChanges: true);
+        try
+        {
+            await compiler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            if (changeHome) fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "other-home");
+            else fixture.ViewModel.CommitOpen(prepared);
+        }
+        finally { compiler.Release.Set(); }
+        Assert.False(await loading);
+        Assert.Equal(!changeHome, fixture.ViewModel.HasWorkspace);
+        Assert.False(fixture.ViewModel.LoadingBusy);
+    }
+
     private sealed class GatedCompiler : IPlanCompiler, IDisposable
     {
         private readonly PlanCompiler _inner = new();

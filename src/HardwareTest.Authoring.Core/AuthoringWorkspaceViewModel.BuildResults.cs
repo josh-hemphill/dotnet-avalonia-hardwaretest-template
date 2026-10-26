@@ -17,7 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool HasCompletedBuild => LastCompletedBuild is not null;
     public string BuildReadinessText => OperationBusy ? $"Build operation: {OperationStage ?? "starting"}" : LastCompletedBuild is null
         ? "No completed checked build. Compatibility has not been checked."
-        : HasUnsavedChanges || _completedBuildIdentity != CurrentBuildIdentity()
+        : BuildInspectionBusy || HasUnsavedChanges || _completedBuildIdentity != CurrentBuildIdentity()
             ? "Current revision needs a new build. Previous checked artifacts are retained."
             : "Completed build checks apply to the recorded saved revision.";
     public string CompatibilityState => LastBuildReceipt?.RequiredChecks.Any(c => c.Code == "BUILD_COMPATIBILITY_PASS") == true
@@ -28,7 +28,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         ? new[] { $"Workspace saved revision: {receipt.WorkspaceSavedRevision?.ToString() ?? "compiled workspace"}; build {receipt.BuildId}" }
             .Concat(receipt.Sources.Select(s => $"{s.PlanId}: saved revision {s.SavedRevision?.ToString() ?? "compiled import"}; SHA256 {s.SourceSha256 ?? "recorded compiled input"}")).ToArray() : [];
     public IReadOnlyList<string> CheckedOutputs => LastBuildReceipt?.Outputs.Select(o => $"{o.Path}: SHA256 {o.Sha256}").ToArray() ?? [];
-    public IReadOnlyList<AuthoringBuildProgramLine> BuildPrograms => Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
+    public IReadOnlyList<AuthoringBuildProgramLine> BuildPrograms => _buildInspectionDispatch is not null ? _buildProgramCache : Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
         .Select(id => new AuthoringBuildProgramLine(id, AuthoringBuildInclusion.Includes(Workspace.Manifest, id),
             _sourceDocuments.GetValueOrDefault(id)?.Revision, _uncompiledDocuments.Contains(id) ? _sourceDocuments.ContainsKey(id) ? "Saved source requires compilation" : "Saved source unavailable or unsupported" : _compiledConflicts.Contains(id) ? "Source conflict" : "Saved compiled input", !Workspace.IsReadOnly && AuthoringBuildInclusion.AllowsProgram(Workspace.Manifest, id))).ToArray();
 
@@ -48,7 +48,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RaisePackGuardProperties();
     }
 
-    private string? CurrentBuildIdentity() => Workspace is null ? null : ContentFingerprint() + "|" + AuthoringHomeText;
+    private string? CurrentBuildIdentity() => _buildInspectionDispatch is not null ? _buildInspectionIdentity : Workspace is null ? null : ContentFingerprint() + "|" + AuthoringHomeText;
     private void RetainCompletedBuild(AuthoringBuildResult result, string outputDirectory, string selectedHome, string? checkedIdentity = null)
     {
         _buildHistory.Add(new(result, Path.GetFullPath(outputDirectory), selectedHome));

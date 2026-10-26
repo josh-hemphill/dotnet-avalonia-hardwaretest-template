@@ -113,6 +113,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         sourceStore.DeleteRecovery(planId);
         sourceStore.DeleteSource(planId);
         _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
+        _measureSectionMigrations.Remove(planId); _compiledOnlyBaselines.Remove(planId);
         _compiledConflicts.Remove(planId); _uncompiledDocuments.Remove(planId);
         _saveCompilationWarnings.Remove(planId); UpdateSavePreviewWarning();
         _documents.Remove(planId);

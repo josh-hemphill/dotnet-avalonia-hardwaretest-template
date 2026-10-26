@@ -41,6 +41,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
+            if (_previewDispatch is not null) return CachedPreview.FormulaSave;
             if (_formulaSaveStamp == _formulaSaveGeneration)
             {
                 return _formulaSave;

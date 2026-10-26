@@ -7,7 +7,7 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class EmptyPlanAuthoringTests
 {
     [AvaloniaFact]
-    public void Empty_flat_plan_does_not_present_the_cleanup_placeholder_as_an_editable_first_step()
+    public async Task Empty_flat_plan_does_not_present_the_cleanup_placeholder_as_an_editable_first_step()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -18,6 +18,7 @@ public sealed class EmptyPlanAuthoringTests
         Assert.False(fixture.Control<ScrollViewer>("Selected step inspector").IsEffectivelyVisible);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add first sequence step"));
         var palette = Assert.Single(window.OwnedWindows);
+        await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
         Assert.False(fixture.Control<TextBlock>("Empty step editor guidance").IsEffectivelyVisible);
         Assert.True(fixture.Control<ScrollViewer>("Selected step inspector").IsEffectivelyVisible);
@@ -26,7 +27,7 @@ public sealed class EmptyPlanAuthoringTests
     [AvaloniaTheory]
     [InlineData(960, 600, 20)]
     [InlineData(1280, 800, 14)]
-    public void Empty_workspace_has_a_visible_creation_path_and_new_plan_can_be_named_and_populated(int width, int height, int font)
+    public async Task Empty_workspace_has_a_visible_creation_path_and_new_plan_can_be_named_and_populated(int width, int height, int font)
     {
         using var fixture = new AuthoringUiFixture();
         var root = Path.Combine(fixture.WorkspaceRoot, "empty");
@@ -58,6 +59,7 @@ public sealed class EmptyPlanAuthoringTests
         add.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(add, window);
         AuthoringUiFixture.Click(add);
         var palette = Assert.Single(window.OwnedWindows);
+        await fixture.WaitForReadinessAsync();
         Assert.Equal("End of matching phase", fixture.ViewModel.InsertionPosition);
         Assert.Equal(AuthoringRecipeIds.Prompt, fixture.ViewModel.SelectedRecipeId);
         Assert.True(fixture.Control<Button>("Add recipe", palette).IsEffectivelyEnabled);
@@ -69,20 +71,21 @@ public sealed class EmptyPlanAuthoringTests
         Assert.Null(fixture.ViewModel.Error);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add step"));
         palette = Assert.Single(window.OwnedWindows);
-        fixture.ViewModel.SelectedRecipeId = AuthoringRecipeIds.BandScalar; AuthoringUiFixture.Drain();
+        fixture.ViewModel.SelectedRecipeId = AuthoringRecipeIds.BandScalar;
+        await fixture.WaitForReadinessAsync();
         Assert.True(fixture.Control<Button>("Add recipe", palette).IsEffectivelyEnabled);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
-        Assert.Single(fixture.ViewModel.SelectedProgram.Measure);
+        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
         Assert.True(fixture.ViewModel.SaveAll().Succeeded);
         fixture.ViewModel.Open(root); AuthoringUiFixture.Drain();
         Assert.Equal("Power rail acceptance", fixture.ViewModel.DisplayName);
         Assert.Equal("Controller board", fixture.ViewModel.DutFamily);
         Assert.Single(fixture.ViewModel.SelectedProgram!.Setup);
-        Assert.Single(fixture.ViewModel.SelectedProgram.Measure);
+        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
     }
 
     [AvaloniaFact]
-    public void Empty_sequence_creation_and_instrument_routes_remain_available_and_undo_restores_the_starter()
+    public async Task Empty_sequence_creation_and_instrument_routes_remain_available_and_undo_restores_the_starter()
     {
         using var fixture = new AuthoringUiFixture();
         var root = Path.Combine(fixture.WorkspaceRoot, "empty");
@@ -98,6 +101,7 @@ public sealed class EmptyPlanAuthoringTests
         fixture.NavigateTask(0);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add first sequence step"));
         var palette = Assert.Single(window.OwnedWindows);
+        await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
         fixture.ViewModel.Undo(); AuthoringUiFixture.Drain();
         Assert.True(fixture.ViewModel.IsSequenceEmpty);

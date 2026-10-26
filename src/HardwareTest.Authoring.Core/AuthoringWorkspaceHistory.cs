@@ -103,6 +103,9 @@ public sealed class AuthoringWorkspaceHistory
         return true;
     }
 
+    public bool HasUndo => _position > 0;
+    public bool HasRedo => _position < _entries.Count;
+
     public bool CanUndo(AuthoringWorkspaceState current)
     {
         ArgumentNullException.ThrowIfNull(current);

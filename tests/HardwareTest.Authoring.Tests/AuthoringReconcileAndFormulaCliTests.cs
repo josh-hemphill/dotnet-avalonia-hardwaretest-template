@@ -10,7 +10,8 @@ public sealed class AuthoringReconcileAndFormulaCliTests
     [InlineData(true)]
     public void RetainingCleanSourceThenOrdinarySaveReexportsIntendedPlan(bool removePlan)
     {
-        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.Apply();
+        var root = Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
+        Assert.True(vm.SaveAll().Succeeded); // Persist all pending legacy section migrations before testing reconciliation.
         var id = vm.SelectedProgram!.PlanId;
         var intended = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram);
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);

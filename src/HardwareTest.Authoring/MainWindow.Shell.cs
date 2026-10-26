@@ -95,7 +95,13 @@ public partial class MainWindow
                 }
             }, DispatcherPriority.Loaded);
         };
-        _viewModel.PropertyChanged += (_, _) => ArrangeShell();
+        _viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.WorkspaceSessionId)
+                or nameof(AuthoringWorkspaceViewModel.SelectedProgram)
+                or nameof(AuthoringWorkspaceViewModel.SaveAllResults)
+                or nameof(AuthoringWorkspaceViewModel.IssuesDrawerOpen)) ArrangeShell();
+        };
         ProgramLayout.ColumnDefinitions[2].PropertyChanged += (_, e) =>
         {
             if (!_arrangingShell && e.Property == ColumnDefinition.WidthProperty)

@@ -8,24 +8,13 @@ public sealed partial class AuthoringWorkspaceViewModel
     // An explicit visible creation choice, independent of imported resource ordering.
     private string _newInstrumentTypeId = typeof(MockDmmInstrument).FullName!;
 
-    private IReadOnlyList<AuthoringInstrumentAdapter> _instrumentTypeChoices = [];
-    public IReadOnlyList<AuthoringInstrumentAdapter> InstrumentTypeChoices
-    {
-        get
-        {
-            var inspection = HardwareInspection;
-            var discovered = inspection.Home is not null && inspection.Error is null
-                ? AuthoringInstrumentCatalog.Discover(inspection.Home) : [];
-            var choices = discovered.Concat(AuthoringInstrumentCatalog.All.Where(a => !AuthoringInstrumentCatalog.IsLibrary(a.TypeId))).ToArray();
-            if (!_instrumentTypeChoices.SequenceEqual(choices)) _instrumentTypeChoices = choices;
-            return _instrumentTypeChoices;
-        }
-    }
+    public IReadOnlyList<AuthoringInstrumentAdapter> InstrumentTypeChoices => _environmentInspection.Choices;
 
     public string InstrumentCatalogSummary
     {
         get
         {
+            if (EnvironmentInspectionPending) return "Checking available instrument types in the selected home…";
             var physical = InstrumentTypeChoices.Count(adapter => AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId));
             return physical > 0
                 ? $"{physical} supported physical instrument types in the selected home. Mock DMM is available for demo plans."
@@ -66,7 +55,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             return "Choose a registered instrument type before adding the slot.";
         if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId) && string.IsNullOrWhiteSpace(NewInstrumentVisa))
             return "Enter the instrument address for the selected library device.";
-        try { return adapter.Availability(InstrumentCreationHomeFor(adapter.TypeId)).Reason; }
-        catch (ArgumentException) { return "Correct the selected OpenTAP home path before adding an instrument."; }
+        if (EnvironmentInspectionPending) return "Wait for instrument package inspection before adding a slot.";
+        return _environmentInspection.Error ?? _environmentInspection.CreationAvailability.GetValueOrDefault(adapter.TypeId)?.Reason
+            ?? (_environmentInspection.CreationAvailability.ContainsKey(adapter.TypeId) ? null : "Refresh the environment before creating this instrument type.");
     }
 }

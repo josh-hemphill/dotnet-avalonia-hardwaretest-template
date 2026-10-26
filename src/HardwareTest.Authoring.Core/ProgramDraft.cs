@@ -5,7 +5,10 @@ namespace HardwareTest.Authoring;
 /// Compiled/decompiled programs for an on-disk authoring workspace.
 public sealed record DraftWorkspace(
     AuthoringWorkspace Files,
-    IReadOnlyList<ProgramDraft> Programs);
+    IReadOnlyList<ProgramDraft> Programs)
+{
+    public IReadOnlySet<string> MeasureSectionMigrations { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+}
 
 /// One program: sidecar, instruments, setup, measure tree, cleanup.
 public sealed record ProgramDraft(

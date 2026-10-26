@@ -46,7 +46,8 @@ public sealed class AuthoringGuidedOnboardingTests
         var draft = fixture.ViewModel.SelectedProgram!;
         Assert.Equal("first-voltage", draft.PlanId); Assert.Single(draft.Setup.OfType<IdentitySetup>());
         Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots); Assert.True(draft.Cleanup.IncludeSafeShutdown);
-        var metric = Assert.IsType<MetricNode>(Assert.Single(draft.Measure)); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
+        var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
+        var metric = Measurement(draft); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
         var direct = fixture.ViewModel.ReviewPlanInitialization(new PlanInitializationRequest("equivalent")
         {
             DisplayName = "First voltage",
@@ -64,20 +65,24 @@ public sealed class AuthoringGuidedOnboardingTests
             PlanId = draft.PlanId,
             Cleanup = direct.Cleanup with { NodeId = draft.Cleanup.NodeId },
             Setup = [Assert.IsType<IdentitySetup>(Assert.Single(direct.Setup)) with { NodeId = Assert.Single(draft.Setup).NodeId }],
-            Measure = [Assert.IsType<MetricNode>(Assert.Single(direct.Measure)) with { NodeId = metric.NodeId }]
+            Measure = [Assert.IsType<SectionNode>(Assert.Single(direct.Measure)) with
+            {
+                NodeId = section.NodeId,
+                Children = [Measurement(direct) with { NodeId = metric.NodeId }]
+            }]
         };
         Assert.Equal(AuthoringDocumentSnapshot.Capture(draft).PlanIdentity, AuthoringDocumentSnapshot.Capture(direct).PlanIdentity);
         Assert.Equal(AuthoringDocumentSnapshot.Capture(draft).SidecarIdentity, AuthoringDocumentSnapshot.Capture(direct).SidecarIdentity);
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Preview voltage result"));
         Assert.Equal(5, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
-        Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
         var source = new AuthoringDocumentStore(root).Load("first-voltage").Document!; Assert.False(source.RequiresCompilation);
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Leave saved guidance"));
         fixture.ViewModel.Open(root); fixture.ViewModel.SelectProgram("first-voltage"); AuthoringUiFixture.Drain();
-        Assert.Equal(metric.NodeId, Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId);
+        Assert.Equal(metric.NodeId, Measurement(fixture.ViewModel.SelectedProgram!).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        Assert.True(fixture.Control<TextBlock>("Guidance feedback").Text!.Contains("First voltage test complete", StringComparison.Ordinal), fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
         Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance hardware mode").Text);
     }
 
@@ -111,7 +116,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Set(fixture, dialog, "Instrument address", "MOCK::bench");
         for (var stage = 0; stage < 4; stage++) Next(fixture, dialog);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        var feedback = fixture.Control<TextBlock>("Guidance feedback").Text!;
+        var feedback = GuidanceUiActions.Feedback(fixture).Text!;
         Assert.Contains("need attention", feedback, StringComparison.OrdinalIgnoreCase);
         Assert.Equal("Review issues", fixture.Control<Button>("Guidance next action").Content);
         Assert.Contains("Resolve", fixture.Control<TextBlock>("Guidance next step").Text);
@@ -136,8 +141,11 @@ public sealed class AuthoringGuidedOnboardingTests
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 0;
         Assert.Contains("Save and check", fixture.Control<TextBlock>("Initialization stage", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.ViewModel.SelectedProgram!.Instruments); Assert.Empty(fixture.ViewModel.SelectedProgram.Measure); Assert.Empty(fixture.ViewModel.SelectedProgram.Setup);
-        var id = fixture.ViewModel.SelectedProgram.PlanId;
+        Assert.Empty(fixture.ViewModel.SelectedProgram!.Instruments);
+        var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram.Measure));
+        Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
+        Assert.Empty(fixture.ViewModel.SelectedProgram.Setup);
+        var id = fixture.ViewModel.SelectedProgram!.PlanId;
         dialog = Start(fixture); Set(fixture, dialog, "Stable plan ID", "obsolete");
         for (var stage = 0; stage < 5; stage++) Next(fixture, dialog);
         fixture.ViewModel.Open(fixture.WorkspaceRoot); AuthoringUiFixture.Drain();
@@ -158,7 +166,7 @@ public sealed class AuthoringGuidedOnboardingTests
         fixture.ViewModel.InitializePlan(new PlanInitializationRequest("viewport-demo") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
-        Assert.Contains("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.Contains("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
         var guidance = window.FindControl<Border>("GuidanceHost")!;
         Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
         ResponsiveShellTests.Inside(fixture.Control<Button>("Close guidance"), window);
@@ -209,13 +217,13 @@ public sealed class AuthoringGuidedOnboardingTests
         var compiled = fixture.ViewModel.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "viewport-demo");
         File.AppendAllText(compiled, "\n<!-- external change -->\n");
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
-        Assert.DoesNotContain("First voltage test complete", fixture.Control<TextBlock>("Guidance feedback").Text);
+        Assert.DoesNotContain("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
     }
 
     [AvaloniaTheory]
     [InlineData("1000")]
     [InlineData("pending")]
-    public void Interval_applies_only_to_acquisition_and_survives_leave_resume_save_and_reopen(string entered)
+    public async Task Interval_applies_only_to_acquisition_and_survives_leave_resume_save_and_reopen(string entered)
     {
         using var fixture = Loaded(); var owner = fixture.Window!;
         owner.Width = 960; owner.Height = 600; owner.FontSize = 20; owner.SetRenderScaling(1.5);
@@ -250,15 +258,16 @@ public sealed class AuthoringGuidedOnboardingTests
         Assert.Equal(entered, interval.Text); Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("retained-interval").Exists);
         fixture.Control<CheckBox>("Mean greater than or equal criterion", dialog).IsChecked = false;
         Next(fixture, dialog); Next(fixture, dialog); AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        var metric = Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
-        AssertInterval(fixture.ViewModel.SelectedProgram);
-        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal("retained-interval", fixture.ViewModel.SelectedProgram.PlanId);
+        var metric = Measurement(fixture.ViewModel.SelectedProgram!);
+        AssertInterval(fixture.ViewModel.SelectedProgram!);
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal("retained-interval", fixture.ViewModel.SelectedProgram!.PlanId);
         var loaded = new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("retained-interval");
         Assert.True(loaded.IsSuccess, loaded.Error); var saved = Assert.IsType<AuthoringDocumentDto>(loaded.Document);
         AssertInterval(saved.ToDraft());
         fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("retained-interval"); AuthoringUiFixture.Drain();
-        var reopened = Assert.IsType<MetricNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
-        Assert.Equal(metric.NodeId, reopened.NodeId); AssertInterval(fixture.ViewModel.SelectedProgram);
+        var reopened = Measurement(fixture.ViewModel.SelectedProgram!);
+        Assert.Equal(metric.NodeId, reopened.NodeId); AssertInterval(fixture.ViewModel.SelectedProgram!);
+        await fixture.WaitForReadinessAsync();
         if (entered == "pending") Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Message.Contains("IntervalMs", StringComparison.Ordinal));
 
         static void Compact(Window window)
@@ -268,11 +277,18 @@ public sealed class AuthoringGuidedOnboardingTests
 
         void AssertInterval(ProgramDraft draft)
         {
-            var node = Assert.IsType<MetricNode>(Assert.Single(draft.Measure));
+            var node = Measurement(draft);
             var source = Assert.IsType<MeasureSource>(node.Metric.Source);
             if (entered == "pending") Assert.Equal(entered, draft.AuthoringState.IncompleteNumericText[AuthoringDocumentState.FieldKey(node.NodeId, "MetricSetting:IntervalMs")]);
             else Assert.Equal(entered, source.Settings["IntervalMs"]);
         }
+    }
+
+    private static MetricNode Measurement(ProgramDraft draft)
+    {
+        var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
+        Assert.Equal("Measure", section.Name);
+        return Assert.IsType<MetricNode>(Assert.Single(section.Children));
     }
 
     private static void PreparePackage(AuthoringUiFixture fixture, AuthoringInstrumentAdapter adapter)

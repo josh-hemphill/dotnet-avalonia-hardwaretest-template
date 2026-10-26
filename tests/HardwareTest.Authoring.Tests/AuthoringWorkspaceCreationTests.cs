@@ -38,8 +38,10 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         {
             var draft = Assert.Single(loaded.Programs);
             Assert.Equal("board-x", draft.Sidecar.DutFamily);
-            if (kind == WorkspaceTemplateKind.HardwareScaffold) Assert.Empty(draft.Measure);
-            else Assert.Single(draft.Measure);
+            var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
+            Assert.Equal("Measure", section.Name);
+            if (kind == WorkspaceTemplateKind.HardwareScaffold) Assert.Empty(section.Children);
+            else Assert.Single(section.Children);
             if (kind == WorkspaceTemplateKind.HardwareScaffold) Assert.Empty(draft.Instruments);
             else Assert.Contains("Mock", Assert.Single(draft.Instruments).TypeId);
             if (draft.Measure.Count > 0) Assert.Equal(draft.Measure[0].NodeId, AuthoringSourceWorkspaceLoader.Load(first.Destination).Programs.Single().Measure[0].NodeId);

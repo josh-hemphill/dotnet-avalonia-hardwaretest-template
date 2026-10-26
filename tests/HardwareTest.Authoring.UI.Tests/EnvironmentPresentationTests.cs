@@ -48,7 +48,7 @@ public sealed class EnvironmentPresentationTests
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
             while (fixture.ViewModel.OperationBusy) { AuthoringUiFixture.Drain(); await Task.Delay(10, timeout.Token); }
-            AuthoringUiFixture.Drain();
+            await fixture.WaitForReadinessAsync();
         }
     }
 
@@ -100,6 +100,8 @@ public sealed class EnvironmentPresentationTests
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         var window = fixture.Show();
         fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
         fixture.NavigateTask(3);
         var vm = fixture.ViewModel;
         Assert.Equal("Optional for mock plans", fixture.Control<TextBlock>("Instrument Components readiness").Text);
@@ -111,9 +113,11 @@ public sealed class EnvironmentPresentationTests
         Assert.Contains("https://github.com/josh-hemphill/instrument-components/releases", copied!);
         Assert.Contains("publisher", vm.EnvironmentPackages.Single(package => package.Package == "Acme Scope").Resolution);
         vm.DeclareLibraryDependency();
+        await vm.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Needs attention", fixture.Control<TextBlock>("Instrument Components readiness").Text);
         vm.OpenTapHomeOverride = "invalid\0home";
+        await vm.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("Cannot inspect", vm.EnvironmentLibraryReadiness.State);
         Assert.Equal("Cannot inspect", vm.EnvironmentExecutionReadiness.State);
@@ -121,7 +125,7 @@ public sealed class EnvironmentPresentationTests
     }
 
     [AvaloniaFact]
-    public void Loadable_library_does_not_mask_a_declared_version_mismatch()
+    public async Task Loadable_library_does_not_mask_a_declared_version_mismatch()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
@@ -135,7 +139,10 @@ public sealed class EnvironmentPresentationTests
         workspace.Manifest.Dependencies.Single(dependency => dependency.Package == AuthoringInstrumentCatalog.LibraryPackage).Version = "9.9.0";
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         fixture.ViewModel.OpenTapHomeOverride = home.Root;
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(3);
+        fixture.Show(); fixture.OpenRememberedWorkspace();
+        await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
+        AuthoringUiFixture.Drain();
+        fixture.NavigateTask(3);
         Assert.Equal("Needs attention", fixture.Control<TextBlock>("Instrument Components readiness").Text);
         Assert.Contains("does not match", fixture.Control<TextBlock>("Instrument Components readiness reason").Text);
         Assert.Contains("9.9.0", fixture.ViewModel.EnvironmentLibraryReadiness.Details);

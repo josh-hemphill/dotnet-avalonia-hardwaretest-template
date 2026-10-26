@@ -12,7 +12,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Recording_selector_returns_to_example_when_program_or_workspace_changes(bool replaceWorkspace)
+    public async Task Recording_selector_returns_to_example_when_program_or_workspace_changes(bool replaceWorkspace)
     {
         using var first = new AuthoringUiFixture(rememberWorkspace: true);
         using var second = new AuthoringUiFixture();
@@ -31,23 +31,26 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         AuthoringUiFixture.Drain();
         var selector = first.Control<ListBox>("Recordings");
         selector.SelectedIndex = 0;
+        await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("first", vm.SelectedDataset!.Run.RunId);
         if (replaceWorkspace) { vm.Open(second.WorkspaceRoot); vm.StopRecovery(); }
         else vm.SelectProgram("other");
+        await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.NotEmpty(vm.Datasets);
         Assert.Null(vm.SelectedDataset);
         Assert.Equal(-1, selector.SelectedIndex);
         Assert.StartsWith("Example data", vm.DataSourceDetails);
         selector.SelectedIndex = 0;
+        await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal(replaceWorkspace ? "second" : "other", vm.SelectedDataset!.Run.RunId);
         Assert.StartsWith("Recording", vm.DataSourceDetails);
     }
 
     [AvaloniaFact]
-    public void Actual_selector_preserves_run_across_same_program_refresh_and_reorder_then_clears_missing_run()
+    public async Task Actual_selector_preserves_run_across_same_program_refresh_and_reorder_then_clears_missing_run()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var draft = new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
@@ -64,12 +67,19 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         var selectedPath = vm.SelectedDataset!.Path;
         Recording(fixture.WorkspaceRoot, draft.PlanId, "000-earlier", 91);
         vm.VisaAddress = "MOCK::EDITED";
+        Assert.Single(vm.Datasets); // Ordinary editing consumes the validated cache.
+        Assert.Equal(0, selector.SelectedIndex);
+        Assert.True(await vm.RefreshRecordingsAsync());
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal(1, selector.SelectedIndex);
         Assert.Equal(selectedPath, vm.SelectedDataset!.Path);
         Assert.Equal("original", vm.SelectedDataset.Run.RunId);
         File.Delete(selectedPath);
         vm.VisaAddress = "MOCK::AGAIN";
+        Assert.Equal(2, vm.Datasets.Count);
+        Assert.True(await vm.RefreshRecordingsAsync());
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Single(vm.Datasets);
         Assert.Equal(-1, selector.SelectedIndex);
@@ -82,7 +92,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
     [InlineData(true, false)]
     [InlineData(false, true)]
     [InlineData(true, true)]
-    public void Imported_unknown_or_malformed_raw_source_and_formula_open_with_usable_requirements(bool malformed, bool filter)
+    public async Task Imported_unknown_or_malformed_raw_source_and_formula_open_with_usable_requirements(bool malformed, bool filter)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var original = new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"));
@@ -104,6 +114,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         var vm = fixture.ViewModel;
         vm.StopRecovery();
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(item => item.NodeId == derived.NodeId));
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, vm.FormulaDeploymentStatus!.Kind);
         Assert.Contains("Missing.Plugin.Step", vm.FormulaDeploymentStatus.Message);
@@ -111,6 +122,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         Assert.Contains(vm.EditingIssues, issue => issue.NodeId == derived.NodeId && issue.Message.Contains("Missing.Plugin.Step", StringComparison.Ordinal));
         Assert.Empty(Assert.Single(vm.BoardTiles, tile => tile.NodeId == derived.NodeId).Preview.CannedSamples);
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(item => item.NodeId == healthy.NodeId));
+        await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.NotEmpty(vm.Preview.CannedSamples);
         Assert.Equal(xml, Assert.IsType<RawStepNode>(vm.SelectedProgram!.Measure[0]).XmlFragment);

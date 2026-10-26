@@ -13,7 +13,7 @@ public static partial class AuthoringSequenceOperations
     public static ProgramDraft MoveToSection(ProgramDraft draft, SequenceRow source, Guid? destinationId)
     {
         source = CurrentTarget(draft, source);
-        if (source.Section != SequenceSection.Measure) throw Fail("Setup and Cleanup stay in their lifecycle phases.");
+        if (source.Section != SequenceSection.Measure) throw Fail("Setup and Shutdown stay in their lifecycle phases.");
         var rows = AuthoringSequence.Flatten(draft);
         var destination = destinationId is null ? null : rows.FirstOrDefault(row => row.NodeId == destinationId && row.IsSection)
             ?? throw Fail("The destination section no longer exists.");

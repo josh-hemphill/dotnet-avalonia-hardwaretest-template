@@ -13,7 +13,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
     [InlineData("pass")]
     [InlineData("fail")]
     [InlineData("nested-repeat")]
-    public async Task Prepared_compiled_fixture_opens_with_matching_source_and_backup_hashes(string name)
+    public async Task Legacy_compiled_fixture_opens_with_pending_section_migration_and_matching_source_and_backup_hashes(string name)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
@@ -29,7 +29,8 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         try
         {
             vm.Open(root);
-            Assert.Null(vm.Error); Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds);
+            Assert.Null(vm.Error); Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds);
+            Assert.Contains("Save All", vm.PackGuardText);
             Assert.False(vm.HasUnsavedChanges); Assert.Equal("board", Assert.Single(vm.Programs).PlanId);
             var store = new AuthoringDocumentStore(root);
             var primary = Assert.IsType<AuthoringDocumentDto>(store.Load("board").Document);
@@ -53,7 +54,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
     [InlineData("pass")]
     [InlineData("fail")]
     [InlineData("nested-repeat")]
-    public async Task Explicit_backup_restore_reopens_ready_and_binds_supplied_recording(string name)
+    public async Task Explicit_backup_restore_retains_pending_section_migration_and_binds_supplied_recording(string name)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
@@ -76,7 +77,8 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         try
         {
             vm.Open(root);
-            Assert.Null(vm.Error); Assert.False(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds);
+            Assert.Null(vm.Error); Assert.True(vm.HasUncompiledSources); Assert.Empty(vm.CompiledConflictProgramIds);
+            Assert.Contains("Save All", vm.PackGuardText);
             vm.ImportRecording(Path.Combine(root, "run.json"), "restored-backup");
             Assert.NotNull(vm.SelectedDataset); Assert.False(vm.HasUnsavedChanges);
             var actual = vm.BoardTiles;

@@ -17,7 +17,7 @@ public partial class MainWindow
         if (_viewModel.IsSequenceEmpty)
         {
             _viewModel.InsertionPosition = "End of matching phase";
-            if (!_viewModel.CanInsertRecipe)
+            if (_viewModel.SelectedRecipe is null)
             {
                 _viewModel.RecipeSearch = string.Empty;
                 _viewModel.SelectedRecipeId = AuthoringRecipeIds.Prompt;

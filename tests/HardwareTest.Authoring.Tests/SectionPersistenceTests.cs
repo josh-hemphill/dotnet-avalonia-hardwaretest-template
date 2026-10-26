@@ -22,7 +22,7 @@ public sealed class SectionPersistenceTests : IDisposable
         store.Save(AuthoringDocumentDto.FromDraft(draft, 7));
         var result = store.Load(draft.PlanId);
         Assert.True(result.IsSuccess, result.Error);
-        Assert.Equal(2, result.Document!.SchemaVersion);
+        Assert.Equal(AuthoringDocumentDto.CurrentSchemaVersion, result.Document!.SchemaVersion);
         Assert.True(AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(result.Document.ToDraft())));
         var renamed = draft with { Measure = [((SectionNode)draft.Measure[0]) with { Name = "Renamed" }] };
         Assert.False(AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(renamed)));
@@ -41,12 +41,12 @@ public sealed class SectionPersistenceTests : IDisposable
         File.WriteAllBytes(path, bytes);
         var loaded = store.Load(draft.PlanId);
         Assert.True(loaded.IsSuccess, loaded.Error);
-        Assert.Equal(2, loaded.Document!.SchemaVersion);
+        Assert.Equal(AuthoringDocumentDto.CurrentSchemaVersion, loaded.Document!.SchemaVersion);
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.Equal(1, new AuthoringWorkspaceDto { Manifest = new AuthoringManifest() }.SchemaVersion);
         store.Save(loaded.Document);
         using var saved = JsonDocument.Parse(File.ReadAllBytes(path));
-        Assert.Equal(2, saved.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(AuthoringDocumentDto.CurrentSchemaVersion, saved.RootElement.GetProperty("schemaVersion").GetInt32());
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed class SectionPersistenceTests : IDisposable
     {
         var store = new AuthoringDocumentStore(_root);
         Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sections"))!);
-        var sourceBytes = System.Text.Encoding.UTF8.GetBytes("{\"schemaVersion\":3,\"future\":true}");
+        var sourceBytes = System.Text.Encoding.UTF8.GetBytes($"{{\"schemaVersion\":{AuthoringDocumentDto.CurrentSchemaVersion + 1},\"future\":true}}");
         File.WriteAllBytes(store.GetDocumentPath("sections"), sourceBytes);
         Assert.True(store.Load("sections").IsReadOnly);
         Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft(), 1)));
