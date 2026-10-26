@@ -22,7 +22,24 @@
       </Button>
       <Button Grid.Column="2" x:Name="SequenceActionsButton" Content="+ Add step" Click="OnOpenPalette" Classes="authoringAction primaryAction" AutomationProperties.Name="Add step" IsEnabled="{Binding CanEditProgramSettings}"/>
     </Grid>
-    <ListBox x:Name="SequenceList" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
+    <ScrollViewer Grid.Row="1" IsVisible="{Binding NeedsFirstPlan}" HorizontalScrollBarVisibility="Disabled">
+      <Border Classes="surface taskSection"><StackPanel Spacing="12">
+        <TextBlock Text="Create your first test plan" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+        <TextBlock Text="This workspace has no test plans yet. Create a plan to give it a title, add steps and configure instruments." Classes="purpose" TextWrapping="Wrap"/>
+        <Button Content="Create test plan" Click="OnCreatePlan" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction primaryAction" AutomationProperties.Name="Create first test plan from sequence" HorizontalAlignment="Left"/>
+      </StackPanel></Border>
+    </ScrollViewer>
+    <ScrollViewer Grid.Row="1" IsVisible="{Binding IsSequenceEmpty}" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Empty plan getting started">
+      <Border Classes="surface taskSection"><StackPanel Spacing="12">
+        <TextBlock Text="Add your first step" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+        <TextBlock Text="Name your plan above, then choose a step. Operator prompts and other steps without hardware can be added immediately. Configure an instrument before adding hardware measurements." Classes="purpose" TextWrapping="Wrap"/>
+        <WrapPanel>
+          <Button Content="Add your first step" Click="OnOpenPalette" IsEnabled="{Binding CanEditSequence}" Classes="authoringAction primaryAction" AutomationProperties.Name="Add first sequence step" Margin="0,0,8,8"/>
+          <Button Content="Configure instruments" Click="OnConfigureInstruments" Classes="authoringAction" AutomationProperties.Name="Configure instruments from empty plan" Margin="0,0,8,8"/>
+        </WrapPanel>
+      </StackPanel></Border>
+    </ScrollViewer>
+    <ListBox x:Name="SequenceList" IsVisible="{Binding HasSequenceContent}" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
         KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Program sequence">
       <ListBox.Styles>
         <Style Selector="ListBoxItem"><Setter Property="Padding" Value="4,4,4,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>

@@ -4,6 +4,8 @@ Status: **shipped**. The operator shell still does not edit plans. Primary path:
 
 This document records the architecture and stacked implementation for that **separate workstation app**. Walkthrough and commands live in [getting-started.md](getting-started.md).
 
+An empty workspace offers **Create test plan** directly on Overview and Sequence. Once a plan exists, Sequence exposes **Plan title** and **Device family**, plus **Add your first step** and **Configure instruments** for an empty sequence. The first-step palette starts with an operator prompt that needs no hardware and uses **End of matching phase** so the cleanup placeholder cannot block insertion. This insertion option also appends subsequent setup or measurement recipes to their own phase. Imported plans with a blank display name show their stable plan ID in the picker until a title is supplied; edits use normal draft, undo/redo and Save All behavior.
+
 ## Goal
 
 An engineer can open a test-set planning directory, author **only the metrics they want to measure and the algorithms that run over those measurements**, and see how those metrics will appear on the operator Run / Results board (Presentation mixins, gauges, charts, prompts). The app bootstraps an isolated OpenTAP tree with HardwareTest Basic, Mixins, **InstrumentComponents.OpenTap**, and any other declared packs so TUI/Editor and our UI share the same step catalog. `HardwareTest.PlanValidate --strict` plus a TUI compatibility check gate a **pack/ship** step that compiles that directory into TapPackages (and optional plugin / shell-app artifacts) a product test-set repo can install on the bench. The operator `HardwareTest` exe stays a locked runner.

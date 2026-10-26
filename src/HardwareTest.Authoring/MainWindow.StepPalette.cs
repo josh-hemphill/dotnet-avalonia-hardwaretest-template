@@ -14,6 +14,15 @@ public partial class MainWindow
         if (_stepPalette is not null) { _stepPalette.Activate(); return; }
         if (_viewModel.SelectedProgram is null) return;
         CommitFocusedEditor();
+        if (_viewModel.IsSequenceEmpty)
+        {
+            _viewModel.InsertionPosition = "End of matching phase";
+            if (!_viewModel.CanInsertRecipe)
+            {
+                _viewModel.RecipeSearch = string.Empty;
+                _viewModel.SelectedRecipeId = AuthoringRecipeIds.Prompt;
+            }
+        }
         var current = OwnerContext();
         var plan = _viewModel.SelectedProgram.PlanId;
         var node = _viewModel.SelectedSequence?.Key;

@@ -48,6 +48,14 @@ public partial class SequenceEditorView : UserControl
     private void OnOpenPalette(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnOpenStepPalette(sender, e);
 
+    private void OnCreatePlan(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnCreateProgram(sender, e);
+
+    private void OnConfigureInstruments(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this) is MainWindow owner) owner.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1;
+    }
+
     private void OnSequenceKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.KeyModifiers == KeyModifiers.None && Vm is { SelectedSequence.IsSection: true } sectionVm && e.Key is Key.Left or Key.Right)

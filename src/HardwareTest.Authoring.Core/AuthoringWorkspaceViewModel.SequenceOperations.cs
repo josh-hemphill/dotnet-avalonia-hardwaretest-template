@@ -7,7 +7,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Guid? _renameSourceId;
     private string? _renameSourceLabel;
     private string _insertionPosition = "After selected";
-    public IReadOnlyList<string> InsertionPositions { get; } = ["Before selected", "After selected", "End of section", "End of Measure"];
+    public IReadOnlyList<string> InsertionPositions { get; } = ["End of matching phase", "Before selected", "After selected", "End of section", "End of Measure"];
     public string InsertionPosition
     {
         get => _insertionPosition;
@@ -29,7 +29,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => _sequenceRename;
         set => SetField(ref _sequenceRename, value);
     }
-    public string SequenceOperationTarget => SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
+    public string SequenceOperationTarget => IsSequenceEmpty ? "No steps yet. The first step goes into its matching phase."
+        : SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
     public string RemoveSequenceActionTitle => SelectedSequence?.Kind switch
     {
         SequenceRowKind.Repeat => "Remove loop, keep steps",
@@ -38,6 +39,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         _ => RemoveSelectedTitle
     };
     public bool CanEditSequence => Workspace is { IsReadOnly: false } && SelectedProgram is not null;
+    public bool HasSelectedPlan => SelectedProgram is not null;
+    public bool NeedsFirstPlan => HasWorkspace && SelectedProgram is null;
+    public bool IsSequenceEmpty => SelectedProgram is { Setup.Count: 0, Measure.Count: 0, Cleanup.IncludeSafeShutdown: false };
+    public bool HasSequenceContent => HasSelectedPlan && !IsSequenceEmpty;
     public bool CanRenameSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Section
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
     public bool CanDuplicateSequence => CanEditSequence && (SelectedSequence?.Kind is SequenceRowKind.Metric or SequenceRowKind.Repeat or SequenceRowKind.Section
@@ -48,6 +53,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         : RecipePreflight() ?? $"Ready: {SelectedRecipe.Summary} Insertion: {InsertionPosition}. {SequenceOperationTarget}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
+        : IsSequenceEmpty || InsertionPosition == "End of matching phase" ? null
         : InsertionPosition == "End of Measure" ? null
         : InsertionPosition == "End of section" ? EndOfSelectedSection() : SelectedSequence;
 
@@ -139,6 +145,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(SequenceOperationTarget));
         OnPropertyChanged(nameof(RemoveSequenceActionTitle));
         OnPropertyChanged(nameof(CanEditSequence));
+        OnPropertyChanged(nameof(HasSelectedPlan));
+        OnPropertyChanged(nameof(NeedsFirstPlan));
+        OnPropertyChanged(nameof(IsSequenceEmpty));
+        OnPropertyChanged(nameof(HasSequenceContent));
         OnPropertyChanged(nameof(CanRenameSequence));
         OnPropertyChanged(nameof(CanDuplicateSequence));
         OnPropertyChanged(nameof(CanMoveSequence));
