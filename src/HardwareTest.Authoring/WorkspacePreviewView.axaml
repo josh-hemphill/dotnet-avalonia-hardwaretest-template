@@ -4,14 +4,14 @@
     <Border x:Name="SourceFrame" Classes="surface" Padding="4">
       <StackPanel Spacing="4">
         <WrapPanel x:Name="SourceActions">
-          <TextBlock Text="{Binding PreviewDataSourceLabel}" MaxWidth="240" TextTrimming="CharacterEllipsis" Margin="0,0,12,4"
+          <TextBlock Text="{Binding PreviewDataSourceLabel}" MaxWidth="144" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
               FontWeight="SemiBold" VerticalAlignment="Center" ToolTip.Tip="{Binding DataSourceDetails}" AutomationProperties.HeadingLevel="3" AutomationProperties.Name="{Binding PreviewDataSourceLabel}"/>
-          <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,4"/>
-          <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,4"/>
-          <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,4"/>
-          <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,8,4"/>
-          <Button Content="Source details" Click="OnShowSourceDetails" AutomationProperties.Name="Preview data source details" Classes="authoringAction" Margin="0,0,8,4"/>
-          <Button Content="{Binding DatasetItems.Count, StringFormat='Recordings ({0})'}" IsVisible="{Binding HasRecordings}" Click="OnChooseRecording" AutomationProperties.Name="Choose a recording" Classes="authoringAction" Margin="0,0,8,4"/>
+          <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,6,4"/>
+          <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Source details" Click="OnShowSourceDetails" AutomationProperties.Name="Preview data source details" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="{Binding DatasetItems.Count, StringFormat='Recordings ({0})'}" IsVisible="{Binding HasRecordings}" Click="OnChooseRecording" AutomationProperties.Name="Choose a recording" Classes="authoringAction" Margin="0,0,6,4"/>
         </WrapPanel>
         <TextBlock Text="Preview only; no hardware execution." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Preview does not execute hardware"/>
       </StackPanel>

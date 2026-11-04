@@ -1,11 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.StepPaletteView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <UserControl.Styles>
-    <Style Selector="TextBox#SearchBox /template/ TextBlock#PART_Placeholder">
-      <Setter Property="Opacity" Value="1"/>
-    </Style>
-  </UserControl.Styles>
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12" Margin="24">
-    <StackPanel Spacing="10"><TextBlock Text="Add a step" Classes="routeTitle" AutomationProperties.HeadingLevel="1"/><TextBox x:Name="SearchBox" PlaceholderForeground="{DynamicResource AuthoringMuted}" Text="{Binding RecipeSearch}" PlaceholderText="Search measurements, checks, operator actions or flow" AutomationProperties.Name="Search sequence palette"/></StackPanel>
+    <StackPanel Spacing="10"><TextBlock Text="Add a step" Classes="routeTitle" AutomationProperties.HeadingLevel="1"/><TextBlock x:Name="StepSearchLabel" Text="Find a step" Classes="purpose"/><TextBox x:Name="SearchBox" AutomationProperties.LabeledBy="{Binding #StepSearchLabel}" Text="{Binding RecipeSearch}" AutomationProperties.Name="Search sequence palette"/></StackPanel>
     <ListBox IsVisible="{Binding !NoMatchingRecipes}" KeyboardNavigation.TabNavigation="Once" Focusable="True" Grid.Row="1" ItemsSource="{Binding Recipes}" SelectedItem="{Binding SelectedRecipe}" Classes="authoringList" AutomationProperties.Name="Recipe" MinHeight="80">
       <ListBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringRecipe"><StackPanel Spacing="4"><TextBlock Text="{Binding Category}" Classes="eyebrow"/><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Classes="purpose"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
     </ListBox>

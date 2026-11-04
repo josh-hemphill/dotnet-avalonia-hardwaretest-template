@@ -170,6 +170,8 @@ public sealed class ResponsiveShellTests
         typeof(AuthoringWorkspaceViewModel).GetProperty(nameof(AuthoringWorkspaceViewModel.FindingRows))!
             .SetValue(fixture.ViewModel, rows);
         AuthoringUiFixture.Drain();
+        findings.BringIntoView();
+        AuthoringUiFixture.Drain();
         Inside(findings, window);
         findings.ScrollIntoView(rows[^1]);
         AuthoringUiFixture.Drain();
