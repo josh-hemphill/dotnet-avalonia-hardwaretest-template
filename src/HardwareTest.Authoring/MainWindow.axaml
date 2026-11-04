@@ -35,7 +35,7 @@
             ToolTip.Tip="Open a folder that contains authoring.json" AutomationProperties.Name="Open workspace"
             Classes="authoringAction"/>
 <Button Content="Prepare authoring environment" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
-            ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
+            ToolTip.Tip="Prepare required packages in this workspace’s isolated OpenTAP home"
             AutomationProperties.Name="Prepare authoring environment" Classes="authoringAction"/>
 <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}"
             AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}"
@@ -100,7 +100,7 @@
           Text="{Binding Error, StringFormat='Error: {0}'}" ToolTip.Tip="{Binding OperationLogText}"
           AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
     </ScrollViewer>
-            <Button Grid.Column="2" Content="Details" Click="OnShowOperationDetails" Classes="authoringAction" AutomationProperties.Name="View operation details" ToolTip.Tip="Read and select full errors, save results and operation logs"/>
+            <Button Grid.Column="2" Content="Details" Click="OnShowOperationDetails" IsVisible="{Binding HasWorkspace}" Classes="authoringAction" AutomationProperties.Name="View operation details" ToolTip.Tip="Read and select full errors, save results and operation logs"/>
           </Grid>
         </Grid>
         <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">

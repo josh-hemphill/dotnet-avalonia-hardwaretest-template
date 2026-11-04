@@ -20,7 +20,9 @@ public partial class MainWindow
         var details = new TextBox
         {
             Text = string.IsNullOrWhiteSpace(text) ? _viewModel.Status : text,
-            IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap
         };
         AutomationProperties.SetName(details, "Full operation details");
         var close = new Button { Content = "Close", IsCancel = true, Classes = { "authoringAction" } };
@@ -29,17 +31,23 @@ public partial class MainWindow
         var footer = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 12, 0, 0), Children = { close }
+            Margin = new Thickness(0, 12, 0, 0),
+            Children = { close }
         };
         DockPanel.SetDock(footer, Dock.Bottom);
         panel.Children.Add(footer);
         panel.Children.Add(details);
         var dialog = new Window
         {
-            Title = "Operation details", Width = Math.Min(760, ClientSize.Width - 60),
-            Height = Math.Min(560, ClientSize.Height - 60), MinWidth = 400, MinHeight = 300,
-            FontSize = FontSize, WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = panel, Classes = { "authoringPalette" }
+            Title = "Operation details",
+            Width = Math.Min(760, ClientSize.Width - 60),
+            Height = Math.Min(560, ClientSize.Height - 60),
+            MinWidth = 400,
+            MinHeight = 300,
+            FontSize = FontSize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = panel,
+            Classes = { "authoringPalette" }
         };
         close.Click += (_, _) => dialog.Close();
         dialog.Opened += (_, _) => details.Focus();

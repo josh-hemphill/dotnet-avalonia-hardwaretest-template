@@ -12,8 +12,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         => _workspaceDatasetsSession == WorkspaceSessionId ? _workspaceDatasets : [];
 
     public bool HasRecordings => DatasetItems.Count > 0;
-    public string PreviewDataSourceLabel => SelectedDataset is { } dataset
-        ? $"Recording: {dataset.Run.RunId}" : "Example data (simulated)";
+    public string PreviewDataSourceLabel => _previewDispatch is not null ? CachedPreview.SourceLabel
+        : SelectedDataset is { } dataset ? $"Recording: {dataset.Run.RunId}" : "Example data (simulated)";
 
     private bool MatchesRecordingChoice(RunDataset dataset)
         => _selectedRecordingChoice is { } choice && choice.Session == _workspaceSession

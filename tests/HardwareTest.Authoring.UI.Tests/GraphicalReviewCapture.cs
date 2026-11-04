@@ -1,3 +1,6 @@
+using System.Text.Json;
+using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -13,7 +16,7 @@ public sealed class GraphicalReviewCapture
 {
     public static bool CaptureEnabled => Environment.GetEnvironmentVariable("HT_CAPTURE_UI") == "1";
 
-    [AvaloniaTheory(SkipUnless = nameof(CaptureEnabled))]
+    [AvaloniaTheory(SkipUnless = nameof(CaptureEnabled), Skip = "Set HT_CAPTURE_UI=1 to capture review screenshots.")]
     [InlineData("Light", 1280, 800, 14)]
     [InlineData("Dark", 1280, 800, 14)]
     [InlineData("Light", 960, 600, 20)]
@@ -60,6 +63,44 @@ public sealed class GraphicalReviewCapture
         Capture(palette, $"step-search-empty-{suffix}");
         palette.Close();
         AuthoringUiFixture.Drain();
+        fixture.ViewModel.SelectMeasure(0);
+        var renaming = window.ExecuteCommandAsync("rename");
+        AuthoringUiFixture.Drain();
+        var rename = Assert.Single(window.OwnedWindows);
+        Capture(rename, $"rename-{suffix}");
+        rename.Close(false);
+        await renaming;
+
+        var run = new TestRunRecord
+        {
+            PlanId = fixture.ViewModel.SelectedProgram!.PlanId,
+            RunId = "review-recording",
+            DutSerial = string.Join(" ", Enumerable.Repeat("Recorded device and test provenance", 30)),
+            Samples = [new StoredSample { MetricKey = "VDC", Value = 1, ElapsedMs = 0 }, new StoredSample { MetricKey = "VDC", Value = 2, ElapsedMs = 5 }]
+        };
+        var recordingPath = Path.Combine(fixture.WorkspaceRoot, "review-recording.json");
+        File.WriteAllText(recordingPath, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
+        fixture.ViewModel.ImportRecording(recordingPath, "review-recording");
+        await fixture.WaitForReadinessAsync();
+        fixture.NavigateTask(5);
+        Capture(window, $"preview-recording-{suffix}");
+        fixture.Control<Expander>("Preview data source details").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        Capture(window, $"preview-source-details-{suffix}");
+        fixture.Control<Expander>("Preview data source details").IsExpanded = false;
+        fixture.Control<Expander>("Choose a recording").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        Capture(window, $"preview-recording-picker-{suffix}");
+        fixture.Control<Expander>("Choose a recording").IsExpanded = false;
+
+        fixture.ViewModel.ReportError("Package preparation could not finish. The selected home was preserved. "
+            + "Open the package source, copy requirements and import a matching offline package.\n"
+            + string.Join("\n", Enumerable.Range(1, 12).Select(index => $"Requirement {index}: obtain the declared version from your publisher.")));
+        AuthoringUiFixture.Click(fixture.Control<Button>("View operation details"));
+        var details = Assert.Single(window.OwnedWindows);
+        Capture(details, $"operation-details-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Close operation details", details));
+
         fixture.ViewModel.InitializePlan(new("ui-review-empty"));
         await fixture.WaitForReadinessAsync();
         fixture.NavigateTask(0);

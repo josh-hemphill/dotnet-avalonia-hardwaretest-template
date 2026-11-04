@@ -13,6 +13,7 @@ internal sealed record AuthoringPreviewPresentation(IReadOnlyList<BoardPreviewTi
     AuthoringPreviewChrome Chrome, FormulaDeploymentStatus? Deployment, string RecordingEvidence,
     IReadOnlyList<string> ExcludedFormulas, string SourceDetails, string FormulaError, FormulaSaveOutcome FormulaSave)
 {
+    internal string SourceLabel { get; init; } = "Example data (simulated)";
     internal static AuthoringPreviewPresentation Empty { get; } = new([], MetricPreviewBuilder.Empty,
         AuthoringPreviewChromeBuilder.Empty, null, string.Empty, [],
         "Example data · simulated values · no hardware execution", string.Empty,
@@ -156,7 +157,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void PublishPreviewProperties()
     {
         foreach (var property in new[] { nameof(BoardTiles), nameof(Preview), nameof(PreviewKind), nameof(PreviewChrome),
-            nameof(PreviewNote), nameof(DataSourceDetails), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
+            nameof(PreviewNote), nameof(DataSourceDetails), nameof(PreviewDataSourceLabel), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaRecordingEvidence), nameof(ExcludedExplorationFormulas), nameof(FormulaError),
             nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind) }) OnPropertyChanged(property);
@@ -203,7 +204,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             var time = recording.Samples.Count > 0 && recording.Samples.All(sample => sample.ElapsedMs is { } elapsed && double.IsFinite(elapsed)) ? "elapsed time available" : "elapsed time missing or incomplete";
             source = $"Recording · {input.Dataset!.Path}\nRun {recording.RunId} · DUT {(string.IsNullOrWhiteSpace(recording.DutSerial) ? "unspecified" : recording.DutSerial)} · {recording.Samples.Count} samples · {time}\nChannels: {string.Join(", ", recording.Samples.Select(sample => sample.EffectiveMetricKey).Distinct(StringComparer.OrdinalIgnoreCase))} · no hardware execution";
         }
-        return new(tiles, preview, AuthoringPreviewChromeBuilder.From(preview, recording?.Events), deployment, evidence, excluded, source, error, save);
+        return new(tiles, preview, AuthoringPreviewChromeBuilder.From(preview, recording?.Events), deployment, evidence, excluded, source, error, save)
+        { SourceLabel = recording is null ? "Example data (simulated)" : $"Recording: {recording.RunId}" };
     }
 
     private static MetricDraft? FindPreviewMetric(IReadOnlyList<MeasureNode> nodes, Guid? nodeId)

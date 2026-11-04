@@ -190,8 +190,14 @@ public partial class MainWindow
         });
         var dialog = new Window
         {
-            Title = "Rename step", Width = 480, Height = 260, MinWidth = 400, MinHeight = 220,
-            FontSize = FontSize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel,
+            Title = "Rename step",
+            Width = 480,
+            Height = 260,
+            MinWidth = 400,
+            MinHeight = 220,
+            FontSize = FontSize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = panel,
             Classes = { "authoringPalette" }
         };
         accept.Click += (_, _) => dialog.Close(true); cancel.Click += (_, _) => dialog.Close(false);

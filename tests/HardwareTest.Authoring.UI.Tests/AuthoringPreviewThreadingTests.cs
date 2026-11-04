@@ -28,6 +28,13 @@ public sealed class AuthoringPreviewThreadingTests
         vm.Open(fixture.WorkspaceRoot);
         vm.SelectDataset(0);
         vm.ConfigurePreviewProcessing(action => Dispatcher.UIThread.Post(action), () => true);
+        var publishedLabels = new List<string>();
+        vm.PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName == nameof(vm.PreviewDataSourceLabel)) publishedLabels.Add(vm.PreviewDataSourceLabel);
+        };
+        vm.SelectedDataset!.Run.RunId = "mutated-live-id";
+        Assert.Equal("Example data (simulated)", vm.PreviewDataSourceLabel);
         // The compatibility DTO remains mutable for domain callers. A background
         // request must not enumerate this live object or copy these later values.
         vm.SelectedDataset!.Run.Samples[0].Value = 999;
@@ -36,6 +43,8 @@ public sealed class AuthoringPreviewThreadingTests
         var acquisition = Assert.Single(vm.BoardTiles, tile => tile.Preview.ChannelKey == "VDC");
         Assert.Equal([3.0], acquisition.Preview.CannedSamples);
         Assert.Contains("1 samples", vm.DataSourceDetails, StringComparison.Ordinal);
+        Assert.Equal("Recording: owned", vm.PreviewDataSourceLabel);
+        Assert.Contains("Recording: owned", publishedLabels);
         vm.StopPreviewProcessing();
     }
 
@@ -148,7 +157,7 @@ public sealed class AuthoringPreviewThreadingTests
                 entered.TrySetResult();
                 if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview test did not release worker.");
             }
-            return AuthoringPreviewPresentation.Empty with { Preview = MetricPreviewBuilder.Empty with { ChannelKey = name } };
+            return AuthoringPreviewPresentation.Empty with { Preview = MetricPreviewBuilder.Empty with { ChannelKey = name }, SourceLabel = $"Evaluated: {name}" };
         });
         AuthoringUiFixture.Drain();
         try
@@ -157,10 +166,12 @@ public sealed class AuthoringPreviewThreadingTests
             vm.DisplayName = "Intermediate edit";
             vm.DisplayName = "Latest edit";
             Assert.Empty(vm.Preview.ChannelKey);
+            Assert.Equal("Example data (simulated)", vm.PreviewDataSourceLabel);
         }
         finally { release.Set(); }
         await vm.WaitForPreviewAsync().WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Equal("Latest edit", vm.Preview.ChannelKey);
+        Assert.Equal("Evaluated: Latest edit", vm.PreviewDataSourceLabel);
         Assert.Equal(2, Volatile.Read(ref calls));
         Assert.Equal("Latest edit", evaluatedNames[^1]);
         Assert.DoesNotContain("Intermediate edit", evaluatedNames);
