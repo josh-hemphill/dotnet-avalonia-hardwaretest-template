@@ -1,12 +1,12 @@
 using System.Text.Json;
-using HardwareTest.Core.Runs;
-using HardwareTest.Core.Serialization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using Xunit;
 
 namespace HardwareTest.Authoring.UI.Tests;
@@ -84,14 +84,12 @@ public sealed class GraphicalReviewCapture
         await fixture.WaitForReadinessAsync();
         fixture.NavigateTask(5);
         Capture(window, $"preview-recording-{suffix}");
-        fixture.Control<Expander>("Preview data source details").IsExpanded = true;
-        AuthoringUiFixture.Drain();
-        Capture(window, $"preview-source-details-{suffix}");
-        fixture.Control<Expander>("Preview data source details").IsExpanded = false;
-        fixture.Control<Expander>("Choose a recording").IsExpanded = true;
-        AuthoringUiFixture.Drain();
-        Capture(window, $"preview-recording-picker-{suffix}");
-        fixture.Control<Expander>("Choose a recording").IsExpanded = false;
+        var sourceDetails = PreviewUiActions.OpenSourceDetails(fixture);
+        Capture(sourceDetails, $"preview-source-details-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Close preview data source", sourceDetails));
+        var recordingPicker = PreviewUiActions.OpenRecordingPicker(fixture);
+        Capture(recordingPicker, $"preview-recording-picker-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Cancel recording selection", recordingPicker));
 
         fixture.ViewModel.ReportError("Package preparation could not finish. The selected home was preserved. "
             + "Open the package source, copy requirements and import a matching offline package.\n"

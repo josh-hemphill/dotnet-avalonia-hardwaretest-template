@@ -49,7 +49,7 @@ public partial class MainWindow
         }
         return new StackPanel
         {
-            Spacing = 14,
+            Spacing = 10,
             Children =
         {
             AuthoringFormLayout.Heading("First test plan", 3),

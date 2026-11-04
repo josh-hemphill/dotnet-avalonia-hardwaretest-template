@@ -69,7 +69,12 @@ public sealed class BoardPreviewUiTests
             Assert.True(tile.Bounds.Width > 100);
             Assert.True(tile.Bounds.Height > 30);
             var visibleWidget = tile.GetVisualDescendants().OfType<Control>().FirstOrDefault(view => view is MeasurementPlotView or MetricGaugeView or TimingStripView && view.IsVisible);
-            if (visibleWidget is not null) ResponsiveShellTests.Inside(visibleWidget, window);
+            if (visibleWidget is not null)
+            {
+                visibleWidget.BringIntoView();
+                AuthoringUiFixture.Drain();
+                ResponsiveShellTests.Inside(visibleWidget, window);
+            }
         }
         var example = fixture.Control<Button>("Use example data");
         example.BringIntoView(); AuthoringUiFixture.Drain();

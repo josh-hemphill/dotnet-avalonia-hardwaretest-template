@@ -33,7 +33,6 @@ public sealed class AuthoringPreviewThreadingTests
         {
             if (change.PropertyName == nameof(vm.PreviewDataSourceLabel)) publishedLabels.Add(vm.PreviewDataSourceLabel);
         };
-        vm.SelectedDataset!.Run.RunId = "mutated-live-id";
         Assert.Equal("Example data (simulated)", vm.PreviewDataSourceLabel);
         // The compatibility DTO remains mutable for domain callers. A background
         // request must not enumerate this live object or copy these later values.

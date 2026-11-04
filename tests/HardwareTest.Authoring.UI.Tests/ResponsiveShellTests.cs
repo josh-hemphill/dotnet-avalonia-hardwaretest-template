@@ -38,6 +38,10 @@ public sealed class ResponsiveShellTests
         Inside(inspector, window);
         Assert.True(sequence.Bounds.Height >= 40, $"Sequence viewport {sequence.Bounds} must be usable.");
         Assert.True(inspector.Bounds.Height >= 80);
+        var configure = fixture.Control<Expander>("Configure selected step");
+        var configureHeader = configure.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+            .Single(button => button.Name == "ExpanderHeader");
+        Inside(configureHeader, window);
         foreach (var name in new[] { "Metric instrument slot", "Channel key", "SampleCount" })
         {
             var field = window.GetVisualDescendants().OfType<Control>()

@@ -108,7 +108,7 @@ public sealed class ResponsivePreviewTests
                 AuthoringUiFixture.Drain();
                 Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
                 Assert.True(scroll.Offset.Y > 0);
-                // The board owns its wheel input; the recording picker is a sibling.
+                // The board owns its wheel input; source controls stay outside its viewport.
                 var center = preview.TranslatePoint(new Point(8, 8), window);
                 Assert.NotNull(center);
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);

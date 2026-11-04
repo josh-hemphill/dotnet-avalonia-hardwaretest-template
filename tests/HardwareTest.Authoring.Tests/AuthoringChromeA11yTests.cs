@@ -42,7 +42,7 @@ public sealed class AuthoringChromeA11yTests
             "OperatorReportsView", "WorkspaceOverviewView", "StepPaletteView"];
         var documents = views.ToDictionary(view => view, view => XDocument.Load(Path.Combine(root, view + ".axaml")));
         var lists = documents.Values.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName == "ListBox").ToArray();
-        string[] sources = ["SequenceItems", "FindingRows", "DatasetItems", "Instruments", "HardwareDefinitions", "Recipes"];
+        string[] sources = ["SequenceItems", "FindingRows", "Instruments", "HardwareDefinitions", "Recipes"];
         Assert.Equal(sources.Length, lists.Length);
         foreach (var source in sources)
         {

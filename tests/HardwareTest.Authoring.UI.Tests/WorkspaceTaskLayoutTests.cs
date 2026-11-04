@@ -27,7 +27,15 @@ public sealed class WorkspaceTaskLayoutTests
         await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues); Assert.NotEmpty(fixture.ViewModel.FindingRows);
         fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2; AuthoringUiFixture.Drain();
-        fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
+        var editing = fixture.Control<Expander>("Editing findings");
+        Assert.True(editing.IsExpanded);
+        editing.IsExpanded = false;
+        fixture.ViewModel.ReportError("Unrelated operation status");
+        fixture.Window!.Width = 1000;
+        AuthoringUiFixture.Drain();
+        Assert.False(editing.IsExpanded);
+        editing.IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var list = fixture.Control<ListBox>("Contract findings");
         list.BringIntoView(); AuthoringUiFixture.Drain();
         Assert.True(list.Bounds.Height >= 90); ResponsiveShellTests.Inside(list, fixture.Window);
@@ -103,7 +111,10 @@ public sealed class WorkspaceTaskLayoutTests
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
         fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
-        var viewport = fixture.Control<ScrollViewer>("Editing findings viewport");
+        var editingViewport = fixture.Control<ScrollViewer>("Editing findings viewport");
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, editingViewport.VerticalScrollBarVisibility);
+        Assert.Equal(0, editingViewport.Offset.Y);
+        var viewport = fixture.Control<ScrollViewer>("Issues task viewport");
         Assert.True(viewport.Viewport.Width > 300);
         Assert.True(viewport.Viewport.Height > 100);
         var rows = fixture.Control<ItemsControl>("Editing findings");

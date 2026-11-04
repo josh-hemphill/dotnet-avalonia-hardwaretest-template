@@ -10,6 +10,7 @@ public partial class SelectedStepInspectorView : UserControl
     public SelectedStepInspectorView()
     {
         InitializeComponent();
+        SizeChanged += (_, _) => ArrangeDensity();
         var menu = (Flyout)InspectorActionsButton.Flyout!;
         menu.Opened += (_, _) => ((ScrollViewer)menu.Content!).FontSize = FontSize;
         ((Control)menu.Content!).AddHandler(Button.ClickEvent, (_, e) =>
@@ -22,6 +23,13 @@ public partial class SelectedStepInspectorView : UserControl
             (TopLevel.GetTopLevel(this) as MainWindow)?.OnExpertKeyDown(this, e);
             if (e.Handled) menu.Hide();
         });
+    }
+
+    private void ArrangeDensity()
+    {
+        var compact = Bounds.Height > 0 && Bounds.Height < 300;
+        InspectorBody.Spacing = compact ? 10 : 16;
+        InspectorBreadcrumbText.IsVisible = !compact;
     }
 
     private AuthoringWorkspaceViewModel? Vm => DataContext as AuthoringWorkspaceViewModel;

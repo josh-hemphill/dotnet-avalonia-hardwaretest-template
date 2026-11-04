@@ -85,7 +85,7 @@ public partial class MainWindow
         if (!current()) return false;
         var command = Commands().Single(candidate => candidate.Id == id);
         if (command.Blocker() is { } explanation) { _viewModel.ReportError(explanation); return false; }
-        CommitFocusedEditor();
+        if (id != "rename") CommitFocusedEditor();
         try { await command.Run(); return true; }
         catch (Exception error) { if (current()) _viewModel.ReportError(error.Message); return false; }
     }
@@ -169,6 +169,7 @@ public partial class MainWindow
     {
         var current = OwnerContext(); var node = _viewModel.SelectedSequence?.NodeId;
         var returnFocus = FocusManager?.GetFocusedElement() as Control;
+        CommitFocusedEditor();
         var name = new TextBox { Text = _viewModel.SelectedSequence?.Label };
         AutomationProperties.SetName(name, "New step name");
         var accept = new Button { Content = "Rename", IsDefault = true };

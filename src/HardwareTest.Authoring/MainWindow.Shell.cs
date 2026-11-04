@@ -140,6 +140,9 @@ public partial class MainWindow
             if (!ReferenceEquals(issuesDestination.Content, _issuesView))
             { previousIssues.Content = null; issuesDestination.Content = _issuesView; }
             IssuesDrawer.IsVisible = drawer;
+            var compact = ClientSize.Height <= 700;
+            SequencePurpose.IsVisible = !compact;
+            PlanNavigationBar.Margin = new Avalonia.Thickness(0, 0, 0, compact ? 8 : 16);
             // The sequence is the main canvas. Keep enough room for both panes, including enlarged text.
             var available = Math.Max(0, ClientSize.Width - 48 - 16);
             var inspector = ProgramLayout.ColumnDefinitions[2];

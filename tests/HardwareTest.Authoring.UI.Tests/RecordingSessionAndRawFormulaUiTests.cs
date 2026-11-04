@@ -29,8 +29,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         vm.SelectProgram(draft.PlanId);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
-        var selector = PreviewUiActions.RecordingSelector(first);
-        selector.SelectedIndex = 0;
+        PreviewUiActions.SelectRecording(first, 0);
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal("first", vm.SelectedDataset!.Run.RunId);
@@ -38,11 +37,13 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         else vm.SelectProgram("other");
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
+        window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
+        AuthoringUiFixture.Drain();
         Assert.NotEmpty(vm.Datasets);
         Assert.Null(vm.SelectedDataset);
-        Assert.Equal(-1, selector.SelectedIndex);
+        PreviewUiActions.CheckRecordingSelection(first, -1);
         Assert.StartsWith("Example data", vm.DataSourceDetails);
-        selector.SelectedIndex = 0;
+        PreviewUiActions.SelectRecording(first, 0);
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Equal(replaceWorkspace ? "second" : "other", vm.SelectedDataset!.Run.RunId);
@@ -61,20 +62,27 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         vm.StopRecovery();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
-        var selector = PreviewUiActions.RecordingSelector(fixture);
-        selector.SelectedIndex = 0;
+        PreviewUiActions.SelectRecording(fixture, 0);
         AuthoringUiFixture.Drain();
         var selectedPath = vm.SelectedDataset!.Path;
         Recording(fixture.WorkspaceRoot, draft.PlanId, "000-earlier", 91);
         vm.VisaAddress = "MOCK::EDITED";
         Assert.Single(vm.Datasets); // Ordinary editing consumes the validated cache.
-        Assert.Equal(0, selector.SelectedIndex);
+        PreviewUiActions.CheckRecordingSelection(fixture, 0);
         Assert.True(await vm.RefreshRecordingsAsync());
         await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
-        Assert.Equal(1, selector.SelectedIndex);
+        PreviewUiActions.CheckRecordingSelection(fixture, 1);
         Assert.Equal(selectedPath, vm.SelectedDataset!.Path);
         Assert.Equal("original", vm.SelectedDataset.Run.RunId);
+        var beforeCancel = vm.SelectedDataset;
+        var picker = PreviewUiActions.OpenRecordingPicker(fixture);
+        fixture.Control<ListBox>("Recordings", picker).SelectedIndex = 0;
+        AuthoringUiFixture.Drain();
+        Assert.Same(beforeCancel, vm.SelectedDataset);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Cancel recording selection", picker));
+        Assert.Same(beforeCancel, vm.SelectedDataset);
+        Assert.Equal(1, vm.SelectedDatasetIndex);
         File.Delete(selectedPath);
         vm.VisaAddress = "MOCK::AGAIN";
         Assert.Equal(2, vm.Datasets.Count);
@@ -82,7 +90,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         Assert.Single(vm.Datasets);
-        Assert.Equal(-1, selector.SelectedIndex);
+        PreviewUiActions.CheckRecordingSelection(fixture, -1);
         Assert.Null(vm.SelectedDataset);
         Assert.StartsWith("Example data", vm.DataSourceDetails);
     }

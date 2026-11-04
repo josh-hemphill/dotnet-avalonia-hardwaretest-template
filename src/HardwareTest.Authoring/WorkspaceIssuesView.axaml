@@ -6,20 +6,20 @@
         <TextBlock Text="{Binding IssuesCheckState}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
         <TextBlock Text="{Binding IssuesSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
       </StackPanel>
-      <Expander Margin="0,0,0,8" Header="Editing findings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Editing findings" IsVisible="{Binding HasWorkspace}">
-        <ScrollViewer Height="120" Margin="0,0,0,8" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Editing findings viewport">
+      <Expander x:Name="EditingFindingsSection" Margin="0,0,0,8" Header="Editing findings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Editing findings" IsVisible="{Binding HasWorkspace}">
+        <ScrollViewer Margin="0,0,0,8" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Editing findings viewport">
           <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:AuthoringEditingIssue">
                 <StackPanel Spacing="8">
                   <TextBlock Text="{Binding Severity}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringAccent}"/>
                   <TextBlock TextWrapping="Wrap" Text="{Binding Code}" FontWeight="SemiBold"/>
+                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+                  <Button Content="{Binding NavigationLabel}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
                   <TextBlock TextWrapping="Wrap" Text="{Binding PlanId, StringFormat='Program: {0}'}"/>
                   <TextBlock TextWrapping="Wrap" Text="Editing draft — separate from saved-plan checks" Classes="purpose"/>
                   <TextBlock TextWrapping="Wrap" Text="{Binding Section, StringFormat='Section: {0}'}" IsVisible="{Binding Section, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
                   <TextBlock TextWrapping="Wrap" Text="{Binding Field, StringFormat='Field: {0}'}" IsVisible="{Binding Field, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
-                  <Button Content="{Binding NavigationLabel}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
