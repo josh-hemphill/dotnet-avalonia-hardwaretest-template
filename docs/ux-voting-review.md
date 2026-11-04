@@ -1,7 +1,7 @@
 # Authoring UI/UX voting review
 
 Baseline: `f918475c544405bcdf376e16d86b1bf420185e91`.
-Review guidance: [Anthropic frontend-design](https://github.com/anthropics/skills/blob/a5333457c414d20d625f307df945842c0952ecc3/skills/frontend-design/SKILL.md).
+Review guidance: [Anthropic frontend-design](https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md).
 
 Three independent reviewers score the same seven categories. The median is the
 majority vote; the highest individual score cannot establish acceptance. Scores

@@ -7,7 +7,7 @@ internal static class PreviewDisclosureAssertions
 {
     public static void CheckCompactBoard(AuthoringUiFixture fixture)
     {
-        var preview = fixture.Window.FindControl<ContentControl>("SeparatePreview")!.Content as WorkspacePreviewView;
+        var preview = fixture.Window!.FindControl<ContentControl>("SeparatePreview")!.Content as WorkspacePreviewView;
         Assert.NotNull(preview);
         var source = preview.FindControl<Expander>("SourceDetailsDisclosure")!;
         var recordings = preview.FindControl<Expander>("RecordingsDisclosure")!;

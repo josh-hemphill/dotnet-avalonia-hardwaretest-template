@@ -335,7 +335,7 @@ public sealed class AuthoringExpertCommandsTests
         fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.A, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null);
         AuthoringUiFixture.Drain();
-        var palette = Assert.Single(fixture.Window.OwnedWindows);
+        var palette = Assert.Single(fixture.Window!.OwnedWindows);
         Assert.Equal("Add a step", palette.Title);
         Assert.Equal(revision, vm.SelectedDocument.Revision);
         Assert.Equal(rows, vm.SequenceItems.Select(row => row.NodeId).ToArray());

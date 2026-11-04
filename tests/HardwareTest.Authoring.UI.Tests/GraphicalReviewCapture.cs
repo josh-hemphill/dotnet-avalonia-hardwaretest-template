@@ -74,6 +74,6 @@ public sealed class GraphicalReviewCapture
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "ui-review");
         Directory.CreateDirectory(directory);
-        bitmap.Save(Path.Combine(directory, name + ".png"));
+        bitmap.Save(Path.Combine(directory, name + ".png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
 }
