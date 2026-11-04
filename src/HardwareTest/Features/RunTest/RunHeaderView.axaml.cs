@@ -15,5 +15,10 @@ public partial class RunHeaderView : UserControl
             SessionDetailsBox.FontSize = FontSize;
             SessionDetailsBox.Focus();
         };
+        ProgramDetailsButton.Flyout!.Opened += (_, _) =>
+        {
+            ProgramDetailsBox.FontSize = FontSize;
+            ProgramDetailsBox.Focus();
+        };
     }
 }

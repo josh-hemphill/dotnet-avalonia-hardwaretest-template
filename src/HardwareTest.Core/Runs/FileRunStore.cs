@@ -18,6 +18,9 @@ public sealed class TestRunSummary
     public required string RunId { get; init; }
     public required string PlanName { get; init; }
     public string PlanId { get; init; } = string.Empty;
+    public string? ExecutionScope { get; init; }
+    public string? SelectedStepPath { get; init; }
+    public string ExecutionScopeText => RunExecutionScopes.Describe(ExecutionScope, SelectedStepPath);
     public required DateTimeOffset StartedAt { get; init; }
     public required RunResult Result { get; init; }
     public string? DutSerial { get; init; }
@@ -117,6 +120,8 @@ public sealed class FileRunStore : IRunStore
                 RunId = run.RunId,
                 PlanName = run.PlanName,
                 PlanId = run.PlanId,
+                ExecutionScope = run.ExecutionScope,
+                SelectedStepPath = run.SelectedStepPath,
                 StartedAt = run.StartedAt,
                 Result = run.Result,
                 DutSerial = run.DutSerial,

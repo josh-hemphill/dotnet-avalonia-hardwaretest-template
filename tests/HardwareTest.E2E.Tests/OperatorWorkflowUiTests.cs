@@ -56,7 +56,8 @@ public sealed class OperatorWorkflowUiTests
         Assert.False(string.IsNullOrWhiteSpace(run.SessionPanel.DutPartError));
         Assert.Equal(run.SessionPanel.DutPartError, AutomationProperties.GetHelpText(part));
         Assert.True(string.IsNullOrEmpty(run.SessionPanel.DutSerialError));
-        Inside(part, window); Inside(confirm, window);
+        AssertInvalidFieldAndExplanationAfterResize(window, part,
+            preparation.FindControl<TextBlock>("DutPartErrorText")!, confirm, font);
         Type(window, part, "PN-900-REVIEW");
         Assert.True(string.IsNullOrEmpty(run.SessionPanel.DutPartError));
         Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(part)));
@@ -67,7 +68,8 @@ public sealed class OperatorWorkflowUiTests
         Assert.Equal(run.SessionPanel.DutRevisionError, AutomationProperties.GetHelpText(revision));
         Assert.True(string.IsNullOrEmpty(run.SessionPanel.DutSerialError));
         Assert.True(string.IsNullOrEmpty(run.SessionPanel.DutPartError));
-        Inside(revision, window); Inside(confirm, window);
+        AssertInvalidFieldAndExplanationAfterResize(window, revision,
+            preparation.FindControl<TextBlock>("DutRevisionErrorText")!, confirm, font);
         Type(window, revision, "C");
         Assert.True(string.IsNullOrEmpty(run.SessionPanel.DutRevisionError));
         Assert.True(string.IsNullOrEmpty(AutomationProperties.GetHelpText(revision)));
@@ -173,6 +175,37 @@ public sealed class OperatorWorkflowUiTests
         window.KeyTextInput(value);
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(value, field.Text);
+    }
+
+    private static void AssertInvalidFieldAndExplanationAfterResize(Window window, TextBox input, TextBlock error,
+        Button confirm, int originalFont)
+    {
+        void Check()
+        {
+            Dispatcher.UIThread.RunJobs();
+            using (var warm = window.CaptureRenderedFrame()) Assert.NotNull(warm);
+            Dispatcher.UIThread.RunJobs();
+            using (var settled = window.CaptureRenderedFrame()) Assert.NotNull(settled);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(input.IsFocused);
+            Assert.True(error.IsEffectivelyVisible);
+            Assert.False(string.IsNullOrWhiteSpace(error.Text));
+            Inside(Assert.IsType<TextBlock>(AutomationProperties.GetLabeledBy(input)), window);
+            Inside(input, window);
+            // Inside checks every containing ScrollContentPresenter as well as
+            // the window, so a painted but clipped error cannot satisfy this.
+            Inside(error, window);
+            Inside(confirm, window);
+        }
+
+        Check();
+        window.Width = 1280; window.Height = 800;
+        Check();
+        window.Width = 900; window.Height = 600;
+        window.FontSize = originalFont == 20 ? 14 : 20;
+        Check();
+        window.FontSize = originalFont;
+        Check();
     }
 
     internal static void Click(Button button)

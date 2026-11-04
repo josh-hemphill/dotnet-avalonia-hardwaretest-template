@@ -160,7 +160,6 @@ public partial class ResultsViewModel
             }
 
             await OpenAsync().ConfigureAwait(false);
-            Status = $"Opened run {ShortId.Display(runId)}.";
         }
         else
         {

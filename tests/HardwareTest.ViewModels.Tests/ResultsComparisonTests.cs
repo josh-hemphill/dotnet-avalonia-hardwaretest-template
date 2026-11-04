@@ -1,5 +1,7 @@
+using System.Text.Json;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Runs;
+using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Storage;
 using HardwareTest.Features.Results;
 using HardwareTest.ViewModels.Tests.Fakes;
@@ -183,6 +185,9 @@ public sealed class ResultsComparisonTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
+        Directory.CreateDirectory(store.GetRunDirectory("exp-1"));
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("exp-1"), "run.json"),
+            JsonSerializer.Serialize(Assert.IsType<TestRunRecord>(vm.OpenedRun), AppJsonContext.Default.TestRunRecord));
         await vm.ExportPackageCommand.ExecuteAsync();
 
         Assert.NotNull(export.LastPackageDir);

@@ -57,8 +57,8 @@ internal sealed class OperatorReviewPlanFixture : IDisposable
     {
         await run.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         run.ProgramSelection.SelectedProgram = Assert.Single(run.ProgramSelection.Programs, program => program.Id == Id);
-        await E2EHarness.WaitUntilAsync(() => FlattenHierarchy(run.StepTree.Hierarchy)
-            .Any(step => step.Name == LongAcquisitionName), TimeSpan.FromSeconds(30), "Persisted review fixture did not load through the normal catalog.");
+        await E2EHarness.WaitUntilAsync(() => run.IsSelectedProgramReady && FlattenHierarchy(run.StepTree.Hierarchy)
+            .Any(step => step.Name == LongAcquisitionName), TimeSpan.FromSeconds(30), "Persisted review fixture did not finish loading through the normal catalog.");
         Assert.True(run.SessionPanel.RequirePartNumber);
         Assert.True(run.SessionPanel.RequireRevision);
     }

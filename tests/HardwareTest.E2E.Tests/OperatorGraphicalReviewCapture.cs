@@ -23,9 +23,10 @@ public sealed class OperatorGraphicalReviewCapture
 {
     public static bool CaptureEnabled => Environment.GetEnvironmentVariable("HT_CAPTURE_OPERATOR_UI") == "1";
 
-    [AvaloniaFact(SkipUnless = nameof(CaptureEnabled), Skip = "Set HT_CAPTURE_OPERATOR_UI=1 to capture operator review evidence.")]
+    [AvaloniaFact]
     public async Task Capture_operator_preparation_run_results_and_settings()
     {
+        Assert.SkipUnless(CaptureEnabled, "Set HT_CAPTURE_OPERATOR_UI=1 to capture operator review evidence.");
         var app = E2EHarness.RequireApp();
         Assert.True(app.SettingsStore.AppSettings.UseMockVisa, "Review execution must use the isolated mock-instrument configuration.");
         using var shown = E2EHarness.ShowMainWindow();
@@ -309,6 +310,21 @@ public sealed class OperatorGraphicalReviewCapture
 
         main.NavigateToPageId("RunTest");
         run.Workspace.OpenSteps();
+        run.ApplySelectionFromInspect(Assert.Single(OperatorReviewPlanFixture.FlattenHierarchy(run.StepTree.Hierarchy),
+            step => step.Name == OperatorReviewPlanFixture.LongAcquisitionName).Path);
+        Assert.True(run.CanStartRunSelected);
+        var selectedTask = run.Run.RunSelectedCommand.ExecuteAsync();
+        await E2EHarness.WaitUntilAsync(() => !run.IsRunning && selectedTask.IsCompleted, TimeSpan.FromMinutes(1));
+        await selectedTask;
+        var selected = await store.LoadAsync(run.LastRunId!);
+        Assert.NotNull(selected);
+        Assert.Equal(RunExecutionScopes.SelectedStep, selected.ExecutionScope);
+        Assert.Equal(OperatorReviewPlanFixture.LongAcquisitionName, run.StepTree.SelectedStep!.Name);
+        CaptureMatrix(window, main, "run-selected-step-completed");
+        main.NavigateToPageId("Results");
+        await main.Results.OpenRunByIdAsync(selected.RunId);
+        CaptureMatrix(window, main, "results-selected-step-detail");
+        main.NavigateToPageId("RunTest");
         var stoppedTask = run.Run.RunCommand.ExecuteAsync();
         await E2EHarness.WaitUntilAsync(() => run.Interaction.IsAwaitingOperator || stoppedTask.IsCompleted,
             TimeSpan.FromSeconds(30));

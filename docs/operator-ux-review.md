@@ -6,6 +6,10 @@ Review branch: `fix/operator-ux-voting-review`, independently based on `latest`.
 Authoring PR #239 remains separate; this review covers the standalone operator
 application in `src/HardwareTest` and its actual operating workflows.
 
+Persona workflows and subsequent UI changes are evaluated separately in
+[the persona review](operator-persona-review.md), against
+[the frozen persona contract](operator-persona-workflows.md).
+
 ## Fixed method and target
 
 Three independent competing reviewers assess each graphical candidate using the

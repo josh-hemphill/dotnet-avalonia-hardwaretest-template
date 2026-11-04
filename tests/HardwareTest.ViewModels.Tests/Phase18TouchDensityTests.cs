@@ -145,6 +145,7 @@ public sealed class Phase18TouchDensityTests
     public async Task ShowStartBlockedTip_false_after_session_confirm()
     {
         var vm = RunTestViewModelTestFactory.Create();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         vm.SessionPanel.DutSerialInput = "SN-TOUCH";
         vm.SessionPanel.OperatorInput = "Tech";
         await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();

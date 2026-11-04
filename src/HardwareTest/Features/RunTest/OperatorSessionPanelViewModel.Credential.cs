@@ -6,6 +6,19 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class OperatorSessionPanelViewModel
 {
+    private CancellationTokenSource? _credentialCaptureCancellation;
+
+    private void InvalidateCredentialCapture()
+    {
+        var capture = _credentialCaptureCancellation;
+        if (capture is null) return;
+        // Release ownership before cancellation can resume an older request's continuation.
+        _credentialCaptureCancellation = null;
+        IsCapturingCredential = false;
+        CredentialStatus = _credentialBroker?.StatusText ?? string.Empty;
+        capture.Cancel();
+    }
+
     /// Starts badge presence wait when Settings auto-probe is on and the technician field is empty.
     public void OnTechnicianFocused()
     {
@@ -24,18 +37,27 @@ public partial class OperatorSessionPanelViewModel
     /// Waits for a chip insert or contactless tap and fills technician identity.
     private async Task CaptureCredentialAsync()
     {
-        if (_credentialBroker is null || IsCapturingCredential)
+        if (_credentialBroker is null || IsCapturingCredential || _isRunning())
         {
             return;
         }
 
+        using var capture = new CancellationTokenSource();
+        _credentialCaptureCancellation = capture;
         IsCapturingCredential = true;
         CredentialStatus = _credentialBroker.StatusText;
         try
         {
             var result = await _credentialBroker
-                .WaitForPresenceAsync(ReportAttestationService.DefaultPresenceTimeout)
+                .WaitForPresenceAsync(ReportAttestationService.DefaultPresenceTimeout, capture.Token)
+                // A faulty reader may ignore cancellation. Do not keep the incoming
+                // operator's command unavailable until that reader eventually returns.
+                .WaitAsync(capture.Token)
                 .ConfigureAwait(true);
+            if (!ReferenceEquals(_credentialCaptureCancellation, capture) || capture.IsCancellationRequested || _isRunning())
+            {
+                return;
+            }
             if (!result.Succeeded || result.Credential is null)
             {
                 CredentialStatus = result.Error ?? "Present a badge: insert chip or tap the reader.";
@@ -56,16 +78,22 @@ public partial class OperatorSessionPanelViewModel
         }
         catch (OperationCanceledException)
         {
-            CredentialStatus = "Badge capture cancelled.";
+            if (ReferenceEquals(_credentialCaptureCancellation, capture))
+                CredentialStatus = "Badge capture cancelled.";
         }
         catch (Exception)
         {
             // Focus-triggered capture is fire-and-forget; do not crash the UI thread.
-            CredentialStatus = "Badge capture failed.";
+            if (ReferenceEquals(_credentialCaptureCancellation, capture))
+                CredentialStatus = "Badge capture failed.";
         }
         finally
         {
-            IsCapturingCredential = false;
+            if (ReferenceEquals(_credentialCaptureCancellation, capture))
+            {
+                _credentialCaptureCancellation = null;
+                IsCapturingCredential = false;
+            }
         }
     }
 

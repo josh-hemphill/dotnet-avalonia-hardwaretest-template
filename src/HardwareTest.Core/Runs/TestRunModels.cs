@@ -15,6 +15,23 @@ public enum RunResult
     Error = 4,
 }
 
+/// Execution provenance remains separate from the verdict and rolled-up attempt history.
+public static class RunExecutionScopes
+{
+    public const string FullSuite = "full-suite";
+    public const string SelectedStep = "selected-step";
+
+    public static string Describe(string? scope, string? selectedStepPath)
+        => scope switch
+        {
+            FullSuite => "Full suite",
+            SelectedStep when !string.IsNullOrWhiteSpace(selectedStepPath)
+                => $"Selected step only: {selectedStepPath}",
+            SelectedStep => "Selected step only",
+            _ => "Scope not recorded",
+        };
+}
+
 public sealed class TestRunRecord
 {
     /// Persisted document schema version (see SchemaVersions.TestRunRecord).
@@ -23,6 +40,11 @@ public sealed class TestRunRecord
     public string TraceId { get; set; } = string.Empty;
     public string PlanId { get; set; } = string.Empty;
     public string PlanName { get; set; } = string.Empty;
+    /// Explicit execution scope; missing on older records and never inferred from their verdict.
+    public string? ExecutionScope { get; set; }
+    public string? SelectedStepPath { get; set; }
+    [JsonIgnore]
+    public string ExecutionScopeText => RunExecutionScopes.Describe(ExecutionScope, SelectedStepPath);
     public string? DutSerial { get; set; }
     public string? DutPartNumber { get; set; }
     public string? DutRevision { get; set; }

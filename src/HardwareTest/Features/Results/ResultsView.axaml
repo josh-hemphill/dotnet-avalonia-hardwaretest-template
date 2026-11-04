@@ -100,14 +100,14 @@
                   IsVisible="{Binding HasStoredRuns}" AutomationProperties.Name="Clear unmatched results search and filters"/>
         </StackPanel>
       </Border>
-      <ListBox x:Name="RunResultsList" ItemsSource="{Binding Runs}" Classes="operator-list" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding HasRuns}"
-               Tapped="OnRunsTapped" DoubleTapped="OnRunsDoubleTapped" KeyDown="OnRunsKeyDown" Focusable="True"
+      <vm:ResultsListBox x:Name="RunResultsList" ItemsSource="{Binding Runs}" Classes="operator-list" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding HasRuns}"
+               Tapped="OnRunsTapped" DoubleTapped="OnRunsDoubleTapped" Focusable="True"
                AutomationProperties.Name="Saved runs" MinHeight="40" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
         <ListBox.Styles>
           <Style Selector="ListBoxItem" x:DataType="runs:TestRunSummary">
             <Setter Property="AutomationProperties.Name">
-              <MultiBinding StringFormat="{}{0}, DUT {1}, {2}">
-                <Binding Path="PlanName"/><Binding Path="DutSerial"/><Binding Path="Result"/>
+              <MultiBinding StringFormat="{}{0}, DUT {1}, {2}, {3}">
+                <Binding Path="PlanName"/><Binding Path="DutSerial"/><Binding Path="Result"/><Binding Path="ExecutionScopeText"/>
               </MultiBinding>
             </Setter>
           </Style>
@@ -117,6 +117,7 @@
             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
               <StackPanel Spacing="4">
                 <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding ExecutionScopeText}" TextWrapping="Wrap"/>
                 <TextBlock Text="{Binding DutSerial, StringFormat='DUT: {0}'}" TextWrapping="Wrap"/>
                 <TextBlock Text="Read-only schema" IsVisible="{Binding IsSchemaReadOnly}" TextWrapping="Wrap" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"/>
               </StackPanel>
@@ -133,45 +134,57 @@
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
-      </ListBox>
+      </vm:ResultsListBox>
     </DockPanel>
     <Border x:Name="ResultsDetailPane" Grid.Row="1" Grid.Column="1"
             IsVisible="{Binding ShowDetail}"
             Padding="10"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
       <DockPanel>
-        <!-- Sticky chrome: keep Close/schema out of the scroller so the bar cannot cover them. -->
+        <!-- Verdict, scope and navigation remain visible while secondary identity is disclosed. -->
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
-          <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <TextBlock TextTrimming="CharacterEllipsis" Text="{Binding OpenedRun.RunId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat=Run {0}}"
-                       FontWeight="SemiBold"
-                       ToolTip.Tip="{Binding OpenedRun.RunId}" />
-            <Border Grid.Column="1"
-                    IsVisible="{Binding HasSchemaBadge}"
-                    Padding="6,2"
-                    CornerRadius="3"
-                    Background="{DynamicResource SystemControlBackgroundBaseMediumBrush}"
-                    VerticalAlignment="Center">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <TextBlock Text="{Binding OpenedRun.PlanName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                       VerticalAlignment="Center" ToolTip.Tip="{Binding OpenedRun.PlanName}" />
+            <Button x:Name="ResultsCloseButton" Grid.Column="1" Content="Back to results" Command="{Binding CloseDetailCommand}" Classes="operator" AutomationProperties.Name="Close run details"/>
+          </Grid>
+          <WrapPanel>
+            <Border CornerRadius="4" Padding="8,4" Margin="0,0,8,4" VerticalAlignment="Center"
+                    Background="{Binding OpenedRun.Result, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
+              <TextBlock x:Name="SavedRunVerdict" Text="{Binding OpenedRun.Result, StringFormat='Verdict: {0}'}"
+                         Foreground="White" FontWeight="SemiBold"
+                         AutomationProperties.Name="{Binding OpenedRun.Result, StringFormat='Verdict: {0}'}" />
+            </Border>
+            <Button x:Name="RunIdentityButton" Content="Run details" Classes="operator" Margin="0,0,8,4"
+                    AutomationProperties.Name="Inspect full saved run details">
+              <Button.Flyout>
+                <Flyout>
+                  <TextBox x:Name="RunIdentityBox" Width="400" MaxWidth="480" MaxHeight="320"
+                           Text="{Binding RunIdentityText}" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                           ScrollViewer.VerticalScrollBarVisibility="Auto"
+                           AutomationProperties.Name="Full saved run details" KeyDown="OnRunIdentityKeyDown" />
+                </Flyout>
+              </Button.Flyout>
+            </Button>
+            <Border IsVisible="{Binding HasSchemaBadge}" Padding="6,2" Margin="0,0,0,4" CornerRadius="3"
+                    Background="{DynamicResource SystemControlBackgroundBaseMediumBrush}" VerticalAlignment="Center">
               <TextBlock Text="{Binding SchemaBadge}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Opacity="0.9" />
             </Border>
-            <Button x:Name="ResultsCloseButton" Grid.Column="2" Content="Back to results" Command="{Binding CloseDetailCommand}" Classes="operator" AutomationProperties.Name="Close run details"/>
-          </Grid>
-          <TextBlock Text="{Binding SchemaWarning}"
-                     IsVisible="{Binding HasSchemaWarning}"
-                     TextWrapping="Wrap"
-                     Opacity="0.85"
-                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
-          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
-          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
-          <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
-            <TextBlock Text="Certification" FontWeight="SemiBold" />
-            <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
-          </StackPanel>
+          </WrapPanel>
+          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.ExecutionScopeText}" FontWeight="SemiBold" MaxLines="2" TextTrimming="CharacterEllipsis"
+                     AutomationProperties.Name="Saved run execution scope"
+                     AutomationProperties.HelpText="{Binding OpenedRun.ExecutionScopeText}" ToolTip.Tip="{Binding OpenedRun.ExecutionScopeText}" />
+          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" MaxLines="2" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding SchemaWarning}" IsVisible="{Binding HasSchemaWarning}" TextWrapping="Wrap"
+                     Opacity="0.85" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
         </StackPanel>
 
         <ScrollViewer Padding="0,0,4,0">
           <StackPanel Spacing="6">
+            <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
+              <TextBlock Text="Certification" FontWeight="SemiBold" />
+              <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
+            </StackPanel>
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
               <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">
@@ -221,7 +234,8 @@
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <Button Content="Export to…" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left" />
+              <Button x:Name="ResultsExportButton" Content="Export package" Command="{Binding ExportPackageCommand}" HorizontalAlignment="Left"
+                      Classes="operator" AutomationProperties.Name="Export package" />
             </StackPanel>
 
             <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasHistory}">
@@ -343,7 +357,8 @@
             Background="#CC000000"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch">
-      <Border MaxWidth="520"
+      <Border x:Name="AttestationPanel" MaxWidth="520" Margin="12"
+              KeyboardNavigation.TabNavigation="Cycle"
               HorizontalAlignment="Center"
               VerticalAlignment="Center"
               Padding="16"
@@ -354,43 +369,44 @@
         <StackPanel Spacing="10">
           <TextBlock Text="Sign and continue"
                      FontWeight="SemiBold" />
-          <TextBlock Text="{Binding AttestationPromptStatus}"
+          <TextBlock Text="{Binding AttestationPromptStatus}" AutomationProperties.LiveSetting="Polite"
                      TextWrapping="Wrap"
                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-          <TextBox IsVisible="{Binding ShowAttestationPin}"
+          <TextBlock x:Name="AttestationPinLabel" Text="Badge PIN" IsVisible="{Binding ShowAttestationPin}" />
+          <TextBox x:Name="AttestationPinBox" IsVisible="{Binding ShowAttestationPin}"
                    PasswordChar="•"
                    PlaceholderText="Badge PIN"
                    Text="{Binding AttestationPin}"
                    MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                   AutomationProperties.Name="Badge PIN" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="Sign and continue"
+                   AutomationProperties.Name="Badge PIN" AutomationProperties.LabeledBy="{Binding #AttestationPinLabel}" />
+          <WrapPanel>
+            <Button x:Name="AttestationCaptureButton" Content="Sign and continue" Margin="0,0,8,8"
                     Command="{Binding CaptureAttestationCommand}"
                     Classes="primary"
                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                     IsVisible="{Binding !ShowAttestationPin}"
                     IsEnabled="{Binding !IsCapturingAttestation}"
                     AutomationProperties.Name="Tap or insert badge" />
-            <Button Content="Sign"
+            <Button Content="Sign" Margin="0,0,8,8"
                     Command="{Binding CaptureAttestationCommand}"
                     Classes="primary"
                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                     IsVisible="{Binding ShowAttestationPin}"
                     IsEnabled="{Binding !IsCapturingAttestation}"
                     AutomationProperties.Name="Sign with badge PIN" />
-            <Button Content="Record presence"
+            <Button Content="Record presence" Margin="0,0,8,8"
                     Command="{Binding UsePresenceAttestationCommand}"
                     Classes="operator"
                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                     IsVisible="{Binding AllowPresenceFallback}"
                     IsEnabled="{Binding !IsCapturingAttestation}"
                     AutomationProperties.Name="Record presence without signing" />
-            <Button Content="Cancel"
+            <Button Content="Cancel" Margin="0,0,8,8"
                     Command="{Binding CancelAttestationCommand}"
                     Classes="operator"
                     MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                    IsEnabled="{Binding !IsCapturingAttestation}" />
-          </StackPanel>
+                    AutomationProperties.Name="Cancel report signing" />
+          </WrapPanel>
         </StackPanel>
       </Border>
     </Border>

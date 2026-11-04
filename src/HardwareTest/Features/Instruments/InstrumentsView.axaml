@@ -7,6 +7,7 @@
     <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
       <TextBlock Text="Instrument setup" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"/>
       <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.Name="Instrument setup status" AutomationProperties.LiveSetting="Polite"/>
+      <TextBlock Text="{Binding BindingOwnershipHint}" IsVisible="{Binding BindingsReadOnly}" TextWrapping="Wrap" AutomationProperties.Name="Station binding ownership"/>
       <TextBlock Text="Working…" IsVisible="{Binding IsBusy}" FontWeight="SemiBold"/>
     </StackPanel>
     <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,12,0,0">
@@ -16,9 +17,9 @@
         <TextBlock Grid.Column="2" Text="{Binding SelectedSlot.PlanDisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedSlot.Summary}" AutomationProperties.Name="Selected binding target" AutomationProperties.HelpText="{Binding SelectedSlot.Summary}"/>
       </Grid>
       <WrapPanel>
-      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" IsEnabled="{Binding !IsBusy}"
+      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" IsEnabled="{Binding CanEditBindings}"
               Classes="operator primary" AutomationProperties.Name="Apply selected resource" Margin="0,0,8,4"/>
-      <Button Content="Save overrides" Command="{Binding SaveCommand}" IsEnabled="{Binding !IsBusy}"
+      <Button Content="Save overrides" Command="{Binding SaveCommand}" IsEnabled="{Binding CanEditBindings}"
               Classes="operator" AutomationProperties.Name="Save instrument overrides" Margin="0,0,8,4"/>
       <Button Content="Go to Run" Command="{Binding NavigateToRunCommand}" Classes="operator" AutomationProperties.Name="Return to Run" Margin="0,0,0,4"/>
       </WrapPanel>
@@ -30,8 +31,9 @@
             <StackPanel Spacing="6">
               <TextBlock x:Name="CommissionProgramLabel" Text="Program" FontWeight="SemiBold"/>
               <ComboBox ItemsSource="{Binding PlanFilterOptions}" SelectedItem="{Binding PlanFilter}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
-                        AutomationProperties.Name="Commissioning program" AutomationProperties.LabeledBy="{Binding #CommissionProgramLabel}" ToolTip.Tip="{Binding PlanFilter}">
+                        AutomationProperties.Name="Commissioning program" AutomationProperties.LabeledBy="{Binding #CommissionProgramLabel}" AutomationProperties.HelpText="{Binding PlanFilter}" ToolTip.Tip="{Binding PlanFilter}">
                 <ComboBox.SelectionBoxItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
+                <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="640"/></DataTemplate></ComboBox.ItemTemplate>
               </ComboBox>
             </StackPanel>
             <StackPanel Grid.Column="1" Spacing="4">
@@ -66,8 +68,8 @@
                   <TextBlock Text="{Binding SelectedSlot.TypeName, StringFormat='Adapter type: {0}'}" TextWrapping="Wrap"/>
                   <TextBlock Text="{Binding SelectedSlot.PlanDefaultResource, StringFormat='Plan address: {0}'}" TextWrapping="Wrap"/>
                   <TextBlock x:Name="ManualAddressLabel" Text="Station override address" TextWrapping="Wrap"/>
-                  <TextBox Text="{Binding SelectedSlot.OverrideResource}" MinHeight="40" AutomationProperties.Name="Station override address" AutomationProperties.LabeledBy="{Binding #ManualAddressLabel}"/>
-                  <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" Classes="operator" AutomationProperties.Name="Clear selected instrument override"/>
+                  <TextBox Text="{Binding SelectedSlot.OverrideResource}" IsReadOnly="{Binding !CanEditBindings}" MinHeight="40" AutomationProperties.Name="Station override address" AutomationProperties.LabeledBy="{Binding #ManualAddressLabel}" AutomationProperties.HelpText="{Binding BindingOwnershipHint}"/>
+                  <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" IsEnabled="{Binding CanEditBindings}" HorizontalAlignment="Left" Classes="operator" AutomationProperties.Name="Clear selected instrument override"/>
                 </StackPanel>
               </Expander>
             </StackPanel>

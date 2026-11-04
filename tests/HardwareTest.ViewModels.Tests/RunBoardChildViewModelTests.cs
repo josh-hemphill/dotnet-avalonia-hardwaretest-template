@@ -508,6 +508,7 @@ public sealed class RunBoardChildViewModelTests
         var clock = new FakeClock(new DateTimeOffset(2026, 5, 1, 9, 0, 0, TimeSpan.Zero));
         var session = new OperatorSession(clock);
         session.ConfirmDut("SN-1");
+        session.OperatorName = "Tech";
         var settings = new AppSettings
         {
             OperatorSessionIdleMinutes = 60,

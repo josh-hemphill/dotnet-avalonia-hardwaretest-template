@@ -1770,6 +1770,8 @@ public sealed class FakeRunStore : IRunStore, IDisposable
                 RunId = r.RunId,
                 PlanName = r.PlanName,
                 PlanId = r.PlanId,
+                ExecutionScope = r.ExecutionScope,
+                SelectedStepPath = r.SelectedStepPath,
                 StartedAt = r.StartedAt,
                 Result = r.Result,
                 DutSerial = r.DutSerial,

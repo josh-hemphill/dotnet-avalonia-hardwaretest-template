@@ -11,6 +11,7 @@ namespace HardwareTest.Features.RunTest;
 public partial class RunPreparationView : UserControl
 {
     private RunTestViewModel? _subscribed;
+    private bool _focusLayoutQueued;
 
     public RunPreparationView()
     {
@@ -18,6 +19,34 @@ public partial class RunPreparationView : UserControl
         DataContextChanged += OnDataContextChanged;
         AttachedToVisualTree += (_, _) => OnDataContextChanged(this, EventArgs.Empty);
         DetachedFromVisualTree += (_, _) => Unsubscribe();
+        SizeChanged += (_, _) => KeepFocusedFieldVisible();
+        SessionFieldsScroller.SizeChanged += (_, _) => KeepFocusedFieldVisible();
+        PropertyChanged += (_, change) =>
+        {
+            if (change.Property == FontSizeProperty) KeepFocusedFieldVisible();
+        };
+    }
+
+    private void KeepFocusedFieldVisible()
+    {
+        if (_focusLayoutQueued) return;
+        _focusLayoutQueued = true;
+        var owner = _subscribed;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _focusLayoutQueued = false;
+            if (owner is null || !ReferenceEquals(owner, _subscribed) || !IsEffectivelyVisible) return;
+            if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Control focused
+                && focused.GetVisualAncestors().Contains(SessionFieldsScroller)) BringFieldGroupIntoView(focused);
+        }, DispatcherPriority.Loaded);
+    }
+
+    private static void BringFieldGroupIntoView(Control field)
+    {
+        // Labels and validation text belong to the same direct field container.
+        // Scrolling only the input can leave its explanation below the viewport.
+        var group = field.GetVisualAncestors().OfType<StackPanel>().FirstOrDefault();
+        (group as Control ?? field).BringIntoView();
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -129,8 +158,10 @@ public partial class RunPreparationView : UserControl
             return false;
         }
 
-        target.BringIntoView();
-        return target.Focus();
+        var focused = target.Focus();
+        BringFieldGroupIntoView(target);
+        KeepFocusedFieldVisible();
+        return focused;
     }
 
     private void OnStaleTechnicianKeyDown(object? sender, KeyEventArgs e)

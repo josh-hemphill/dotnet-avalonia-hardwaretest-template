@@ -94,48 +94,56 @@ public partial class ResultsViewModel
 
     private void ApplyFilters()
     {
-        var selectedId = SelectedRun?.RunId;
-        Runs.Clear();
-        foreach (var run in _allRuns.Where(MatchesFilters))
+        // Rebuilding ItemsSource clears a bound ListBox selection before it can be
+        // restored. That maintenance is not a new user selection or an open action.
+        var wasSuppressed = _suppressAutoOpen;
+        _suppressAutoOpen = true;
+        try
         {
-            Runs.Add(run);
-        }
+            var selectedId = SelectedRun?.RunId;
+            Runs.Clear();
+            foreach (var run in _allRuns.Where(MatchesFilters))
+            {
+                Runs.Add(run);
+            }
 
-        var slice = _allRuns.Where(MatchesNonResultFilters).ToList();
-        var passed = slice.Count(r => r.Result == RunResult.Passed);
-        var failed = slice.Count(r => r.Result == RunResult.Failed);
-        var other = slice.Count - passed - failed;
-        YieldSummary = slice.Count == 0
-            ? string.Empty
-            : $"Passed {passed} · Failed {failed} · Other {other}";
+            var slice = _allRuns.Where(MatchesNonResultFilters).ToList();
+            var passed = slice.Count(r => r.Result == RunResult.Passed);
+            var failed = slice.Count(r => r.Result == RunResult.Failed);
+            var other = slice.Count - passed - failed;
+            YieldSummary = slice.Count == 0
+                ? string.Empty
+                : $"Passed {passed} · Failed {failed} · Other {other}";
 
-        if (_allRuns.Count == 0)
-        {
-            FilterStatus = string.Empty;
-        }
-        else if (string.IsNullOrWhiteSpace(YieldSummary))
-        {
-            FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count}";
-        }
-        else
-        {
-            FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
-        }
+            if (_allRuns.Count == 0)
+            {
+                FilterStatus = string.Empty;
+            }
+            else if (string.IsNullOrWhiteSpace(YieldSummary))
+            {
+                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count}";
+            }
+            else
+            {
+                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
+            }
 
-        this.RaisePropertyChanged(nameof(HasRuns));
-        this.RaisePropertyChanged(nameof(HasSchemaDrift));
-        this.RaisePropertyChanged(nameof(SchemaDriftSummary));
-        this.RaisePropertyChanged(nameof(HasStoredRuns));
-        this.RaisePropertyChanged(nameof(HasActiveFilters));
-        this.RaisePropertyChanged(nameof(FilterHeading));
-        this.RaisePropertyChanged(nameof(EmptyResultsTitle));
-        this.RaisePropertyChanged(nameof(EmptyResultsHint));
+            this.RaisePropertyChanged(nameof(HasRuns));
+            this.RaisePropertyChanged(nameof(HasSchemaDrift));
+            this.RaisePropertyChanged(nameof(SchemaDriftSummary));
+            this.RaisePropertyChanged(nameof(HasStoredRuns));
+            this.RaisePropertyChanged(nameof(HasActiveFilters));
+            this.RaisePropertyChanged(nameof(FilterHeading));
+            this.RaisePropertyChanged(nameof(EmptyResultsTitle));
+            this.RaisePropertyChanged(nameof(EmptyResultsHint));
 
-        if (selectedId is not null)
-        {
-            SelectedRun = Runs.FirstOrDefault(r =>
-                string.Equals(r.RunId, selectedId, StringComparison.OrdinalIgnoreCase));
+            if (selectedId is not null)
+            {
+                SelectedRun = Runs.FirstOrDefault(r =>
+                    string.Equals(r.RunId, selectedId, StringComparison.OrdinalIgnoreCase));
+            }
         }
+        finally { _suppressAutoOpen = wasSuppressed; }
     }
 
     private bool MatchesFilters(TestRunSummary run)

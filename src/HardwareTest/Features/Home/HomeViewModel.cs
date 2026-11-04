@@ -25,7 +25,7 @@ public partial class HomeViewModel : ReactiveObject
         new()
         {
             Title = "Getting started",
-            Body = "Choose a test program in Run, confirm the device and technician, then start. Follow any on-screen instructions before continuing.",
+            Body = "Choose the program assigned to your device in Run, confirm the device and technician, then start. Follow the on-screen instructions. If your program is missing or won't load, contact a station technician.",
             ActionLabel = "Open Run",
             NavigatePageId = ShellBuiltInPageIds.RunTest,
             Placement = ShellPagePlacement.Operator,

@@ -85,7 +85,6 @@ public sealed class OperatorResultsLayoutTests
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
         await E2EHarness.PumpUiAsync();
         Assert.False(vm.ShowDetail);
-        Assert.True(list.Focus());
         window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         await E2EHarness.WaitUntilAsync(() => vm.ShowDetail);
         OperatorWorkflowUiTests.Click(close);

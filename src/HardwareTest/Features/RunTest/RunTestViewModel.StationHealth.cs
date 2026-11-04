@@ -9,6 +9,8 @@ public partial class RunTestViewModel
     /// True when neither a run, session block, nor a station-health Block is holding start.
     public bool CanStartRun
         => !IsRunning
+           && IsSelectedProgramReady
+           && !ProgramSelection.IsBusy
            && !SessionPanel.SessionBlocked
            && !string.Equals(
                _stationHealthDecision?.Level,
@@ -24,6 +26,9 @@ public partial class RunTestViewModel
             {
                 return StopRunCopy.InProgressTip;
             }
+
+            if (!IsSelectedProgramReady || ProgramSelection.IsBusy)
+                return ProgramAvailabilityMessage;
 
             if (SessionPanel.SessionBlocked)
             {

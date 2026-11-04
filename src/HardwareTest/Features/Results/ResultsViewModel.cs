@@ -141,6 +141,7 @@ public partial class ResultsViewModel : ReactiveObject
 
         PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(OpenedRun)) this.RaisePropertyChanged(nameof(RunIdentityText));
             if (args.PropertyName == nameof(OpenedRun) && !ReferenceEquals(OpenedRun, _pendingAttestationRun)) DismissAttestationPrompt();
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
                 or nameof(PlanFilter) or nameof(DutFilter)

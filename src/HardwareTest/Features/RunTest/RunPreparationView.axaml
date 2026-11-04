@@ -13,16 +13,21 @@
         <TextBlock Text="{Binding SessionPanel.IdleCountdownText}" IsVisible="{Binding SessionPanel.ShowIdleCountdown}"
                    TextWrapping="Wrap" Opacity="0.8"/>
       </StackPanel>
-      <Button DockPanel.Dock="Bottom" Content="Confirm Session" Command="{Binding SessionPanel.ConfirmSessionCommand}"
-              IsVisible="{Binding SessionPanel.NeedsDutConfirm}" Classes="primary" HorizontalAlignment="Left" Margin="0,12,0,0"
-              AutomationProperties.Name="Confirm session"/>
-      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Session preparation fields">
+      <WrapPanel DockPanel.Dock="Bottom" IsVisible="{Binding SessionPanel.NeedsDutConfirm}" Margin="0,12,0,0">
+        <Button Content="Confirm Session" Command="{Binding SessionPanel.ConfirmSessionCommand}"
+                Classes="primary" HorizontalAlignment="Left" Margin="0,0,8,0"
+                AutomationProperties.Name="Confirm session"/>
+        <Button Content="Change session" Command="{Binding SessionPanel.ChangeSessionCommand}"
+                Classes="operator" IsVisible="{Binding SessionPanel.ShowFullFormChangeSession}"
+                AutomationProperties.Name="Change session"/>
+      </WrapPanel>
+      <ScrollViewer x:Name="SessionFieldsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Session preparation fields">
         <StackPanel Spacing="12">
           <StackPanel Spacing="8" IsVisible="{Binding SessionPanel.ShowSameDutPrompt}">
-            <TextBlock Text="Still testing this DUT?" TextWrapping="Wrap"/>
+            <TextBlock Text="Same DUT keeps this DUT and technician. For a new DUT or a different technician, choose Change session." TextWrapping="Wrap"/>
             <WrapPanel>
               <Button Content="Same DUT" Command="{Binding SessionPanel.ConfirmSameDutCommand}" Classes="operator" Margin="0,0,8,8"/>
-              <Button Content="Change Session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator"
+              <Button Content="Change session" Command="{Binding SessionPanel.ChangeSessionCommand}" Classes="operator"
                       IsEnabled="{Binding !IsRunning}" Margin="0,0,0,8"/>
             </WrapPanel>
             <StackPanel Spacing="4" IsVisible="{Binding SessionPanel.ShowStaleTechnicianField}">
@@ -49,7 +54,7 @@
                        Classes.error="{Binding SessionPanel.HasDutSerialError}" MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                        AutomationProperties.Name="DUT serial" AutomationProperties.LabeledBy="{Binding #DutSerialLabel}" AutomationProperties.IsRequiredForForm="{Binding SessionPanel.RequireSerial}"
                        AutomationProperties.HelpText="{Binding SessionPanel.DutSerialError}" KeyDown="OnSessionFieldKeyDown"/>
-              <TextBlock Text="{Binding SessionPanel.DutSerialError}" IsVisible="{Binding SessionPanel.HasDutSerialError}"
+              <TextBlock x:Name="DutSerialErrorText" Text="{Binding SessionPanel.DutSerialError}" IsVisible="{Binding SessionPanel.HasDutSerialError}"
                          Foreground="{DynamicResource OperatorErrorText}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/>
             </StackPanel>
             <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
@@ -58,7 +63,7 @@
                        Classes.error="{Binding SessionPanel.HasOperatorError}" MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                        AutomationProperties.Name="Technician" AutomationProperties.LabeledBy="{Binding #TechnicianLabel}" AutomationProperties.IsRequiredForForm="{Binding SessionPanel.RequireOperator}"
                        AutomationProperties.HelpText="{Binding SessionPanel.OperatorError}" KeyDown="OnSessionFieldKeyDown" GotFocus="OnTechnicianGotFocus"/>
-              <TextBlock Text="{Binding SessionPanel.OperatorError}" IsVisible="{Binding SessionPanel.HasOperatorError}"
+              <TextBlock x:Name="TechnicianErrorText" Text="{Binding SessionPanel.OperatorError}" IsVisible="{Binding SessionPanel.HasOperatorError}"
                          Foreground="{DynamicResource OperatorErrorText}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4" IsVisible="{Binding SessionPanel.RequirePartNumber}">
@@ -67,7 +72,7 @@
                        Classes.error="{Binding SessionPanel.HasDutPartError}" MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                        AutomationProperties.Name="DUT part number" AutomationProperties.LabeledBy="{Binding #DutPartLabel}" AutomationProperties.IsRequiredForForm="{Binding SessionPanel.RequirePartNumber}"
                        AutomationProperties.HelpText="{Binding SessionPanel.DutPartError}" KeyDown="OnSessionFieldKeyDown"/>
-              <TextBlock Text="{Binding SessionPanel.DutPartError}" IsVisible="{Binding SessionPanel.HasDutPartError}"
+              <TextBlock x:Name="DutPartErrorText" Text="{Binding SessionPanel.DutPartError}" IsVisible="{Binding SessionPanel.HasDutPartError}"
                          Foreground="{DynamicResource OperatorErrorText}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/>
             </StackPanel>
             <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4" IsVisible="{Binding SessionPanel.RequireRevision}">
@@ -76,7 +81,7 @@
                        Classes.error="{Binding SessionPanel.HasDutRevisionError}" MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                        AutomationProperties.Name="DUT revision" AutomationProperties.LabeledBy="{Binding #DutRevisionLabel}" AutomationProperties.IsRequiredForForm="{Binding SessionPanel.RequireRevision}"
                        AutomationProperties.HelpText="{Binding SessionPanel.DutRevisionError}" KeyDown="OnSessionFieldKeyDown"/>
-              <TextBlock Text="{Binding SessionPanel.DutRevisionError}" IsVisible="{Binding SessionPanel.HasDutRevisionError}"
+              <TextBlock x:Name="DutRevisionErrorText" Text="{Binding SessionPanel.DutRevisionError}" IsVisible="{Binding SessionPanel.HasDutRevisionError}"
                          Foreground="{DynamicResource OperatorErrorText}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Assertive"/>
             </StackPanel>
             <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Spacing="4" IsVisible="{Binding SessionPanel.ShowCredentialCapture}">

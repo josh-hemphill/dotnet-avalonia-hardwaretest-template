@@ -238,7 +238,7 @@ public sealed class InstrumentsViewModelTests
     }
 
     [Fact]
-    public async Task Query_IDN_persists_onto_slot_matching_queried_resource()
+    public async Task Query_IDN_for_an_unapplied_resource_does_not_verify_an_unselected_slot()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-slot-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -260,9 +260,10 @@ public sealed class InstrumentsViewModelTests
             await vm.QuerySelectedIdnCommand.ExecuteAsync();
 
             Assert.False(selected.HasLastIdn);
-            Assert.True(bound.HasLastIdn, vm.Status);
+            Assert.False(bound.HasLastIdn, vm.Status);
             Assert.Null(idn.Find(selected.PlanId, selected.SlotName));
-            Assert.NotNull(idn.Find(bound.PlanId, bound.SlotName));
+            Assert.Null(idn.Find(bound.PlanId, bound.SlotName));
+            Assert.Contains("Not recorded", vm.Status, StringComparison.Ordinal);
         }
         finally
         {

@@ -104,6 +104,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
         {
             if (args.PropertyName == nameof(OverrideResource))
             {
+                LastIdnSummary = string.Empty;
                 this.RaisePropertyChanged(nameof(EffectiveResource));
                 this.RaisePropertyChanged(nameof(StatusText));
                 this.RaisePropertyChanged(nameof(Summary));

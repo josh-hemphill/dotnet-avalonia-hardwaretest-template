@@ -15,6 +15,12 @@ public partial class RunTestViewModel
             settingsStore.AppSettingsSaved += (_, _) => UiDispatch.Post(() =>
             {
                 IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
+                if (SessionPanel is { } panel)
+                {
+                    panel.RefreshRequirementFlags();
+                    panel.RefreshSessionSummary();
+                }
+                RefreshVisaMode();
                 RefreshStationHealthGate();
             }, UiScheduler);
         }

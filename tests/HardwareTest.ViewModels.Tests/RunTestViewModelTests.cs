@@ -71,6 +71,29 @@ public sealed class RunTestViewModelTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Saved_run_scope_matches_actual_full_or_selected_execution(bool selected)
+    {
+        using var store = new FakeRunStore();
+        var vm = CreateVm(store: store);
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm, "SN-SCOPE");
+        var leaf = Flatten(vm.StepTree.Hierarchy).First(step => step.Children.Count == 0);
+        vm.StepTree.SelectedStep = leaf;
+
+        if (selected) await vm.Run.RunSelectedCommand.ExecuteAsync();
+        else await vm.Run.RunCommand.ExecuteAsync();
+
+        var record = Assert.IsType<TestRunRecord>(await store.LoadAsync(vm.LastRunId!));
+        Assert.Equal(selected ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite, record.ExecutionScope);
+        Assert.Equal(selected ? leaf.Path : null, record.SelectedStepPath);
+        var listed = Assert.Single(await store.ListAsync());
+        Assert.Equal(record.ExecutionScopeText, listed.ExecutionScopeText);
+    }
+
+    [Theory]
     [InlineData(true, "MockDmmInstrument", "TCPIP0::192.0.2.2::INSTR", "MOCK::selected-debug", "MOCK::saved-A")]
     [InlineData(false, "ScpiInstrument", "MOCK::saved-conflict", "TCPIP0::192.0.2.2::INSTR", "TCPIP0::192.0.2.1::INSTR")]
     public async Task Engineer_debug_selected_run_prepares_all_overlay_controls_and_only_explicit_slot(

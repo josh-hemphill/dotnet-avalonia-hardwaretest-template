@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HardwareTest.Core.Runs;
@@ -15,10 +16,24 @@ public partial class ResultsView : UserControl
     private bool _showingDetail;
     private bool _openingRun;
     private string? _closedRunId;
+    private Control? _signingReturnFocus;
 
     public ResultsView()
     {
         InitializeComponent();
+        // ListBoxItem handles Enter itself. Intercept in the tunnel so the row
+        // that naturally regains focus after Close can reopen its saved run.
+        RunResultsList.AddHandler(KeyDownEvent, OnRunsKeyDown, RoutingStrategies.Tunnel);
+        RunIdentityButton.Flyout!.Opened += (_, _) =>
+        {
+            RunIdentityBox.FontSize = FontSize;
+            RunIdentityBox.Focus();
+        };
+        RunIdentityButton.Flyout.Closed += (_, _) => Dispatcher.UIThread.Post(() =>
+        {
+            if (RunIdentityButton.IsEffectivelyVisible && RunIdentityButton.IsEffectivelyEnabled
+                && _observed?.ShowAttestationPrompt != true) RunIdentityButton.Focus();
+        }, DispatcherPriority.Loaded);
         DataContextChanged += (_, _) => ObserveViewModel();
         AttachedToVisualTree += (_, _) => ObserveViewModel();
         DetachedFromVisualTree += (_, _) => StopObserving();
@@ -34,6 +49,7 @@ public partial class ResultsView : UserControl
         _closedRunId = _showingDetail ? null : _observed?.SelectedRun?.RunId;
         if (_observed is not null) _observed.PropertyChanged += OnResultsChanged;
         ArrangeResults();
+        if (_observed?.ShowAttestationPrompt == true) FocusSigningPrompt();
     }
 
     private void StopObserving()
@@ -44,6 +60,11 @@ public partial class ResultsView : UserControl
 
     private void OnResultsChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(ResultsViewModel.ShowAttestationPrompt) or nameof(ResultsViewModel.ShowAttestationPin))
+        {
+            FocusSigningPrompt();
+            return;
+        }
         if (e.PropertyName != nameof(ResultsViewModel.ShowDetail)) return;
         var vm = _observed;
         var detail = vm?.ShowDetail == true;
@@ -65,6 +86,35 @@ public partial class ResultsView : UserControl
                     row = RunResultsList.ContainerFromItem(selected);
                 }
                 if (row?.Focus() != true) RunResultsList.Focus();
+            }
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void FocusSigningPrompt()
+    {
+        var vm = _observed;
+        if (vm?.ShowAttestationPrompt == true && ResultsLayout.IsEnabled)
+        {
+            _signingReturnFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            ResultsLayout.IsEnabled = false;
+        }
+        else if (vm?.ShowAttestationPrompt != true) ResultsLayout.IsEnabled = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!ReferenceEquals(vm, _observed) || !IsEffectivelyVisible) return;
+            if (vm?.ShowAttestationPrompt == true)
+            {
+                if (vm.ShowAttestationPin) AttestationPinBox.Focus();
+                else AttestationCaptureButton.Focus();
+            }
+            else
+            {
+                var previous = _signingReturnFocus;
+                _signingReturnFocus = null;
+                if (previous?.IsEffectivelyVisible == true && previous.IsEffectivelyEnabled)
+                    previous.Focus();
+                else if (ResultsExportButton.IsEffectivelyVisible) ResultsExportButton.Focus();
+                else ResultsCloseButton.Focus();
             }
         }, DispatcherPriority.Loaded);
     }
@@ -106,12 +156,26 @@ public partial class ResultsView : UserControl
 
     private void OnResultsKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || e.Key != Key.Escape || DataContext is not ResultsViewModel { ShowDetail: true, ShowAttestationPrompt: false }) return;
+        if (e.Handled || e.Key != Key.Escape) return;
+        if (DataContext is ResultsViewModel { ShowAttestationPrompt: true } signing)
+        {
+            signing.CancelPendingReportAction();
+            e.Handled = true;
+            return;
+        }
+        if (DataContext is not ResultsViewModel { ShowDetail: true }) return;
         if (ResultsCloseButton.Command?.CanExecute(null) == true)
         {
             ResultsCloseButton.Command.Execute(null);
             e.Handled = true;
         }
+    }
+
+    private void OnRunIdentityKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        e.Handled = true;
+        RunIdentityButton.Flyout?.Hide();
     }
 
     private async Task ReopenSelectedRunAsync()

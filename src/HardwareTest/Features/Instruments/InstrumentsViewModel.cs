@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using HardwareTest.Core.Hardware;
@@ -24,6 +25,7 @@ public partial class InstrumentsViewModel : ReactiveObject
     private readonly IBenchOperationCoordinator? _bench;
     private readonly IStationIdnStore? _idnStore;
     private readonly object _slotsGate = new();
+    private readonly HashSet<SlotOverrideItemViewModel> _observedSlots = [];
     private bool _suppressSelectionSync;
 
     public const string AllPlanFilter = "All programs";
@@ -49,6 +51,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         DiscoveredVisa = [];
         DiscoveredOpenTap = [];
         SlotOverrides = [];
+        SlotOverrides.CollectionChanged += (_, _) => SyncSlotSubscriptions();
         VisibleSlots = [];
         PlanFilterOptions = [AllPlanFilter];
         PlanFilter = AllPlanFilter;
@@ -79,6 +82,7 @@ public partial class InstrumentsViewModel : ReactiveObject
             if (args.PropertyName is nameof(HasDiscoveredVisa) or nameof(HasDiscoveredOpenTap) or nameof(IsBusy))
             {
                 this.RaisePropertyChanged(nameof(ShowDiscoverEmpty));
+                this.RaisePropertyChanged(nameof(CanEditBindings));
                 RefreshCommission();
             }
 
@@ -109,6 +113,29 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
 
+    private void SyncSlotSubscriptions()
+    {
+        foreach (var removed in _observedSlots.Where(slot => !SlotOverrides.Contains(slot)).ToArray())
+        {
+            removed.PropertyChanged -= OnSlotBindingChanged;
+            _observedSlots.Remove(removed);
+        }
+
+        foreach (var added in SlotOverrides.Where(slot => _observedSlots.Add(slot)))
+        {
+            added.PropertyChanged += OnSlotBindingChanged;
+        }
+    }
+
+    private void OnSlotBindingChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName is nameof(SlotOverrideItemViewModel.OverrideResource)
+            or nameof(SlotOverrideItemViewModel.LastIdnSummary))
+        {
+            RefreshCommission();
+        }
+    }
+
     public ObservableCollection<DiscoveredResourceItem> DiscoveredVisa { get; }
     public ObservableCollection<OpenTapDiscoveredResourceItem> DiscoveredOpenTap { get; }
     public ObservableCollection<SlotOverrideItemViewModel> SlotOverrides { get; }
@@ -134,6 +161,19 @@ public partial class InstrumentsViewModel : ReactiveObject
     [Reactive] private string _planFilter = AllPlanFilter;
 
     public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
+    public bool BindingsReadOnly => _settingsStore.IsOverridden(nameof(AppSettings.PlanSlotOverrides))
+        || AppSettingsEnvironmentBinder.IsListOverridden(_settingsStore.Provenance, nameof(AppSettings.PlanSlotOverrides));
+    public bool CanEditBindings => !IsBusy && !BindingsReadOnly;
+    public string BindingOwnershipHint => BindingsReadOnly
+        ? "Deployment controls these bindings. Update the environment or command-line configuration to change them."
+        : string.Empty;
+
+    private bool TryEditBindings()
+    {
+        if (!BindingsReadOnly) return true;
+        Status = BindingOwnershipHint;
+        return false;
+    }
 
     public event EventHandler? NavigateToRunRequested;
 
@@ -234,6 +274,9 @@ public partial class InstrumentsViewModel : ReactiveObject
     {
         lock (_slotsGate)
         {
+            this.RaisePropertyChanged(nameof(BindingsReadOnly));
+            this.RaisePropertyChanged(nameof(CanEditBindings));
+            this.RaisePropertyChanged(nameof(BindingOwnershipHint));
             SlotOverrides.Clear();
             var saved = _settingsStore.AppSettings.PlanSlotOverrides;
             var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
@@ -298,18 +341,22 @@ public partial class InstrumentsViewModel : ReactiveObject
             var existing = saved.FirstOrDefault(o =>
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
+            var effectiveResource = string.IsNullOrWhiteSpace(existing?.Resource) ? slot.ResourceName : existing.Resource.Trim();
+            var identity = _idnStore?.Find(planId, slot.Name);
             SlotOverrides.Add(new SlotOverrideItemViewModel(
                 planId,
                 displayName,
                 slot,
                 existing?.Resource,
                 useMockVisa,
-                _idnStore?.Find(planId, slot.Name)?.IdnSummary));
+                identity is not null && string.Equals(identity.Resource, effectiveResource, StringComparison.OrdinalIgnoreCase)
+                    ? identity.IdnSummary : null));
         }
     }
 
     private void ApplySelectedResource()
     {
+        if (!TryEditBindings()) return;
         if (SelectedSlot is null)
         {
             Status = "Select a plan slot.";
@@ -351,8 +398,10 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private async Task QuerySelectedIdnAsync()
     {
-        var address = SelectedVisa?.Resource ?? SelectedOpenTap?.Address;
-        var supports = SelectedVisa?.SupportsMessageQuery ?? SelectedOpenTap?.SupportsMessageQuery ?? false;
+        var queriedVisa = SelectedVisa;
+        var queriedOpenTap = SelectedOpenTap;
+        var address = queriedVisa?.Resource ?? queriedOpenTap?.Address;
+        var supports = queriedVisa?.SupportsMessageQuery ?? queriedOpenTap?.SupportsMessageQuery ?? false;
         if (string.IsNullOrWhiteSpace(address) && SelectedSlot is not null)
         {
             address = SelectedSlot.EffectiveResource;
@@ -378,6 +427,9 @@ public partial class InstrumentsViewModel : ReactiveObject
             return;
         }
 
+        var queriedSlot = SelectedSlot is { } selectedSlot
+            && string.Equals(selectedSlot.EffectiveResource, address, StringComparison.OrdinalIgnoreCase)
+                ? selectedSlot : null;
         try
         {
             Status = $"Querying *IDN? on {address}…";
@@ -390,25 +442,25 @@ public partial class InstrumentsViewModel : ReactiveObject
                 var (_, _, _, _, summary) = VisaResourceParser.FormatIdn(raw);
                 await RunOnUiAsync(() =>
                 {
-                    if (SelectedVisa is not null
-                        && string.Equals(SelectedVisa.Resource, address, StringComparison.OrdinalIgnoreCase))
+                    if (queriedVisa is not null)
                     {
-                        SelectedVisa.IdnRaw = raw;
-                        SelectedVisa.IdnSummary = summary;
-                        SelectedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
+                        queriedVisa.IdnRaw = raw;
+                        queriedVisa.IdnSummary = summary;
+                        queriedVisa.RaisePropertyChanged(nameof(DiscoveredResourceItem.HasIdn));
                     }
-                    else if (SelectedOpenTap is not null
-                             && string.Equals(SelectedOpenTap.Address, address, StringComparison.OrdinalIgnoreCase))
+                    else if (queriedOpenTap is not null)
                     {
-                        SelectedOpenTap.IdnRaw = raw;
-                        SelectedOpenTap.IdnSummary = summary;
-                        SelectedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
+                        queriedOpenTap.IdnRaw = raw;
+                        queriedOpenTap.IdnSummary = summary;
+                        queriedOpenTap.RaisePropertyChanged(nameof(OpenTapDiscoveredResourceItem.HasIdn));
                     }
 
+                    var recorded = PersistIdn(queriedSlot, address, raw, summary);
                     Status = string.IsNullOrWhiteSpace(summary)
                         ? $"*IDN? returned empty for {address}."
-                        : $"IDN {address}: {summary}";
-                    PersistIdn(address, raw, summary);
+                        : recorded
+                            ? $"IDN {address}: {summary}. Recorded for {queriedSlot!.PlanDisplayName} / {queriedSlot.SlotName}."
+                            : $"IDN {address}: {summary}. Not recorded to a program slot; select its bound slot and query again.";
                     RefreshCommission();
                 }).ConfigureAwait(false);
             }
@@ -433,6 +485,7 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private void ClearOverride()
     {
+        if (!TryEditBindings()) return;
         if (SelectedSlot is null)
         {
             Status = "Select a slot override to clear.";
@@ -446,26 +499,44 @@ public partial class InstrumentsViewModel : ReactiveObject
 
     private async Task SaveAsync()
     {
+        if (!TryEditBindings()) return;
         _operatorSession?.TouchActivity();
         await RunOnUiAsync(() => IsBusy = true).ConfigureAwait(false);
+        var previousOverrides = _settingsStore.AppSettings.PlanSlotOverrides;
         try
         {
-            _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
-                .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
-                .Select(s => new PlanSlotOverride
-                {
-                    PlanId = s.PlanId,
-                    SlotName = s.SlotName,
-                    RoleHint = s.RoleHint,
-                    Resource = s.OverrideResource.Trim(),
-                })
-                .ToList();
+            await RunOnUiAsync(() =>
+            {
+                _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
+                    .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
+                    .Select(s => new PlanSlotOverride
+                    {
+                        PlanId = s.PlanId,
+                        SlotName = s.SlotName,
+                        RoleHint = s.RoleHint,
+                        Resource = s.OverrideResource.Trim(),
+                    })
+                    .ToList();
+            }).ConfigureAwait(false);
 
             await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);
+            if (!_settingsStore.IsSettingsWritable || !string.IsNullOrWhiteSpace(_settingsStore.LastPersistenceError))
+            {
+                throw new IOException(_settingsStore.LastPersistenceError ?? _settingsStore.SettingsSchemaWarning
+                    ?? "The station settings file is read-only.");
+            }
             await RunOnUiAsync(() =>
             {
                 Status = $"Saved {_settingsStore.AppSettings.PlanSlotOverrides.Count} slot override(s).";
                 RefreshCommission();
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await RunOnUiAsync(() =>
+            {
+                _settingsStore.AppSettings.PlanSlotOverrides = previousOverrides;
+                Status = $"Could not save overrides: {ex.Message}. Your edits are retained; fix the storage problem and retry Save.";
             }).ConfigureAwait(false);
         }
         finally
