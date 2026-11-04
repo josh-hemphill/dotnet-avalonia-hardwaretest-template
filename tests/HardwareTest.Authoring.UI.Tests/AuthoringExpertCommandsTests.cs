@@ -39,7 +39,7 @@ public sealed class AuthoringExpertCommandsTests
         var later = vm.Programs.Single(program => program.PlanId == "later-settings").Instruments[0];
         fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         var id = fixture.Control<TextBox>("Stable plan ID", dialog); Assert.True(id.Focus()); id.SelectAll();
         dialog.KeyTextInput("chosen-settings"); AuthoringUiFixture.Drain(); Assert.Equal("chosen-settings", id.Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
@@ -253,7 +253,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.Single(fixture.Control<ListBox>("Authoring commands", palette).Items.Cast<object>());
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel")));
         fixture.Control<Button>("Save all").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
         Assert.True(await fixture.Window.ExecuteCommandAsync("save-all"));
@@ -304,5 +304,70 @@ public sealed class AuthoringExpertCommandsTests
         fixture.Window!.KeyPress(Key.Z, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal("text undo", box.Text); Assert.False(fixture.ViewModel.CanRedo);
         Assert.Equal("unrelated-history-sentinel", fixture.ViewModel.ChannelKey); Assert.Equal(node, fixture.ViewModel.SelectedSequence!.NodeId);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Add_shortcut_opens_chooser_without_inserting_and_cancel_preserves_plan(bool empty)
+    {
+        using var fixture = Loaded();
+        var vm = fixture.ViewModel;
+        if (empty)
+        {
+            vm.InitializePlan(new PlanInitializationRequest("keyboard-empty"));
+            vm.SelectedSequenceIndex = -1;
+            vm.SelectedRecipeId = null;
+            Assert.True(vm.IsSequenceEmpty);
+            Assert.Null(vm.SelectedRecipe);
+        }
+        else
+        {
+            vm.SelectMeasure(0);
+            vm.RecipeSearch = string.Empty;
+            vm.SelectedRecipeId = AuthoringRecipeIds.Prompt;
+            vm.InsertionPosition = "End of matching phase";
+            await fixture.WaitForReadinessAsync();
+            Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
+        }
+        var revision = vm.SelectedDocument!.Revision;
+        var rows = vm.SequenceItems.Select(row => row.NodeId).ToArray();
+        fixture.Control<Button>("Save all").Focus();
+        fixture.Window!.KeyPress(Key.A, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null);
+        AuthoringUiFixture.Drain();
+        var palette = Assert.Single(fixture.Window!.OwnedWindows);
+        Assert.Equal("Add a step", palette.Title);
+        Assert.Equal(revision, vm.SelectedDocument.Revision);
+        Assert.Equal(rows, vm.SequenceItems.Select(row => row.NodeId).ToArray());
+        AuthoringUiFixture.Click(fixture.Control<Button>("Cancel add step", palette));
+        Assert.Empty(fixture.Window.OwnedWindows);
+        Assert.Equal(revision, vm.SelectedDocument.Revision);
+        Assert.Equal(rows, vm.SequenceItems.Select(row => row.NodeId).ToArray());
+        Assert.True(fixture.Control<Button>("Add step").IsFocused);
+    }
+
+    [AvaloniaFact]
+    public void Rename_dialog_inherits_large_text_and_escape_preserves_selection()
+    {
+        using var fixture = Loaded();
+        fixture.Window!.FontSize = 24;
+        fixture.ViewModel.SelectMeasure(0);
+        var revision = fixture.ViewModel.SelectedDocument!.Revision;
+        var node = fixture.ViewModel.SelectedSequence!.NodeId;
+        var previousFocus = fixture.Control<Button>("Save all");
+        Assert.True(previousFocus.Focus());
+        fixture.Window.KeyPress(Key.F2, RawInputModifiers.None, PhysicalKey.None, null);
+        AuthoringUiFixture.Drain();
+        var dialog = Assert.Single(fixture.Window.OwnedWindows);
+        var name = fixture.Control<TextBox>("New step name", dialog);
+        Assert.Equal(24, dialog.FontSize);
+        Assert.Equal(24, name.FontSize);
+        name.SelectAll(); dialog.KeyTextInput("cancelled rename");
+        dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+        AuthoringUiFixture.Drain();
+        Assert.Empty(fixture.Window.OwnedWindows);
+        Assert.Equal(revision, fixture.ViewModel.SelectedDocument.Revision);
+        Assert.Equal(node, fixture.ViewModel.SelectedSequence!.NodeId);
+        Assert.True(previousFocus.IsFocused);
     }
 }

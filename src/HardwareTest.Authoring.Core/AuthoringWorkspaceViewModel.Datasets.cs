@@ -11,6 +11,17 @@ public sealed partial class AuthoringWorkspaceViewModel
     internal IReadOnlyList<RunDataset> CachedWorkspaceDatasets
         => _workspaceDatasetsSession == WorkspaceSessionId ? _workspaceDatasets : [];
 
+    public bool HasRecordings => DatasetItems.Count > 0;
+    public string PreviewDataSourceLabel => _previewDispatch is not null ? CachedPreview.SourceLabel
+        : SelectedDataset is { } dataset ? $"Recording: {dataset.Run.RunId}" : "Example data (simulated)";
+    public string PreviewSourceKind => PreviewBusy ? "Updating preview"
+        : PreviewDataSourceLabel.StartsWith("Recording: ", StringComparison.Ordinal) ? "Recording"
+        : PreviewDataSourceLabel == "Example data (simulated)" ? "Example data" : "Preview data";
+    public string PreviewSourceName => PreviewBusy ? "Preparing the selected data source…"
+        : PreviewDataSourceLabel.StartsWith("Recording: ", StringComparison.Ordinal)
+            ? string.IsNullOrWhiteSpace(PreviewDataSourceLabel["Recording: ".Length..]) ? "Unnamed recording" : PreviewDataSourceLabel["Recording: ".Length..]
+        : PreviewDataSourceLabel == "Example data (simulated)" ? "Simulated values" : PreviewDataSourceLabel;
+
     private bool MatchesRecordingChoice(RunDataset dataset)
         => _selectedRecordingChoice is { } choice && choice.Session == _workspaceSession
             && string.Equals(choice.PlanId, SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase)
@@ -56,6 +67,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (_selectedDatasetIndex < 0) _selectedRecordingChoice = null;
             OnPropertyChanged(nameof(Datasets));
             OnPropertyChanged(nameof(DatasetItems));
+            OnPropertyChanged(nameof(HasRecordings));
             OnPropertyChanged(nameof(SelectedDatasetIndex));
             OnPropertyChanged(nameof(SelectedDataset));
         }

@@ -4,6 +4,8 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
 
@@ -116,7 +118,7 @@ public sealed partial class PlanInitializationWindow : Window
         _next.Click += (_, _) =>
         {
             try { Review(); _stage++; ShowStage(); }
-            catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+            catch (Exception error) { PresentFormError(error); }
         };
         _create.Click += (_, _) =>
         {
@@ -126,7 +128,7 @@ public sealed partial class PlanInitializationWindow : Window
                 vm.InitializePlan(Request());
                 Close(true);
             }
-            catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+            catch (Exception error) { PresentFormError(error); }
         };
         var cancel = Action("Cancel"); cancel.IsCancel = true; cancel.Click += (_, _) => Close(false);
         KeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(false); e.Handled = true; } };
@@ -144,7 +146,7 @@ public sealed partial class PlanInitializationWindow : Window
             skip.Click += (_, _) =>
             {
                 try { EnsureSession(); SkipGuidanceRequested = true; vm.SkipGuidance = true; Close(false); }
-                catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+                catch (Exception error) { PresentFormError(error); }
             };
             buttons.Children.Insert(0, leave); buttons.Children.Insert(1, skip);
         }
@@ -153,11 +155,12 @@ public sealed partial class PlanInitializationWindow : Window
         ShowDestination();
         if (retained is not null) RestoreGuidedForm(retained);
         ShowHardware(); ShowStage();
+        Opened += (_, _) => FocusStage();
         ObserveHardwareChoices();
         if (guided && retained is not null && _stage >= 4)
         {
             try { Review(); }
-            catch (Exception error) { _error.Text = AuthoringWorkspaceViewModel.PersistenceError(error); }
+            catch (Exception error) { PresentFormError(error); }
         }
     }
 
@@ -221,6 +224,51 @@ public sealed partial class PlanInitializationWindow : Window
         _heading.Text = $"{_stage + 1} of 6 · {titles[_stage]}";
         for (var index = 0; index < _stages.Length; index++) _stages[index].IsVisible = index == _stage;
         _back.IsVisible = _stage > 0; _next.IsVisible = _stage < 5; _create.IsVisible = _stage == 5;
+        _next.IsDefault = _stage < 5; _create.IsDefault = _stage == 5;
+        AutomationProperties.SetLiveSetting(_heading, AutomationLiveSetting.Polite);
+        FocusStage();
+    }
+
+    private void PresentFormError(Exception error)
+    {
+        var message = AuthoringWorkspaceViewModel.PersistenceError(error);
+        _error.Text = message;
+        Control target = message.Contains("display name", StringComparison.OrdinalIgnoreCase) ? _name
+            : message.Contains("family", StringComparison.OrdinalIgnoreCase) ? _family
+            : message.Contains("ID", StringComparison.OrdinalIgnoreCase) || message.Contains("already exists", StringComparison.OrdinalIgnoreCase) ? _id
+            : message.Contains("destination", StringComparison.OrdinalIgnoreCase) || message.Contains("filename", StringComparison.OrdinalIgnoreCase) ? _destination : _error;
+        if (!target.IsEffectivelyVisible || !target.IsEffectivelyEnabled) target = _error;
+        target.Focusable = true;
+        if (target is TextBox field) AutomationProperties.SetHelpText(field, message);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsVisible || _ownerIsCurrent?.Invoke() == false) return;
+            target.BringIntoView(); target.Focus();
+        }, DispatcherPriority.Loaded);
+    }
+
+    internal void PrefillIdentity(string name, string id, string family)
+    {
+        _idEdited = true;
+        if (!string.IsNullOrWhiteSpace(name)) _name.Text = name;
+        _id.Text = id;
+        _family.Text = string.IsNullOrWhiteSpace(family) ? "generic" : family;
+        ShowDestination();
+    }
+
+    private void FocusStage()
+    {
+        var stage = _stage;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!IsVisible || stage != _stage || _ownerIsCurrent?.Invoke() == false || _workspaceSession != _vm.WorkspaceSessionId) return;
+            var field = _stages[stage].GetVisualDescendants().OfType<Control>()
+                .FirstOrDefault(control => control.IsEffectivelyVisible && control.IsEffectivelyEnabled
+                    && (control is TextBox { IsReadOnly: false } or ComboBox or CheckBox));
+            var target = field ?? (stage == 5 ? _create : _next);
+            target.BringIntoView();
+            target.Focus();
+        }, DispatcherPriority.Loaded);
     }
 
     private static TextBox Input(string name, string value = "") => Named(new TextBox { Text = value }, name);

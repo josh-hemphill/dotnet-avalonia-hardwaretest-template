@@ -20,17 +20,19 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (!SetField(ref _recipeSearch, value)) return;
             OnPropertyChanged(nameof(Recipes));
+            OnPropertyChanged(nameof(NoMatchingRecipes));
             OnPropertyChanged(nameof(SelectedRecipe));
             RaiseSequenceOperations();
         }
     }
+    public bool NoMatchingRecipes => Recipes.Count == 0;
     public string SequenceRename
     {
         get => _sequenceRename;
         set => SetField(ref _sequenceRename, value);
     }
     public string SequenceOperationTarget => IsSequenceEmpty ? "No steps yet. The first step goes into its matching phase."
-        : SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
+        : SelectedSequence is { } row ? $"Current sequence step: {row.Label}" : "No selected step";
     public string RemoveSequenceActionTitle => SelectedSequence?.Kind switch
     {
         SequenceRowKind.Repeat => "Remove loop, keep steps",
@@ -52,7 +54,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         || SelectedSetup is OperatorPromptSetup or OperatorInputSetup);
     public bool CanMoveSequence => CanEditSequence && SelectedSequence?.Section is SequenceSection.Setup or SequenceSection.Measure;
     public bool CanInsertRecipe => CanEditSequence && SelectedRecipe is not null && RecipePreflight() is null;
-    public string SelectedRecipePrerequisites => SelectedRecipe is null ? "Search and choose a recipe."
+    public string SelectedRecipePrerequisites => SelectedRecipe is null ? "Search and choose a step."
         : RecipePreflight() ?? $"Ready to add {SelectedRecipe.Title}.";
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence

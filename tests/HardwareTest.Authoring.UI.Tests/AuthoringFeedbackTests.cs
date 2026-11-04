@@ -14,7 +14,7 @@ public sealed class AuthoringFeedbackTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public void Many_save_results_and_errors_scroll_without_consuming_the_editor(bool failSaves)
+    public void Many_save_results_and_errors_are_accessible_in_details_without_consuming_the_editor(bool failSaves)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler: failSaves ? new FailingCompiler() : null);
         var window = fixture.Show(960, 600);
@@ -39,29 +39,31 @@ public sealed class AuthoringFeedbackTests
         var result = fixture.ViewModel.LastSaveAllResult!;
         Assert.Equal(!failSaves, result.Succeeded);
         Assert.Equal(35, failSaves ? result.Failures.Count : result.SavedProgramIds.Count);
-        var feedback = fixture.Control<ScrollViewer>("Save all result feedback");
-        AssertScrollable(feedback, window);
         AssertUsableEditor(fixture, window);
-        ScrollToEndWithWheel(feedback, window);
-        var finalResult = Assert.Single(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(),
-            text => text.Text == fixture.ViewModel.SaveAllResults[^1]);
-        AssertVisibleInScrollViewport(finalResult, feedback);
-
-        if (failSaves)
-        {
-            var errors = fixture.Control<ScrollViewer>("Authoring error feedback");
-            AssertScrollable(errors, window);
-            ScrollToEndWithWheel(errors, window);
-            var errorText = fixture.Control<TextBlock>("Authoring error");
-            Assert.EndsWith(fixture.ViewModel.LastSaveAllResult!.Failures[^1].Message, errorText.Text);
-            AssertFinalTextLineVisible(errorText, errors);
-            // Aggregated errors remain bounded even when the results list is hidden.
-            feedback.IsVisible = false;
-            AuthoringUiFixture.Drain();
-            AssertUsableEditor(fixture, window);
-            AssertInsideWindow(errors, window);
-            AssertFinalTextLineVisible(errorText, errors);
-        }
+        AuthoringUiFixture.Click(fixture.Control<Button>("View operation details"));
+        var dialog = Assert.Single(window.OwnedWindows);
+        var details = fixture.Control<TextBox>("Full operation details", dialog);
+        Assert.True(details.IsReadOnly);
+        foreach (var line in fixture.ViewModel.SaveAllResults) Assert.Contains(line, details.Text!);
+        Assert.Contains(fixture.ViewModel.SaveAllResults[^1], details.Text!);
+        if (failSaves) Assert.Contains(fixture.ViewModel.Error!, details.Text!);
+        details.SelectAll();
+        Assert.Equal(details.Text, details.SelectedText);
+        details.Focus();
+        dialog.KeyPress(Key.End, RawInputModifiers.Control, PhysicalKey.End, null);
+        AuthoringUiFixture.Drain();
+        var viewport = Assert.Single(details.GetVisualDescendants().OfType<ScrollViewer>());
+        AssertScrollable(viewport, dialog);
+        Assert.True(viewport.Offset.Y > 0);
+        Assert.Equal(details.Text!.Length, details.CaretIndex);
+        AssertInsideWindow(fixture.Control<Button>("Close operation details", dialog), dialog);
+        Assert.Equal(sequenceBounds, new Rect(sequence.TranslatePoint(default, window)!.Value, sequence.Bounds.Size));
+        Assert.Equal(inspectorBounds, new Rect(inspector.TranslatePoint(default, window)!.Value, inspector.Bounds.Size));
+        AuthoringUiFixture.Click(fixture.Control<Button>("Close operation details", dialog));
+        Assert.Empty(window.OwnedWindows);
+        AssertUsableEditor(fixture, window);
+        Assert.Equal(sequenceBounds, new Rect(sequence.TranslatePoint(default, window)!.Value, sequence.Bounds.Size));
+        Assert.Equal(inspectorBounds, new Rect(inspector.TranslatePoint(default, window)!.Value, inspector.Bounds.Size));
     }
 
     [AvaloniaFact]
@@ -127,15 +129,6 @@ public sealed class AuthoringFeedbackTests
         Assert.NotNull(center);
         window.MouseWheel(center.Value, new Vector(0, -1000), RawInputModifiers.None);
         AuthoringUiFixture.Drain();
-    }
-
-    private static void AssertVisibleInScrollViewport(Control control, ScrollViewer viewer)
-    {
-        Assert.True(viewer.Offset.Y > 0);
-        var origin = control.TranslatePoint(default, viewer);
-        Assert.NotNull(origin);
-        Assert.True(origin.Value.Y >= -1);
-        Assert.True(origin.Value.Y + control.Bounds.Height <= viewer.Bounds.Height + 1);
     }
 
     private static void AssertFinalTextLineVisible(TextBlock text, ScrollViewer viewer)

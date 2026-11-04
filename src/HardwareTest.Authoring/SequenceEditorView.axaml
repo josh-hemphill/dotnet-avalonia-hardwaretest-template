@@ -39,7 +39,7 @@
         </WrapPanel>
       </StackPanel></Border>
     </ScrollViewer>
-    <ListBox x:Name="SequenceList" IsVisible="{Binding HasSequenceContent}" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
+    <ListBox x:Name="SequenceList" Focusable="True" IsVisible="{Binding HasSequenceContent}" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
         KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Program sequence">
       <ListBox.Styles>
         <Style Selector="ListBoxItem"><Setter Property="Padding" Value="4,4,4,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
