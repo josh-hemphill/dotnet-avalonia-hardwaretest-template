@@ -1,8 +1,10 @@
 using System.Windows.Input;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -14,6 +16,7 @@ public partial class RunPreparationView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        AttachedToVisualTree += (_, _) => OnDataContextChanged(this, EventArgs.Empty);
         DetachedFromVisualTree += (_, _) => Unsubscribe();
     }
 
@@ -27,6 +30,8 @@ public partial class RunPreparationView : UserControl
 
         _subscribed = vm;
         vm.SessionPanel.RequestFocusDutSerial += OnRequestFocusDutSerial;
+        vm.SessionPanel.RequestFocusSessionField += OnRequestFocusSessionField;
+        vm.SessionPanel.RequestFocusRun += OnRequestFocusRun;
         if (vm.SessionPanel.NeedsDutConfirm)
         {
             ScheduleFocusDutSerial();
@@ -41,6 +46,8 @@ public partial class RunPreparationView : UserControl
         }
 
         _subscribed.SessionPanel.RequestFocusDutSerial -= OnRequestFocusDutSerial;
+        _subscribed.SessionPanel.RequestFocusSessionField -= OnRequestFocusSessionField;
+        _subscribed.SessionPanel.RequestFocusRun -= OnRequestFocusRun;
         _subscribed = null;
     }
 
@@ -48,7 +55,29 @@ public partial class RunPreparationView : UserControl
 
     private void ScheduleFocusDutSerial()
     {
-        Dispatcher.UIThread.Post(() => DutSerialBox?.Focus(), DispatcherPriority.Loaded);
+        OnRequestFocusSessionField(OperatorSessionPanelViewModel.SessionFieldDutSerial);
+    }
+
+    private void OnRequestFocusSessionField(string field)
+    {
+        var owner = _subscribed;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (owner is not null && ReferenceEquals(owner, _subscribed)) FocusSessionField(field);
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void OnRequestFocusRun(object? sender, EventArgs e)
+    {
+        var owner = _subscribed;
+        var board = this.GetVisualAncestors().OfType<RunTestView>().FirstOrDefault();
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (owner is null || !ReferenceEquals(owner, _subscribed) || board?.IsEffectivelyVisible != true) return;
+            var run = board.GetVisualDescendants().OfType<Button>().FirstOrDefault(button =>
+                button.IsEffectivelyVisible && button.IsEffectivelyEnabled && AutomationProperties.GetName(button) == "Run");
+            run?.Focus();
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnSessionFieldKeyDown(object? sender, KeyEventArgs e)
@@ -91,16 +120,17 @@ public partial class RunPreparationView : UserControl
             OperatorSessionPanelViewModel.SessionFieldDutSerial => DutSerialBox,
             OperatorSessionPanelViewModel.SessionFieldDutPart => DutPartBox,
             OperatorSessionPanelViewModel.SessionFieldDutRevision => DutRevisionBox,
-            OperatorSessionPanelViewModel.SessionFieldTechnician => TechnicianBox,
+            OperatorSessionPanelViewModel.SessionFieldTechnician => TechnicianBox.IsEffectivelyVisible ? TechnicianBox : StaleTechnicianBox,
+            OperatorSessionPanelViewModel.SessionFieldCredential => CredentialCaptureButton.IsEffectivelyVisible ? CredentialCaptureButton : StaleCredentialCaptureButton,
             _ => null,
         };
-        if (target is null || !target.IsVisible || !target.IsEnabled)
+        if (target is null || !target.IsEffectivelyVisible || !target.IsEffectivelyEnabled)
         {
             return false;
         }
 
-        target.Focus();
-        return true;
+        target.BringIntoView();
+        return target.Focus();
     }
 
     private void OnStaleTechnicianKeyDown(object? sender, KeyEventArgs e)

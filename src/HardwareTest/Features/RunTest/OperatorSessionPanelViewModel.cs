@@ -51,6 +51,16 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         CaptureCredentialCommand = ReactiveCommand.CreateFromTask(CaptureCredentialAsync);
         ShowCredentialCapture = _credentialBroker is not null;
         CredentialStatus = _credentialBroker?.StatusText ?? string.Empty;
+        PropertyChanged += (_, change) =>
+        {
+            switch (change.PropertyName)
+            {
+                case nameof(DutSerialInput): DutSerialError = string.Empty; this.RaisePropertyChanged(nameof(HasDutSerialError)); break;
+                case nameof(DutPartInput): DutPartError = string.Empty; this.RaisePropertyChanged(nameof(HasDutPartError)); break;
+                case nameof(DutRevisionInput): DutRevisionError = string.Empty; this.RaisePropertyChanged(nameof(HasDutRevisionError)); break;
+                case nameof(OperatorInput): OperatorError = string.Empty; this.RaisePropertyChanged(nameof(HasOperatorError)); break;
+            }
+        };
 
         _idleTimer = new System.Timers.Timer(15_000) { AutoReset = true };
         _idleTimer.Elapsed += (_, _) =>
@@ -98,6 +108,8 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     /// Raised when the DUT serial field should take keyboard/scanner focus.
     public event EventHandler? RequestFocusDutSerial;
+    public event Action<string>? RequestFocusSessionField;
+    public event EventHandler? RequestFocusRun;
 
     [Reactive] private string _dutSerialInput = string.Empty;
     [Reactive] private string _dutPartInput = string.Empty;
@@ -120,12 +132,16 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     [Reactive] private bool _showIdleCountdown;
     [Reactive] private bool _pendingConfirmEveryRun;
     [Reactive] private string _dutSerialError = string.Empty;
+    [Reactive] private string _dutPartError = string.Empty;
+    [Reactive] private string _dutRevisionError = string.Empty;
     [Reactive] private string _operatorError = string.Empty;
     [Reactive] private string _credentialStatus = string.Empty;
     [Reactive] private bool _isCapturingCredential;
     [Reactive] private bool _showCredentialCapture;
 
     public bool HasDutSerialError => !string.IsNullOrWhiteSpace(DutSerialError);
+    public bool HasDutPartError => !string.IsNullOrWhiteSpace(DutPartError);
+    public bool HasDutRevisionError => !string.IsNullOrWhiteSpace(DutRevisionError);
     public bool HasOperatorError => !string.IsNullOrWhiteSpace(OperatorError);
     public bool ShowSameDutPrompt => IsStalePrompt || IsIdleWarningPrompt;
 
@@ -153,6 +169,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public const string SessionFieldDutPart = "DutPart";
     public const string SessionFieldDutRevision = "DutRevision";
     public const string SessionFieldTechnician = "Technician";
+    public const string SessionFieldCredential = "Credential";
 
     /// First required confirm field that is still empty, or null when Confirm Session can run.
     public string? NextIncompleteSessionField()
@@ -333,7 +350,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         OperatorInput = NormalizeScan(OperatorInput);
         if (!TryRequireCredential(req, out var credentialError))
         {
-            ApplyFieldError(credentialError);
+            ApplyFieldError(credentialError, SessionFieldCredential);
             _setStatus(credentialError);
             SessionBlocked = true;
             return;
@@ -341,7 +358,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
         if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
-            ApplyFieldError(error);
+            ApplyFieldError(error, NextIncompleteSessionField());
             _setStatus(error);
             SessionBlocked = true;
             return;
@@ -352,6 +369,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         RefreshSessionSummary();
         UpdateIdleTimer();
         _setStatus($"Session confirmed: {_session.DutSerial} / {_session.OperatorName ?? "—"}");
+        RequestFocusRun?.Invoke(this, EventArgs.Empty);
     }
 
     private void ConfirmSameDut()
@@ -369,6 +387,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             SessionBlocked = true;
             ShowSessionForm = true;
             ShowStaleTechnicianField = true;
+            RequestFocusSessionField?.Invoke(SessionFieldTechnician);
             return;
         }
 
@@ -380,7 +399,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
         if (!TryRequireCredential(req, out var credentialError))
         {
-            ApplyFieldError(credentialError);
+            ApplyFieldError(credentialError, SessionFieldCredential);
             _setStatus(credentialError);
             SessionBlocked = true;
             ShowSessionForm = true;
@@ -397,6 +416,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         RefreshSessionSummary();
         UpdateIdleTimer();
         _setStatus(_session.CanRun ? $"Still testing {_session.DutSerial}." : "Confirm DUT, then Run.");
+        if (_session.CanRun) RequestFocusRun?.Invoke(this, EventArgs.Empty);
     }
 
     private void ChangeSession()
@@ -429,27 +449,32 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     private void ClearFieldErrors()
     {
         DutSerialError = string.Empty;
+        DutPartError = string.Empty;
+        DutRevisionError = string.Empty;
         OperatorError = string.Empty;
         this.RaisePropertyChanged(nameof(HasDutSerialError));
+        this.RaisePropertyChanged(nameof(HasDutPartError));
+        this.RaisePropertyChanged(nameof(HasDutRevisionError));
         this.RaisePropertyChanged(nameof(HasOperatorError));
     }
 
-    private void ApplyFieldError(string error)
+    private void ApplyFieldError(string error, string? field)
     {
-        if (error.Contains("serial", StringComparison.OrdinalIgnoreCase))
+        if (field == SessionFieldDutPart)
+        {
+            DutPartError = error;
+        }
+        else if (field == SessionFieldDutRevision)
+        {
+            DutRevisionError = error;
+        }
+        else if (field == SessionFieldDutSerial)
         {
             DutSerialError = error;
         }
-        else if (error.Contains("Operator", StringComparison.OrdinalIgnoreCase)
-                 || error.Contains("Technician", StringComparison.OrdinalIgnoreCase))
+        else if (field is SessionFieldTechnician or SessionFieldCredential)
         {
             OperatorError = error;
-        }
-        else if (error.Contains("part", StringComparison.OrdinalIgnoreCase)
-                 || error.Contains("revision", StringComparison.OrdinalIgnoreCase))
-        {
-            // Surface under serial as the primary confirm field when part/rev fail.
-            DutSerialError = error;
         }
         else
         {
@@ -457,7 +482,10 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         }
 
         this.RaisePropertyChanged(nameof(HasDutSerialError));
+        this.RaisePropertyChanged(nameof(HasDutPartError));
+        this.RaisePropertyChanged(nameof(HasDutRevisionError));
         this.RaisePropertyChanged(nameof(HasOperatorError));
+        RequestFocusSessionField?.Invoke(field ?? SessionFieldDutSerial);
     }
 
     private string FormatRelative(DateTimeOffset when)

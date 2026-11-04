@@ -163,7 +163,7 @@ public partial class InstrumentsViewModel
         {
             CommissionStepIndex = 2;
             CommissionTitle = "3 · Query *IDN?";
-            CommissionHint = $"{needsIdn.SlotName} is bound — Query *IDN? to record identity on this station (saved beside settings, not in AppSettings).";
+            CommissionHint = $"{needsIdn.SlotName} is bound. Query *IDN? to confirm and record its identity.";
             ShowCommissionStrip = true;
             return;
         }

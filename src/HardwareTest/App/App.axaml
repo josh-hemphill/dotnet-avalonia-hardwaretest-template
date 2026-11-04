@@ -4,7 +4,17 @@
              xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.App"
+             Name="HardwareTest Operator"
              RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light"><SolidColorBrush x:Key="OperatorErrorText">#B42318</SolidColorBrush></ResourceDictionary>
+        <ResourceDictionary x:Key="Dark"><SolidColorBrush x:Key="OperatorErrorText">#FFAAA3</SolidColorBrush></ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <FontFamily x:Key="ContentControlThemeFontFamily">fonts:Inter#Inter</FontFamily>
+    </ResourceDictionary>
+  </Application.Resources>
   <Application.DataTemplates>
     <local:ViewLocator />
   </Application.DataTemplates>
@@ -12,6 +22,7 @@
   <Application.Styles>
     <FluentTheme />
     <sty:FluentAvaloniaTheme />
+    <Style Selector="Window"><Setter Property="FontFamily" Value="fonts:Inter#Inter"/></Style>
     <Style Selector="Button.danger">
       <Setter Property="Background" Value="#C62828" />
       <Setter Property="Foreground" Value="White" />

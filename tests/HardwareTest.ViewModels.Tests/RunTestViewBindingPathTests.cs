@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 using HardwareTest.Features.RunTest;
 using Xunit;
 
@@ -84,20 +85,15 @@ public sealed partial class RunTestViewBindingPathTests
         }
     }
 
-    /// Drops each `<DataTemplate x:DataType="...item...">…</DataTemplate>` body so only page bindings remain.
+    /// Item templates and typed container styles resolve bindings on their item, not the page.
     private static IEnumerable<string> SplitOffItemTemplates(string markup)
     {
-        var remaining = markup;
-        foreach (var dataType in TemplateDataTypes)
-        {
-            remaining = Regex.Replace(
-                remaining,
-                $"""<DataTemplate\s+x:DataType="{Regex.Escape(dataType)}".*?</DataTemplate>""",
-                string.Empty,
-                RegexOptions.Singleline);
-        }
-
-        yield return remaining;
+        var document = XDocument.Parse("<Root>" + markup + "</Root>");
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        document.Descendants().Where(element => element.Name.LocalName is "DataTemplate" or "Style"
+            && TemplateDataTypes.Contains((string?)element.Attribute(xaml + "DataType"), StringComparer.Ordinal))
+            .ToArray().Remove();
+        yield return document.ToString(SaveOptions.DisableFormatting);
     }
 
     private static bool Resolves(Type root, string path)

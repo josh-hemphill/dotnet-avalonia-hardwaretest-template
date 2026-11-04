@@ -22,6 +22,7 @@ public partial class InteractionHostViewModel : ReactiveObject
 
     /// Raised after fields are rebuilt so the view can focus the first editable control.
     public event EventHandler? RequestFocusFirstField;
+    public event Action<string>? RequestFocusField;
 
     /// Shows the prompt card for a host request, falling back to a plain progress message.
     public void Apply(OperatorInteractionRequest? request, string? fallbackMessage)
@@ -59,6 +60,7 @@ public partial class InteractionHostViewModel : ReactiveObject
         out Dictionary<string, string> values)
     {
         values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in InteractionFields) field.ValidationError = string.Empty;
         if (request is not null && InteractionFields.Count > 0)
         {
             foreach (var field in InteractionFields)
@@ -67,7 +69,7 @@ public partial class InteractionHostViewModel : ReactiveObject
                 {
                     if (field.Required && !field.BoolValue)
                     {
-                        InteractionValidationError = $"{field.Label} is required.";
+                        RejectField(field, $"{field.Label} is required.");
                         return false;
                     }
 
@@ -77,7 +79,7 @@ public partial class InteractionHostViewModel : ReactiveObject
                 var trimmed = field.Value.Trim();
                 if (field.Required && string.IsNullOrWhiteSpace(trimmed))
                 {
-                    InteractionValidationError = $"{field.Label} is required.";
+                    RejectField(field, $"{field.Label} is required.");
                     return false;
                 }
 
@@ -89,7 +91,7 @@ public partial class InteractionHostViewModel : ReactiveObject
                         CultureInfo.InvariantCulture,
                         out _))
                 {
-                    InteractionValidationError = $"{field.Label} must be a number.";
+                    RejectField(field, $"{field.Label} must be a number.");
                     return false;
                 }
             }
@@ -101,5 +103,12 @@ public partial class InteractionHostViewModel : ReactiveObject
             f => f.ToResponseValue(),
             StringComparer.OrdinalIgnoreCase);
         return true;
+    }
+
+    private void RejectField(InteractionFieldViewModel field, string message)
+    {
+        field.ValidationError = message;
+        InteractionValidationError = message;
+        RequestFocusField?.Invoke(field.Id);
     }
 }

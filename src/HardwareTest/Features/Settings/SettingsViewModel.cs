@@ -90,7 +90,7 @@ public partial class SettingsViewModel : ReactiveObject
         DataDirectory = settingsStore.RootDirectory;
         AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
         Status = settingsStore.IsSettingsWritable
-            ? "Settings load from settings.json; env/CLI overlays win and stay read-only."
+            ? "Changes save automatically. Station-managed settings remain read-only."
             : $"Settings file not writable: {settingsStore.LastPersistenceError}";
         if (!string.IsNullOrWhiteSpace(settingsStore.SettingsSchemaWarning))
         {
@@ -197,6 +197,7 @@ public partial class SettingsViewModel : ReactiveObject
                 or nameof(ClockSkewWarnThresholdMinutesReadOnly) or nameof(NtpHostReadOnly)
                 or nameof(StationHealthGateOverrideReadOnly)
                 or nameof(StationHealthSummary) or nameof(ShowStationHealthSummary)
+                or nameof(StationHealthNextStep)
                 or nameof(StationHealthStorePath)
                 or nameof(ExportDirectoryReadOnly)
                 or nameof(PreferRemovableExportReadOnly)
@@ -361,7 +362,7 @@ public partial class SettingsViewModel : ReactiveObject
         }
 
         _packagesLoaded = true;
-        Status = $"Packages: {Packages.Count}, plugin dirs: {PluginDirectories.Count}. Offline install only (CLI / image bake).";
+        Status = "Instrument package list refreshed.";
     }
 
     private async Task CopySelectedPathAsync()

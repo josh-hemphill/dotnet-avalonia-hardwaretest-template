@@ -7,6 +7,7 @@ using HardwareTest.Core.Storage;
 using HardwareTest.Crash;
 using HardwareTest.Features.Shell;
 using HardwareTest.Shell;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -24,24 +25,24 @@ public partial class HomeViewModel : ReactiveObject
         new()
         {
             Title = "Getting started",
-            Body = "Open Run, confirm the DUT serial, pick the sample OpenTAP program, and start. Identity check and voltage sweep run under OpenTAP with mock instruments by default.",
-            ActionLabel = "Open Run →",
+            Body = "Choose a test program in Run, confirm the device and technician, then start. Follow any on-screen instructions before continuing.",
+            ActionLabel = "Open Run",
             NavigatePageId = ShellBuiltInPageIds.RunTest,
             Placement = ShellPagePlacement.Operator,
         },
         new()
         {
             Title = "Programs & instruments",
-            Body = "Locked OpenTAP .TapPlan programs ship under Programs/. Use Instruments to discover VISA resources and bind station roles for the bench.",
-            ActionLabel = "Open Instruments →",
+            Body = "Check connected instruments and assign the station resources required by your test programs.",
+            ActionLabel = "Open Instruments",
             NavigatePageId = ShellBuiltInPageIds.Instruments,
             Placement = ShellPagePlacement.Engineer,
         },
         new()
         {
             Title = "Results",
-            Body = "Passed and failed runs write Typst PDFs. Open a run from Results, then preview or export the report from there.",
-            ActionLabel = "Open Results →",
+            Body = "Find saved test runs, inspect their measurements and verdicts, then preview or export a report.",
+            ActionLabel = "Open Results",
             NavigatePageId = ShellBuiltInPageIds.Results,
             Placement = ShellPagePlacement.Operator,
         },
@@ -76,8 +77,8 @@ public partial class HomeViewModel : ReactiveObject
         Tiles = [.. builtIn, .. GuestTiles];
         if (settingsStore is not null)
         {
-            settingsStore.AppSettingsSaved += (_, _) => ApplyEngineerPresentation(
-                settingsStore.AppSettings.IsEngineerDebugMode);
+            settingsStore.AppSettingsSaved += (_, _) => UiDispatch.Post(() => ApplyEngineerPresentation(
+                settingsStore.AppSettings.IsEngineerDebugMode));
         }
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
@@ -95,7 +96,7 @@ public partial class HomeViewModel : ReactiveObject
     public string Title { get; } = "Hardware Test";
 
     public string Summary { get; } =
-        "Confirm a DUT once, run locked OpenTAP programs from Avalonia, manage station instruments, and publish Typst reports with live plots when needed.";
+        "Confirm the device, run its tests, and review the saved results. Station setup and reports are available when you need them.";
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenCrashFolderCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ExportSupportBundleCommand { get; }

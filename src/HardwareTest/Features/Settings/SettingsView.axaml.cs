@@ -1,6 +1,8 @@
 using System;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
+using HardwareTest.Features;
 
 namespace HardwareTest.Features.Settings;
 
@@ -29,5 +31,11 @@ public partial class SettingsView : UserControl
 
             await clipboard.SetTextAsync(text);
         };
+    }
+
+    private void OnOpenRun(object? sender, RoutedEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.DataContext is MainWindowViewModel shell)
+            shell.NavigateToPageId("RunTest");
     }
 }

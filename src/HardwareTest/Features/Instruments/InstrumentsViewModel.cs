@@ -291,7 +291,9 @@ public partial class InstrumentsViewModel : ReactiveObject
         List<PlanSlotOverride> saved,
         bool useMockVisa)
     {
-        foreach (var slot in slots)
+        // Serialized steps can hold separate instances of the same logical binding.
+        // Show identical metadata once; retain entries whose binding values differ.
+        foreach (var slot in slots.DistinctBy(slot => (slot.Name, slot.TypeName, slot.ResourceName, slot.RoleHint)))
         {
             var existing = saved.FirstOrDefault(o =>
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)

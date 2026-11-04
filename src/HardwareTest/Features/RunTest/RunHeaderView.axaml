@@ -6,81 +6,38 @@
              x:DataType="vm:RunTestViewModel">
   <StackPanel Spacing="6">
     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-      <WrapPanel Orientation="Horizontal">
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,4">
-          <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
-                    SelectedItem="{Binding ProgramSelection.SelectedProgram}"
-                    MinWidth="220"
-                    MaxDropDownHeight="320"
-                    IsEnabled="{Binding !IsRunning}"
-                    AutomationProperties.Name="Program">
-            <ComboBox.ItemTemplate>
-              <DataTemplate x:DataType="vm:ProgramItemViewModel">
-                <TextBlock Text="{Binding DisplayName}" />
-              </DataTemplate>
-            </ComboBox.ItemTemplate>
-          </ComboBox>
-          <Button Content="More"
-                  Classes="operator"
-                  IsVisible="{Binding IsEngineerDebugMode}"
-                  ToolTip.Tip="Engineer actions"
-                  AutomationProperties.Name="Engineer actions">
-            <Button.Flyout>
-              <MenuFlyout>
-                <MenuItem Header="Refresh programs"
-                          Command="{Binding ProgramSelection.RefreshProgramsCommand}" />
-                <MenuItem Header="Open plan…"
-                          Command="{Binding ProgramSelection.OpenPlanFileCommand}" />
-                <MenuItem Header="Inspect"
-                          Command="{Binding InspectPlanCommand}" />
-              </MenuFlyout>
-            </Button.Flyout>
-          </Button>
-          <TextBlock Text="Loading…"
-                     IsVisible="{Binding ProgramSelection.IsBusy}"
-                     VerticalAlignment="Center"
-                     Opacity="0.8"
-                     FontWeight="SemiBold" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,4" VerticalAlignment="Center">
-          <TextBlock Text="{Binding SessionPanel.SessionSummary}"
-                     FontWeight="SemiBold"
-                     FontSize="13"
-                     VerticalAlignment="Center"
-                     TextTrimming="CharacterEllipsis"
-                     MaxWidth="360" />
-          <Button Content="Change"
-                  Command="{Binding SessionPanel.ChangeSessionCommand}"
-                  Classes="operator"
-                  FontSize="12"
-                  Padding="10,4"
-                  AutomationProperties.Name="Change session"
-                  IsVisible="{Binding ShowHeaderChangeSession}" />
-        </StackPanel>
-        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,8,4" VerticalAlignment="Center">
-          <TextBlock Text="{Binding HeroStepName}"
-                     FontWeight="SemiBold"
-                     FontSize="15"
-                     VerticalAlignment="Center"
-                     IsVisible="{Binding HeroStepName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          <Border CornerRadius="4"
-                  Padding="8,2"
-                  VerticalAlignment="Center"
-                  Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}">
-            <TextBlock Text="{Binding HeroChipText}"
-                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                       FontWeight="SemiBold"
-                       Foreground="White" />
-          </Border>
-          <TextBlock Text="{Binding HeroStatusLine}"
-                     Opacity="0.85"
-                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                     VerticalAlignment="Center"
-                     TextTrimming="CharacterEllipsis"
-                     MaxWidth="280"
-                     IsVisible="{Binding !Interaction.IsAwaitingOperator}" />
-        </StackPanel>
-      </WrapPanel>
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <ComboBox ItemsSource="{Binding ProgramSelection.Programs}"
+                  SelectedItem="{Binding ProgramSelection.SelectedProgram}"
+                  MinWidth="160"
+                  HorizontalAlignment="Stretch"
+                  MaxDropDownHeight="320"
+                  PlaceholderText="Choose a test program"
+                  IsEnabled="{Binding !IsRunning}"
+                  AutomationProperties.Name="Program">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProgramItemViewModel">
+              <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <Button Grid.Column="1" Content="More"
+                Classes="operator"
+                IsVisible="{Binding IsEngineerDebugMode}"
+                ToolTip.Tip="Engineer actions"
+                AutomationProperties.Name="Engineer actions">
+          <Button.Flyout>
+            <MenuFlyout>
+              <MenuItem Header="Refresh programs" Command="{Binding ProgramSelection.RefreshProgramsCommand}" />
+              <MenuItem Header="Open plan…" Command="{Binding ProgramSelection.OpenPlanFileCommand}" />
+              <MenuItem Header="Inspect" Command="{Binding InspectPlanCommand}" />
+            </MenuFlyout>
+          </Button.Flyout>
+        </Button>
+        <TextBlock Grid.Column="2" Text="Loading…"
+                   IsVisible="{Binding ProgramSelection.IsBusy}"
+                   VerticalAlignment="Center" Opacity="0.8" FontWeight="SemiBold" />
+      </Grid>
       <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
         <Button Content="Clear run"
                 Command="{Binding ClearRunCommand}"
@@ -104,11 +61,61 @@
                 AutomationProperties.Name="{Binding HeaderStopLabel}" />
       </StackPanel>
     </Grid>
-    <TextBlock FontSize="12"
-               Opacity="0.95"
-               FontWeight="SemiBold"
-               TextWrapping="Wrap"
-               Foreground="#E65100"
+
+    <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8"
+          IsVisible="{Binding !Workspace.ShowPreparation}">
+      <TextBlock Text="{Binding HeroStepName}"
+                 FontWeight="SemiBold"
+                 VerticalAlignment="Center"
+                 TextTrimming="CharacterEllipsis"
+                 ToolTip.Tip="{Binding HeroStepName}"
+                 x:Name="HeroStepNameText" AutomationProperties.Name="{Binding HeroStepName}"
+                 AutomationProperties.HelpText="{Binding HeroStatusLine}" />
+      <Border Grid.Column="1" CornerRadius="4" Padding="8,2" VerticalAlignment="Center"
+              Background="{Binding HeroChipText, Converter={x:Static vm:ChipBrushConverter.Instance}}"
+              ToolTip.Tip="{Binding HeroStatusLine}">
+        <TextBlock Text="{Binding HeroChipText}"
+                   FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
+                   FontWeight="SemiBold" Foreground="White" />
+      </Border>
+      <Button x:Name="SessionSummaryButton" Grid.Column="2" Classes="operator" MaxWidth="300"
+              AutomationProperties.Name="Current DUT and technician"
+              AutomationProperties.HelpText="{Binding SessionPanel.SessionSummary}">
+        <Button.Content>
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+            <TextBlock Text="{Binding SessionPanel.SessionSummary}" TextTrimming="CharacterEllipsis" MaxWidth="240" />
+            <TextBlock Grid.Column="1" Text="▾" />
+          </Grid>
+        </Button.Content>
+        <Button.Flyout>
+          <Flyout>
+            <StackPanel Spacing="8" Width="360" MaxWidth="500">
+              <TextBlock Text="Current session" FontWeight="SemiBold" />
+              <TextBox x:Name="SessionDetailsBox" IsReadOnly="True"
+                       AcceptsReturn="True" TextWrapping="Wrap" MaxHeight="320"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                       AutomationProperties.Name="Current test session details">
+                <TextBox.Text>
+                  <MultiBinding StringFormat="{}{0}&#10;&#10;Step: {1}&#10;{2}">
+                    <Binding Path="SessionPanel.SessionSummary" />
+                    <Binding Path="HeroStepName" />
+                    <Binding Path="HeroStatusLine" />
+                  </MultiBinding>
+                </TextBox.Text>
+              </TextBox>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+      <Button Grid.Column="3" Content="Change"
+              Command="{Binding SessionPanel.ChangeSessionCommand}"
+              Classes="operator"
+              AutomationProperties.Name="Change session"
+              IsVisible="{Binding ShowHeaderChangeSession}" />
+    </Grid>
+
+    <TextBlock Opacity="0.95" TextWrapping="Wrap"
+               Foreground="{DynamicResource OperatorErrorText}"
                Text="{Binding CanStartRunTip}"
                IsVisible="{Binding ShowStartBlockedTip}" />
   </StackPanel>

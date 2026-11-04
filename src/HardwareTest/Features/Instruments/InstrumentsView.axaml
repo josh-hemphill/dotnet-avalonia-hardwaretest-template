@@ -3,168 +3,111 @@
              xmlns:vm="using:HardwareTest.Features.Instruments"
              x:Class="HardwareTest.Features.Instruments.InstrumentsView"
              x:DataType="vm:InstrumentsViewModel">
-  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" ColumnDefinitions="*,280" ColumnSpacing="16" RowSpacing="12">
-    <WrapPanel Grid.ColumnSpan="2">
-      <Button Content="Discover VISA"
-              Command="{Binding RefreshVisaDiscoverCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Refresh plan slots" Command="{Binding RefreshSlotsCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}"
-              ToolTip.Tip="Opens the selected resource briefly and queries *IDN?. Use after narrowing with interface hints." />
-      <Button Content="Clear override" Command="{Binding ClearOverrideCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Save overrides" Command="{Binding SaveCommand}"
-              Margin="0,0,8,4"
-              IsEnabled="{Binding !IsBusy}" />
-      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" Margin="0,0,8,4" />
-      <TextBlock Text="Working…"
-                 IsVisible="{Binding IsBusy}"
-                 VerticalAlignment="Center"
-                 FontWeight="SemiBold"
-                 Opacity="0.8"
-                 Margin="0,0,8,4" />
-    </WrapPanel>
-
-    <Border Grid.Row="1" Grid.ColumnSpan="2"
-            Padding="10,8"
-            CornerRadius="6"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            IsVisible="{Binding ShowCommissionStrip}">
-      <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-        <StackPanel Spacing="6">
-          <TextBlock Text="Program" FontWeight="SemiBold" />
-          <ComboBox ItemsSource="{Binding PlanFilterOptions}"
-                    SelectedItem="{Binding PlanFilter}"
-                    MinWidth="180" />
-        </StackPanel>
-        <StackPanel Spacing="4">
-          <TextBlock Text="{Binding CommissionTitle}" FontWeight="SemiBold" />
-          <TextBlock Text="{Binding CommissionHint}" TextWrapping="Wrap" Opacity="0.85" />
-          <TextBlock Text="{Binding ReadinessSummary}" TextWrapping="Wrap" FontWeight="SemiBold" />
-          <Button Content="Go to Run"
-                  Command="{Binding NavigateToRunCommand}"
-                  HorizontalAlignment="Left"
-                  Margin="0,4,0,0" />
-        </StackPanel>
+  <DockPanel LastChildFill="True">
+    <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,12">
+      <TextBlock Text="Instrument setup" FontSize="22" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"/>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.Name="Instrument setup status" AutomationProperties.LiveSetting="Polite"/>
+      <TextBlock Text="Working…" IsVisible="{Binding IsBusy}" FontWeight="SemiBold"/>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,12,0,0">
+      <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding SelectedSlot, Converter={x:Static ObjectConverters.IsNotNull}}">
+        <TextBlock Text="Target slot:"/>
+        <TextBlock Grid.Column="1" Text="{Binding SelectedSlot.SlotName}" FontWeight="SemiBold"/>
+        <TextBlock Grid.Column="2" Text="{Binding SelectedSlot.PlanDisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SelectedSlot.Summary}" AutomationProperties.Name="Selected binding target" AutomationProperties.HelpText="{Binding SelectedSlot.Summary}"/>
       </Grid>
-    </Border>
+      <WrapPanel>
+      <Button Content="Apply selected resource" Command="{Binding ApplySelectedResourceCommand}" IsEnabled="{Binding !IsBusy}"
+              Classes="operator primary" AutomationProperties.Name="Apply selected resource" Margin="0,0,8,4"/>
+      <Button Content="Save overrides" Command="{Binding SaveCommand}" IsEnabled="{Binding !IsBusy}"
+              Classes="operator" AutomationProperties.Name="Save instrument overrides" Margin="0,0,8,4"/>
+      <Button Content="Go to Run" Command="{Binding NavigateToRunCommand}" Classes="operator" AutomationProperties.Name="Return to Run" Margin="0,0,0,4"/>
+      </WrapPanel>
+    </StackPanel>
+    <ScrollViewer x:Name="CommissionViewport" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Instrument setup viewport">
+      <StackPanel Spacing="16" Margin="0,0,6,0">
+        <Border Padding="12" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" IsVisible="{Binding ShowCommissionStrip}">
+          <Grid ColumnDefinitions="*,1.6*" ColumnSpacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="CommissionProgramLabel" Text="Program" FontWeight="SemiBold"/>
+              <ComboBox ItemsSource="{Binding PlanFilterOptions}" SelectedItem="{Binding PlanFilter}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
+                        AutomationProperties.Name="Commissioning program" AutomationProperties.LabeledBy="{Binding #CommissionProgramLabel}" ToolTip.Tip="{Binding PlanFilter}">
+                <ComboBox.SelectionBoxItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Spacing="4">
+              <TextBlock Text="{Binding CommissionTitle}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+              <TextBlock Text="{Binding CommissionHint}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding ReadinessSummary}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Instrument readiness"/>
+            </StackPanel>
+          </Grid>
+        </Border>
 
-    <Border Grid.Row="2" Grid.ColumnSpan="2"
-            Padding="12,10"
-            CornerRadius="6"
-            Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-            IsVisible="{Binding ShowDiscoverEmpty}">
-      <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-        <TextBlock Text="No resources discovered yet — Discover VISA to list instruments, then bind plan slots."
-                   VerticalAlignment="Center"
-                   Opacity="0.85"
-                   TextWrapping="Wrap" />
-        <Button Content="Discover VISA"
-                Command="{Binding RefreshVisaDiscoverCommand}"
-                IsEnabled="{Binding !IsBusy}"
-                VerticalAlignment="Center" />
+        <Grid x:Name="BindingWorkflowGrid" ColumnDefinitions="*,*" ColumnSpacing="16" RowSpacing="16">
+          <Border x:Name="SlotPane" Padding="12" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <StackPanel Spacing="8">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <TextBlock x:Name="CommissionSlotLabel" Text="Choose a plan slot" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.HeadingLevel="2"/>
+                <Button Grid.Column="1" Content="Refresh slots" Command="{Binding RefreshSlotsCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Refresh plan slots"/>
+              </Grid>
+              <ComboBox ItemsSource="{Binding VisibleSlots}" SelectedItem="{Binding SelectedSlot}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
+                        PlaceholderText="Choose a plan slot" AutomationProperties.Name="Instrument plan slot" AutomationProperties.LabeledBy="{Binding #CommissionSlotLabel}">
+                <ComboBox.SelectionBoxItemTemplate><DataTemplate x:DataType="vm:SlotOverrideItemViewModel"><TextBlock Text="{Binding SlotName}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:SlotOverrideItemViewModel">
+                  <StackPanel Spacing="4"><TextBlock Text="{Binding SlotName}" FontWeight="SemiBold"/><TextBlock Text="{Binding PlanDisplayName}" TextWrapping="Wrap"/><TextBlock Text="{Binding PlanId, StringFormat='Plan ID: {0}'}" TextWrapping="Wrap"/><TextBlock Text="{Binding EffectiveResource}" TextWrapping="Wrap"/></StackPanel>
+                </DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock Text="{Binding SelectedSlot.StatusText}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Selected instrument slot status"/>
+              <TextBlock Text="{Binding SelectedSlot.EffectiveResource}" TextWrapping="Wrap" AutomationProperties.Name="Selected instrument address"/>
+              <TextBlock Text="{Binding SelectedSlot.LastIdnSummary, StringFormat='Recorded identity: {0}'}" IsVisible="{Binding SelectedSlot.HasLastIdn}" TextWrapping="Wrap"/>
+              <Expander Header="Slot details and manual address" HorizontalContentAlignment="Stretch" IsVisible="{Binding SelectedSlot, Converter={x:Static ObjectConverters.IsNotNull}}" AutomationProperties.Name="Selected instrument slot details">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="{Binding SelectedSlot.Summary}" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding SelectedSlot.PlanId, StringFormat='Plan ID: {0}'}" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding SelectedSlot.TypeName, StringFormat='Adapter type: {0}'}" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding SelectedSlot.PlanDefaultResource, StringFormat='Plan address: {0}'}" TextWrapping="Wrap"/>
+                  <TextBlock x:Name="ManualAddressLabel" Text="Station override address" TextWrapping="Wrap"/>
+                  <TextBox Text="{Binding SelectedSlot.OverrideResource}" MinHeight="40" AutomationProperties.Name="Station override address" AutomationProperties.LabeledBy="{Binding #ManualAddressLabel}"/>
+                  <Button Content="Clear override" Command="{Binding ClearOverrideCommand}" IsEnabled="{Binding !IsBusy}" HorizontalAlignment="Left" Classes="operator" AutomationProperties.Name="Clear selected instrument override"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </Border>
+
+          <Border x:Name="ResourcePane" Grid.Column="1" Padding="12" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Choose a discovered resource" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+              <WrapPanel>
+                <Button Content="Discover VISA" Command="{Binding RefreshVisaDiscoverCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Discover VISA resources" Margin="0,0,8,4"/>
+                <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Discover OpenTAP resources" Margin="0,0,0,4"/>
+              </WrapPanel>
+              <TextBlock Text="No resources found yet. Discover instruments, then choose the address for the selected slot." TextWrapping="Wrap" IsVisible="{Binding ShowDiscoverEmpty}"/>
+              <TextBlock x:Name="VisaResourceLabel" Text="VISA resource"/>
+              <ComboBox ItemsSource="{Binding DiscoveredVisa}" SelectedItem="{Binding SelectedVisa}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
+                        PlaceholderText="Choose a VISA resource" AutomationProperties.Name="Discovered VISA resource" AutomationProperties.LabeledBy="{Binding #VisaResourceLabel}">
+                <ComboBox.SelectionBoxItemTemplate><DataTemplate x:DataType="vm:DiscoveredResourceItem"><TextBlock Text="{Binding Resource}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:DiscoveredResourceItem">
+                  <StackPanel Spacing="4"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Subtitle}" TextWrapping="Wrap"/></StackPanel>
+                </DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <TextBlock x:Name="OpenTapResourceLabel" Text="OpenTAP resource"/>
+              <ComboBox ItemsSource="{Binding DiscoveredOpenTap}" SelectedItem="{Binding SelectedOpenTap}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
+                        PlaceholderText="Choose an OpenTAP resource" AutomationProperties.Name="Discovered OpenTAP resource" AutomationProperties.LabeledBy="{Binding #OpenTapResourceLabel}">
+                <ComboBox.SelectionBoxItemTemplate><DataTemplate x:DataType="vm:OpenTapDiscoveredResourceItem"><TextBlock Text="{Binding Address}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
+                <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:OpenTapDiscoveredResourceItem">
+                  <StackPanel Spacing="4"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Subtitle}" TextWrapping="Wrap"/></StackPanel>
+                </DataTemplate></ComboBox.ItemTemplate>
+              </ComboBox>
+              <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" HorizontalAlignment="Left"
+                      AutomationProperties.Name="Query selected instrument identity" ToolTip.Tip="Opens the selected resource briefly to confirm its identity."/>
+              <TextBlock Text="{Binding SelectedVisa.IdnSummary}" IsVisible="{Binding SelectedVisa.HasIdn}" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding SelectedOpenTap.IdnSummary}" IsVisible="{Binding SelectedOpenTap.HasIdn}" TextWrapping="Wrap"/>
+            </StackPanel>
+          </Border>
+        </Grid>
+        <Expander Header="How station overrides and identity checks work" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Instrument setup help">
+          <TextBlock Text="Apply selected resource changes the chosen slot on this station. Save overrides persists the change; the test plan stays unchanged. Discovery lists address hints. Query *IDN? briefly opens the chosen instrument and records its identity beside station settings." TextWrapping="Wrap"/>
+        </Expander>
       </StackPanel>
-    </Border>
-
-    <DockPanel Grid.Row="3" Grid.Column="0">
-      <TextBlock DockPanel.Dock="Top" Text="OpenTAP plan slot overrides" FontWeight="SemiBold" Margin="0,0,0,8" />
-      <TextBlock DockPanel.Dock="Bottom" Margin="0,8,0,0" Opacity="0.65" FontSize="11" TextWrapping="Wrap"
-                 Text="Select a plan slot, then a VISA or OpenTAP resource, then Apply. Use Query *IDN? to confirm identity." />
-      <ListBox ItemsSource="{Binding VisibleSlots}"
-               SelectedItem="{Binding SelectedSlot}">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:SlotOverrideItemViewModel">
-            <Grid ColumnDefinitions="*,140,100" ColumnSpacing="8" Margin="0,2">
-              <StackPanel Spacing="2">
-                <TextBlock Text="{Binding Summary}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock Opacity="0.7" FontSize="11"
-                           Text="{Binding TypeName, StringFormat=Type: {0}}" />
-                <TextBlock IsVisible="{Binding HasLastIdn}"
-                           Opacity="0.75"
-                           FontSize="11"
-                           Text="{Binding LastIdnSummary, StringFormat=Last IDN: {0}}" />
-                <Border IsVisible="{Binding IsOverridden}"
-                        Padding="6,2"
-                        Margin="0,2,0,0"
-                        HorizontalAlignment="Left"
-                        BorderBrush="{DynamicResource SystemAccentColor}"
-                        BorderThickness="1"
-                        CornerRadius="3"
-                        Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
-                  <TextBlock FontWeight="SemiBold" FontSize="11"
-                             Text="{Binding OverrideResource, StringFormat=Override: {0}}" />
-                </Border>
-              </StackPanel>
-              <TextBox Grid.Column="1"
-                       PlaceholderText="Override resource"
-                       Text="{Binding OverrideResource}"
-                       VerticalAlignment="Center" />
-              <TextBlock Grid.Column="2"
-                         Text="{Binding StatusText}"
-                         FontWeight="SemiBold"
-                         VerticalAlignment="Center"
-                         Opacity="0.85" />
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-    </DockPanel>
-
-    <Grid Grid.Row="3" Grid.Column="1" RowDefinitions="*,*" RowSpacing="12">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="VISA" FontWeight="SemiBold" Margin="0,0,0,8" />
-        <ListBox ItemsSource="{Binding DiscoveredVisa}"
-                 SelectedItem="{Binding SelectedVisa}">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:DiscoveredResourceItem">
-              <StackPanel Spacing="2">
-                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
-                <TextBlock IsVisible="{Binding HasIdn}"
-                           Text="{Binding IdnSummary, StringFormat=IDN: {0}}"
-                           FontSize="11"
-                           FontWeight="SemiBold"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </DockPanel>
-
-      <DockPanel Grid.Row="1">
-        <TextBlock DockPanel.Dock="Top" Text="OpenTAP" FontWeight="SemiBold" Margin="0,0,0,8" />
-        <ListBox ItemsSource="{Binding DiscoveredOpenTap}"
-                 SelectedItem="{Binding SelectedOpenTap}">
-          <ListBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:OpenTapDiscoveredResourceItem">
-              <StackPanel Spacing="2">
-                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding Subtitle}" Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
-                <TextBlock IsVisible="{Binding HasIdn}"
-                           Text="{Binding IdnSummary, StringFormat=IDN: {0}}"
-                           FontSize="11"
-                           FontWeight="SemiBold"
-                           TextWrapping="Wrap" />
-              </StackPanel>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-      </DockPanel>
-    </Grid>
-
-    <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Opacity="0.55" FontSize="11" TextWrapping="Wrap"
-               Text="Overrides are station-local and applied when a program runs. Last *IDN? is stored in station-idn.json under the data directory (not AppSettings). Discover shows interface hints only; Query *IDN? opens the selected resource briefly to confirm identity." />
-  </Grid>
+    </ScrollViewer>
+  </DockPanel>
 </UserControl>

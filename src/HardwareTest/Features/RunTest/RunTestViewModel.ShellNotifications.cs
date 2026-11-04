@@ -6,8 +6,26 @@ namespace HardwareTest.Features.RunTest;
 /// pipeline contract; the strip is the only presentation chrome.
 public partial class RunTestViewModel
 {
+    private string? _runCompletionMessage;
+
+    internal void SetRunCompletionBanner(RunBannerSeverity severity, string message)
+    {
+        _runCompletionMessage = message;
+        SetBanner(severity, message);
+    }
+
+    internal void BeginRunNotifications()
+    {
+        var completion = _runCompletionMessage;
+        _runCompletionMessage = null;
+        if (completion is null) return;
+        _shellNotification?.Clear(ShellNotificationViewModel.SourceRun, completion);
+        if (string.Equals(BannerMessage, completion, StringComparison.Ordinal)) ClearLocalRunBanner();
+    }
+
     private void PublishRunBannerToShell(RunBannerSeverity severity, string message)
     {
+        if (!string.Equals(message, _runCompletionMessage, StringComparison.Ordinal)) _runCompletionMessage = null;
         _shellNotification?.Publish(
             ShellNotificationBrushConverter.FromRun(severity),
             message,

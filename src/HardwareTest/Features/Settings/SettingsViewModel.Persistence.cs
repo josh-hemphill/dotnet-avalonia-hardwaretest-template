@@ -5,6 +5,7 @@ using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Core.StationHealth;
 using HardwareTest.Core.Time;
+using HardwareTest.UiThreading;
 
 namespace HardwareTest.Features.Settings;
 
@@ -12,193 +13,201 @@ public partial class SettingsViewModel
 {
     private async Task SaveAsync()
     {
-        if (IsBusy)
+        var started = false;
+        await UiDispatch.RunAsync(() =>
         {
-            return;
-        }
-
-        IsBusy = true;
+            if (IsBusy) return;
+            IsBusy = true;
+            started = true;
+        }, UiScheduler).ConfigureAwait(false);
+        if (!started) return;
         try
         {
             await SaveCoreAsync();
         }
         finally
         {
-            IsBusy = false;
+            await UiDispatch.RunAsync(() => IsBusy = false, UiScheduler).ConfigureAwait(false);
         }
     }
 
     private async Task SaveCoreAsync()
     {
-        _operatorSession?.TouchActivity();
         var s = _settingsStore.AppSettings;
         string? visaApplyStatus = null;
         var visaRefused = false;
-        if (!UseMockVisaReadOnly)
+        await UiDispatch.RunAsync(() =>
         {
-            if (_visaModeController is not null && UseMockVisa != _visaModeController.EffectiveUseMockVisa)
+            _operatorSession?.TouchActivity();
+            if (!UseMockVisaReadOnly)
             {
-                if (_visaModeController.TryApply(UseMockVisa, out var applyMsg))
+                if (_visaModeController is not null && UseMockVisa != _visaModeController.EffectiveUseMockVisa)
                 {
-                    visaApplyStatus = applyMsg;
-                    s.UseMockVisa = UseMockVisa;
+                    if (_visaModeController.TryApply(UseMockVisa, out var applyMsg))
+                    {
+                        visaApplyStatus = applyMsg;
+                        s.UseMockVisa = UseMockVisa;
+                    }
+                    else
+                    {
+                        visaRefused = true;
+                        visaApplyStatus = applyMsg;
+                        var effective = _visaModeController.EffectiveUseMockVisa;
+                        s.UseMockVisa = effective;
+                        UseMockVisa = effective;
+                    }
                 }
                 else
                 {
-                    visaRefused = true;
-                    visaApplyStatus = applyMsg;
-                    var effective = _visaModeController.EffectiveUseMockVisa;
-                    s.UseMockVisa = effective;
-                    UseMockVisa = effective;
+                    s.UseMockVisa = UseMockVisa;
                 }
+            }
+
+            if (!LogMinimumLevelReadOnly)
+            {
+                s.LogMinimumLevel = NormalizeLogLevel(LogMinimumLevel);
+            }
+
+            if (!EnableOsEventSinkReadOnly)
+            {
+                s.EnableOsEventSink = EnableOsEventSink;
+            }
+
+            if (!EnableSyslogOnUnixReadOnly)
+            {
+                s.EnableSyslogOnUnix = EnableSyslogOnUnix;
+            }
+
+            if (!SyslogHostReadOnly)
+            {
+                s.SyslogHost = SyslogHost;
+            }
+
+            if (!SyslogPortReadOnly)
+            {
+                s.SyslogPort = SyslogPort;
+            }
+
+            if (!PlotRefreshHzReadOnly)
+            {
+                s.PlotRefreshHz = PlotRefreshHz;
+            }
+
+            if (!ThemePreferenceReadOnly)
+            {
+                s.ThemePreference = ThemePreference;
+            }
+
+            if (!EmbedPlotsInReportReadOnly)
+            {
+                s.EmbedPlotsInReport = EmbedPlotsInReport;
+            }
+
+            if (!ExportOpenTapResultsReadOnly)
+            {
+                s.ExportOpenTapResults = ExportOpenTapResults;
+            }
+
+            if (!ShowDutHistoryOnRunReadOnly)
+            {
+                s.ShowDutHistoryOnRun = ShowDutHistoryOnRun;
+            }
+
+            if (!IsEngineerDebugModeReadOnly)
+            {
+                s.IsEngineerDebugMode = IsEngineerDebugMode;
+            }
+
+            if (!OperatorSessionIdleMinutesReadOnly)
+            {
+                s.OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(OperatorSessionIdleMinutes);
+            }
+
+            if (!OperatorSessionIdleWarnPercentReadOnly)
+            {
+                s.OperatorSessionIdleWarnPercent =
+                    OperatorSessionIdle.ClampWarnPercent(OperatorSessionIdleWarnPercent);
+            }
+
+            if (!RequireDutConfirmEveryRunReadOnly)
+            {
+                s.RequireDutConfirmEveryRun = RequireDutConfirmEveryRun;
+            }
+
+            if (!RunRetentionDaysReadOnly)
+            {
+                s.RunRetentionDays = Math.Max(0, RunRetentionDays);
+            }
+
+            if (!RunRetentionMaxRunsReadOnly)
+            {
+                s.RunRetentionMaxRuns = Math.Max(0, RunRetentionMaxRuns);
+            }
+
+            if (!ClockSkewWarnThresholdMinutesReadOnly)
+            {
+                s.ClockSkewWarnThresholdMinutes = ClockSkew.ClampThresholdMinutes(ClockSkewWarnThresholdMinutes);
+            }
+
+            if (!NtpHostReadOnly)
+            {
+                s.NtpHost = NtpHost?.Trim() ?? string.Empty;
+            }
+
+            if (!StationHealthGateOverrideReadOnly)
+            {
+                var pin = StationHealthGateOverride?.Trim() ?? string.Empty;
+                s.StationHealthGateOverride = StationHealthGateOverrides.IsKnown(pin) ? pin : string.Empty;
+            }
+
+            if (!ExportDirectoryReadOnly)
+            {
+                s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
+            }
+
+            if (!PreferRemovableExportReadOnly)
+            {
+                s.PreferRemovableExport = PreferRemovableExport;
+            }
+
+            if (!DataFreeSpaceWarnGbReadOnly)
+            {
+                s.DataFreeSpaceWarnBytes = GbToBytes(DataFreeSpaceWarnGb);
+            }
+
+            if (!DataFreeSpaceCriticalGbReadOnly)
+            {
+                s.DataFreeSpaceCriticalBytes = GbToBytes(DataFreeSpaceCriticalGb);
+            }
+
+            ApplyCredentialSettings(s);
+        }, UiScheduler).ConfigureAwait(false);
+
+        await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);
+        await UiDispatch.RunAsync(() =>
+        {
+            ThemeApplier.Apply(s);
+            AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
+            RefreshProvenance();
+            if (!_settingsStore.IsSettingsWritable)
+            {
+                Status = $"Could not write settings.json ({_settingsStore.LastPersistenceError}). Continuing in memory.";
+                return;
+            }
+
+            if (visaRefused && visaApplyStatus is not null)
+            {
+                Status = visaApplyStatus;
+            }
+            else if (visaApplyStatus is not null)
+            {
+                Status = $"Saved at {FormatSavedAt()}. {visaApplyStatus}";
             }
             else
             {
-                s.UseMockVisa = UseMockVisa;
+                Status = $"Saved at {FormatSavedAt()}. Restart may be required for logging sink changes.";
             }
-        }
-
-        if (!LogMinimumLevelReadOnly)
-        {
-            s.LogMinimumLevel = NormalizeLogLevel(LogMinimumLevel);
-        }
-
-        if (!EnableOsEventSinkReadOnly)
-        {
-            s.EnableOsEventSink = EnableOsEventSink;
-        }
-
-        if (!EnableSyslogOnUnixReadOnly)
-        {
-            s.EnableSyslogOnUnix = EnableSyslogOnUnix;
-        }
-
-        if (!SyslogHostReadOnly)
-        {
-            s.SyslogHost = SyslogHost;
-        }
-
-        if (!SyslogPortReadOnly)
-        {
-            s.SyslogPort = SyslogPort;
-        }
-
-        if (!PlotRefreshHzReadOnly)
-        {
-            s.PlotRefreshHz = PlotRefreshHz;
-        }
-
-        if (!ThemePreferenceReadOnly)
-        {
-            s.ThemePreference = ThemePreference;
-        }
-
-        if (!EmbedPlotsInReportReadOnly)
-        {
-            s.EmbedPlotsInReport = EmbedPlotsInReport;
-        }
-
-        if (!ExportOpenTapResultsReadOnly)
-        {
-            s.ExportOpenTapResults = ExportOpenTapResults;
-        }
-
-        if (!ShowDutHistoryOnRunReadOnly)
-        {
-            s.ShowDutHistoryOnRun = ShowDutHistoryOnRun;
-        }
-
-        if (!IsEngineerDebugModeReadOnly)
-        {
-            s.IsEngineerDebugMode = IsEngineerDebugMode;
-        }
-
-        if (!OperatorSessionIdleMinutesReadOnly)
-        {
-            s.OperatorSessionIdleMinutes = OperatorSessionIdle.ClampMinutes(OperatorSessionIdleMinutes);
-        }
-
-        if (!OperatorSessionIdleWarnPercentReadOnly)
-        {
-            s.OperatorSessionIdleWarnPercent =
-                OperatorSessionIdle.ClampWarnPercent(OperatorSessionIdleWarnPercent);
-        }
-
-        if (!RequireDutConfirmEveryRunReadOnly)
-        {
-            s.RequireDutConfirmEveryRun = RequireDutConfirmEveryRun;
-        }
-
-        if (!RunRetentionDaysReadOnly)
-        {
-            s.RunRetentionDays = Math.Max(0, RunRetentionDays);
-        }
-
-        if (!RunRetentionMaxRunsReadOnly)
-        {
-            s.RunRetentionMaxRuns = Math.Max(0, RunRetentionMaxRuns);
-        }
-
-        if (!ClockSkewWarnThresholdMinutesReadOnly)
-        {
-            s.ClockSkewWarnThresholdMinutes = ClockSkew.ClampThresholdMinutes(ClockSkewWarnThresholdMinutes);
-        }
-
-        if (!NtpHostReadOnly)
-        {
-            s.NtpHost = NtpHost?.Trim() ?? string.Empty;
-        }
-
-        if (!StationHealthGateOverrideReadOnly)
-        {
-            var pin = StationHealthGateOverride?.Trim() ?? string.Empty;
-            s.StationHealthGateOverride = StationHealthGateOverrides.IsKnown(pin) ? pin : string.Empty;
-        }
-
-        if (!ExportDirectoryReadOnly)
-        {
-            s.ExportDirectory = ExportDirectory?.Trim() ?? string.Empty;
-        }
-
-        if (!PreferRemovableExportReadOnly)
-        {
-            s.PreferRemovableExport = PreferRemovableExport;
-        }
-
-        if (!DataFreeSpaceWarnGbReadOnly)
-        {
-            s.DataFreeSpaceWarnBytes = GbToBytes(DataFreeSpaceWarnGb);
-        }
-
-        if (!DataFreeSpaceCriticalGbReadOnly)
-        {
-            s.DataFreeSpaceCriticalBytes = GbToBytes(DataFreeSpaceCriticalGb);
-        }
-
-        ApplyCredentialSettings(s);
-
-        await _settingsStore.SaveAppSettingsAsync();
-        ThemeApplier.Apply(s);
-        AllowOsFolderBrowse = s.AllowOsFolderBrowse || s.IsEngineerDebugMode;
-        RefreshProvenance();
-        if (!_settingsStore.IsSettingsWritable)
-        {
-            Status = $"Could not write settings.json ({_settingsStore.LastPersistenceError}). Continuing in memory.";
-            return;
-        }
-
-        if (visaRefused && visaApplyStatus is not null)
-        {
-            Status = visaApplyStatus;
-        }
-        else if (visaApplyStatus is not null)
-        {
-            Status = $"Saved at {FormatSavedAt()}. {visaApplyStatus}";
-        }
-        else
-        {
-            Status = $"Saved at {FormatSavedAt()}. Restart may be required for logging sink changes.";
-        }
+        }, UiScheduler).ConfigureAwait(false);
     }
 
     /// Whole seconds only — culture `T` can include fractional seconds and reflow the sticky Save row.

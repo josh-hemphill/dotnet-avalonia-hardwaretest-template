@@ -9,6 +9,31 @@ namespace HardwareTest.Features.Results;
 /// List filters (result/plan/DUT/operator/date) and yield counts.
 public partial class ResultsViewModel
 {
+    private bool _resettingFilters;
+
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearFiltersCommand { get; }
+    public bool HasStoredRuns => _allRuns.Count > 0;
+    public bool HasActiveFilters => !string.IsNullOrWhiteSpace(SearchText) || ActiveFilterCount > 0;
+    private int ActiveFilterCount => new[] { ResultFilter, PlanFilter, DutFilter, OperatorFilter }.Count(value => value != AllFilter)
+        + (DateFilter != DateAll ? 1 : 0);
+    public string FilterHeading => ActiveFilterCount > 0 ? $"Filters ({ActiveFilterCount} active)" : "Filters";
+    public string EmptyResultsTitle => HasStoredRuns ? "No matching runs" : "No saved runs yet";
+    public string EmptyResultsHint => HasStoredRuns
+        ? "Change the search or filters to find a saved run."
+        : "Confirm a DUT and run a program on the Run page. Its saved results will appear here.";
+
+    private void ResetFilters()
+    {
+        _resettingFilters = true;
+        try
+        {
+            SearchText = string.Empty;
+            ResultFilter = PlanFilter = DutFilter = OperatorFilter = AllFilter;
+            DateFilter = DateAll;
+        }
+        finally { _resettingFilters = false; }
+        ApplyFilters();
+    }
     public const string DateAll = "All dates";
     public const string DateToday = "Today";
     public const string DateLast7Days = "Last 7 days";
@@ -100,6 +125,11 @@ public partial class ResultsViewModel
         this.RaisePropertyChanged(nameof(HasRuns));
         this.RaisePropertyChanged(nameof(HasSchemaDrift));
         this.RaisePropertyChanged(nameof(SchemaDriftSummary));
+        this.RaisePropertyChanged(nameof(HasStoredRuns));
+        this.RaisePropertyChanged(nameof(HasActiveFilters));
+        this.RaisePropertyChanged(nameof(FilterHeading));
+        this.RaisePropertyChanged(nameof(EmptyResultsTitle));
+        this.RaisePropertyChanged(nameof(EmptyResultsHint));
 
         if (selectedId is not null)
         {

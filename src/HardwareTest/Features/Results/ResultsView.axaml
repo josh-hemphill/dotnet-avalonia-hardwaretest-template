@@ -12,9 +12,10 @@
              x:Class="HardwareTest.Features.Results.ResultsView"
              x:Name="Root"
              x:DataType="vm:ResultsViewModel">
-  <Grid>
-  <Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,360" ColumnSpacing="12" RowSpacing="12">
-    <WrapPanel Orientation="Horizontal" Grid.ColumnSpan="2">
+  <Grid KeyDown="OnResultsKeyDown">
+  <Grid x:Name="ResultsLayout" RowDefinitions="Auto,*,Auto" ColumnDefinitions="*,0" ColumnSpacing="12" RowSpacing="10">
+    <StackPanel Grid.ColumnSpan="2" Spacing="6">
+      <WrapPanel>
       <Button Content="Refresh" Command="{Binding RefreshCommand}"
               Classes="operator"
               Margin="0,0,8,4"
@@ -40,118 +41,101 @@
           <TextBlock Text="Regenerate reports" VerticalAlignment="Center" />
         </StackPanel>
       </Button>
-      <TextBlock Text="Working…"
-                 IsVisible="{Binding IsBusy}"
-                 VerticalAlignment="Center"
-                 FontWeight="SemiBold"
-                 Opacity="0.8"
-                 Margin="0,0,8,4" />
-      <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" Margin="0,0,8,4" />
-    </WrapPanel>
-
-    <DockPanel Grid.Row="1">
+      </WrapPanel>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.Name="Results status" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+    <DockPanel x:Name="ResultsListPane" Grid.Row="1">
       <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
-        <TextBox PlaceholderText="Search plan, DUT, operator, run id…"
-                 Text="{Binding SearchText}" />
+        <TextBlock x:Name="ResultsSearchLabel" Text="Search results" FontWeight="SemiBold"/>
+        <TextBox x:Name="ResultsSearchBox" PlaceholderText="Plan, DUT, operator or run ID" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" MinHeight="40"
+                 AutomationProperties.Name="Search results" AutomationProperties.LabeledBy="{Binding #ResultsSearchLabel}"/>
+        <Expander Header="{Binding FilterHeading}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Result filters">
+          <WrapPanel>
+              <StackPanel Width="150" Spacing="4" Margin="0,0,10,10">
+                <TextBlock x:Name="ResultFilterLabel" Text="Result"/>
+                <ComboBox ItemsSource="{Binding ResultFilterOptions}" SelectedItem="{Binding ResultFilter}" MinHeight="40"
+                          HorizontalAlignment="Stretch" AutomationProperties.Name="Filter results by result"
+                          AutomationProperties.LabeledBy="{Binding #ResultFilterLabel}"/>
+              </StackPanel>
+              <StackPanel Width="150" Spacing="4" Margin="0,0,10,10">
+                <TextBlock x:Name="PlanFilterLabel" Text="Plan"/>
+                <ComboBox ItemsSource="{Binding PlanFilterOptions}" SelectedItem="{Binding PlanFilter}" MinHeight="40"
+                          HorizontalAlignment="Stretch" AutomationProperties.Name="Filter results by plan"
+                          AutomationProperties.LabeledBy="{Binding #PlanFilterLabel}"/>
+              </StackPanel>
+              <StackPanel Width="150" Spacing="4" Margin="0,0,10,10">
+                <TextBlock x:Name="DUTFilterLabel" Text="DUT"/>
+                <ComboBox ItemsSource="{Binding DutFilterOptions}" SelectedItem="{Binding DutFilter}" MinHeight="40"
+                          HorizontalAlignment="Stretch" AutomationProperties.Name="Filter results by dut"
+                          AutomationProperties.LabeledBy="{Binding #DUTFilterLabel}"/>
+              </StackPanel>
+              <StackPanel Width="150" Spacing="4" Margin="0,0,10,10">
+                <TextBlock x:Name="OperatorFilterLabel" Text="Operator"/>
+                <ComboBox ItemsSource="{Binding OperatorFilterOptions}" SelectedItem="{Binding OperatorFilter}" MinHeight="40"
+                          HorizontalAlignment="Stretch" AutomationProperties.Name="Filter results by operator"
+                          AutomationProperties.LabeledBy="{Binding #OperatorFilterLabel}"/>
+              </StackPanel>
+              <StackPanel Width="150" Spacing="4" Margin="0,0,10,10">
+                <TextBlock x:Name="DateFilterLabel" Text="Date"/>
+                <ComboBox ItemsSource="{Binding DateFilterOptions}" SelectedItem="{Binding DateFilter}" MinHeight="40"
+                          HorizontalAlignment="Stretch" AutomationProperties.Name="Filter results by date"
+                          AutomationProperties.LabeledBy="{Binding #DateFilterLabel}"/>
+              </StackPanel>
+          </WrapPanel>
+        </Expander>
         <WrapPanel>
-          <ComboBox ItemsSource="{Binding ResultFilterOptions}"
-                    SelectedItem="{Binding ResultFilter}"
-                    MinWidth="100"
-                    Margin="0,0,8,4" />
-          <ComboBox ItemsSource="{Binding PlanFilterOptions}"
-                    SelectedItem="{Binding PlanFilter}"
-                    MinWidth="120"
-                    Margin="0,0,8,4" />
-          <ComboBox ItemsSource="{Binding DutFilterOptions}"
-                    SelectedItem="{Binding DutFilter}"
-                    MinWidth="120"
-                    Margin="0,0,8,4" />
-          <ComboBox ItemsSource="{Binding OperatorFilterOptions}"
-                    SelectedItem="{Binding OperatorFilter}"
-                    MinWidth="120"
-                    Margin="0,0,8,4" />
-          <ComboBox ItemsSource="{Binding DateFilterOptions}"
-                    SelectedItem="{Binding DateFilter}"
-                    MinWidth="120"
-                    Margin="0,0,8,4" />
+          <TextBlock Text="{Binding FilterStatus}" TextWrapping="Wrap" MaxWidth="540" VerticalAlignment="Center" Margin="0,0,10,4"/>
+          <Button Content="Clear search and filters" Command="{Binding ClearFiltersCommand}" Classes="operator" IsVisible="{Binding HasActiveFilters}"
+                  AutomationProperties.Name="Clear result filters"/>
         </WrapPanel>
-        <TextBlock Text="{Binding FilterStatus}" Opacity="0.7" FontSize="11" />
-        <TextBlock Text="{Binding SchemaDriftSummary}"
-                   IsVisible="{Binding HasSchemaDrift}"
-                   TextWrapping="Wrap"
-                   Opacity="0.85"
-                   FontSize="11" />
-        <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
-          <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="1" Text="Part" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="2" Text="Session" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="3" Text="Operator" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="4" Text="Result" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="5" Text="Started" FontWeight="SemiBold" />
-        </Grid>
+        <TextBlock Text="{Binding SchemaDriftSummary}" IsVisible="{Binding HasSchemaDrift}" TextWrapping="Wrap"/>
       </StackPanel>
-
-      <!-- Empty state: no runs yet -->
-      <Border DockPanel.Dock="Top"
-              Padding="12,10"
-              CornerRadius="6"
-              Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-              IsVisible="{Binding !HasRuns}"
-              Margin="0,0,0,8">
-        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <TextBlock Text="No runs yet — confirm a DUT and run a program on the Run page to see results here."
-                     VerticalAlignment="Center"
-                     Opacity="0.85"
-                     TextWrapping="Wrap" />
-          <Button Content="Go to Run"
-                  Command="{Binding NavigateToRunCommand}"
-                  Classes="operator"
-                  VerticalAlignment="Center" />
+      <Border DockPanel.Dock="Top" Padding="16" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+              IsVisible="{Binding !HasRuns}" Margin="0,0,0,8">
+        <StackPanel Spacing="10">
+          <TextBlock Text="{Binding EmptyResultsTitle}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+          <TextBlock Text="{Binding EmptyResultsHint}" TextWrapping="Wrap"/>
+          <Button Content="Go to Run" Command="{Binding NavigateToRunCommand}" Classes="operator" HorizontalAlignment="Left" IsVisible="{Binding !HasStoredRuns}"/>
+          <Button Content="Clear search and filters" Command="{Binding ClearFiltersCommand}" Classes="operator" HorizontalAlignment="Left"
+                  IsVisible="{Binding HasStoredRuns}" AutomationProperties.Name="Clear unmatched results search and filters"/>
         </StackPanel>
       </Border>
-
-      <ListBox ItemsSource="{Binding Runs}"
-               Classes="operator-list"
-               SelectedItem="{Binding SelectedRun}"
-               DoubleTapped="OnRunsDoubleTapped"
-               MinHeight="240">
+      <ListBox x:Name="RunResultsList" ItemsSource="{Binding Runs}" Classes="operator-list" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding HasRuns}"
+               Tapped="OnRunsTapped" DoubleTapped="OnRunsDoubleTapped" KeyDown="OnRunsKeyDown" Focusable="True"
+               AutomationProperties.Name="Saved runs" MinHeight="40" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+        <ListBox.Styles>
+          <Style Selector="ListBoxItem" x:DataType="runs:TestRunSummary">
+            <Setter Property="AutomationProperties.Name">
+              <MultiBinding StringFormat="{}{0}, DUT {1}, {2}">
+                <Binding Path="PlanName"/><Binding Path="DutSerial"/><Binding Path="Result"/>
+              </MultiBinding>
+            </Setter>
+          </Style>
+        </ListBox.Styles>
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="runs:TestRunSummary">
-            <Grid ColumnDefinitions="*,100,90,90,70,140" ColumnSpacing="4">
-              <StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" />
-                  <TextBlock Text="Read-only"
-                             FontSize="10"
-                             Opacity="0.7"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding IsSchemaReadOnly}" />
-                </StackPanel>
-                <TextBlock Text="{Binding DutSerial}" Opacity="0.8" FontSize="11" />
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding DutSerial, StringFormat='DUT: {0}'}" TextWrapping="Wrap"/>
+                <TextBlock Text="Read-only schema" IsVisible="{Binding IsSchemaReadOnly}" TextWrapping="Wrap" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"/>
               </StackPanel>
-              <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="2" Text="{Binding SessionId, Converter={x:Static conv:ShortIdConverter.Instance}}" VerticalAlignment="Center" FontSize="11"
-                         ToolTip.Tip="{Binding SessionId}" />
-              <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
-              <Border Grid.Column="4"
-                      CornerRadius="4"
-                      Padding="6,2"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center"
+              <Border Grid.Column="1" CornerRadius="4" Padding="8,4" VerticalAlignment="Top"
                       Background="{Binding Result, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
-                <TextBlock Text="{Binding Result}"
-                           Foreground="White"
-                           FontSize="11"
-                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Result}" Foreground="White" FontWeight="SemiBold"/>
               </Border>
-              <TextBlock Grid.Column="5" Text="{Binding StartedAt}" VerticalAlignment="Center" Opacity="0.75" FontSize="11" />
+              <WrapPanel Grid.Row="1" Grid.ColumnSpan="2">
+                <TextBlock Text="{Binding DutPartNumber, StringFormat='Part: {0}'}" MaxWidth="220" TextWrapping="Wrap" Margin="0,0,16,4"/>
+                <TextBlock Text="{Binding OperatorName, StringFormat='Operator: {0}'}" MaxWidth="220" TextWrapping="Wrap" Margin="0,0,16,4"/>
+                <TextBlock Text="{Binding SessionId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat='Session: {0}'}" ToolTip.Tip="{Binding SessionId}" Margin="0,0,16,4"/>
+                <TextBlock Text="{Binding StartedAt, StringFormat='Started: {0}'}" MaxWidth="280" TextWrapping="Wrap" Margin="0,0,16,4"/>
+              </WrapPanel>
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
     </DockPanel>
-
-    <Border Grid.Row="1" Grid.Column="1"
+    <Border x:Name="ResultsDetailPane" Grid.Row="1" Grid.Column="1"
             IsVisible="{Binding ShowDetail}"
             Padding="10"
             Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
@@ -159,7 +143,7 @@
         <!-- Sticky chrome: keep Close/schema out of the scroller so the bar cannot cover them. -->
         <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
           <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-            <TextBlock Text="{Binding OpenedRun.RunId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat=Run {0}}"
+            <TextBlock TextTrimming="CharacterEllipsis" Text="{Binding OpenedRun.RunId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat=Run {0}}"
                        FontWeight="SemiBold"
                        ToolTip.Tip="{Binding OpenedRun.RunId}" />
             <Border Grid.Column="1"
@@ -168,18 +152,18 @@
                     CornerRadius="3"
                     Background="{DynamicResource SystemControlBackgroundBaseMediumBrush}"
                     VerticalAlignment="Center">
-              <TextBlock Text="{Binding SchemaBadge}" FontSize="11" Opacity="0.9" />
+              <TextBlock Text="{Binding SchemaBadge}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Opacity="0.9" />
             </Border>
-            <Button Grid.Column="2" Content="Close" Command="{Binding CloseDetailCommand}" />
+            <Button x:Name="ResultsCloseButton" Grid.Column="2" Content="Back to results" Command="{Binding CloseDetailCommand}" Classes="operator" AutomationProperties.Name="Close run details"/>
           </Grid>
           <TextBlock Text="{Binding SchemaWarning}"
                      IsVisible="{Binding HasSchemaWarning}"
                      TextWrapping="Wrap"
                      Opacity="0.85"
-                     FontSize="11" />
-          <TextBlock Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
-          <TextBlock Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
-          <TextBlock Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
+                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.DutSerial, StringFormat=DUT: {0}}" Opacity="0.85" />
+          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.DutPartNumber, StringFormat=Part: {0}}" Opacity="0.75" />
+          <TextBlock TextWrapping="Wrap" Text="{Binding OpenedRun.OperatorName, StringFormat=Operator: {0}}" Opacity="0.75" />
           <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
             <TextBlock Text="Certification" FontWeight="SemiBold" />
             <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
@@ -199,21 +183,21 @@
                           <TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
                           <TextBlock Text="{Binding RoleLabel}"
                                      Opacity="0.65"
-                                     FontSize="11"
+                                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                                      VerticalAlignment="Center" />
                           <TextBlock Text="(default)"
                                      Opacity="0.65"
-                                     FontSize="11"
+                                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                                      VerticalAlignment="Center"
                                      IsVisible="{Binding IsDefault}" />
                         </StackPanel>
-                        <TextBlock Text="{Binding VerificationText}" Opacity="0.7" FontSize="11" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding VerificationText}" Opacity="0.7" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" TextWrapping="Wrap" />
                       </StackPanel>
                       <Button Grid.Column="1"
                               Content="Open"
                               Command="{Binding #Root.((vm:ResultsViewModel)DataContext).OpenReportCommand}"
                               CommandParameter="{Binding}"
-                              FontSize="11"
+                              FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                               Margin="0,0,8,0" />
                     </Grid>
                   </DataTemplate>
@@ -224,11 +208,11 @@
             <StackPanel Spacing="4" Margin="0,8,0,0" IsVisible="{Binding HasExportTargets}">
               <TextBlock Text="Export package" FontWeight="SemiBold" />
               <TextBlock Text="{x:Static vm:ResultsViewModel.ExportPackageHelp}"
-                         Opacity="0.75" FontSize="11" TextWrapping="Wrap" />
-              <ComboBox ItemsSource="{Binding ExportTargets}"
+                         Opacity="0.75" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" TextWrapping="Wrap" />
+              <ComboBox ItemsSource="{Binding ExportTargets}" AutomationProperties.Name="Export destination"
                         SelectedItem="{Binding SelectedExportTarget}"
-                        MinWidth="280"
-                        MaxWidth="340">
+                        MinWidth="180"
+                        HorizontalAlignment="Stretch">
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="storage:ExportTarget">
                     <TextBlock Text="{Binding DisplayName}"
@@ -245,21 +229,21 @@
               <TextBlock Text="{Binding HistorySeverity, StringFormat=Severity: {0}}" Opacity="0.8" FontSize="12" />
               <TextBlock Text="{Binding HistorySummary}" TextWrapping="Wrap" Opacity="0.9" />
               <Grid ColumnDefinitions="*,70,70,60,60" Margin="0,4,0,0" Opacity="0.7">
-                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="1" Text="Current" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="2" Text="Prior" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="4" Text="Sev" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="1" Text="Current" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="2" Text="Prior" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="4" Text="Sev" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
               </Grid>
               <ItemsControl ItemsSource="{Binding HistoryMetrics}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:DutHistoryMetricRow">
                     <Grid ColumnDefinitions="*,70,70,60,60" ColumnSpacing="2" Margin="0,1">
-                      <TextBlock Text="{Binding Channel}" TextTrimming="CharacterEllipsis" FontSize="11" />
-                      <TextBlock Grid.Column="1" Text="{Binding CurrentMeanText}" FontSize="11" />
-                      <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="11" />
-                      <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="11" />
-                      <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="11" />
+                      <TextBlock Text="{Binding Channel}" TextTrimming="CharacterEllipsis" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="1" Text="{Binding CurrentMeanText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="2" Text="{Binding PriorMeanText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="3" Text="{Binding PercentDeltaText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="4" Text="{Binding Severity}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -270,21 +254,21 @@
               <TextBlock Text="Compare with previous" FontWeight="SemiBold" />
               <TextBlock Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Opacity="0.9" />
               <Grid ColumnDefinitions="*,80,80,60,*" Margin="0,4,0,0" Opacity="0.7">
-                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="1" Text="This run" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="2" Text="Previous" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="4" Text="Note" FontWeight="SemiBold" FontSize="11" />
+                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="1" Text="This run" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="2" Text="Previous" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                <TextBlock Grid.Column="4" Text="Note" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
               </Grid>
               <ItemsControl ItemsSource="{Binding ComparisonMetrics}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RunComparisonRow">
                     <Grid ColumnDefinitions="*,80,80,60,*" ColumnSpacing="2" Margin="0,1">
-                      <TextBlock Text="{Binding MetricKey}" TextTrimming="CharacterEllipsis" FontSize="11" />
-                      <TextBlock Grid.Column="1" Text="{Binding CurrentText}" FontSize="11" />
-                      <TextBlock Grid.Column="2" Text="{Binding PreviousText}" FontSize="11" />
-                      <TextBlock Grid.Column="3" Text="{Binding DeltaText}" FontSize="11" />
-                      <TextBlock Grid.Column="4" Text="{Binding Note}" TextTrimming="CharacterEllipsis" FontSize="11" />
+                      <TextBlock Text="{Binding MetricKey}" TextTrimming="CharacterEllipsis" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="1" Text="{Binding CurrentText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="2" Text="{Binding PreviousText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="3" Text="{Binding DeltaText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+                      <TextBlock Grid.Column="4" Text="{Binding Note}" TextTrimming="CharacterEllipsis" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
@@ -300,7 +284,7 @@
               <TextBlock Text="Metrics" FontWeight="SemiBold" />
               <TextBlock Text="Band gauges first; expand a timeseries chart only when you need the waveform."
                          Opacity="0.65"
-                         FontSize="11"
+                         FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          TextWrapping="Wrap" />
               <ItemsControl ItemsSource="{Binding PresentationTiles}">
                 <ItemsControl.ItemTemplate>
@@ -321,19 +305,19 @@
                        TextWrapping="Wrap" />
             <TextBlock Text="{Binding TriageSummary}"
                        Opacity="0.8"
-                       FontSize="11"
+                       FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        TextWrapping="Wrap"
                        IsVisible="{Binding TriageSummary, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-            <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ShowFailedStepsBanner}">
+            <WrapPanel IsVisible="{Binding ShowFailedStepsBanner}">
               <TextBlock Text="Showing failed steps only" VerticalAlignment="Center" Opacity="0.85" />
               <Button Content="Show all steps"
                       Command="{Binding ClearFailedStepsFilterCommand}"
-                      FontSize="11" />
-            </StackPanel>
+                      FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
+            </WrapPanel>
             <ItemsControl ItemsSource="{Binding StepDetails}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <TextBlock Text="{Binding}" FontSize="11" Margin="0,1" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Margin="0,1" TextWrapping="Wrap" />
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -341,7 +325,7 @@
             <ItemsControl ItemsSource="{Binding SampleDetails}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                  <TextBlock Text="{Binding}" FontSize="11" Margin="0,1" TextWrapping="Wrap" />
+                  <TextBlock Text="{Binding}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Margin="0,1" TextWrapping="Wrap" />
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
@@ -350,9 +334,9 @@
       </DockPanel>
     </Border>
 
-    <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
-               Text="Click a run to open detail. Double-click opens the default report. After a fail, Results filters to Failed and shows failed steps first."
-               Opacity="0.55" FontSize="11" />
+    <TextBlock x:Name="ResultsNavigationHint" Grid.Row="2" Grid.ColumnSpan="2" TextWrapping="Wrap"
+               Text="Select a run to view its details. Double-click opens its default report."
+               Opacity="0.55" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
   </Grid>
 
     <Border IsVisible="{Binding ShowAttestationPrompt}"

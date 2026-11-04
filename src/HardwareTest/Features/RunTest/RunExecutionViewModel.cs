@@ -231,6 +231,7 @@ public sealed class RunExecutionViewModel
         }
 
         _host.IsRunning = true;
+        if (_host is RunTestViewModel startingBoard) startingBoard.BeginRunNotifications();
         _live.ResetForRun();
         _host.HistoryBanner = string.Empty;
         _host.ResetPumpForRun();
@@ -453,7 +454,8 @@ public sealed class RunExecutionViewModel
             RunResult.Failed or RunResult.Error => RunBannerSeverity.Error,
             _ => RunBannerSeverity.Warning,
         };
-        _host.SetBanner(completionSeverity, _host.Status);
+        if (_host is RunTestViewModel completedBoard) completedBoard.SetRunCompletionBanner(completionSeverity, _host.Status);
+        else _host.SetBanner(completionSeverity, _host.Status);
         _stepDetail.AttemptSummaryChip = string.Empty;
         if (selectionOnly
             && !string.IsNullOrWhiteSpace(selectionPath)
