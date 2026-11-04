@@ -2,78 +2,52 @@
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Classes="routeBody">
       <TextBlock Text="Prepare your authoring environment" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
-      <TextBlock Text="Check readiness, prepare packages, then return to your test plan." Classes="purpose" TextWrapping="Wrap"/>
       <Border Classes="surface taskSection">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="10">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Spacing="2">
+              <TextBlock Text="Selected OpenTAP home" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding AuthoringHomeText}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding AuthoringHomeText}" AutomationProperties.Name="Selected authoring home"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="Change home…" Click="OnChangeHome" Classes="authoringAction" VerticalAlignment="Center" AutomationProperties.Name="Change authoring home"/>
+          </Grid>
+          <Grid x:Name="ReadinessGrid" ColumnDefinitions="*,*" ColumnSpacing="20" RowSpacing="12">
+            <StackPanel x:Name="LibraryReadinessCard" Spacing="4">
+              <TextBlock Text="Physical instruments" Classes="sectionTitle" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding EnvironmentLibraryReadiness.State}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness"/>
+              <TextBlock Text="{Binding EnvironmentLibraryReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components next action"/>
+              <Expander Header="Why this status?" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Instrument Components diagnostic details">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="{Binding EnvironmentLibraryReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness reason"/>
+                  <TextBlock Text="{Binding EnvironmentLibraryReadiness.Details}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+            <StackPanel x:Name="ExecutionReadinessCard" Grid.Column="1" Spacing="4">
+              <TextBlock Text="Hardware execution" Classes="sectionTitle" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding EnvironmentExecutionReadiness.State}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness"/>
+              <TextBlock Text="{Binding EnvironmentExecutionReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA next action"/>
+              <Expander Header="Why this status?" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Standalone VISA diagnostic details">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="{Binding EnvironmentExecutionReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness reason"/>
+                  <TextBlock Text="{Binding EnvironmentExecutionReadiness.Details}" TextWrapping="Wrap"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </Grid>
           <WrapPanel>
-            <Button Content="Prepare authoring environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction primaryAction" Margin="0,0,8,8"/>
-            <Button Content="Download missing packages now" Click="OnDownloadPackages" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Download missing required packages" Classes="authoringAction" Margin="0,0,8,8"/>
-            <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction" Margin="0,0,8,8"/>
+            <Button Content="Prepare environment" Click="OnPrepareEnvironment" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Prepare selected authoring environment" Classes="authoringAction primaryAction" Margin="0,0,8,8" ToolTip.Tip="Prepare the selected home using installed and bundled packages first. Download remaining required packages only when automatic downloads are enabled."/>
+            <Button Content="Package sources &amp; manual import…" Click="OnShowPackageSources" Classes="authoringAction" AutomationProperties.Name="Show package sources and manual import" Margin="0,0,8,8"/>
             <Button Content="Cancel preparation" Click="OnCancelPreparation" IsVisible="{Binding OperationBusy}" Classes="authoringAction" AutomationProperties.Name="Cancel environment preparation" Margin="0,0,8,8"/>
           </WrapPanel>
+          <CheckBox Content="Download missing required packages during preparation" IsChecked="{Binding DownloadRequiredPackages}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Automatically download required packages"/>
           <TextBlock Text="{Binding OperationStage}" IsVisible="{Binding OperationBusy}" TextWrapping="Wrap" AutomationProperties.Name="Environment preparation progress" AutomationProperties.LiveSetting="Polite"/>
           <TextBlock Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.Name="Environment preparation error" AutomationProperties.LiveSetting="Assertive"/>
-          <CheckBox Content="Download missing required packages during preparation" IsChecked="{Binding DownloadRequiredPackages}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Automatically download required packages"/>
-          <TextBlock Text="Preparation uses saved workspace requirements. Save all after changing requirements." Classes="purpose" TextWrapping="Wrap"/>
         </StackPanel>
       </Border>
       <Border Classes="surface taskSection">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Selected home and readiness" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-          <TextBlock Text="OpenTAP home" FontWeight="SemiBold"/>
-          <TextBlock Text="{Binding AuthoringHomeText}" TextWrapping="Wrap" AutomationProperties.Name="Selected authoring home"/>
-
-          <vm:ResponsiveTaskGrid>
-            <StackPanel Spacing="8">
-              <TextBlock Text="Physical instruments" Classes="sectionTitle"/>
-              <TextBlock Text="{Binding EnvironmentLibraryReadiness.State}" FontWeight="SemiBold" AutomationProperties.Name="Instrument Components readiness"/>
-              <TextBlock Text="{Binding EnvironmentLibraryReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components readiness reason"/>
-              <TextBlock Text="Next action" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding EnvironmentLibraryReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Instrument Components next action"/>
-              <Expander Header="Diagnostic details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Instrument Components diagnostic details">
-                <TextBlock Text="{Binding EnvironmentLibraryReadiness.Details}" TextWrapping="Wrap"/>
-              </Expander>
-            </StackPanel>
-            <StackPanel Spacing="8">
-              <TextBlock Text="Hardware execution" Classes="sectionTitle"/>
-              <TextBlock Text="{Binding EnvironmentExecutionReadiness.State}" FontWeight="SemiBold" AutomationProperties.Name="Standalone VISA readiness"/>
-              <TextBlock Text="{Binding EnvironmentExecutionReadiness.Summary}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA readiness reason"/>
-              <TextBlock Text="Next action" FontWeight="SemiBold"/>
-              <TextBlock Text="{Binding EnvironmentExecutionReadiness.NextStep}" TextWrapping="Wrap" AutomationProperties.Name="Standalone VISA next action"/>
-              <Expander Header="Diagnostic details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Standalone VISA diagnostic details">
-                <TextBlock Text="{Binding EnvironmentExecutionReadiness.Details}" TextWrapping="Wrap"/>
-              </Expander>
-            </StackPanel>
-          </vm:ResponsiveTaskGrid>
-        </StackPanel>
-      </Border>
-      <Border Classes="surface taskSection">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Prepare in three steps" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-          <TextBlock Text="1. Declare the instrument library if this plan uses physical hardware." TextWrapping="Wrap"/>
-          <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" HorizontalAlignment="Left"/>
-          <TextBlock Text="2. Save All to persist the requirements." TextWrapping="Wrap"/>
-          <TextBlock Text="3. Prepare packages. Compatible installed packages are reused; bundled packages are installed first." TextWrapping="Wrap"/>
-          <TextBlock Text="{Binding EnvironmentRecoveryText}" Classes="purpose" TextWrapping="Wrap"/>
-          <TextBlock Text="Optional packages are not downloaded. Downloads use the repository below and install only into the selected authoring home." Classes="purpose" TextWrapping="Wrap"/>
-          <TextBlock Text="Package repository (HTTPS)" FontWeight="SemiBold"/>
-          <TextBox Text="{Binding PackageRepositoryUrl, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Environment package repository URL"/>
-          <TextBlock Text="{Binding PackageRepositoryError}" IsVisible="{Binding PackageRepositoryError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.Name="Environment repository validation" AutomationProperties.LiveSetting="Polite"/>
-          <StackPanel Spacing="8" AutomationProperties.Name="Package sourcing guidance">
-            <TextBlock Text="Manual download fallback" FontWeight="SemiBold"/>
-            <Expander Header="How to download and import packages manually" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Manual package download help" IsExpanded="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}, Mode=OneWay}">
-              <TextBlock Text="Obtain a .TapPackage or .zip from its publisher or your team, matching the required version below. Choose Import offline package to import each archive. Source links open your browser." TextWrapping="Wrap"/>
-            </Expander>
-            <WrapPanel>
-              <Button Content="Open package repository" Click="OnOpenPackageRepository" Classes="authoringAction" AutomationProperties.Name="Open package repository" Margin="0,0,8,8"/>
-              <Button Content="Open Instrument Components releases" Click="OnOpenLibraryReleases" Classes="authoringAction" AutomationProperties.Name="Open Instrument Components releases" Margin="0,0,8,8"/>
-              <Button Content="Copy package requirements" Click="OnCopyPackageRequirements" Classes="authoringAction" AutomationProperties.Name="Copy package requirements" Margin="0,0,8,8"/>
-            </WrapPanel>
-
-            <TextBlock x:Name="PackageSourceFeedback" TextWrapping="Wrap" AutomationProperties.Name="Package sourcing result" AutomationProperties.LiveSetting="Polite"/>
-          </StackPanel>
-          <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" HorizontalAlignment="Left"/>
-          <TextBlock Text="Required and installed package versions" FontWeight="SemiBold"/>
+        <StackPanel Spacing="4">
+          <TextBlock Text="Required and installed versions" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
           <ItemsControl ItemsSource="{Binding EnvironmentPackages}" AutomationProperties.Name="Environment package requirements">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="vm:AuthoringPackageRequirement">
@@ -88,7 +62,9 @@
                       <TextBlock Text="{Binding InstalledVersion, StringFormat='Installed: {0}'}" TextWrapping="Wrap"/>
                       <TextBlock Text="Optional" IsVisible="{Binding Optional}" Margin="16,0,0,0"/>
                     </WrapPanel>
-                    <TextBlock Text="{Binding Resolution}" TextWrapping="Wrap" Classes="purpose"/>
+                    <Expander Header="Resolution guidance" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
+                      <TextBlock Text="{Binding Resolution}" TextWrapping="Wrap" Classes="purpose"/>
+                    </Expander>
                   </StackPanel>
                 </Border>
               </DataTemplate>
@@ -96,6 +72,32 @@
           </ItemsControl>
         </StackPanel>
       </Border>
+      <Expander x:Name="PackageSources" Header="Package sources and manual download" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Manual package download help">
+        <StackPanel Spacing="10" AutomationProperties.Name="Package sourcing guidance">
+          <TextBlock Text="Package repository (HTTPS)" FontWeight="SemiBold"/>
+          <TextBox x:Name="RepositoryBox" Text="{Binding PackageRepositoryUrl, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding PackageDownloadSettingsEditable}" AutomationProperties.Name="Environment package repository URL"/>
+          <TextBlock Text="{Binding PackageRepositoryError}" IsVisible="{Binding PackageRepositoryError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap" AutomationProperties.Name="Environment repository validation" AutomationProperties.LiveSetting="Polite"/>
+          <TextBlock Text="Installed and bundled packages are reused first. Download now permits downloading remaining required packages for this run, without changing your automatic-download setting. Optional packages are not downloaded." Classes="purpose" TextWrapping="Wrap"/>
+          <Button Content="Download missing packages now" Click="OnDownloadPackages" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Download missing required packages" Classes="authoringAction" HorizontalAlignment="Left"/>
+          <TextBlock Text="Manual download fallback" FontWeight="SemiBold"/>
+          <TextBlock Text="Obtain a .TapPackage or .zip from its publisher or your team, matching the required version above. Import each archive into the selected home. Source links open your browser." TextWrapping="Wrap"/>
+          <WrapPanel>
+            <Button Content="Import offline package…" Click="OnImportOfflinePackage" IsEnabled="{Binding !OperationBusy}" AutomationProperties.Name="Import offline authoring package" Classes="authoringAction" Margin="0,0,8,8"/>
+            <Button Content="Open package repository" Click="OnOpenPackageRepository" Classes="authoringAction" AutomationProperties.Name="Open package repository" Margin="0,0,8,8"/>
+            <Button Content="Open Instrument Components releases" Click="OnOpenLibraryReleases" Classes="authoringAction" AutomationProperties.Name="Open Instrument Components releases" Margin="0,0,8,8"/>
+            <Button Content="Copy package requirements" Click="OnCopyPackageRequirements" Classes="authoringAction" AutomationProperties.Name="Copy package requirements" Margin="0,0,8,8"/>
+          </WrapPanel>
+          <TextBlock x:Name="PackageSourceFeedback" TextWrapping="Wrap" AutomationProperties.Name="Package sourcing result" AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
+      </Expander>
+      <Expander Header="Instrument dependency and new-plan setup" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="Environment dependency setup">
+        <StackPanel Spacing="10">
+          <TextBlock Text="Declare Instrument Components for physical hardware, Save all, then prepare the environment. Preparation uses saved workspace requirements." TextWrapping="Wrap"/>
+          <Button Content="Declare Instrument Components dependency" Click="OnDeclareLibrary" IsEnabled="{Binding CanDeclareLibraryDependency}" AutomationProperties.Name="Declare Instrument Components dependency" Classes="authoringAction" HorizontalAlignment="Left"/>
+          <TextBlock Text="{Binding EnvironmentRecoveryText}" Classes="purpose" TextWrapping="Wrap"/>
+          <Button Content="Resume New test plan" Click="OnResumeInitialization" IsEnabled="{Binding CanInitializePlan}" AutomationProperties.Name="Resume New test plan" Classes="authoringAction" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </Expander>
       <Expander Header="Installed packages and runtime details" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Installed packages and runtime" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
@@ -111,10 +113,7 @@
           <ItemsControl ItemsSource="{Binding EnvironmentRuntimeFiles}" AutomationProperties.Name="Authoring runtime prerequisites"/>
         </StackPanel>
       </Expander>
-      <Border Classes="surface taskSection">
-        <StackPanel Spacing="12">
-          <TextBlock Text="Workspace recovery" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-          <Expander Header="Draft recovery and reconciliation" AutomationProperties.Name="Draft recovery">
+      <Expander Header="Draft recovery and reconciliation" Classes="inspectorSection" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Draft recovery">
             <StackPanel Spacing="4">
               <TextBlock Text="{Binding DraftStateSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
               <WrapPanel Orientation="Horizontal">
@@ -125,9 +124,7 @@
                 <Button Content="Retain source for export" Click="OnRetainSource" Classes="authoringAction" Margin="0,0,8,8"/>
               </WrapPanel>
             </StackPanel>
-          </Expander>
-        </StackPanel>
-      </Border>
+      </Expander>
       <Expander Header="Workspace and build declarations" HorizontalContentAlignment="Stretch" Classes="inspectorSection">
         <StackPanel Spacing="12">
           <TextBlock Text="Workspace and build declarations" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>

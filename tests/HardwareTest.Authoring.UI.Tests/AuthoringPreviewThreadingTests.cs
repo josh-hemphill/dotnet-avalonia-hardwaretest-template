@@ -43,6 +43,8 @@ public sealed class AuthoringPreviewThreadingTests
         Assert.Equal([3.0], acquisition.Preview.CannedSamples);
         Assert.Contains("1 samples", vm.DataSourceDetails, StringComparison.Ordinal);
         Assert.Equal("Recording: owned", vm.PreviewDataSourceLabel);
+        Assert.Equal("Recording", vm.PreviewSourceKind);
+        Assert.Equal("owned", vm.PreviewSourceName);
         Assert.Contains("Recording: owned", publishedLabels);
         vm.StopPreviewProcessing();
     }

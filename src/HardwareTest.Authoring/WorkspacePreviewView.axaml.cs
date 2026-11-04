@@ -97,10 +97,11 @@ public partial class WorkspacePreviewView : UserControl
             && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
             && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(program, vm.SelectedProgram)
             && session == vm.WorkspaceSessionId;
-        var dialog = new RecordingPickerWindow(labels, vm.SelectedDatasetIndex)
+        var descriptions = datasets.Select((dataset, index) => dataset.Identity?.DisplayDetails ?? labels[index]).ToArray();
+        var dialog = new RecordingPickerWindow(labels, vm.SelectedDatasetIndex, descriptions)
         {
             Width = Math.Min(580, owner.ClientSize.Width - 60),
-            Height = Math.Min(420, owner.ClientSize.Height - 60),
+            Height = Math.Min(500, owner.ClientSize.Height - 60),
             FontSize = owner.FontSize
         };
         _recordingSelectionWindow = dialog;

@@ -47,7 +47,16 @@ public sealed partial class AuthoringWorkspaceViewModel
             && ReferenceEquals(input.Dataset, SelectedDataset) && input.HomeOverride == Prefs.OpenTapHomeOverride
             && input.EnvironmentPending == EnvironmentInspectionPending;
 
-    public bool PreviewBusy { get => _previewBusy; private set => SetField(ref _previewBusy, value); }
+    public bool PreviewBusy
+    {
+        get => _previewBusy;
+        private set
+        {
+            if (!SetField(ref _previewBusy, value)) return;
+            OnPropertyChanged(nameof(PreviewSourceKind));
+            OnPropertyChanged(nameof(PreviewSourceName));
+        }
+    }
     public Task WaitForPreviewAsync(CancellationToken cancellationToken = default)
         => _previewIdle.Task.WaitAsync(cancellationToken);
 
@@ -157,7 +166,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void PublishPreviewProperties()
     {
         foreach (var property in new[] { nameof(BoardTiles), nameof(Preview), nameof(PreviewKind), nameof(PreviewChrome),
-            nameof(PreviewNote), nameof(DataSourceDetails), nameof(PreviewDataSourceLabel), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
+            nameof(PreviewNote), nameof(DataSourceDetails), nameof(PreviewDataSourceLabel), nameof(PreviewSourceKind), nameof(PreviewSourceName), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaRecordingEvidence), nameof(ExcludedExplorationFormulas), nameof(FormulaError),
             nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind) }) OnPropertyChanged(property);

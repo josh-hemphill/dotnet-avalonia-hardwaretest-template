@@ -1,9 +1,14 @@
 # Authoring UI/UX voting review
 
-The review reached the requested quality floor: **every reviewer scored every
-final category at least 80**. The final majority medians range from **82 to 85**.
+The initial review reached the requested 80-point floor. After the user raised
+the goal to **strictly above 90 in every category**, three fresh reviewers
+iterated on a further candidate. Their final category medians are **91–93**,
+and every reviewer scores every final category at least 91.
 
-Accepted application source: `3eb5cdabdfd26ebdbe3ec9b3ff5e092c79e0f6ce`.
+See [the over-90 experiment](#over-90-experiment) for the current result.
+The original 80-point review is retained below as history.
+
+Initial 80-point application source: `3eb5cdabdfd26ebdbe3ec9b3ff5e092c79e0f6ce`.
 Baseline: `f918475c544405bcdf376e16d86b1bf420185e91`.
 Guidance: [Anthropic frontend-design skill](https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md).
 
@@ -13,8 +18,10 @@ Three reviewers independently score the same seven categories in each round.
 The median is the majority vote; the highest individual score cannot establish
 acceptance. Scores below 60 indicate a blocked task, 60–79 substantial friction,
 80–89 usable workflows with minor friction, and 90 or more a polished experience.
-Acceptance requires every category median at least 80 and no observed workflow
-blocker. The rubric and threshold remained fixed throughout.
+The initial acceptance required every category median at least 80 and no
+observed workflow blocker. The rubric remained fixed. The user subsequently
+raised the acceptance threshold to strictly above 90; the new experiment uses
+the same categories and scoring anchors, with a minimum accepted median of 91.
 
 These are heuristic design ratings, not percentages of users or formal
 accessibility certification. Round 1 used source and historical captures because
@@ -141,7 +148,7 @@ The workflow can also be dispatched manually after it is available on the defaul
 branch. Ordinary UI tests retain the fast headless backend; local render captures
 use `HT_CAPTURE_UI=1` and `HT_CAPTURE_DIRECTORY`.
 
-## Remaining polish and elevated work
+## Remaining polish after the initial 80-point review
 
 The accepted floor permits minor friction. Reviewers recorded: early truncation
 of recording identity in the compact toolbar; a selected-recording description
@@ -152,8 +159,109 @@ A focused editor or an adjustable/dedicated compact guidance surface would be a
 larger layout proposal.
 
 - [#237](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/issues/237): safe cancellation of long imports requires process ownership and cleanup.
-- [#240](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/issues/240): distinguish first authoring save of imported plans from deleted or unsafe saved source without weakening recovery guards.
+- [#240](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/issues/240): first-save recovery was elevated here and subsequently addressed in the over-90 experiment below.
 - [#238](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/issues/238): the compact Preview space finding is addressed by this PR.
 
 Native screen-reader behavior, window-manager interaction and physical instrument
 execution are not established by headless screenshots or these ratings.
+
+
+## Over-90 experiment
+
+Three fresh competing reviewers independently inspected the new candidate,
+including actual Avalonia/Skia renders in light/dark at 1280×800/font14 and
+960×600/font20. They scored the existing seven categories without consulting
+one another's votes. Each returned a complete independent vote; the median
+remains the majority rule. These are expert heuristic ratings, not measured
+percentages of successful users.
+
+| Category | A | B | C | Median |
+| --- | ---: | ---: | ---: | ---: |
+| Visual hierarchy/readability | 92 | 92 | 92 | 92 |
+| Navigation/discoverability | 92 | 92 | 92 | 92 |
+| First-plan/step-authoring completion | 94 | 93 | 93 | 93 |
+| Hardware/environment setup clarity | 92 | 92 | 91 | 92 |
+| Space/scroll/resizing | 91 | 91 | 91 | 91 |
+| Feedback/error recovery | 92 | 93 | 92 | 92 |
+| Keyboard/accessibility | 91 | 91 | 91 | 91 |
+
+The first candidate did not clear the new target. Reviewers found arbitrary
+word wrapping in enlarged navigation, a blank current recipe after switching
+source families, compact configuration fields below the fold, buried readiness,
+a home-recovery destination without a home-edit action, and another small nested
+findings viewport. They also identified inconsistent confirmation styling,
+ambiguous insertion context, stale validation descriptions, and unreadable plot
+text. These were fixed before the final votes.
+
+### Resulting workflows
+
+- A normal New test plan uses one short title/device form, with an editable
+  generated ID. Hardware/template setup and guided voltage setup retain their
+  deliberate full forms. Cancellation preserves local input and restores focus.
+- A persistent task bar exposes common work. At minimum width with enlarged
+  text, secondary tasks move into More; current-route indication and Back remain
+  available. F6 switches between sequence selection and configuration.
+- The inspector prioritizes actual configuration and pass criteria, uses a
+  concise selected recipe caption, and keeps recipe details in the dropdown.
+  Switching Acquire ↔ Mean retains the exact current choice without changing
+  the draft; deliberate recipe edits and Undo still work.
+- Applied instrument selection and the unapplied editor are adjacent. A themed
+  review presents the plan, slot, friendly adapter, address and affected steps;
+  raw receipt details remain disclosed. Cancel preserves both saved bytes and
+  the editable local proposal.
+- Environment starts with readiness and a direct, field-focused Change home
+  action. Required versions follow; repository settings and manual download/
+  import helpers are disclosed when requested or when sourcing fails.
+- Issues puts plain recovery actions before technical details. Expanded saved
+  findings use the page's single viewport. Dynamic numeric-setting recovery
+  resolves a verified field instead of silently falling back to settings.
+- Preview identifies its actual cached source. The recording picker shows the
+  selected recording's full immutable identity for keyboard users. Plot fonts
+  fall back to an installed family only when the default has no usable glyphs.
+- Full operation results and errors are selectable in Details; a reserved compact
+  footer keeps save feedback from changing the editor geometry.
+- A genuinely compiled-only import can establish its first authoring save.
+  Compiled/sidecar hash receipts must still match; externally changed artifacts
+  and previously saved then deleted source continue through recovery. This
+  addresses #240 without treating missing saved source as a new import.
+
+### Evidence and limits
+
+The local capture matrix now contains **128 PNG states** (32 per theme/size
+combination), including loaded binding/review, quick-create validation, current
+measurement and criterion, lower Environment sources/manual fallback, expanded
+real saved-plan findings, and program removal. Screenshots remain local; new
+captures are not published through the opt-in PR capture workflow.
+
+Native Linux X11/AT-SPI probes verified actual application/field names and roles,
+text values, destination/title initial focus, Tab, validation descriptions,
+quick plan persistence, duplicate-ID focus, advanced-form validation, Escape
+and return focus. The application now identifies itself as HardwareTest
+Authoring. The probe used Xvfb, Openbox and a private accessibility bus; its
+window activation step is part of that virtual-desktop harness.
+
+This evidence does not establish spoken live-region announcements, Orca/NVDA
+or braille usability, Windows UIA behavior, physical instrument execution, or a
+human newcomer study. Those limits are preserved separately from the heuristic
+score. The larger import-cancellation work in #237 remains elevated; no cosmetic
+Cancel action was added for an operation that lacks ownership/cleanup support.
+
+Validation:
+
+- Full Linux UI run: **508 passed**, four intentional capture skips, no failures.
+- Final first-save extension: **five cases passed**, including an imported
+  plan whose sidecar was legitimately absent; receipt comparisons still reject
+  external additions/removals.
+- Five real-render/font cases passed, producing the 128-image matrix.
+- Full authoring run: 1,958 passed and four platform/tooling skips; its only
+  failure was the old vertical AXAML row expectation after the horizontal
+  settings layout. The corrected chrome/recovery/dataset rerun passed all
+  **19 cases**, including that exact failed test.
+- Canonical repository formatting and dependency vulnerability audit passed.
+- The full native form journey passed against application SHA-256
+  `ea037984d91524d9d1a3586db3381221cd0d49753f629769f84d02b1e7afa187`.
+  The subsequent first-save receipt edge-case change does not change those forms.
+
+The final small Issues action-placement and generic confirmation-theme fixes
+were checked in fresh compact renders before handoff. Required cross-platform
+CI remains authoritative for merging; the PR is retained as a draft for review.

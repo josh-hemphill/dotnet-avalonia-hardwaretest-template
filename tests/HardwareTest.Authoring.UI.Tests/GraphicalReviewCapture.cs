@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -32,6 +33,12 @@ public sealed class GraphicalReviewCapture
         Capture(window, $"welcome-{suffix}");
         fixture.OpenRememberedWorkspace();
         await fixture.WaitForReadinessAsync();
+        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        var quick = Assert.Single(window.OwnedWindows);
+        Capture(quick, $"quick-create-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", quick));
+        Capture(quick, $"quick-create-validation-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", quick));
         var routes = new (int Index, string Name)[]
         {
             (8, "overview"), (0, "sequence"), (1, "instruments"), (7, "operator-reports"),
@@ -43,8 +50,36 @@ public sealed class GraphicalReviewCapture
             if (route.Index == 5) fixture.ViewModel.UseExampleData();
             await fixture.WaitForReadinessAsync();
             Capture(window, $"{route.Name}-{suffix}");
+            if (route.Index == 1)
+            {
+                AuthoringUiFixture.Click(fixture.Control<Button>("Load selected binding"));
+                Capture(window, $"instruments-edit-{suffix}");
+                var address = fixture.Control<TextBox>("Hardware adapter address");
+                address.Text = "MOCK::REVIEW-CAPTURE";
+                AuthoringUiFixture.Drain();
+                AuthoringUiFixture.Click(fixture.Control<Button>("Review binding change"));
+                var review = Assert.Single(window.OwnedWindows);
+                Capture(review, $"instruments-review-{suffix}");
+                review.Close(false);
+                AuthoringUiFixture.Drain();
+            }
+            if (route.Index == 3)
+            {
+                fixture.Control<ItemsControl>("Environment package requirements").BringIntoView();
+                Capture(window, $"environment-packages-{suffix}");
+                AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
+                Capture(window, $"environment-sources-{suffix}");
+                fixture.Control<Button>("Copy package requirements").BringIntoView();
+                Capture(window, $"environment-manual-end-{suffix}");
+            }
         }
         fixture.NavigateTask(0);
+        fixture.ViewModel.SelectSequence(fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Label == "Acquire VDC"));
+        await fixture.WaitForReadinessAsync();
+        Capture(window, $"sequence-measurement-{suffix}");
+        fixture.ViewModel.SelectSequence(fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Label == "Mean GTE"));
+        await fixture.WaitForReadinessAsync();
+        Capture(window, $"sequence-criterion-{suffix}");
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         GuidanceUiActions.WaitForAssessment(fixture);
         var guidance = window.FindControl<Border>("GuidanceHost")!;
@@ -91,6 +126,39 @@ public sealed class GraphicalReviewCapture
         Capture(recordingPicker, $"preview-recording-picker-{suffix}");
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel recording selection", recordingPicker));
 
+        // Capture the real saved-plan diagnostic disclosure, including its continuation
+        // below the fold. Both states use the page viewport rather than a nested list.
+        var planPath = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
+        var plan = XDocument.Load(planPath);
+        var acquisition = plan.Descendants("TestStep").Single(step =>
+            ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
+        acquisition.Add(new XElement("SeriesCompliance", "allSamples"));
+        plan.Save(planPath);
+        fixture.ViewModel.Open(fixture.WorkspaceRoot);
+        await fixture.WaitForReadinessAsync();
+        fixture.ViewModel.Validate();
+        fixture.NavigateTask(2);
+        fixture.Control<Expander>("Editing findings").IsExpanded = false;
+        var checkedFinding = Assert.Single(fixture.ViewModel.FindingRows, row =>
+            row.Code == HardwareTest.OpenTap.Host.PlanContractValidator.Codes.ComplianceWithoutLimits);
+        var savedRows = fixture.Control<ListBox>("Contract findings");
+        var checkDetails = savedRows.GetVisualDescendants().OfType<Expander>()
+            .Single(expander => ReferenceEquals(expander.DataContext, checkedFinding));
+        checkDetails.IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        var recovery = savedRows.GetVisualDescendants().OfType<Button>()
+            .Single(button => button.Classes.Contains("authoringAction") && ReferenceEquals(button.DataContext, checkedFinding));
+        recovery.BringIntoView();
+        AuthoringUiFixture.Drain();
+        var issuesViewport = fixture.Control<ScrollViewer>("Issues task viewport");
+        var recoveryPosition = recovery.TranslatePoint(default, issuesViewport)!.Value;
+        issuesViewport.Offset = new Vector(0, Math.Max(0, issuesViewport.Offset.Y + recoveryPosition.Y - 12));
+        Capture(window, $"issues-checked-expanded-{suffix}");
+        var lastDetail = checkDetails.GetVisualDescendants().OfType<TextBlock>()
+            .Single(text => text.Text == checkedFinding.NavigationReason);
+        lastDetail.BringIntoView();
+        Capture(window, $"issues-checked-details-end-{suffix}");
+
         fixture.ViewModel.ReportError("Package preparation could not finish. The selected home was preserved. "
             + "Open the package source, copy requirements and import a matching offline package.\n"
             + string.Join("\n", Enumerable.Range(1, 12).Select(index => $"Requirement {index}: obtain the declared version from your publisher.")));
@@ -103,6 +171,10 @@ public sealed class GraphicalReviewCapture
         await fixture.WaitForReadinessAsync();
         fixture.NavigateTask(0);
         Capture(window, $"empty-plan-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Remove program"));
+        var removal = Assert.Single(window.OwnedWindows);
+        Capture(removal, $"program-removal-{suffix}");
+        AuthoringUiFixture.Click(fixture.Control<Button>("Cancel destructive operation", removal));
     }
 
     private static void Capture(Window window, string name)
@@ -113,6 +185,10 @@ public sealed class GraphicalReviewCapture
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "ui-review");
         Directory.CreateDirectory(directory);
+        File.WriteAllText(Path.Combine(directory, "font-diagnostics.txt"),
+            $"Default={ScottPlot.Fonts.Default}; System={ScottPlot.Fonts.System}; "
+            + $"DefaultGlyphs={ScottPlot.Fonts.GetTypeface(ScottPlot.Fonts.Default, false, false).GlyphCount}; "
+            + $"DejaVuGlyphs={ScottPlot.Fonts.GetTypeface("DejaVu Sans", false, false).GlyphCount}");
         bitmap.Save(Path.Combine(directory, name + ".png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
 }

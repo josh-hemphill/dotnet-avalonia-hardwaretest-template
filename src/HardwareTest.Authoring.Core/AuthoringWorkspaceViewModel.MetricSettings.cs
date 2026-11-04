@@ -27,6 +27,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         => HasMetricPresentation
            && AuthoringCriteria.Requirements(SelectedMetric!)?.RequiresBand == true;
 
+    public bool HasPassDecision => ShowBandLimits || ShowThreshold;
+
     public string FormulaHelp =>
         "Choose deployment or exploration. Exploration is saved unchanged and excluded from the built plan.";
 

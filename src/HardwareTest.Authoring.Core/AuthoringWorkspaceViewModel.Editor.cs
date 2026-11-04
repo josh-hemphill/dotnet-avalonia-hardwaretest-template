@@ -520,6 +520,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(CanRemoveSelectedProgram));
         OnPropertyChanged(nameof(ShowThreshold));
         OnPropertyChanged(nameof(ShowBandLimits));
+        OnPropertyChanged(nameof(HasPassDecision));
         OnPropertyChanged(nameof(FormulaSaveNote));
         OnPropertyChanged(nameof(FormulaSaveOutcomeKind));
         OnPropertyChanged(nameof(ChannelKeys));

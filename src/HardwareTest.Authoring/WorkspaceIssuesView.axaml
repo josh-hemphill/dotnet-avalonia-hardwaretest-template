@@ -7,41 +7,54 @@
         <TextBlock Text="{Binding IssuesSummary}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
       </StackPanel>
       <Expander x:Name="EditingFindingsSection" Margin="0,0,0,8" Header="Editing findings" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Editing findings" IsVisible="{Binding HasWorkspace}">
-        <ScrollViewer Margin="0,0,0,8" VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Editing findings viewport">
-          <ItemsControl ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
-            <ItemsControl.ItemTemplate>
-              <DataTemplate x:DataType="vm:AuthoringEditingIssue">
+        <ItemsControl Margin="0,0,0,8" ItemsSource="{Binding EditingIssues}" AutomationProperties.Name="Editing findings">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AuthoringEditingIssue">
+              <Border Classes="surface" Padding="12" Margin="0,0,0,12">
                 <StackPanel Spacing="8">
-                  <TextBlock Text="{Binding Severity}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringAccent}"/>
-                  <TextBlock TextWrapping="Wrap" Text="{Binding Code}" FontWeight="SemiBold"/>
-                  <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
-                  <Button Content="{Binding NavigationLabel}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
-                  <TextBlock TextWrapping="Wrap" Text="{Binding PlanId, StringFormat='Program: {0}'}"/>
-                  <TextBlock TextWrapping="Wrap" Text="Editing draft — separate from saved-plan checks" Classes="purpose"/>
-                  <TextBlock TextWrapping="Wrap" Text="{Binding Section, StringFormat='Section: {0}'}" IsVisible="{Binding Section, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                  <TextBlock TextWrapping="Wrap" Text="{Binding Field, StringFormat='Field: {0}'}" IsVisible="{Binding Field, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                </StackPanel>
+                  <TextBlock Text="{Binding Severity}" Classes="purpose"/>
+                  <TextBlock Text="{Binding Headline}" TextWrapping="Wrap" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3"/>
+                  <Button Content="{Binding RecoveryLabel}" Click="OnResolveEditingIssue" Classes="authoringAction" HorizontalAlignment="Left"/>
+                    <TextBlock Text="{Binding RecoverySummary}" TextWrapping="Wrap"/>
+                  <Expander Header="Details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="{Binding Headline, StringFormat='Details: {0}'}">
+                    <StackPanel Spacing="8">
+                      <TextBlock Text="{Binding Code}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding PlanId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="Editing draft — separate from saved-plan checks" Classes="purpose" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Section, StringFormat='Section: {0}'}" TextWrapping="Wrap" IsVisible="{Binding Section, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                      <TextBlock Text="{Binding Field, StringFormat='Field: {0}'}" TextWrapping="Wrap" IsVisible="{Binding Field, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                  </Expander>
+                  </StackPanel>
+                </Border>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-        </ScrollViewer>
       </Expander>
-      <Grid RowDefinitions="Auto,*" RowSpacing="8" Margin="0,8,0,0">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="8" Margin="0,8,0,0">
         <TextBlock Text="Saved-plan check findings" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3" Margin="0,0,0,4"/>
         <TextBlock Grid.Row="1" IsVisible="{Binding !FindingRows.Count}" Text="No saved-plan findings are displayed. The check state above tells you whether saved plans have been checked and whether that result is current." TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Saved-plan empty state"/>
-        <ListBox x:Name="CheckedFindingsList" Height="160" Grid.Row="1" ItemsSource="{Binding FindingRows}" IsVisible="{Binding FindingRows.Count}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Contract findings" Classes="authoringList">
+        <ListBox x:Name="CheckedFindingsList" Focusable="True" Grid.Row="1" ItemsSource="{Binding FindingRows}" IsVisible="{Binding FindingRows.Count}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Contract findings" Classes="authoringList" ScrollViewer.VerticalScrollBarVisibility="Disabled" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="vm:AuthoringFindingRow">
               <StackPanel Spacing="8">
-                <TextBlock Text="{Binding Severity}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource AuthoringAccent}"/>
-                <TextBlock FontWeight="SemiBold" Text="{Binding ProgramId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
-                <TextBlock TextWrapping="Wrap" Text="{Binding TapPlanPath}"/>
-                <TextBlock FontWeight="SemiBold" Text="{Binding Code, StringFormat='{}{0}'}" TextWrapping="Wrap"/>
-                <TextBlock TextWrapping="Wrap" Opacity="0.85" Text="{Binding Message}"/>
-                <TextBlock TextWrapping="Wrap" Text="{Binding Location, StringFormat='Location: {0}'}"/>
-                <TextBlock Text="{Binding CheckState}" TextWrapping="Wrap"/>
-                <TextBlock Text="{Binding NavigationReason}" TextWrapping="Wrap"/>
-                <Button Content="{Binding NavigationLabel}" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram" Classes="authoringAction"/>
+                <TextBlock Text="{Binding Severity}" Classes="purpose"/>
+                <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+                <TextBlock Text="{Binding RecoverySummary}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding CheckState}" TextWrapping="Wrap" Classes="purpose"/>
+                <Button Content="{Binding RecoveryLabel}" IsEnabled="{Binding CanOpenProgram}" Click="OnOpenFindingProgram" Classes="authoringAction" HorizontalAlignment="Left"/>
+                <Expander Header="Check details" HorizontalContentAlignment="Stretch" Classes="inspectorSection" AutomationProperties.Name="{Binding Headline, StringFormat='Check details: {0}'}">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding ProgramId, StringFormat='Program: {0}'}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Code}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Message}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding TapPlanPath}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Location, StringFormat='Location: {0}'}" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding NavigationReason}" TextWrapping="Wrap"/>
+                  </StackPanel>
+                </Expander>
               </StackPanel>
             </DataTemplate>
           </ListBox.ItemTemplate>

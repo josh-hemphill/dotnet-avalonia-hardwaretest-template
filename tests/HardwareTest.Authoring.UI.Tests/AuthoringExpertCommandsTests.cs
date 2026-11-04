@@ -39,7 +39,7 @@ public sealed class AuthoringExpertCommandsTests
         var later = vm.Programs.Single(program => program.PlanId == "later-settings").Instruments[0];
         fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         var id = fixture.Control<TextBox>("Stable plan ID", dialog); Assert.True(id.Focus()); id.SelectAll();
         dialog.KeyTextInput("chosen-settings"); AuthoringUiFixture.Drain(); Assert.Equal("chosen-settings", id.Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
@@ -253,7 +253,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.Single(fixture.Control<ListBox>("Authoring commands", palette).Items.Cast<object>());
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel")));
         fixture.Control<Button>("Save all").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
         Assert.True(await fixture.Window.ExecuteCommandAsync("save-all"));

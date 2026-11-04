@@ -170,18 +170,33 @@ public sealed class ResponsiveShellTests
         typeof(AuthoringWorkspaceViewModel).GetProperty(nameof(AuthoringWorkspaceViewModel.FindingRows))!
             .SetValue(fixture.ViewModel, rows);
         AuthoringUiFixture.Drain();
-        findings.BringIntoView();
+        var scroll = fixture.Control<ScrollViewer>("Issues task viewport");
+        Inside(scroll, window);
+        var listScroller = Assert.Single(findings.GetVisualDescendants().OfType<ScrollViewer>());
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, listScroller.VerticalScrollBarVisibility);
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, listScroller.HorizontalScrollBarVisibility);
+        Assert.True(findings.Focus());
+        window.KeyPress(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
         AuthoringUiFixture.Drain();
-        Inside(findings, window);
-        findings.ScrollIntoView(rows[^1]);
-        AuthoringUiFixture.Drain();
-        var scroll = Assert.Single(findings.GetVisualDescendants().OfType<ScrollViewer>());
-        Assert.True(scroll.Offset.Y > 0);
+        Assert.Same(rows[^1], findings.SelectedItem);
         var row = Assert.IsAssignableFrom<Control>(findings.ContainerFromIndex(rows.Length - 1));
+        var disclosure = Assert.Single(row.GetVisualDescendants().OfType<Expander>());
+        var closedHeight = findings.Bounds.Height;
+        disclosure.IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        Assert.True(findings.Bounds.Height > closedHeight);
+        foreach (var field in disclosure.GetVisualDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible))
+        {
+            field.BringIntoView(); AuthoringUiFixture.Drain();
+            Inside(field, window);
+        }
+        Assert.True(scroll.Offset.Y > 0);
+        Assert.Equal(0, listScroller.Offset.Y);
         var open = Assert.Single(row.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Open program settings"));
         open.BringIntoView();
         AuthoringUiFixture.Drain();
         Inside(open, window);
+        Assert.True(open.Focus());
         AuthoringUiFixture.Click(open);
         Assert.Equal(7, tabs.SelectedIndex);
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);

@@ -17,6 +17,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "created");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace from welcome"));
         var dialog = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        Assert.True(fixture.Control<TextBox>("Workspace destination", dialog).IsFocused);
         Set(fixture, dialog, "Workspace destination", root); Set(fixture, dialog, "Workspace display name", "New board");
         Set(fixture, dialog, "Package name", "Board product"); Set(fixture, dialog, "Package version", "1.2.3");
         fixture.Control<ComboBox>("Workspace template", dialog).SelectedIndex = template;
@@ -34,7 +35,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         {
             Assert.Empty(fixture.ViewModel.Programs);
             AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-            var plan = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+            var plan = Assert.IsType<QuickPlanCreationWindow>(Assert.Single(fixture.Window.OwnedWindows));
             AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", plan));
         }
         else
@@ -65,7 +66,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         fixture.Control<CheckBox>("Continue to New test plan", dialog).IsChecked = true;
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", dialog));
-        var continuation = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        var continuation = Assert.IsType<QuickPlanCreationWindow>(Assert.Single(fixture.Window.OwnedWindows));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", continuation));
         Assert.True(fixture.ViewModel.HasWorkspace); Assert.Empty(fixture.ViewModel.Programs);
     }
@@ -150,7 +151,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.Contains("InstrumentComponents.OpenTap ^0.1.0", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         Assert.Contains("Classification: Product", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", creation));
-        var plan = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        var plan = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Set(fixture, plan, "Plan display name", "Physical voltage"); Set(fixture, plan, "Stable plan ID", "physical");
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", plan));
         fixture.Control<ComboBox>("Starting point", plan).SelectedIndex = 1;

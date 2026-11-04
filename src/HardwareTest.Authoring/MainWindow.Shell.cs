@@ -1,4 +1,6 @@
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -133,7 +135,7 @@ public partial class MainWindow
                 _shellPlan = _viewModel.SelectedProgram?.PlanId;
                 _routeFocus.Clear();
             }
-            SaveAllFeedback.IsVisible = _viewModel.SaveAllResults.Count > 0;
+
             var drawer = _viewModel.IssuesDrawerOpen && WorkspaceTabs.SelectedIndex != 2;
             var issuesDestination = drawer ? IssuesDrawer : IssuesRoute;
             var previousIssues = drawer ? IssuesRoute : IssuesDrawer;
@@ -141,10 +143,24 @@ public partial class MainWindow
             { previousIssues.Content = null; issuesDestination.Content = _issuesView; }
             IssuesDrawer.IsVisible = drawer;
             var compact = ClientSize.Height <= 700;
-            SequencePurpose.IsVisible = !compact;
+
             PlanNavigationBar.Margin = new Avalonia.Thickness(0, 0, 0, compact ? 8 : 16);
             // The sequence is the main canvas. Keep enough room for both panes, including enlarged text.
-            var available = Math.Max(0, ClientSize.Width - 48 - 16);
+            foreach (var task in PlanNavigationBar.Children.OfType<ToggleButton>())
+            {
+                var selected = Equals(task.Tag, WorkspaceTabs.SelectedIndex.ToString());
+                task.IsChecked = selected;
+                task.IsVisible = !(ClientSize.Width < 1120 && FontSize > 16 && task.Tag is "2" or "4");
+                AutomationProperties.SetHelpText(task, selected ? "Current task" : "Open this task");
+            }
+            var overflow = ClientSize.Width < 1120 && FontSize > 16;
+            PlanNavigationBar.ColumnDefinitions[6].Width = overflow ? new GridLength(0) : new GridLength(.85, GridUnitType.Star);
+            PlanNavigationBar.ColumnDefinitions[7].Width = overflow ? new GridLength(0) : new GridLength(.75, GridUnitType.Star);
+            var taskName = (WorkspaceTabs.SelectedItem as TabItem)?.Header?.ToString() ?? "Overview";
+            var taskCaption = WorkspaceTabs.SelectedIndex is 6 or 8 || overflow && WorkspaceTabs.SelectedIndex is 2 or 4 ? taskName + " ▾" : "More ▾";
+            if (!Equals(TaskMenuButton.Content, taskCaption)) TaskMenuButton.Content = taskCaption;
+            Title = $"{taskName} — {_viewModel.DisplayName} · HardwareTest Authoring";
+            var available = Math.Max(0, ClientSize.Width - 32 - 16);
             var inspector = ProgramLayout.ColumnDefinitions[2];
             inspector.MinWidth = FontSize > 16 ? 360 : 320;
             inspector.MaxWidth = Math.Max(inspector.MinWidth, available - 360);
@@ -160,6 +176,7 @@ public partial class MainWindow
         {
             CommitFocusedEditor();
             WorkspaceTabs.SelectedIndex = route;
+            ArrangeShell();
         }
     }
 
@@ -174,6 +191,25 @@ public partial class MainWindow
             var definitions = this.GetVisualDescendants().OfType<WorkspaceDefinitionsView>().SingleOrDefault();
             definitions?.FindControl<Border>(section)?.BringIntoView();
         }, DispatcherPriority.Loaded);
+    }
+
+    private void SwitchEditingPane()
+    {
+        if (WorkspaceTabs.SelectedIndex != 0) return;
+        var focused = FocusManager?.GetFocusedElement() as Control;
+        var fromSequence = focused is not null && focused.GetVisualAncestors().OfType<SequenceEditorView>().Any();
+        CommitFocusedEditor();
+        if (fromSequence)
+            this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault()?.FocusPrimaryEditor();
+        else
+        {
+            var list = this.GetVisualDescendants().OfType<SequenceEditorView>().SingleOrDefault()?.FindControl<ListBox>("SequenceList");
+            if (list is { IsEffectivelyVisible: true })
+            {
+                if (list.SelectedItem is { } selected) list.ScrollIntoView(selected);
+                list.Focus();
+            }
+        }
     }
 
     private void ResetShellLayout()

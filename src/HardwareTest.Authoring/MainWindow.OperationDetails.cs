@@ -24,6 +24,8 @@ public partial class MainWindow
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap
         };
+        ScrollViewer.SetVerticalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         AutomationProperties.SetName(details, "Full operation details");
         var close = new Button { Content = "Close", IsCancel = true, Classes = { "authoringAction" } };
         AutomationProperties.SetName(close, "Close operation details");

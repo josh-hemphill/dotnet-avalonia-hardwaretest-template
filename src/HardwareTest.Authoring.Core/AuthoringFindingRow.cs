@@ -20,5 +20,9 @@ public sealed record AuthoringFindingRow(
     public string Severity => Finding.Severity.ToString();
     public string Code => Finding.Code;
     public string Message => Finding.Message;
+    public string Headline => AuthoringIssuePresentation.Headline(Code);
+    public string RecoverySummary => AuthoringIssuePresentation.RecoverySummary(Code, Message);
+    public string RecoveryLabel => NavigationLabel == "Go to field"
+        ? AuthoringIssuePresentation.FieldAction(Finding.Target?.Field) ?? NavigationLabel : NavigationLabel;
     public string Location => string.IsNullOrWhiteSpace(Finding.Path) ? "Plan-wide" : Finding.Path;
 }

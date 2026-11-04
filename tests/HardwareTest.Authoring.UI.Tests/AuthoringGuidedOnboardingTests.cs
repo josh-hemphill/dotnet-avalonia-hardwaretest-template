@@ -216,7 +216,7 @@ public sealed class AuthoringGuidedOnboardingTests
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0; AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(sequence, window); ResponsiveShellTests.Inside(inspector, window);
         var direct = fixture.Control<Button>("New test plan"); direct.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(direct.Focus()); ResponsiveShellTests.Inside(direct, window);
-        AuthoringUiFixture.Click(direct); var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(window.OwnedWindows));
+        AuthoringUiFixture.Click(direct); var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Assert.Equal("New test plan", dialog.Title); AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         var compiled = fixture.ViewModel.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "viewport-demo");
         File.AppendAllText(compiled, "\n<!-- external change -->\n");

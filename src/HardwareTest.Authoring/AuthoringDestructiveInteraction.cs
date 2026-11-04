@@ -48,8 +48,7 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
     }
 
     public Task<bool> ConfirmHardwareEditAsync(AuthoringHardwareEditImpact impact)
-        => ConfirmHardwareAsync("Review hardware binding change",
-            $"Selected program: {impact.PlanId}\nLogical slot: {impact.SlotName}\nNew type: {impact.Replacement.TypeId}\nNew address: {impact.Replacement.VisaAddress}\nConfiguration: {string.Join(", ", impact.Replacement.Settings.Select(p => $"{p.Key}={p.Value}"))}\nAffected references:\n{string.Join(Environment.NewLine, impact.AffectedNodes)}\nOther program bindings stay unchanged. Save this program to persist.", "Apply reviewed binding");
+        => new HardwareBindingReviewWindow(owner, impact).ShowDialog<bool>(owner);
 
     public Task<bool> ConfirmHardwareDefinitionRemovalAsync(AuthoringHardwareDefinitionImpact impact)
         => ConfirmHardwareAsync("Remove workspace hardware definition",
@@ -84,12 +83,13 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
             FontSize = owner.FontSize,
             CanResize = false,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Classes = { "authoringPalette" },
         };
-        var cancel = new Button { Content = "Cancel", IsDefault = true, IsCancel = true };
-        var confirm = new Button { Content = affirmative };
+        var cancel = new Button { Content = "Cancel", IsDefault = true, IsCancel = true, Classes = { "authoringAction" } };
+        var confirm = new Button { Content = affirmative, Classes = { "authoringAction" } };
         AutomationProperties.SetName(cancel, "Cancel destructive operation");
         AutomationProperties.SetName(confirm, affirmative);
-        var body = new StackPanel { Spacing = 12, Children = { new TextBlock { Text = operation + Environment.NewLine + details, TextWrapping = TextWrapping.Wrap } } };
+        var body = new StackPanel { Spacing = 12, Children = { new TextBlock { Text = details, TextWrapping = TextWrapping.Wrap } } };
         var scroll = new ScrollViewer
         {
             Content = body,

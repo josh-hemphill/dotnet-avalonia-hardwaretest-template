@@ -32,7 +32,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         set => SetField(ref _sequenceRename, value);
     }
     public string SequenceOperationTarget => IsSequenceEmpty ? "No steps yet. The first step goes into its matching phase."
-        : SelectedSequence is { } row ? $"Selected: {row.Label}" : "No selected step";
+        : SelectedSequence is { } row ? $"Current sequence step: {row.Label}" : "No selected step";
     public string RemoveSequenceActionTitle => SelectedSequence?.Kind switch
     {
         SequenceRowKind.Repeat => "Remove loop, keep steps",

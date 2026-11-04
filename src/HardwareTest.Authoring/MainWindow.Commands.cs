@@ -31,6 +31,7 @@ public partial class MainWindow
         new("redo", "Redo program edit", $"{PrimaryName}+Shift+Z", () => _viewModel.CanRedo ? null : "No program edit to redo.", Sync(() => _viewModel.Redo())),
         new("rename", "Rename selected step", "F2", () => _viewModel.CanRenameSequence ? null : "Select a named editable step.", RenameCommandAsync),
         new("duplicate", "Duplicate selected step", $"{PrimaryName}+D", () => _viewModel.CanDuplicateSequence ? null : "Select a duplicable editable step.", Sync(_viewModel.DuplicateSelectedSequence)),
+        new("pane", "Switch sequence and step editor", "F6", () => WorkspaceTabs.SelectedIndex == 0 ? null : "Open Sequence first.", Sync(SwitchEditingPane)),
         new("add", "Add step", $"{PrimaryName}+Shift+A", () => WorkspaceBlocker() ?? (_viewModel.CanEditSequence ? null : "Select an editable test plan first."), Sync(() => OnOpenStepPalette(this, new RoutedEventArgs()))),
         new("up", "Move step up", "Alt+Up", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(-1))),
         new("down", "Move step down", "Alt+Down", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(1))),
@@ -70,6 +71,7 @@ public partial class MainWindow
             (Key.A, var m) when m == (PrimaryModifier | KeyModifiers.Shift) => "add",
             (Key.Up, KeyModifiers.Alt) => "up",
             (Key.Down, KeyModifiers.Alt) => "down",
+            (Key.F6, KeyModifiers.None) => "pane",
             (Key.F2, KeyModifiers.None) => "rename",
             (Key.F8, KeyModifiers.None) => "issue",
             _ => null
@@ -85,7 +87,7 @@ public partial class MainWindow
         if (!current()) return false;
         var command = Commands().Single(candidate => candidate.Id == id);
         if (command.Blocker() is { } explanation) { _viewModel.ReportError(explanation); return false; }
-        if (id != "rename") CommitFocusedEditor();
+        if (id is not ("rename" or "plan" or "pane")) CommitFocusedEditor();
         try { await command.Run(); return true; }
         catch (Exception error) { if (current()) _viewModel.ReportError(error.Message); return false; }
     }

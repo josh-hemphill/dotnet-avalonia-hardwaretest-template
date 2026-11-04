@@ -3,9 +3,12 @@
   <Grid x:Name="PreviewLayout" RowDefinitions="Auto,*" RowSpacing="8" AutomationProperties.Name="Preview content">
     <Border x:Name="SourceFrame" Classes="surface" Padding="4">
       <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <TextBlock Text="{Binding PreviewSourceKind}" FontWeight="SemiBold" VerticalAlignment="Top" TextWrapping="Wrap"/>
+          <TextBlock Grid.Column="1" Text="{Binding PreviewSourceName}" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+              VerticalAlignment="Top" ToolTip.Tip="{Binding DataSourceDetails}" AutomationProperties.Name="{Binding PreviewSourceName}"/>
+        </Grid>
         <WrapPanel x:Name="SourceActions">
-          <TextBlock Text="{Binding PreviewDataSourceLabel}" MaxWidth="144" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" Margin="0,0,8,4"
-              FontWeight="SemiBold" VerticalAlignment="Center" ToolTip.Tip="{Binding DataSourceDetails}" AutomationProperties.HeadingLevel="3" AutomationProperties.Name="{Binding PreviewDataSourceLabel}"/>
           <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,6,4"/>
           <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,6,4"/>
           <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,6,4"/>

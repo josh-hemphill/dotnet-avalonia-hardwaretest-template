@@ -72,7 +72,9 @@ public sealed class AuthoringChromeA11yTests
             Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
         var settingLabel = Assert.Single(inspector.Descendants(), element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
         Assert.Equal("0", (string?)settingLabel.Attribute("Grid.Row"));
-        var settingError = Assert.Single(settingLabel.Parent!.Elements(), element => (string?)element.Attribute("Grid.Row") == "2");
+        var settingError = Assert.Single(settingLabel.Parent!.Elements(), element => (string?)element.Attribute("Text") == "{Binding Error}");
+        Assert.Equal("1", (string?)settingError.Attribute("Grid.Row"));
+        Assert.Equal("2", (string?)settingError.Attribute("Grid.ColumnSpan"));
         Assert.Equal("{Binding Error}", (string?)settingError.Attribute("Text"));
         Assert.Equal("Polite", (string?)settingError.Attribute("AutomationProperties.LiveSetting"));
     }

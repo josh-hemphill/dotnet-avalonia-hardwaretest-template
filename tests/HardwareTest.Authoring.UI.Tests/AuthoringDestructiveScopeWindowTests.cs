@@ -74,7 +74,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
         Assert.Empty(fixture.Window!.OwnedWindows); Assert.True(vm.WorkspaceCatalogDirty); Assert.Equal(new DirtyProgramSummary("a", false, true), Assert.Single(vm.DirtyPrograms));
         Assert.Same(other, vm.Programs.Single(p => p.PlanId == "b")); AssertFiles(files); Assert.Contains("Save All", fixture.Control<TextBlock>("Authoring status").Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.True(vm.LastSaveAllResult.WorkspaceCatalogSaved);
-        Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Saved workspace catalog");
+        Assert.Contains("Saved workspace catalog", OperationDetailsUiActions.ReadAndClose(fixture));
         var reload = new AuthoringWorkspaceViewModel(); reload.Open(fixture.WorkspaceRoot);
         var options = kind switch { CatalogDeletionKind.RequiredField => reload.RequiredFieldOptions, CatalogDeletionKind.ReportKind => reload.ReportKindOptions, _ => reload.ProgramKindOptions };
         Assert.DoesNotContain(target, options);

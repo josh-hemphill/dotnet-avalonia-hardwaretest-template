@@ -1,6 +1,4 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Interactivity;
 
 namespace HardwareTest.Authoring;
@@ -16,17 +14,6 @@ public partial class WorkspaceIssuesView : UserControl
         {
             if (_findingsSession is not null) _findingsSession.PropertyChanged -= OnFindingsChanged;
             _findingsSession = null;
-        };
-        LayoutUpdated += (_, _) =>
-        {
-            // The entire task can scroll when editing is expanded. Keep checked rows
-            // in a bounded list that can itself fit the minimum-size route viewport.
-            var viewport = this.FindControl<ScrollViewer>("TaskViewport")!;
-            var list = this.FindControl<ListBox>("CheckedFindingsList")!;
-            if (list.TranslatePoint(default, viewport) is not { } position) return;
-            var contentTop = position.Y + viewport.Offset.Y;
-            var height = Math.Clamp(viewport.Viewport.Height - contentTop - 8, 96, 320);
-            if (Math.Abs(list.Height - height) > 0.5) list.Height = height;
         };
     }
 
@@ -65,4 +52,27 @@ public partial class WorkspaceIssuesView : UserControl
 
     private void OnOpenFindingProgram(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnOpenFindingProgram(sender, e);
+
+    private void OnResolveEditingIssue(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { DataContext: AuthoringEditingIssue issue }
+            || DataContext is not AuthoringWorkspaceViewModel vm
+            || TopLevel.GetTopLevel(this) is not MainWindow { IsVisible: true } owner
+            || !ReferenceEquals(owner.DataContext, vm)) return;
+        if (issue.RecoveryArea == AuthoringRecoveryArea.CurrentLocation)
+        {
+            owner.OnOpenFindingProgram(sender, e);
+            return;
+        }
+        // Use the same current-issue and plan-ownership checks as ordinary finding
+        // navigation before opening a recovery task. A stale card cannot redirect it.
+        if (vm.NavigateEditingIssue(issue) is null) return;
+        var route = issue.RecoveryArea switch
+        {
+            AuthoringRecoveryArea.Environment => "3",
+            AuthoringRecoveryArea.Instruments => "1",
+            _ => "0"
+        };
+        owner.OnNavigateTask(new Button { Tag = route }, e);
+    }
 }

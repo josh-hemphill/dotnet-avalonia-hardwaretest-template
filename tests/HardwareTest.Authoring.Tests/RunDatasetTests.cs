@@ -8,6 +8,24 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class RunDatasetTests
 {
     [Fact]
+    public void Loaded_recording_identity_stays_with_the_ingested_snapshot_when_compatibility_model_changes()
+    {
+        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v4.json"));
+        var identity = Assert.IsType<RecordingIdentity>(dataset.Identity);
+        Assert.Equal(dataset.Run.RunId, identity.RunId);
+        Assert.Equal(dataset.Run.DutSerial, identity.DutSerial);
+        Assert.Equal(dataset.Run.StartedAt, identity.StartedAt);
+        Assert.Equal(dataset.Run.Samples.Count, identity.SampleCount);
+        var originalDetails = identity.DisplayDetails;
+        dataset.Run.RunId = "mutated compatibility run";
+        dataset.Run.DutSerial = "mutated device";
+        dataset.Run.StartedAt = DateTimeOffset.UtcNow;
+        dataset.Run.Samples.Clear();
+        Assert.Equal(originalDetails, dataset.Identity!.DisplayDetails);
+        Assert.DoesNotContain("mutated", dataset.Identity.DisplayDetails);
+    }
+
+    [Fact]
     public void Load_current_fixture_exposes_vdc_series()
     {
         var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v4.json"));
