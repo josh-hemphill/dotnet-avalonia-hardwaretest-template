@@ -7,7 +7,8 @@ internal static class PreviewDisclosureAssertions
 {
     public static void CheckCompactBoard(AuthoringUiFixture fixture)
     {
-        var preview = fixture.Window!.FindControl<ContentControl>("SeparatePreview")!.Content as WorkspacePreviewView;
+        var window = fixture.Window ?? throw new InvalidOperationException("Show the authoring window first.");
+        var preview = window.FindControl<ContentControl>("SeparatePreview")!.Content as WorkspacePreviewView;
         Assert.NotNull(preview);
         var source = preview.FindControl<Expander>("SourceDetailsDisclosure")!;
         var recordings = preview.FindControl<Expander>("RecordingsDisclosure")!;
@@ -18,7 +19,7 @@ internal static class PreviewDisclosureAssertions
         var layout = preview.FindControl<Grid>("PreviewLayout")!;
         Assert.True(region.Bounds.Height >= layout.Bounds.Height * 0.55 - 1,
             $"The board must own most of Preview: board={region.Bounds.Height}, route={layout.Bounds.Height}");
-        ResponsiveShellTests.Inside(fixture.Control<OperatorPreviewPane>("Operator preview chrome"), fixture.Window);
-        ResponsiveShellTests.Inside(fixture.Control<Button>("Import recording"), fixture.Window);
+        ResponsiveShellTests.Inside(fixture.Control<OperatorPreviewPane>("Operator preview chrome"), window);
+        ResponsiveShellTests.Inside(fixture.Control<Button>("Import recording"), window);
     }
 }
