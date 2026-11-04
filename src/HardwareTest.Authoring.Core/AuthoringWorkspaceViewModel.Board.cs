@@ -58,6 +58,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         RequestPreviewRefresh();
         OnPropertyChanged(nameof(BoardTiles));
         OnPropertyChanged(nameof(DataSourceDetails));
+        OnPropertyChanged(nameof(PreviewDataSourceLabel));
         OnPropertyChanged(nameof(RecordingEmptyState));
         OnPropertyChanged(nameof(CanImportRecording));
     }

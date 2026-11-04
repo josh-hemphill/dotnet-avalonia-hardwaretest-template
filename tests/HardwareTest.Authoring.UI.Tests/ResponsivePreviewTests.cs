@@ -73,6 +73,7 @@ public sealed class ResponsivePreviewTests
 
         void CheckPreview()
         {
+            PreviewDisclosureAssertions.CheckCompactBoard(fixture);
             var scroll = fixture.Control<ScrollViewer>("Operator board viewport");
             Assert.Empty(scroll.GetVisualAncestors().OfType<ScrollViewer>());
             scroll.Offset = default;
@@ -95,14 +96,16 @@ public sealed class ResponsivePreviewTests
             tile.BringIntoView();
             AuthoringUiFixture.Drain();
             ResponsiveShellTests.Inside(tile, window);
-            var recordings = fixture.Control<ListBox>("Recordings");
-            recordings.BringIntoView();
-            AuthoringUiFixture.Drain();
-            ResponsiveShellTests.Inside(recordings, window);
+            ResponsiveShellTests.Inside(fixture.Control<Button>("Import recording"), window);
             Assert.True(scroll.Focus());
             ResponsiveShellTests.Inside(scroll, window);
             if (width == 960 && fontSize == 20 && busy && role == "timeseries")
             {
+                // Explicitly overflow the canvas: a better compact layout need not overflow by itself.
+                Assert.IsAssignableFrom<Control>(scroll.Content).MinHeight = scroll.Viewport.Height + 400;
+                AuthoringUiFixture.Drain();
+                scroll.Offset = new Vector(0, 100);
+                AuthoringUiFixture.Drain();
                 Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
                 Assert.True(scroll.Offset.Y > 0);
                 // The board owns its wheel input; the recording picker is a sibling.
@@ -111,7 +114,7 @@ public sealed class ResponsivePreviewTests
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);
                 AuthoringUiFixture.Drain();
                 Assert.Equal(0, scroll.Offset.Y);
-                ResponsiveShellTests.Inside(recordings, window);
+                ResponsiveShellTests.Inside(fixture.Control<Button>("Import recording"), window);
             }
         }
     }

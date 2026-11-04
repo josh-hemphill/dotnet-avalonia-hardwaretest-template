@@ -30,7 +30,7 @@ public partial class MainWindow
         new("redo", "Redo program edit", $"{PrimaryName}+Shift+Z", () => _viewModel.CanRedo ? null : "No program edit to redo.", Sync(() => _viewModel.Redo())),
         new("rename", "Rename selected step", "F2", () => _viewModel.CanRenameSequence ? null : "Select a named editable step.", RenameCommandAsync),
         new("duplicate", "Duplicate selected step", $"{PrimaryName}+D", () => _viewModel.CanDuplicateSequence ? null : "Select a duplicable editable step.", Sync(_viewModel.DuplicateSelectedSequence)),
-        new("add", "Add selected recipe", $"{PrimaryName}+Shift+A", () => _viewModel.CanInsertRecipe ? null : _viewModel.SelectedRecipePrerequisites, Sync(_viewModel.InsertSelectedRecipe)),
+        new("add", "Add step", $"{PrimaryName}+Shift+A", () => WorkspaceBlocker() ?? (_viewModel.CanEditSequence ? null : "Select an editable test plan first."), Sync(() => OnOpenStepPalette(this, new RoutedEventArgs()))),
         new("up", "Move step up", "Alt+Up", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(-1))),
         new("down", "Move step down", "Alt+Down", () => _viewModel.CanMoveSequence ? null : "Select an editable setup or measurement step.", Sync(() => _viewModel.MoveSelectedSequence(1))),
         new("issue", "Next issue", "F8", () => _viewModel.FindingRows.Count + _viewModel.EditingIssues.Count > 0 ? null : "No current editing issues or checked findings.", Sync(NextIssue)),
@@ -172,7 +172,28 @@ public partial class MainWindow
         var accept = new Button { Content = "Rename", IsDefault = true };
         AutomationProperties.SetName(accept, "Rename");
         var cancel = new Button { Content = "Cancel", IsCancel = true };
-        var dialog = new Window { Title = "Rename step", Width = 400, Height = 180, Content = new StackPanel { Margin = new Thickness(16), Spacing = 8, Children = { name, accept, cancel } } };
+        var panel = new DockPanel { Margin = new Thickness(20) };
+        var actions = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Spacing = 8,
+            Margin = new Thickness(0, 12, 0, 0),
+            Children = { cancel, accept }
+        };
+        DockPanel.SetDock(actions, Dock.Bottom);
+        panel.Children.Add(actions);
+        panel.Children.Add(new ScrollViewer
+        {
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = "Step name" }, name } }
+        });
+        var dialog = new Window
+        {
+            Title = "Rename step", Width = 480, Height = 260, MinWidth = 400, MinHeight = 220,
+            FontSize = FontSize, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = panel,
+            Classes = { "authoringPalette" }
+        };
         accept.Click += (_, _) => dialog.Close(true); cancel.Click += (_, _) => dialog.Close(false);
         dialog.Opened += (_, _) => name.Focus();
         if (await dialog.ShowDialog<bool>(this) && current() && node == _viewModel.SelectedSequence?.NodeId)

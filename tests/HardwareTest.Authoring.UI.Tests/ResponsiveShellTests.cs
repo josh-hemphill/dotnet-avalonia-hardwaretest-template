@@ -58,7 +58,7 @@ public sealed class ResponsiveShellTests
         var preview = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
 
         Inside(preview, window);
-        Inside(fixture.Control<ListBox>("Recordings"), window);
+        PreviewDisclosureAssertions.CheckCompactBoard(fixture);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
         AuthoringUiFixture.Drain();
         Inside(sequence, window);

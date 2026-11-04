@@ -38,19 +38,28 @@ public sealed class BoardPreviewViewportUiTests
         AuthoringUiFixture.Drain();
         var board = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
         ResponsiveShellTests.Inside(board, window);
-        Assert.True(board.Bounds.Height >= 80);
+        PreviewDisclosureAssertions.CheckCompactBoard(fixture);
+        fixture.Control<Expander>("Preview data source details").IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var sourceViewport = fixture.Control<ScrollViewer>("Data source details viewport");
         Assert.True(sourceViewport.Extent.Height > sourceViewport.Viewport.Height);
+        fixture.Control<Expander>("Preview data source details").IsExpanded = false;
+        fixture.Control<Expander>("Choose a recording").IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var recordings = fixture.Control<ListBox>("Recordings");
         recordings.BringIntoView();
         AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(recordings, window);
+        fixture.Control<Expander>("Choose a recording").IsExpanded = false;
+        AuthoringUiFixture.Drain();
         var examples = fixture.Control<Button>("Use example data");
         examples.BringIntoView();
         AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(examples, window);
         AuthoringUiFixture.Click(examples);
         Assert.Null(vm.SelectedDataset);
+        Assert.Equal("Example data (simulated)", vm.PreviewDataSourceLabel);
+        PreviewDisclosureAssertions.CheckCompactBoard(fixture);
         ResponsiveShellTests.Inside(board, window);
     }
 }

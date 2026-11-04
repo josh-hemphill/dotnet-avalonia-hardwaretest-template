@@ -20,10 +20,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (!SetField(ref _recipeSearch, value)) return;
             OnPropertyChanged(nameof(Recipes));
+            OnPropertyChanged(nameof(NoMatchingRecipes));
             OnPropertyChanged(nameof(SelectedRecipe));
             RaiseSequenceOperations();
         }
     }
+    public bool NoMatchingRecipes => Recipes.Count == 0;
     public string SequenceRename
     {
         get => _sequenceRename;

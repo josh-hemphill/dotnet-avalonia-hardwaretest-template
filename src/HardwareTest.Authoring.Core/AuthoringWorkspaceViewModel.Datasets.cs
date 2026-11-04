@@ -11,6 +11,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     internal IReadOnlyList<RunDataset> CachedWorkspaceDatasets
         => _workspaceDatasetsSession == WorkspaceSessionId ? _workspaceDatasets : [];
 
+    public bool HasRecordings => DatasetItems.Count > 0;
+    public string PreviewDataSourceLabel => SelectedDataset is { } dataset
+        ? $"Recording: {dataset.Run.RunId}" : "Example data (simulated)";
+
     private bool MatchesRecordingChoice(RunDataset dataset)
         => _selectedRecordingChoice is { } choice && choice.Session == _workspaceSession
             && string.Equals(choice.PlanId, SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase)
@@ -56,6 +60,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (_selectedDatasetIndex < 0) _selectedRecordingChoice = null;
             OnPropertyChanged(nameof(Datasets));
             OnPropertyChanged(nameof(DatasetItems));
+            OnPropertyChanged(nameof(HasRecordings));
             OnPropertyChanged(nameof(SelectedDatasetIndex));
             OnPropertyChanged(nameof(SelectedDataset));
         }

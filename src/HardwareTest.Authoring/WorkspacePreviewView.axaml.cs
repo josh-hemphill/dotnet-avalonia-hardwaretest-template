@@ -31,10 +31,12 @@ public partial class WorkspacePreviewView : UserControl
     {
         if (Bounds.Height <= 0 || !double.IsFinite(Bounds.Height)) return;
         // Source and board are sibling viewports. The board alone owns its scrolling.
-        const double boardMinimum = 80;
+        var expanded = this.FindControl<Expander>("SourceDetailsDisclosure")!.IsExpanded
+            || this.FindControl<Expander>("RecordingsDisclosure")!.IsExpanded;
+        var boardMinimum = expanded ? 80 : Math.Min(240, Math.Max(80, Bounds.Height * 0.55 - _boardHeading.DesiredSize.Height - _boardRegion.RowSpacing));
         const double rowGaps = 16;
         var boardRegionMinimum = boardMinimum + Math.Max(_boardHeading.Bounds.Height, _boardHeading.DesiredSize.Height) + _boardRegion.RowSpacing;
-        var recordingsHeight = Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height);
+        var recordingsHeight = _recordingRows.IsVisible ? Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height) : 0;
         var sourceMaximum = Math.Max(48, Math.Min(Bounds.Height * 0.35, Bounds.Height - recordingsHeight - boardRegionMinimum - rowGaps));
         if (Math.Abs(_boardPane.MinHeight - boardMinimum) > 0.5) _boardPane.MinHeight = boardMinimum;
         if (Math.Abs(_sourceDetailsViewport.MaxHeight - sourceMaximum) > 0.5) _sourceDetailsViewport.MaxHeight = sourceMaximum;

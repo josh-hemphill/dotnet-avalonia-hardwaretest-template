@@ -79,7 +79,7 @@
         <TextBlock FontSize="12" Foreground="{DynamicResource AuthoringMuted}" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
             AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextTrimming="CharacterEllipsis"/>
           </StackPanel>
-          <Grid Grid.Column="1" ColumnDefinitions="*,*" Height="40">
+          <Grid Grid.Column="1" ColumnDefinitions="*,*,Auto" ColumnSpacing="8" Height="40">
     <ScrollViewer x:Name="SaveAllFeedback" Grid.Column="0" Height="40" HorizontalScrollBarVisibility="Disabled"
         VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Save all result feedback">
       <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
@@ -100,13 +100,14 @@
           Text="{Binding Error, StringFormat='Error: {0}'}" ToolTip.Tip="{Binding OperationLogText}"
           AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
     </ScrollViewer>
+            <Button Grid.Column="2" Content="Details" Click="OnShowOperationDetails" Classes="authoringAction" AutomationProperties.Name="View operation details" ToolTip.Tip="Read and select full errors, save results and operation logs"/>
           </Grid>
         </Grid>
         <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
           <Button Content="Cancel operation" Click="OnCancelOperation" IsEnabled="{Binding OperationBusy}"
               AutomationProperties.Name="Cancel authoring operation" Classes="authoringAction"/>
           <TextBlock Grid.Column="1" Text="{Binding OperationStage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Grid.Column="2" Text="Operation logs" VerticalAlignment="Center" ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.Name="Authoring operation logs"/>
+          <Button Grid.Column="2" Content="Operation logs" Click="OnShowOperationDetails" Classes="authoringAction" AutomationProperties.Name="Authoring operation logs"/>
         </Grid>
       </StackPanel>
     </Border>
@@ -147,7 +148,7 @@
             <Button x:Name="PlanActionsButton" Content="Plan actions ▾" Classes="authoringAction" AutomationProperties.Name="Plan actions">
               <Button.Flyout><Flyout><ScrollViewer Width="250" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
                 <Button Content="New test plan" Click="OnCreateProgram" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="New test plan"/>
-                <Button Content="First test plan…" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="Start guided voltage test"/>
+                <Button Content="Guided voltage test…" ToolTip.Tip="Create a voltage test with guided setup and checks" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="Start guided voltage test"/>
                 <Button Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram" IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}" Classes="authoringAction" AutomationProperties.Name="Remove program"/>
               </StackPanel></ScrollViewer></Flyout></Button.Flyout>
             </Button>
