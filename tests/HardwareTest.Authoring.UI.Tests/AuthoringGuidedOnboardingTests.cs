@@ -83,6 +83,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Assert.Equal(metric.NodeId, Measurement(fixture.ViewModel.SelectedProgram!).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
+        GuidanceUiActions.ShowPlanDetails(fixture);
         Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance hardware mode").Text);
     }
 

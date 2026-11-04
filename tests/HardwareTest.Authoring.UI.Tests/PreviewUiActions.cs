@@ -1,7 +1,16 @@
+using Avalonia.Controls;
+
 namespace HardwareTest.Authoring.UI.Tests;
 
 internal static class PreviewUiActions
 {
+    internal static ListBox RecordingSelector(AuthoringUiFixture fixture)
+    {
+        fixture.Control<Expander>("Choose a recording").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        return fixture.Control<ListBox>("Recordings");
+    }
+
     internal static async Task WaitForPreviewAsync(this AuthoringUiFixture fixture)
     {
         // A completed preview can be invalidated by a later environment/build result.

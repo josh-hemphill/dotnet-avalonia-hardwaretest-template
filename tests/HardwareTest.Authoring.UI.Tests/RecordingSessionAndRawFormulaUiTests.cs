@@ -29,7 +29,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         vm.SelectProgram(draft.PlanId);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
-        var selector = first.Control<ListBox>("Recordings");
+        var selector = PreviewUiActions.RecordingSelector(first);
         selector.SelectedIndex = 0;
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
@@ -61,7 +61,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         vm.StopRecovery();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         AuthoringUiFixture.Drain();
-        var selector = fixture.Control<ListBox>("Recordings");
+        var selector = PreviewUiActions.RecordingSelector(fixture);
         selector.SelectedIndex = 0;
         AuthoringUiFixture.Drain();
         var selectedPath = vm.SelectedDataset!.Path;

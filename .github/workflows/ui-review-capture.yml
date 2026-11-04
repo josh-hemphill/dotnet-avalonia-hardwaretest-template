@@ -60,26 +60,6 @@ jobs:
             -c Release -r linux-x64 --no-build --no-restore \
             --filter FullyQualifiedName~GraphicalReviewCapture \
             --logger "console;verbosity=normal"
-      - name: Emit review images for connected review
-        env:
-          HT_CAPTURE_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          python3 - <<'PY'
-          import base64, hashlib, os
-          from pathlib import Path
-          images = sorted(Path("artifacts/ui-review").glob("*.png"))
-          if not images:
-              raise SystemExit("No review screenshots produced")
-          print("HT_UI_CAPTURE_SHA", os.environ["HT_CAPTURE_SHA"])
-          for path in images:
-              raw = path.read_bytes()
-              encoded = base64.b64encode(raw).decode("ascii")
-              chunks = [encoded[i:i+4096] for i in range(0, len(encoded), 4096)]
-              print("HT_UI_PNG_BEGIN", path.name, len(raw), len(chunks), hashlib.sha256(raw).hexdigest())
-              for index, chunk in enumerate(chunks):
-                  print("HT_UI_PNG", path.name, index, chunk)
-              print("HT_UI_PNG_END", path.name)
-          PY
       - name: Upload review screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -88,3 +68,42 @@ jobs:
           path: artifacts/ui-review
           if-no-files-found: error
           retention-days: 14
+
+  emit:
+    needs: capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - name: Download rendered review evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: authoring-ui-review
+          path: artifacts/ui-review
+      - name: Emit a bounded group of review images
+        env:
+          HT_CAPTURE_SHA: ${{ github.event.pull_request.head.sha }}
+          HT_CAPTURE_GROUP: "${{ matrix.group }}"
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, os
+          from pathlib import Path
+          images = sorted(Path("artifacts/ui-review").glob("*.png"))
+          if len(images) != 80:
+              raise SystemExit(f"Expected 80 review screenshots, received {len(images)}")
+          group = int(os.environ["HT_CAPTURE_GROUP"])
+          print("HT_UI_CAPTURE_SHA", os.environ["HT_CAPTURE_SHA"])
+          for index, path in enumerate(images):
+              if index % 16 != group:
+                  continue
+              raw = path.read_bytes()
+              encoded = base64.b64encode(raw).decode("ascii")
+              chunks = [encoded[i:i+4096] for i in range(0, len(encoded), 4096)]
+              print("HT_UI_PNG_BEGIN", path.name, len(raw), len(chunks), hashlib.sha256(raw).hexdigest())
+              for chunk_index, chunk in enumerate(chunks):
+                  print("HT_UI_PNG", path.name, chunk_index, chunk)
+              print("HT_UI_PNG_END", path.name)
+          PY

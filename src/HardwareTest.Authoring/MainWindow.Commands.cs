@@ -3,6 +3,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 namespace HardwareTest.Authoring;
@@ -167,6 +168,7 @@ public partial class MainWindow
     private async Task RenameCommandAsync()
     {
         var current = OwnerContext(); var node = _viewModel.SelectedSequence?.NodeId;
+        var returnFocus = FocusManager?.GetFocusedElement() as Control;
         var name = new TextBox { Text = _viewModel.SelectedSequence?.Label };
         AutomationProperties.SetName(name, "New step name");
         var accept = new Button { Content = "Rename", IsDefault = true };
@@ -204,6 +206,10 @@ public partial class MainWindow
         dialog.Opened += (_, _) => name.Focus();
         if (await dialog.ShowDialog<bool>(this) && current() && node == _viewModel.SelectedSequence?.NodeId)
         { _viewModel.SequenceRename = name.Text ?? ""; _viewModel.RenameSelectedSequence(); }
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (current() && returnFocus is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true }) returnFocus.Focus();
+        }, DispatcherPriority.Loaded);
     }
     private int _nextIssue;
     private void NextIssue()
