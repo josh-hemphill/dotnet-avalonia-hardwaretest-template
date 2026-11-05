@@ -9,13 +9,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         => SelectedSequence is { } row && SelectedProgram?.AuthoringState.IncompleteNumericText.TryGetValue(
             $"{row.NodeId:D}/{field}", out var text) == true ? text : FormatLimit(value);
 
-    private void SetNumericText(string field, string text, Action<double?> apply)
+    private void SetNumericText(string field, string text, Action<double?> apply, string? legacyField = null)
     {
         if (SelectedProgram is null || SelectedSequence is not { } row) return;
         var key = $"{row.NodeId:D}/{field}";
         var valid = string.IsNullOrWhiteSpace(text) || double.TryParse(text, NumberStyles.Float,
             CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed);
         var state = SelectedProgram.AuthoringState.Clone();
+        if (legacyField is not null) state.IncompleteNumericText.Remove($"{row.NodeId:D}/{legacyField}");
         if (valid) state.IncompleteNumericText.Remove(key);
         else state.IncompleteNumericText[key] = text;
         if (valid)

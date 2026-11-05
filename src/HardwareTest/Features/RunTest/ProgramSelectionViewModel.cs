@@ -16,17 +16,23 @@ public partial class ProgramSelectionViewModel : ReactiveObject
     private readonly Func<bool> _isEngineerDebugMode;
     private readonly Func<CancellationToken, Task> _loadSelectedProgramAsync;
     private readonly Action _onCatalogRefreshed;
+    private readonly Func<bool> _isSelectedProgramReady;
+    private readonly Func<bool> _isRunning;
 
     public ProgramSelectionViewModel(
         Action<string> setStatus,
         Func<bool>? isEngineerDebugMode = null,
         Func<CancellationToken, Task>? loadSelectedProgramAsync = null,
-        Action? onCatalogRefreshed = null)
+        Action? onCatalogRefreshed = null,
+        Func<bool>? isSelectedProgramReady = null,
+        Func<bool>? isRunning = null)
     {
         _setStatus = setStatus;
         _isEngineerDebugMode = isEngineerDebugMode ?? (() => false);
         _loadSelectedProgramAsync = loadSelectedProgramAsync ?? (_ => Task.CompletedTask);
         _onCatalogRefreshed = onCatalogRefreshed ?? (() => { });
+        _isSelectedProgramReady = isSelectedProgramReady ?? (() => true);
+        _isRunning = isRunning ?? (() => false);
 
         RefreshProgramsCommand = ReactiveCommand.CreateFromTask(() => RefreshProgramsAsync());
         OpenPlanFileCommand = ReactiveCommand.CreateFromTask(OpenPlanFileAsync);
@@ -45,6 +51,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
 
     public async Task RefreshProgramsAsync(CancellationToken cancellationToken = default)
     {
+        if (!CanChangePrograms()) return;
         if (IsBusy)
         {
             return;
@@ -59,23 +66,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             foreach (var entry in ProgramCatalog.Enumerate())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Programs.Add(new ProgramItemViewModel
-                {
-                    Id = entry.Id,
-                    DisplayName = entry.DisplayName,
-                    Path = entry.Path,
-                    DutFamily = entry.DutFamily,
-                    IsSample = entry.IsBuiltIn,
-                    LoadKind = entry.LoadKind,
-                    Requirements = entry.Requirements,
-                    ReportKinds = entry.ReportKinds,
-                    SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
-                    ProgramKind = entry.ProgramKind,
-                    StationHealthProfileId = entry.StationHealthProfileId,
-                    RequireStationHealth = entry.RequireStationHealth,
-                    StationHealthMaxAgeHours = entry.StationHealthMaxAgeHours,
-                    StationHealthGate = entry.StationHealthGate,
-                });
+                Programs.Add(FromCatalogEntry(entry));
             }
 
             SelectedProgram = Programs.FirstOrDefault(p =>
@@ -89,7 +80,10 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            _setStatus($"Loaded {Programs.Count} program(s).");
+            if (SelectedProgram is null)
+                _setStatus("No test programs are available. Ask a station technician to install the assigned program, then Reload programs.");
+            else if (_isSelectedProgramReady())
+                _setStatus($"Loaded {Programs.Count} program(s).");
             _onCatalogRefreshed();
         }
         finally
@@ -100,6 +94,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
 
     private async Task OpenPlanFileAsync()
     {
+        if (!CanChangePrograms()) return;
         if (!_isEngineerDebugMode())
         {
             _setStatus("Open arbitrary plan requires Engineer/Debug mode.");
@@ -125,24 +120,51 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             {
                 return;
             }
+            if (!CanChangePrograms()) return;
 
-            var item = new ProgramItemViewModel
-            {
-                Id = System.IO.Path.GetFileNameWithoutExtension(path),
-                DisplayName = System.IO.Path.GetFileNameWithoutExtension(path),
-                Path = path,
-                DutFamily = "generic",
-                LoadKind = ProgramLoadKind.TapPlanFile,
-                Requirements = ProgramRequirements.FromFamily("generic"),
-            };
+            BenchProgramHandoff.RequireCustomPlanId(System.IO.Path.GetFileNameWithoutExtension(path));
+            var item = FromCatalogEntry(ProgramCatalog.FromFile(path));
             Programs.Add(item);
             SelectedProgram = item;
             await _loadSelectedProgramAsync(CancellationToken.None);
-            _setStatus($"Opened {item.DisplayName}");
+            if (_isSelectedProgramReady()) _setStatus($"Opened {item.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Cannot open this program: {ex.Message}. Restore the complete compiled plan and sidecar, then retry.");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private static ProgramItemViewModel FromCatalogEntry(ProgramCatalogEntry entry) => new()
+    {
+        Id = entry.Id,
+        DisplayName = entry.DisplayName,
+        Path = entry.Path,
+        DutFamily = entry.DutFamily,
+        IsSample = entry.IsBuiltIn,
+        LoadKind = entry.LoadKind,
+        Requirements = entry.Requirements,
+        ReportKinds = entry.ReportKinds,
+        SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
+        ProgramKind = entry.ProgramKind,
+        StationHealthProfileId = entry.StationHealthProfileId,
+        RequireStationHealth = entry.RequireStationHealth,
+        StationHealthMaxAgeHours = entry.StationHealthMaxAgeHours,
+        StationHealthGate = entry.StationHealthGate,
+        ReferenceRules = entry.ReferenceRules,
+        ReferenceDeclarationError = entry.ReferenceDeclarationError,
+        PlanSha256 = entry.PlanSha256,
+        SidecarSha256 = entry.SidecarSha256,
+    };
+
+    private bool CanChangePrograms()
+    {
+        if (!_isRunning()) return true;
+        _setStatus("Finish or Stop Run before changing test programs.");
+        return false;
     }
 }

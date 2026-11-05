@@ -1,3 +1,4 @@
+using System.Xml.Linq;
 using Avalonia.Automation;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
@@ -59,8 +60,8 @@ public sealed class Phase21OperatorChromeTests
         Assert.Equal(2, CountOccurrences(axaml, "IsEnabled=\"{Binding CanPauseResume}\""));
         Assert.Equal(2, CountOccurrences(axaml, "IsEnabled=\"{Binding CanSafetyStop}\""));
         Assert.Equal(2, CountOccurrences(axaml, "AutomationProperties.LiveSetting=\"{Binding ControlStatusLiveSetting}\""));
-        Assert.Contains("MaxLines=\"1\"", axaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
+        Assert.Contains("MaxLines=\"2\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
+        Assert.Contains("TextWrapping=\"Wrap\"", CompactStatusBlock(axaml), StringComparison.Ordinal);
         var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
         Assert.Contains("LiveSetting=\"Assertive\"", host, StringComparison.Ordinal);
     }
@@ -73,7 +74,8 @@ public sealed class Phase21OperatorChromeTests
         var host = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml"));
         Assert.Equal(0, CountOccurrences(run, "AutomationProperties.LiveSetting"));
         Assert.Equal(0, CountOccurrences(header, "AutomationProperties.LiveSetting"));
-        Assert.Equal(1, CountOccurrences(host, "AutomationProperties.LiveSetting"));
+        Assert.Equal(2, CountOccurrences(host, "AutomationProperties.LiveSetting"));
+        Assert.Contains("AutomationProperties.Name=\"Operator prompt validation\"", host, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"{Binding Interaction.InteractionTitle}\"", host, StringComparison.Ordinal);
         Assert.DoesNotContain("AutomationProperties.Name=\"Operator prompt\"", host, StringComparison.Ordinal);
         Assert.Contains("HeroStatusLine", header, StringComparison.Ordinal);
@@ -90,44 +92,25 @@ public sealed class Phase21OperatorChromeTests
             File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunOverviewSidebarView.axaml")));
 
     [Fact]
-    public void Settings_sections_are_automation_headings()
+    public void Settings_prioritizes_readiness_and_retains_named_diagnostic_disclosures()
     {
-        var axaml = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
-        Assert.Contains("HeadingLevel=\"1\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("HeadingLevel=\"2\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Theme\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Engineer\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Storage\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Clock\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Station health\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"About\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Diagnostics\"", axaml, StringComparison.Ordinal);
-        Assert.Contains("OpenTAP packages", axaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Operator credential\"", axaml, StringComparison.Ordinal);
-        Assert.Equal(9, CountOccurrences(axaml, "HeadingLevel=\"2\""));
-        var dataIdx = axaml.IndexOf("Text=\"Data directory\"", StringComparison.Ordinal);
-        var themeHeadingIdx = axaml.IndexOf("Text=\"Theme\" Classes=\"settings-h2\"", StringComparison.Ordinal);
-        var themeComboIdx = axaml.IndexOf("x:Name=\"ThemeLabel\"", StringComparison.Ordinal);
-        Assert.True(dataIdx >= 0 && themeHeadingIdx >= 0 && themeComboIdx >= 0);
-        Assert.True(dataIdx < themeHeadingIdx, "Data directory must not sit under the Theme heading.");
-        Assert.True(themeHeadingIdx < themeComboIdx, "Theme heading must precede the theme combo.");
-
-        var storageIdx = axaml.IndexOf("Text=\"Storage\" Classes=\"settings-h2\"", StringComparison.Ordinal);
-        var clockIdx = axaml.IndexOf("Text=\"Clock\" Classes=\"settings-h2\"", StringComparison.Ordinal);
-        var healthIdx = axaml.IndexOf("Text=\"Station health\" Classes=\"settings-h2\"", StringComparison.Ordinal);
-        var aboutIdx = axaml.IndexOf("Text=\"About\" Classes=\"settings-h2\"", StringComparison.Ordinal);
-        var exportIdx = axaml.IndexOf("x:Name=\"ExportDirectoryLabel\"", StringComparison.Ordinal);
-        var warnIdx = axaml.IndexOf("x:Name=\"WarnFreeLabel\"", StringComparison.Ordinal);
-        var criticalIdx = axaml.IndexOf("x:Name=\"CriticalFreeLabel\"", StringComparison.Ordinal);
-        var ntpIdx = axaml.IndexOf("x:Name=\"NtpHostLabel\"", StringComparison.Ordinal);
-        Assert.True(storageIdx >= 0 && clockIdx >= 0 && healthIdx >= 0 && aboutIdx >= 0);
-        Assert.True(exportIdx >= 0 && warnIdx >= 0 && criticalIdx >= 0 && ntpIdx >= 0);
-        Assert.True(
-            storageIdx < exportIdx && exportIdx < warnIdx && warnIdx < criticalIdx && criticalIdx < clockIdx,
-            "Export and free-space controls must stay under Storage, not Clock.");
-        Assert.True(
-            clockIdx < ntpIdx && ntpIdx < healthIdx && healthIdx < aboutIdx,
-            "Clock controls sit before Station health; Station health sits before About.");
+        var document = XDocument.Load(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
+        var headings = document.Descendants().Where(element => element.Attribute("AutomationProperties.HeadingLevel") is not null).ToArray();
+        Assert.Contains(headings, element => (string?)element.Attribute("Text") == "Settings" && (string?)element.Attribute("AutomationProperties.HeadingLevel") == "1");
+        Assert.Contains(headings, element => (string?)element.Attribute("Text") == "Station readiness");
+        Assert.Contains(headings, element => (string?)element.Attribute("Text") == "Operator preferences");
+        var disclosures = document.Descendants().Where(element => element.Name.LocalName == "Expander").ToArray();
+        foreach (var name in new[] { "Engineer settings", "Badge and signing settings", "Storage and station policy", "About this station", "Settings diagnostics", "Installed instrument packages" })
+            Assert.Contains(disclosures, element => (string?)element.Attribute("AutomationProperties.Name") == name);
+        var storage = Assert.Single(disclosures, element => (string?)element.Attribute("AutomationProperties.Name") == "Storage and station policy");
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        foreach (var label in new[] { "ExportDirectoryLabel", "WarnFreeLabel", "CriticalFreeLabel", "NtpHostLabel" })
+            Assert.Contains(storage.Descendants(), element => (string?)element.Attribute(xaml + "Name") == label);
+        var elements = document.Descendants().ToList();
+        var readiness = Assert.Single(headings, element => (string?)element.Attribute("Text") == "Station readiness");
+        var preferences = Assert.Single(headings, element => (string?)element.Attribute("Text") == "Operator preferences");
+        Assert.True(elements.IndexOf(readiness) < elements.IndexOf(preferences));
+        Assert.True(elements.IndexOf(preferences) < elements.IndexOf(disclosures[0]));
     }
 
     [Fact]

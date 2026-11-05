@@ -5,6 +5,8 @@
     <RootNamespace>HardwareTest.E2E.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsAotCompatible>false</IsAotCompatible>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
     <NoWarn>$(NoWarn);xUnit1051</NoWarn>
   </PropertyGroup>
 
@@ -14,7 +16,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/HardwareTest.Authoring.Core/HardwareTest.Authoring.Core.csproj" />
+    <ProjectReference Include="../HardwareTest.OfflinePluginFixture/HardwareTest.OfflinePluginFixture.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="OpenTAP" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

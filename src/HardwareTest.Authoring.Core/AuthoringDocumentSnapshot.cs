@@ -23,7 +23,8 @@ public sealed class AuthoringDocumentSnapshot
             Setup = _draft.Setup.Select(SetupValue).ToArray(),
             Measure = _draft.Measure.Select(NodeValue).ToArray(),
             _draft.Cleanup,
-            _draft.AuthoringState
+            _draft.AuthoringState,
+            RequiresOperatorReferenceAcceptance = _draft.Sidecar.ReferenceRules is { Count: > 0 }
         }, IdentityOptions));
         SidecarIdentity = Canonical(JsonSerializer.Serialize(_draft.Sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar));
     }

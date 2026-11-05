@@ -1,0 +1,111 @@
+name: UI review captures
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/HardwareTest.Authoring/**'
+      - 'src/HardwareTest.Authoring.Core/**'
+      - 'tests/HardwareTest.Authoring.UI.Tests/**'
+      - '.github/workflows/ui-review-capture.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-review-capture-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  capture:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.body, '<!-- authoring-ui-review -->')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/hardwaretest-dotnet
+        with:
+          dotnet-version: "10.0.302"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+            Directory.Build.props
+            dirs.proj
+      - name: Bind isolated SDK apphosts
+        run: echo "DOTNET_ROOT_X64=$DOTNET_ROOT" >> "$GITHUB_ENV"
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.7.7
+      - name: Install headless dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libfontconfig1 libfreetype6 libice6 libsm6 \
+            libx11-6 libxcursor1 libxext6 libxi6 libxrandr2 libxrender1
+      - name: Build with ordinary package provisioning
+        run: deno run -A tools/ci/main.ts build --rid linux-x64
+      - name: Capture actual authoring surfaces
+        env:
+          HT_CAPTURE_UI: "1"
+          HT_CAPTURE_DIRECTORY: ${{ github.workspace }}/artifacts/ui-review
+        run: |
+          dotnet test tests/HardwareTest.Authoring.UI.Tests/HardwareTest.Authoring.UI.Tests.csproj \
+            -c Release -r linux-x64 --no-build --no-restore \
+            --filter FullyQualifiedName~GraphicalReviewCapture \
+            --logger "console;verbosity=normal"
+      - name: Upload review screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: authoring-ui-review
+          path: artifacts/ui-review
+          if-no-files-found: error
+          retention-days: 14
+
+  emit:
+    needs: capture
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - name: Download rendered review evidence
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: authoring-ui-review
+          path: artifacts/ui-review
+      - name: Emit a bounded group of review images
+        env:
+          HT_CAPTURE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          HT_CAPTURE_GROUP: "${{ matrix.group }}"
+        run: |
+          python3 - <<'PY'
+          import base64, hashlib, os
+          from pathlib import Path
+          images = sorted(Path("artifacts/ui-review").glob("*.png"))
+          if len(images) != 80:
+              raise SystemExit(f"Expected 80 review screenshots, received {len(images)}")
+          group = int(os.environ["HT_CAPTURE_GROUP"])
+          print("HT_UI_CAPTURE_SHA", os.environ["HT_CAPTURE_SHA"])
+          for index, path in enumerate(images):
+              if index % 16 != group:
+                  continue
+              raw = path.read_bytes()
+              encoded = base64.b64encode(raw).decode("ascii")
+              chunks = [encoded[i:i+4096] for i in range(0, len(encoded), 4096)]
+              print("HT_UI_PNG_BEGIN", path.name, len(raw), len(chunks), hashlib.sha256(raw).hexdigest())
+              for chunk_index, chunk in enumerate(chunks):
+                  print("HT_UI_PNG", path.name, chunk_index, chunk)
+              print("HT_UI_PNG_END", path.name)
+          PY

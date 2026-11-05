@@ -41,6 +41,7 @@ public sealed partial class PlanInitializationWindow
 
     private void RestoreGuidedForm(GuidedFormState state)
     {
+        _automaticPlanId = string.Empty;
         _idEdited = true; // Restore the captured ID before deferred name notifications can regenerate it.
         _starting.SelectedIndex = state.Choices[0];
         if (state.ReusedInstrument is { } retained)

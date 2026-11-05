@@ -14,6 +14,8 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class ResponsiveShellTests
 {
     [AvaloniaTheory]
+    [InlineData(900, 600, 14, 1)]
+    [InlineData(900, 600, 20, 1.5)]
     [InlineData(960, 600, 14, 1)]
     [InlineData(1280, 800, 14, 1)]
     [InlineData(960, 600, 20, 1.5)]
@@ -38,6 +40,10 @@ public sealed class ResponsiveShellTests
         Inside(inspector, window);
         Assert.True(sequence.Bounds.Height >= 40, $"Sequence viewport {sequence.Bounds} must be usable.");
         Assert.True(inspector.Bounds.Height >= 80);
+        var configure = fixture.Control<Expander>("Configure selected step");
+        var configureHeader = configure.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>()
+            .Single(button => button.Name == "ExpanderHeader");
+        Inside(configureHeader, window);
         foreach (var name in new[] { "Metric instrument slot", "Channel key", "SampleCount" })
         {
             var field = window.GetVisualDescendants().OfType<Control>()
@@ -58,7 +64,7 @@ public sealed class ResponsiveShellTests
         var preview = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
 
         Inside(preview, window);
-        Inside(fixture.Control<ListBox>("Recordings"), window);
+        PreviewDisclosureAssertions.CheckCompactBoard(fixture);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0;
         AuthoringUiFixture.Drain();
         Inside(sequence, window);
@@ -166,16 +172,33 @@ public sealed class ResponsiveShellTests
         typeof(AuthoringWorkspaceViewModel).GetProperty(nameof(AuthoringWorkspaceViewModel.FindingRows))!
             .SetValue(fixture.ViewModel, rows);
         AuthoringUiFixture.Drain();
-        Inside(findings, window);
-        findings.ScrollIntoView(rows[^1]);
+        var scroll = fixture.Control<ScrollViewer>("Issues task viewport");
+        Inside(scroll, window);
+        var listScroller = Assert.Single(findings.GetVisualDescendants().OfType<ScrollViewer>());
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, listScroller.VerticalScrollBarVisibility);
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, listScroller.HorizontalScrollBarVisibility);
+        Assert.True(findings.Focus());
+        window.KeyPress(Key.End, RawInputModifiers.None, PhysicalKey.End, null);
         AuthoringUiFixture.Drain();
-        var scroll = Assert.Single(findings.GetVisualDescendants().OfType<ScrollViewer>());
-        Assert.True(scroll.Offset.Y > 0);
+        Assert.Same(rows[^1], findings.SelectedItem);
         var row = Assert.IsAssignableFrom<Control>(findings.ContainerFromIndex(rows.Length - 1));
+        var disclosure = Assert.Single(row.GetVisualDescendants().OfType<Expander>());
+        var closedHeight = findings.Bounds.Height;
+        disclosure.IsExpanded = true;
+        AuthoringUiFixture.Drain();
+        Assert.True(findings.Bounds.Height > closedHeight);
+        foreach (var field in disclosure.GetVisualDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible))
+        {
+            field.BringIntoView(); AuthoringUiFixture.Drain();
+            Inside(field, window);
+        }
+        Assert.True(scroll.Offset.Y > 0);
+        Assert.Equal(0, listScroller.Offset.Y);
         var open = Assert.Single(row.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, "Open program settings"));
         open.BringIntoView();
         AuthoringUiFixture.Drain();
         Inside(open, window);
+        Assert.True(open.Focus());
         AuthoringUiFixture.Click(open);
         Assert.Equal(7, tabs.SelectedIndex);
         Assert.Equal("sample", fixture.ViewModel.SelectedProgram!.PlanId);

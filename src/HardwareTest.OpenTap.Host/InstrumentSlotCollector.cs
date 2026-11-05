@@ -45,7 +45,9 @@ public static class InstrumentSlotCollector
             throw new FileNotFoundException("Test plan not found.", path);
         }
 
-        return TestPlan.Load(path);
+        var plan = TestPlan.Load(path);
+        LogicalInstrumentBindings.Canonicalize(plan, path);
+        return plan;
     }
 
     private static string GuessRole(string? name)

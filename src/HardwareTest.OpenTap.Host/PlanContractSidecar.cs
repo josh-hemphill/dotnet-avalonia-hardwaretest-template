@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.StationHealth;
 
@@ -34,6 +35,7 @@ internal static class PlanContractSidecar
         "stationHealthMaxAgeHours",
         "stationHealthGate",
         "stationHealthProfileId",
+        "referenceRules",
     };
 
     public static ProgramSidecar? Analyze(
@@ -99,6 +101,7 @@ internal static class PlanContractSidecar
         ProgramSidecar? parsed;
         try
         {
+            ProgramReferenceDeclarations.RequireSupportedJson(raw);
             parsed = JsonSerializer.Deserialize(raw, ProgramCatalogJsonContext.Default.ProgramSidecar);
         }
         catch (Exception ex)
@@ -120,6 +123,9 @@ internal static class PlanContractSidecar
         AnalyzeReportKinds(parsed, planId, findings);
         AnalyzeRequiredFields(parsed, planId, findings);
         AnalyzeStationHealth(parsed, planId, findings);
+        foreach (var error in BenchReferenceEvaluator.ValidateRules(parsed.ReferenceRules ?? []))
+            findings.Add(Error(PlanContractValidator.Codes.ReferenceRules,
+                $"Sidecar {planId}.program.json has invalid reference acceptance: {error}"));
         return parsed;
     }
 

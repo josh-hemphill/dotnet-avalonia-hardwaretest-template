@@ -580,6 +580,7 @@
           "HardwareTest.ShellApps.Notes": "[0.1.0, )",
           "HardwareTest.Widgets": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.12, )",
+          "OpenTAP": "[9.35.0, )",
           "PDFtoImage": "[5.4.0, )",
           "ReactiveUI": "[24.2.0, )",
           "ReactiveUI.Avalonia": "[12.1.2, )",
@@ -653,6 +654,7 @@
         "dependencies": {
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "MessagePack": "[2.5.303, )",
+          "OpenTAP": "[9.35.0, )",
           "StreamJsonRpc": "[2.25.29, )"
         }
       },

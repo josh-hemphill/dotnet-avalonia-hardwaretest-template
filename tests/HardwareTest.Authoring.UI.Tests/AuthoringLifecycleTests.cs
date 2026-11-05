@@ -338,7 +338,7 @@ public sealed class AuthoringLifecycleTests
         Assert.Equal("saved from UI despite preview failure", new PlanCompiler().Load(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")).Sidecar.DisplayName);
         await fixture.WaitForReadinessAsync();
         Assert.Contains("OpenTAP home setting", fixture.Control<TextBlock>("Authoring error").Text);
-        Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved sample");
+        Assert.Contains("Saved sample", OperationDetailsUiActions.ReadAndClose(fixture));
     }
 
     [AvaloniaTheory]

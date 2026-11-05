@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Globalization;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -12,14 +13,16 @@ namespace HardwareTest.Features.Results;
 public sealed class ResultsChartHost : UserControl
 {
     private const string TapHint = "Tap the plot to place a readout line.";
+    private const string InteractionHint = "Enable interaction to inspect chart values.";
 
-    private readonly MeasurementPlotView _plot = new() { MinHeight = 240 };
+    private readonly MeasurementPlotView _plot = new() { MinHeight = 240, IsHitTestVisible = false };
+    private readonly CheckBox _interaction = new() { Content = "Interact with chart" };
     private readonly TextBlock _cursorReadout = new()
     {
         Opacity = 0.85,
         Margin = new Avalonia.Thickness(0, 6, 0, 0),
         TextWrapping = TextWrapping.Wrap,
-        Text = TapHint,
+        Text = InteractionHint,
         IsVisible = true,
     };
     private INotifyPropertyChanged? _tileNotify;
@@ -27,6 +30,15 @@ public sealed class ResultsChartHost : UserControl
     public ResultsChartHost()
     {
         var panel = new DockPanel();
+        AutomationProperties.SetName(_interaction, "Interact with saved results chart");
+        _interaction.IsCheckedChanged += (_, _) =>
+        {
+            _plot.IsHitTestVisible = _interaction.IsChecked == true;
+            if (!_plot.IsHitTestVisible) _plot.ClearCursor();
+            SyncReadout();
+        };
+        DockPanel.SetDock(_interaction, Dock.Top);
+        panel.Children.Add(_interaction);
         DockPanel.SetDock(_cursorReadout, Dock.Bottom);
         panel.Children.Add(_cursorReadout);
         panel.Children.Add(_plot);
@@ -142,7 +154,7 @@ public sealed class ResultsChartHost : UserControl
             }
         }
 
-        _cursorReadout.Text = TapHint;
+        _cursorReadout.Text = _interaction.IsChecked == true ? TapHint : InteractionHint;
         _cursorReadout.IsVisible = true;
     }
 
@@ -150,7 +162,7 @@ public sealed class ResultsChartHost : UserControl
     {
         if (e.X is not { } x || e.Y is not { } y)
         {
-            _cursorReadout.Text = TapHint;
+            _cursorReadout.Text = _interaction.IsChecked == true ? TapHint : InteractionHint;
             _cursorReadout.IsVisible = true;
             return;
         }

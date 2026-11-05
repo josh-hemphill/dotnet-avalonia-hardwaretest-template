@@ -28,6 +28,7 @@ public partial class HierarchyStepViewModel : ReactiveObject
     public string Name { get; }
     public string Path { get; }
     public bool IsStage { get; }
+    public bool IsReadOnlyEvidence => Id.StartsWith("reference:", System.StringComparison.Ordinal);
     public ObservableCollection<HierarchyStepViewModel> Children { get; }
 
     [Reactive] private string _statusText = "Pending";

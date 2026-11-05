@@ -120,6 +120,8 @@ public sealed partial class AuthoringDocumentStore
                 return new(null, true, bytes, null, true);
             if (version is < 1 or > AuthoringDocumentDto.CurrentSchemaVersion)
                 throw new InvalidDataException($"Unsupported draft schema {version}.");
+            if (json.RootElement.TryGetProperty("sidecar", out var sidecar))
+                HardwareTest.OpenTap.Host.ProgramReferenceDeclarations.RequireSupportedJson(sidecar.GetRawText());
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto)
                 ?? throw new InvalidDataException("The draft document is empty.");
             ValidateId(document.PlanId);

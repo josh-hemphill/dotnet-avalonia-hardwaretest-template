@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
@@ -16,12 +17,11 @@ using HardwareTest.Core.Time;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
 using Serilog.Context;
-using StepFilter = HardwareTest.Features.RunTest.StepStatusFilter;
 
 namespace HardwareTest.Features.RunTest;
 
 /// Run / Run Selected / Cancel pipeline: station binding, execution, attempt ledger, persistence and reports.
-public sealed class RunExecutionViewModel
+public sealed partial class RunExecutionViewModel
 {
     private readonly IRunBoardHost _host;
     private readonly IOpenTapRunSession _runSession;
@@ -154,6 +154,11 @@ public sealed class RunExecutionViewModel
             BlockStart(RunBannerSeverity.Warning, "Already running.");
             return;
         }
+        if (_host is RunTestViewModel managingBoard && managingBoard.References.IsManagementPending)
+        {
+            BlockStart(RunBannerSeverity.Warning, "Reference management is still in progress. Wait for its saved result and confirm the reference context before Run.");
+            return;
+        }
 
         if (_host is RunTestViewModel runBoard)
         {
@@ -170,13 +175,17 @@ public sealed class RunExecutionViewModel
         }
 
         _sessionPanel.ApplyIdleStaleCheck();
-        if (!_session.CanRun)
+        _sessionPanel.RefreshRequirementFlags();
+        _sessionPanel.RefreshSessionSummary();
+        if (_sessionPanel.SessionBlocked || !_session.CanRun)
         {
             _sessionPanel.ShowSessionForm = true;
-            var msg = _session.State == OperatorSessionState.Stale
+            var msg = _sessionPanel.IsStalePrompt || _sessionPanel.IsIdleWarningPrompt
                 ? $"Still testing {_session.DutSerial}? Confirm Same DUT or Change Session."
-                : "Confirm DUT to run.";
-            BlockStart(RunBannerSeverity.Warning, msg);
+                : "Confirm DUT and required session information before Run.";
+            _host.Status = msg;
+            if (_host is RunTestViewModel sessionBoard) sessionBoard.SetSessionGateBanner(RunBannerSeverity.Warning, msg);
+            else _host.SetBanner(RunBannerSeverity.Warning, msg);
             _sessionPanel.RefreshSessionSummary();
             return;
         }
@@ -185,6 +194,12 @@ public sealed class RunExecutionViewModel
         if (program is null)
         {
             BlockStart(RunBannerSeverity.Warning, "Select a program.");
+            return;
+        }
+
+        if (_host is RunTestViewModel selectedBoard && !selectedBoard.IsProgramReadyFor(program))
+        {
+            _host.Status = selectedBoard.ProgramAvailabilityMessage;
             return;
         }
 
@@ -215,6 +230,12 @@ public sealed class RunExecutionViewModel
                 return;
             }
 
+            if (_stepTree.IsReadOnlyEvidenceSelection)
+            {
+                BlockStart(RunBannerSeverity.Warning, "Reference acceptance is read-only evidence. Select the measured test or use Run to evaluate it again.");
+                return;
+            }
+
             if (_stepTree.IsWholePlanSelection(selectionPath))
             {
                 BlockStart(
@@ -231,6 +252,8 @@ public sealed class RunExecutionViewModel
         }
 
         _host.IsRunning = true;
+        if (_host is RunTestViewModel resettingBoard) resettingBoard.SetReferenceOutcome(null, [], RunResult.Unknown);
+        if (_host is RunTestViewModel startingBoard) startingBoard.BeginRunNotifications();
         _live.ResetForRun();
         _host.HistoryBanner = string.Empty;
         _host.ResetPumpForRun();
@@ -287,9 +310,15 @@ public sealed class RunExecutionViewModel
         CancellationToken cancellationToken)
     {
         await _host.LoadSelectedProgramAsync(stagePath, selectionPath);
+        if (_host is RunTestViewModel loadedBoard && !loadedBoard.IsProgramReadyFor(program))
+        {
+            await _host.RunOnUiAsync(() => _host.Status = loadedBoard.ProgramAvailabilityMessage)
+                .ConfigureAwait(false);
+            return;
+        }
         _stationOverrides.ApplySavedParameterOverrides();
         var station = _stationOverrides.BuildStationProfile();
-        if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
+        if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath) && program.ReferenceRules.Count == 0)
         {
             _stepTree.SelectedStep = _stepTree.FindByPath(selectionPath) ?? _stepTree.SelectedStep;
             if (_stepTree.SelectedStep is not null && _stationOverrides.TryApplyDebugPatchForRunPreparation())
@@ -332,6 +361,10 @@ public sealed class RunExecutionViewModel
             return;
         }
 
+        var references = _host is RunTestViewModel referenceBoard
+            ? await referenceBoard.FreezeBenchReferencesAsync(program, selectionOnly).ConfigureAwait(false) : null;
+        if (references is not null)
+            station = station with { ReferenceAcceptancePrepared = true, ReferenceAcquisition = references.IsAcquisition };
         await _station.ApplyStationAndDutAsync(station, _session.ToDutIdentity());
         _session.TouchActivity();
 
@@ -342,6 +375,12 @@ public sealed class RunExecutionViewModel
             RunId = runId,
             PlanId = program.Id,
             PlanName = program.DisplayName,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
+            ReferenceContext = references?.Context,
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            ReferenceUses = references?.Uses.Select(BenchReferenceEvaluator.CloneUse).ToList() ?? [],
             DutSerial = _session.DutSerial,
             DutPartNumber = _session.DutPartNumber,
             DutRevision = _session.DutRevision,
@@ -354,6 +393,10 @@ public sealed class RunExecutionViewModel
         }).ConfigureAwait(false);
 
         using var runLog = LogContext.PushProperty("TestRunId", runId);
+        await _host.RunOnUiAsync(() =>
+        {
+            if (_host is RunTestViewModel savedBoard) savedBoard.MarkLastRunSaved(runId);
+        }).ConfigureAwait(false);
         var summary = selectionOnly
             ? await _runSession.RunSelectionAsync(
                 selectionPath!,
@@ -366,6 +409,20 @@ public sealed class RunExecutionViewModel
         _host.ForceUiFlush();
         await _host.WaitForPendingFlushesAsync().ConfigureAwait(false);
 
+        var backendResult = summary.Result;
+        var referenceRecord = new TestRunRecord
+        {
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            StartedAt = summary.StartedAt,
+            CompletedAt = summary.CompletedAt,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            Samples = summary.Samples,
+        };
+        var referenceEvaluations = references is { IsAcquisition: false } && summary.Result is RunResult.Passed or RunResult.Failed
+            ? BenchReferenceEvaluator.Evaluate(referenceRecord, references.Uses).ToList() : [];
+        if (referenceEvaluations.Count > 0) summary = WithReferenceOutcome(summary, referenceEvaluations);
         _host.LastRunId = summary.RunId;
         RecordAttempts(summary);
 
@@ -374,6 +431,24 @@ public sealed class RunExecutionViewModel
         await _host.RunOnUiAsync(() =>
         {
             PublishRunOutcome(selectionOnly, selectionPath, selectionName, summary);
+            if (_host is RunTestViewModel outcomeBoard)
+                outcomeBoard.SetReferenceOutcome(references, referenceEvaluations, backendResult);
+            if (references?.IsAcquisition == true)
+            {
+                _host.Status = $"Reference acquisition: {backendResult}. Not a production pass. Save qualified values from Results.";
+                if (_host is RunTestViewModel acquisitionBoard) acquisitionBoard.SetRunCompletionBanner(RunBannerSeverity.Warning, _host.Status);
+            }
+            else if (referenceEvaluations.Any(evaluation => !evaluation.Passed))
+            {
+                _host.Status = $"Reference acceptance: Failed. Saved result {ShortId.Display(summary.RunId)}.";
+                if (_host is RunTestViewModel failedBoard) failedBoard.SetRunCompletionBanner(RunBannerSeverity.Error, _host.Status);
+            }
+            if (ProgramKinds.IsStationHealth(program.ProgramKind) && (references?.IsAcquisition == true || selectionOnly))
+            {
+                _host.Status += " Health qualification was not updated; complete a full production run.";
+                var severity = summary.Result is RunResult.Failed or RunResult.Error ? RunBannerSeverity.Error : RunBannerSeverity.Warning;
+                if (_host is RunTestViewModel healthBoard) healthBoard.SetRunCompletionBanner(severity, _host.Status);
+            }
             if (terminal && _settings.RequireDutConfirmEveryRun)
             {
                 _sessionPanel.ApplyConfirmEveryRunPolicy(runReachedTerminal: true);
@@ -390,6 +465,14 @@ public sealed class RunExecutionViewModel
             RunId = summary.RunId,
             PlanId = program.Id,
             PlanName = summary.PlanName,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
+            ReferenceContext = references?.Context,
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            ReferenceUses = references?.Uses.Select(BenchReferenceEvaluator.CloneUse).ToList() ?? [],
+            ReferenceEvaluations = referenceEvaluations,
+            ReferenceBackendResult = references is null ? null : backendResult,
             DutSerial = summary.DutSerial ?? _session.DutSerial,
             DutPartNumber = summary.DutPartNumber ?? _session.DutPartNumber,
             DutRevision = summary.DutRevision ?? _session.DutRevision,
@@ -407,7 +490,11 @@ public sealed class RunExecutionViewModel
             AppCommitSha = _buildInfo.CommitSha,
         };
         await _runStore.SaveAsync(record).ConfigureAwait(false);
-        if (_stationHealthStore is not null)
+        await _host.RunOnUiAsync(() =>
+        {
+            if (_host is RunTestViewModel savedBoard) savedBoard.MarkLastRunSaved(record.RunId);
+        }).ConfigureAwait(false);
+        if (_stationHealthStore is not null && references?.IsAcquisition != true && !selectionOnly)
         {
             await StationHealthRecorder.TryWriteAsync(
                     _stationHealthStore,
@@ -425,175 +512,4 @@ public sealed class RunExecutionViewModel
         await GenerateReportsAsync(record, program, summary.Result, historyReport).ConfigureAwait(false);
     }
 
-    private void PublishRunOutcome(
-        bool selectionOnly,
-        string? selectionPath,
-        string? selectionName,
-        OpenTapRunSummary summary)
-    {
-        _host.SyncHierarchyLive();
-        _stepTree.ApplyStepResults(summary.Steps);
-        _stepTree.ApplyAttemptTexts();
-        if (!selectionOnly && summary.Result == RunResult.Failed)
-        {
-            _stepTree.StepStatusFilter = StepFilter.Fail;
-            _stepTree.MaybeAutoFocusFail();
-        }
-
-        if (!string.IsNullOrWhiteSpace(selectionPath))
-        {
-            _stepTree.ResolveSelectedStep(selectionPath);
-        }
-
-        _host.OpenSelectedDetail(revealDetail: false);
-        _host.Status = BuildCompletionStatus(selectionOnly, selectionPath, selectionName, summary);
-        var completionSeverity = summary.Result switch
-        {
-            RunResult.Passed => RunBannerSeverity.Info,
-            RunResult.Failed or RunResult.Error => RunBannerSeverity.Error,
-            _ => RunBannerSeverity.Warning,
-        };
-        _host.SetBanner(completionSeverity, _host.Status);
-        _stepDetail.AttemptSummaryChip = string.Empty;
-        if (selectionOnly
-            && !string.IsNullOrWhiteSpace(selectionPath)
-            && _attemptLedger.TryGetValue(selectionPath, out var ledger))
-        {
-            _stepDetail.AttemptSummaryChip = ledger.Display;
-        }
-    }
-
-    private async Task<DutHistoryReport?> AnalyzeHistoryAsync(TestRunRecord record, RunResult result)
-    {
-        if (_dutHistory is null || result is not (RunResult.Passed or RunResult.Failed))
-        {
-            return null;
-        }
-
-        try
-        {
-            var report = await _dutHistory.AnalyzeAsync(record).ConfigureAwait(false);
-            await _host.RunOnUiAsync(() =>
-            {
-                if (!_settings.ShowDutHistoryOnRun)
-                {
-                    return;
-                }
-
-                _host.HistoryBanner = report.OperatorSummary;
-                if (!string.IsNullOrWhiteSpace(report.OperatorSummary))
-                {
-                    _host.Status += " " + report.OperatorSummary;
-                }
-            }).ConfigureAwait(false);
-            return report;
-        }
-        catch (Exception ex)
-        {
-            if (_settings.ShowDutHistoryOnRun)
-            {
-                await _host.RunOnUiAsync(() => _host.HistoryBanner = $"DUT history unavailable: {ex.Message}")
-                    .ConfigureAwait(false);
-            }
-
-            return null;
-        }
-    }
-
-    private async Task GenerateReportsAsync(
-        TestRunRecord record,
-        ProgramItemViewModel program,
-        RunResult result,
-        DutHistoryReport? historyReport)
-    {
-        if (result is not (RunResult.Passed or RunResult.Failed))
-        {
-            return;
-        }
-
-        try
-        {
-            var kinds = program.ReportKinds is { Count: > 0 }
-                ? program.ReportKinds
-                : ProgramCatalog.ResolveReportKinds(program.Id);
-            await _reportService.GenerateReportsAsync(record, kinds, historyReport).ConfigureAwait(false);
-            await _host.RunOnUiAsync(() => _host.Status += " Report(s) generated.").ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            await _host.RunOnUiAsync(() => _host.Status += $" Report failed: {ex.Message}").ConfigureAwait(false);
-        }
-    }
-
-    private string BuildCompletionStatus(
-        bool selectionOnly,
-        string? selectionPath,
-        string? selectionName,
-        OpenTapRunSummary summary)
-    {
-        if (selectionOnly && !string.IsNullOrWhiteSpace(selectionPath))
-        {
-            _attemptLedger.TryGetValue(selectionPath, out var ledger);
-            var attemptNo = ledger?.AttemptCount ?? 1;
-            var badge = ledger?.Display ?? $"{attemptNo}";
-            return $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
-        }
-
-        return $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {ShortId.Display(summary.RunId)}.";
-    }
-
-    private void RecordAttempts(OpenTapRunSummary summary)
-    {
-        foreach (var step in summary.Steps)
-        {
-            var path = string.IsNullOrWhiteSpace(step.StepPath) ? step.StepType : step.StepPath;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                continue;
-            }
-
-            if (!_attemptLedger.TryGetValue(path, out var ledger))
-            {
-                ledger = new StepAttemptSummary
-                {
-                    StepPath = path,
-                    StepName = step.StepType,
-                };
-                _attemptLedger[path] = ledger;
-            }
-
-            ledger.Attempts.Add(new StepResultRecord
-            {
-                StepId = step.StepId,
-                StepType = step.StepType,
-                StepPath = path,
-                AttemptNumber = ledger.AttemptCount + 1,
-                Passed = step.Passed,
-                Message = step.Message,
-                StartedAt = step.StartedAt,
-                CompletedAt = step.CompletedAt,
-            });
-            ledger.AttemptCount++;
-            if (step.Passed)
-            {
-                ledger.PassedCount++;
-            }
-            else
-            {
-                ledger.FailedCount++;
-            }
-
-            ledger.LatestPassed = step.Passed;
-            ledger.LatestMessage = step.Message;
-            ledger.StepName = step.StepType;
-        }
-    }
-
-    private List<StepResultRecord> BuildRolledUpSteps()
-        => _attemptLedger.Values
-            .Select(l => l.Attempts.LastOrDefault())
-            .Where(a => a is not null)
-            .Cast<StepResultRecord>()
-            .OrderBy(a => a.StepPath)
-            .ToList();
 }

@@ -9,6 +9,7 @@
 == Summary
 - *Run ID:* #sys.inputs.runId
 - *Plan / Suite:* #sys.inputs.planName
+- *Execution scope:* #sys.inputs.executionScope
 - *DUT Serial:* #sys.inputs.dutSerial
 - *Result:* #sys.inputs.result
 - *Started:* #sys.inputs.startedAt
@@ -19,10 +20,18 @@
 == Notes
 #sys.inputs.notes
 
-#if sys.inputs.result == "Passed" [
+#if sys.inputs.executionScopeKind == "reference-acquisition" [
+  #text(fill: orange)[*REFERENCE ACQUISITION ONLY*]
+  Dependent reference acceptance was not evaluated. This is not production acceptance.
+] else if sys.inputs.result == "Passed" [
   #text(fill: green)[*PASS*]
 ] else [
   #text(fill: red)[*FAIL*]
+]
+
+#if sys.inputs.includeReferenceEvidence == "true" [
+  == Bench reference evidence
+  #sys.inputs.referenceEvidence
 ]
 
 #if sys.inputs.attestationDetail != "" [

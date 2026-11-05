@@ -269,7 +269,11 @@ public static class OpenTapWorkerServer
                               ?? throw new InvalidOperationException("applyStationAndDut requires a payload.");
                     await requireSession()
                         .ApplyStationAndDutAsync(
-                            new StationProfile(req.SlotToResource),
+                            new StationProfile(req.SlotToResource)
+                            {
+                                ReferenceAcceptancePrepared = req.ReferenceAcceptancePrepared,
+                                ReferenceAcquisition = req.ReferenceAcquisition,
+                            },
                             new DutIdentity(req.Serial, req.PartNumber, req.Revision, req.Family))
                         .ConfigureAwait(false);
                     writeOk(

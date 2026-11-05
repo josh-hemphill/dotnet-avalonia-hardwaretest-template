@@ -82,6 +82,8 @@ public static class PlanContractValidator
         public const string SidecarStationHealthGate = "SIDECAR_STATION_HEALTH_GATE";
         public const string SidecarStationHealthRequire = "SIDECAR_STATION_HEALTH_REQUIRE";
         public const string SidecarRequiredFields = "SIDECAR_REQUIRED_FIELDS";
+        public const string ReferenceRules = "REFERENCE_RULES";
+        public const string ReferenceGuard = "REFERENCE_RUNTIME_GUARD";
     }
 
     public static PlanContractBatchReport Validate(
@@ -385,7 +387,44 @@ public static class PlanContractValidator
                 "Every Presentation mixin uses DisplayRole timeseries. Prefer scalar/passband for pass criteria (band-first cookbook)."));
         }
 
+        AnalyzeReferenceAcceptance(plan, sidecar, findings);
         PlanContractPlanChecks.Analyze(plan, sidecar, findings);
+    }
+
+    private static void AnalyzeReferenceAcceptance(TestPlan plan, ProgramSidecar? sidecar, List<PlanContractFinding> findings)
+    {
+        var steps = OpenTapStepTree.Flatten(plan).ToArray();
+        var guards = steps.OfType<RequireOperatorReferenceAcceptanceStep>().ToArray();
+        var rules = sidecar?.ReferenceRules ?? [];
+        if (rules.Count == 0)
+        {
+            if (guards.Length > 0)
+                findings.Add(Error(Codes.ReferenceGuard,
+                    "The compiled plan requires operator reference acceptance, but its supported sidecar declares no reference criteria. Restore the complete pair or recompile the intended saved program."));
+            return;
+        }
+        if (guards.Length != 1 || !guards[0].Enabled
+            || steps.Any(step => !step.Enabled && OpenTapStepTree.IsAncestorOf(step, guards[0])))
+            findings.Add(Error(Codes.ReferenceGuard,
+                "Reference-dependent programs need one enabled operator acceptance guard. Recompile with the current authoring app; copying only a changed sidecar is insufficient."));
+        foreach (var rule in rules)
+        {
+            if (rule is null) continue;
+            var producer = steps.Where(step => step.Id == rule.ProducerStepId).ToArray();
+            if (producer.Length != 1 || !producer[0].Enabled
+                || steps.Any(step => !step.Enabled && OpenTapStepTree.IsAncestorOf(step, producer[0])))
+            {
+                findings.Add(Error(Codes.ReferenceRules,
+                    $"Reference rule '{rule.RuleId}' has no unique enabled producer in this compiled plan. Restore its metric selection and compile again."));
+                continue;
+            }
+            var hints = OpenTapPresentation.TryReadMixin(producer[0]);
+            if (hints is null || !string.Equals(hints.ChannelKey, rule.MetricKey, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(hints.YUnit, rule.Unit, StringComparison.Ordinal))
+                findings.Add(new PlanContractFinding(PlanContractSeverity.Error, Codes.ReferenceRules,
+                    $"Reference rule '{rule.RuleId}' metric or unit does not match its compiled producer. Restore the declared metric/unit and compile the complete pair again.")
+                { Target = new(CompiledStepId: producer[0].Id, Section: "Configure", Field: "ReferenceTolerance") });
+        }
     }
 
     private static int MaxGroupDepth(ITestStepParent parent, int groupDepth)

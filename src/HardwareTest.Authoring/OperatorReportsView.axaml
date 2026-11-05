@@ -21,7 +21,8 @@
           <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{Binding RequiredFieldsPurpose}"/>
           <TextBlock Text="Checked fields are required by this plan. Reusable definitions can be shared across plans." TextWrapping="Wrap"/>
           <TextBlock Text="Create a reusable operator field, then check it below to include it in this program." Classes="purpose" TextWrapping="Wrap"/>
-          <TextBox Text="{Binding NewRequiredField}" PlaceholderText="e.g. fixtureId" AutomationProperties.Name="New operator field from operator settings"/>
+          <TextBlock x:Name="NewOperatorFieldLabel" Text="Operator field ID"/>
+          <TextBox Text="{Binding NewRequiredField}" PlaceholderText="e.g. fixtureId" AutomationProperties.Name="New operator field from operator settings" AutomationProperties.LabeledBy="{Binding #NewOperatorFieldLabel}"/>
           <Button Content="Add workspace operator field" Click="OnAddRequiredField" Classes="authoringAction" AutomationProperties.Name="Add operator field from operator settings"/>
           <ItemsControl ItemsSource="{Binding RequiredFieldChoices}" AutomationProperties.Name="Required DUT fields">
             <ItemsControl.ItemTemplate>
@@ -38,7 +39,8 @@
         <StackPanel Spacing="10">
           <TextBlock FontWeight="SemiBold" Text="Reports" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
           <TextBlock Text="Choose which report kinds this plan offers and its default report." TextWrapping="Wrap"/>
-          <TextBox Text="{Binding NewReportKind}" PlaceholderText="New report kind ID" AutomationProperties.Name="New report kind from operator settings"/>
+          <TextBlock x:Name="NewReportKindLabel" Text="Report kind ID"/>
+          <TextBox Text="{Binding NewReportKind}" PlaceholderText="e.g. acceptance-summary" AutomationProperties.Name="New report kind from operator settings" AutomationProperties.LabeledBy="{Binding #NewReportKindLabel}"/>
           <Button Content="Add workspace report kind" Click="OnAddReportKind" Classes="authoringAction" AutomationProperties.Name="Add report kind from operator settings"/>
           <ItemsControl ItemsSource="{Binding ReportKindChoices}" AutomationProperties.Name="Report kinds">
             <ItemsControl.ItemTemplate>

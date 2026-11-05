@@ -49,14 +49,14 @@ public partial class MainWindow
         }
         return new StackPanel
         {
-            Spacing = 14,
+            Spacing = 10,
             Children =
         {
             AuthoringFormLayout.Heading("First test plan", 3),
-            new StackPanel { Spacing = 5, Children = { _guidancePlan, _guidanceHardware, _guidanceIdentity, _guidanceShutdown } },
             AuthoringFormLayout.Heading("Status", 3), _guidanceFeedback,
             AuthoringFormLayout.Heading("Next action", 3), _guidanceNext, _guidancePrimary,
             _guidanceWarning, _guidanceDetails,
+            Group("Plan details", new StackPanel { Spacing = 5, Children = { _guidancePlan, _guidanceHardware, _guidanceIdentity, _guidanceShutdown } }),
             Group("Draft checks", checks), Group("Preview and deployment", deployment), Group("Guidance preferences", preferences)
         }
         };

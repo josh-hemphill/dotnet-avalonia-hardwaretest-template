@@ -4,41 +4,43 @@
              x:Class="HardwareTest.Features.ReportPreview.ReportPreviewView"
              x:DataType="vm:ReportPreviewViewModel">
   <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="12">
-    <StackPanel Orientation="Horizontal" Spacing="8">
-      <Button Content="Back to Results" Command="{Binding NavigateToResultsCommand}"
-              Classes="operator" />
-      <Button Content="Load Latest Report" Command="{Binding LoadLatestCommand}"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Sign report" Command="{Binding SignCommand}" IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Save a copy" Command="{Binding SaveCopyCommand}" IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Open in PDF viewer" Command="{Binding OpenInViewerCommand}" IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Print…" Command="{Binding PrintCommand}"
-              IsEnabled="{Binding !IsBusy}" />
-      <Button Content="Cancel print" Command="{Binding CancelPrintCommand}" IsVisible="{Binding IsPrinting}" />
+    <WrapPanel>
+      <Button Content="Back to Results" AutomationProperties.Name="Back to Results" Command="{Binding NavigateToResultsCommand}"
+              Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Load Latest Report" AutomationProperties.Name="Load latest report" Command="{Binding LoadLatestCommand}"
+              IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Sign report" AutomationProperties.Name="Sign report" Command="{Binding SignCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Save a copy" ToolTip.Tip="Copy the current PDF and its existing digital signature" AutomationProperties.Name="Save report copy" Command="{Binding SaveCopyCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Open in PDF viewer" AutomationProperties.Name="Open report in PDF viewer" Command="{Binding OpenInViewerCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Print…" ToolTip.Tip="Send a copy to the printer; printing to PDF creates a new document" AutomationProperties.Name="Print report" Command="{Binding PrintCommand}"
+              IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+      <Button Content="Cancel print" AutomationProperties.Name="Cancel report print" Command="{Binding CancelPrintCommand}" IsVisible="{Binding IsPrinting}" Classes="operator" Margin="0,0,8,8" />
       <TextBlock Text="Loading…"
                  IsVisible="{Binding IsBusy}"
                  VerticalAlignment="Center"
                  Opacity="0.8"
                  FontWeight="SemiBold" />
-    </StackPanel>
+    </WrapPanel>
 
     <StackPanel Grid.Row="1" Spacing="8">
       <TextBlock Text="{Binding ReportSummary}" TextWrapping="Wrap" />
-      <TextBlock Text="Save a copy preserves the original digital signature. Printing to PDF creates a new document. Choose a destination outside the managed run folder."
-                 TextWrapping="Wrap" Opacity="0.8" />
-      <TextBlock Text="{Binding PrintStatus}" TextWrapping="Wrap" />
+      <Expander Header="Saving and printing" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Report saving and printing guidance">
+        <TextBlock Text="Save a copy preserves the original digital signature. Printing to PDF creates a new document. Choose a destination outside the managed run folder."
+                   TextWrapping="Wrap" Opacity="0.8" />
+      </Expander>
+      <TextBlock Text="{Binding PrintStatus}" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PrintStatus}" AutomationProperties.LiveSetting="Polite" />
       <Border IsVisible="{Binding ShowSigningPrompt}" Padding="12" BorderThickness="1"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
         <StackPanel Spacing="8">
           <TextBlock Text="{Binding SigningPromptStatus}" TextWrapping="Wrap" />
           <TextBox IsVisible="{Binding ShowSigningPin}" Text="{Binding SigningPin}" PasswordChar="*"
-                   PlaceholderText="Badge PIN" MaxWidth="220" HorizontalAlignment="Left" />
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Content="{Binding SignButtonLabel}" Command="{Binding SignAndContinueCommand}" />
+                   PlaceholderText="Badge PIN" AutomationProperties.Name="Report signing badge PIN" MaxWidth="220" HorizontalAlignment="Left" />
+          <WrapPanel>
+            <Button Content="{Binding SignButtonLabel}" Command="{Binding SignAndContinueCommand}" Classes="operator" Margin="0,0,8,8" />
             <Button Content="Use presence attestation" Command="{Binding UsePresenceCommand}"
-                    IsVisible="{Binding AllowPresenceFallback}" />
-            <Button Content="Cancel" Command="{Binding CancelSigningCommand}" />
-          </StackPanel>
+                    IsVisible="{Binding AllowPresenceFallback}" Classes="operator" Margin="0,0,8,8" />
+            <Button Content="Cancel" Command="{Binding CancelSigningCommand}" Classes="operator" Margin="0,0,8,8" />
+          </WrapPanel>
         </StackPanel>
       </Border>
     </StackPanel>
@@ -53,11 +55,11 @@
         <TextBlock Text="No PDF loaded — open a run from Results, or load the latest report."
                    TextWrapping="Wrap"
                    Opacity="0.85" />
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Load Latest Report" Command="{Binding LoadLatestCommand}"
-                  IsEnabled="{Binding !IsBusy}" />
-          <Button Content="Go to Results" Command="{Binding NavigateToResultsCommand}" />
-        </StackPanel>
+        <WrapPanel>
+          <Button Content="Load Latest Report" AutomationProperties.Name="Load latest report" Command="{Binding LoadLatestCommand}"
+                  IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
+          <Button Content="Go to Results" Command="{Binding NavigateToResultsCommand}" Classes="operator" Margin="0,0,8,8" />
+        </WrapPanel>
       </StackPanel>
     </Border>
 
@@ -74,6 +76,11 @@
       </ItemsControl>
     </ScrollViewer>
 
-    <TextBlock Grid.Row="3" Text="{Binding Status}" TextWrapping="Wrap" />
+    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+      <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                 ToolTip.Tip="{Binding Status}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Report action status"/>
+      <Button Grid.Column="1" Content="Details" Click="OnShowDetails" Classes="operator"
+              AutomationProperties.Name="Show full report details" ToolTip.Tip="Read and select the full report status, path and verification details"/>
+    </Grid>
   </Grid>
 </UserControl>

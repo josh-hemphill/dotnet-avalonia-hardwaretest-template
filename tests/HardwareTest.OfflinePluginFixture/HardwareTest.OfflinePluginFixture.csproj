@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><CreateOpenTapPackage>false</CreateOpenTapPackage><AssemblyName>OfflineBench.DeliveryFixture</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../HardwareTest.OfflineDependencyFixture/HardwareTest.OfflineDependencyFixture.csproj" />
+    <PackageReference Include="OpenTAP" />
+  </ItemGroup>
+</Project>

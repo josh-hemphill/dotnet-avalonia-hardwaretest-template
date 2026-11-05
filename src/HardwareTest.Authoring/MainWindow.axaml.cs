@@ -262,6 +262,20 @@ public partial class MainWindow : Window
         _settings.Show(this);
     }
 
+    internal void OpenAuthoringHomeSettings()
+    {
+        OnOpenSettings(this, new RoutedEventArgs());
+        var settings = _settings;
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            if (settings?.IsVisible != true || !ReferenceEquals(settings, _settings)) return;
+            var home = settings.GetVisualDescendants().OfType<TextBox>()
+                .SingleOrDefault(field => Avalonia.Automation.AutomationProperties.GetName(field) == "OpenTAP home override");
+            home?.BringIntoView();
+            home?.Focus();
+        }, Avalonia.Threading.DispatcherPriority.Loaded);
+    }
+
     internal void OnFormulaCaretChanged(object? sender, RoutedEventArgs e) => SyncFormulaCaret();
 
     private void SyncFormulaCaret()

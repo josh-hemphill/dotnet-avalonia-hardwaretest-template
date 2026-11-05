@@ -348,20 +348,25 @@ public sealed class MetricEditorTests
             File.Copy(
                 Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
                 Path.Combine(dest, "run.json"));
+            var recordingPath = Path.Combine(dest, "run.json");
+            var recordingBytes = File.ReadAllBytes(recordingPath);
 
             vm.Open(root);
             vm.StopRecovery();
             vm.CreateDemoProgram("sample");
             vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
             vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
-            Assert.Contains("mean-vdc-1", vm.DatasetItems);
+            var recordingChoice = Assert.Single(vm.DatasetItems);
+            Assert.Equal("mean-vdc-1 · read-only", recordingChoice);
             Assert.Null(vm.SelectedDataset);
             Assert.StartsWith("Example data", vm.DataSourceDetails);
             var exampleValue = vm.Preview.CannedValue;
 
-            vm.SelectDataset(0);
+            vm.SelectDataset(vm.DatasetItems.ToList().IndexOf(recordingChoice));
 
             Assert.NotNull(vm.SelectedDataset);
+            Assert.Equal("mean-vdc-1", vm.SelectedDataset.Run.RunId);
+            Assert.True(vm.SelectedDataset.Run.IsSchemaReadOnly);
             Assert.Equal(new[] { 1d, 3d }, vm.SelectedDataset.Run.Samples.Select(sample => sample.Value));
             Assert.Equal(2, vm.Preview.CannedValue);
             Assert.Equal(vm.SelectedDataset.Run.Samples.Average(sample => sample.Value), vm.Preview.CannedValue);
@@ -369,6 +374,8 @@ public sealed class MetricEditorTests
             Assert.StartsWith("Recording", vm.DataSourceDetails);
             Assert.Contains("Recording", vm.PreviewNote, StringComparison.Ordinal);
             Assert.DoesNotContain("needs Area 11 filter", vm.PreviewNote, StringComparison.Ordinal);
+            Assert.Contains("read-only sample preview", vm.DataSourceDetails);
+            Assert.Equal(recordingBytes, File.ReadAllBytes(recordingPath));
         }
         finally
         {

@@ -14,12 +14,13 @@ public sealed partial class OpenTapSession
         }
 
         var step = FindStepByPath(stepPath);
-        if (step is null)
+        if (step is null || (step is RequireOperatorReferenceAcceptanceStep && !enabled))
         {
             return false;
         }
 
         step.Enabled = enabled;
+        ClearReferencePreparation();
         RefreshTreeEnabled();
         return true;
     }
@@ -130,6 +131,7 @@ public sealed partial class OpenTapSession
         }
 
         var ok = OpenTapParameterBridge.TrySet(owner, memberName, value);
+        if (ok) ClearReferencePreparation();
         if (ok && owner is ITestStep && string.Equals(memberName, nameof(ITestStep.Enabled), StringComparison.OrdinalIgnoreCase))
         {
             RefreshTreeEnabled();
@@ -220,7 +222,9 @@ public sealed partial class OpenTapSession
                 return false;
             }
 
-            return TryBindSlotResource_NoLock(slotName, resource);
+            var bound = TryBindSlotResource_NoLock(slotName, resource);
+            if (bound) ClearReferencePreparation();
+            return bound;
         }
     }
 

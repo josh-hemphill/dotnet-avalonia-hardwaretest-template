@@ -1,12 +1,19 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.SelectedStepInspectorView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer Margin="0" AutomationProperties.Name="Selected step inspector" HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Spacing="16">
-      <StackPanel Spacing="8">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-          <TextBlock Text="Name" VerticalAlignment="Center"/>
+    <StackPanel x:Name="InspectorBody" Spacing="16">
+
+      <TextBlock Text="{Binding SelectedStepErrors}" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
+      <Expander x:Name="ConfigureExpander" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
+        <Expander.Header>
+<Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="{Binding SelectedSequence.Label}" IsVisible="{Binding !HasSectionEditor}" AutomationProperties.LiveSetting="Polite" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2" ToolTip.Tip="{Binding InspectorBreadcrumb}" AutomationProperties.HelpText="{Binding InspectorBreadcrumb}"/>
+            <TextBlock Text="Test steps section" IsVisible="{Binding HasSectionEditor}" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2" ToolTip.Tip="{Binding InspectorBreadcrumb}" AutomationProperties.HelpText="{Binding InspectorBreadcrumb}"/>
+          </StackPanel>
           <Button Grid.Column="1" x:Name="InspectorActionsButton" Content="Item actions ▾" Classes="authoringAction" AutomationProperties.Name="Selected step actions">
             <Button.Flyout><Flyout><ScrollViewer Width="300" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
               <TextBlock Text="{Binding SequenceOperationTarget}" TextWrapping="Wrap" Classes="purpose"/>
+              <Button Content="Rename…" Click="OnFocusName" Classes="authoringAction" AutomationProperties.Name="Edit selected step name"/>
               <Button Content="Duplicate" Click="OnDuplicateSequence" IsEnabled="{Binding CanDuplicateSequence}" Classes="authoringAction" AutomationProperties.Name="Duplicate selected step"/>
               <Button Content="Move up" Click="OnMoveSequenceUp" IsEnabled="{Binding CanMoveSequenceUp}" AutomationProperties.HelpText="{Binding MoveSequenceUpReason}" Classes="authoringAction" AutomationProperties.Name="Move selected step up"/>
               <TextBlock Text="{Binding MoveSequenceUpReason}" TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Move up explanation"/>
@@ -22,19 +29,12 @@
             </StackPanel></ScrollViewer></Flyout></Button.Flyout>
           </Button>
         </Grid>
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-          <TextBox x:Name="StepNameBox" Text="{Binding SequenceRename}" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Selected step name"/>
-          <Button Grid.Column="1" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" Classes="authoringAction" AutomationProperties.Name="Rename selected step"/>
-        </Grid>
-      </StackPanel>
-      <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding SelectedStepErrors}" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
-      <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
+        </Expander.Header>
         <StackPanel Spacing="16">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced." TextWrapping="Wrap"/>
           <StackPanel Spacing="10" IsVisible="{Binding HasSectionEditor}">
             <TextBlock Text="Device test section" Classes="sectionTitle" AutomationProperties.HeadingLevel="3"/>
-            <TextBlock Text="Keep tests for one device system together. Use Add step to add tests to this selected section. Rename above; use Item actions to reorder or move it." Classes="purpose" TextWrapping="Wrap"/>
+            <TextBlock Text="Keep tests for one device system together. Use Add step to add tests to this selected section. Use Item actions to rename, reorder or move it." Classes="purpose" TextWrapping="Wrap"/>
             <Button Content="{Binding SelectedSectionToggleLabel}" Click="OnToggleSection" IsEnabled="{Binding CanToggleSelectedSection}" AutomationProperties.Name="Toggle selected section" Classes="authoringAction" HorizontalAlignment="Left"/>
             <TextBlock Text="Removing a section keeps its tests in the parent sequence. Setup and Shutdown cannot be moved into a section." Classes="purpose" TextWrapping="Wrap"/>
           </StackPanel>
@@ -78,12 +78,95 @@
             </ItemsControl>
           </StackPanel>
           <StackPanel Spacing="10" IsVisible="{Binding HasMetricPresentation}">
-            <TextBlock Text="Measurement and pass criteria" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-            <TextBlock IsVisible="{Binding NeedsMetricInstrument}" x:Name="MetricSlotLabel" Text="Instrument slot" TextWrapping="Wrap"/>
-            <ComboBox IsVisible="{Binding NeedsMetricInstrument}" ItemsSource="{Binding InstrumentSlots}" SelectedItem="{Binding MetricInstrumentSlot}" AutomationProperties.Name="Metric instrument slot" AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}" ToolTip.Tip="Select the instrument for measure and instrument-based algorithm steps. Channel-only algorithms leave it empty."/>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <TextBlock IsVisible="{Binding NeedsMetricInstrument}" Grid.Column="0" MaxWidth="110" VerticalAlignment="Center" x:Name="MetricSlotLabel" Text="Instrument slot" TextWrapping="Wrap"/>
+            <ComboBox Grid.Column="1" IsVisible="{Binding NeedsMetricInstrument}" ItemsSource="{Binding InstrumentSlots}" SelectedItem="{Binding MetricInstrumentSlot}" AutomationProperties.Name="Metric instrument slot" AutomationProperties.LabeledBy="{Binding #MetricSlotLabel}" ToolTip.Tip="Select the instrument for measure and instrument-based algorithm steps. Channel-only algorithms leave it empty."/>
+            </Grid>
+            <Border IsVisible="{Binding HasPassDecision}">
+              <StackPanel Spacing="8">
+                <TextBlock Text="Pass decision" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                  <TextBlock x:Name="LimitLowLabel" Text="Limit low" MaxWidth="110" VerticalAlignment="Center" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
+                  <TextBox Grid.Column="1" x:Name="LimitLowBox" Text="{Binding LimitLow}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit low" AutomationProperties.LabeledBy="{Binding #LimitLowLabel}"/>
+                  <TextBlock Grid.Row="1" x:Name="LimitHighLabel" Text="Limit high" MaxWidth="110" VerticalAlignment="Center" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
+                  <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LimitHigh}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit high" AutomationProperties.LabeledBy="{Binding #LimitHighLabel}"/>
+                  <TextBlock Grid.Row="2" x:Name="ThresholdLabel" Text="Threshold" MaxWidth="110" VerticalAlignment="Center" IsVisible="{Binding ShowThreshold}" TextWrapping="Wrap"/>
+                  <TextBox Grid.Row="2" Grid.Column="1" x:Name="ThresholdBox" Text="{Binding Threshold}" IsVisible="{Binding ShowThreshold}" AutomationProperties.Name="Threshold" AutomationProperties.LabeledBy="{Binding #ThresholdLabel}" ToolTip.Tip="Mean GTE passes when the mean meets this threshold"/>
+                </Grid>
+              </StackPanel>
+            </Border>
+            <StackPanel Spacing="8">
+              <TextBlock Text="Golden-unit reference" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+              <CheckBox IsChecked="{Binding RequireGoldenReference}"
+                  AutomationProperties.Name="Require golden reference" AutomationProperties.HelpText="{Binding ReferenceRequirementHelp}">
+                <TextBlock Text="{Binding ReferenceRequirementLabel}" TextWrapping="Wrap"/>
+              </CheckBox>
+              <StackPanel Spacing="6" IsVisible="{Binding RequireGoldenReference}">
+                <TextBlock x:Name="ReferenceCriterionLabel" Text="Criterion to edit" TextWrapping="Wrap"/>
+                <ComboBox x:Name="ReferenceCriterionSelector" ItemsSource="{Binding ReferenceCriterionOptions}" SelectedItem="{Binding SelectedReferenceCriterion, Mode=TwoWay}"
+                    HorizontalAlignment="Stretch" AutomationProperties.Name="Reference criterion to edit" AutomationProperties.LabeledBy="{Binding #ReferenceCriterionLabel}"
+                    SelectionChanged="OnReferenceComparisonChanged" GotFocus="OnReferenceFieldFocused">
+                  <ComboBox.Styles><Style Selector="ComboBoxItem" x:DataType="vm:AuthoringReferenceCriterionOption">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
+                  </Style></ComboBox.Styles>
+                  <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringReferenceCriterionOption">
+                    <TextBlock Text="{Binding Label}" TextWrapping="Wrap" MaxWidth="340"/>
+                  </DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+                <WrapPanel>
+                  <Button Content="Add criterion" Click="OnAddReferenceCriterion" Margin="0,0,6,6" AutomationProperties.Name="Add reference criterion" Classes="authoringAction"/>
+                  <Button Content="Remove selected" Click="OnRemoveReferenceCriterion" Margin="0,0,0,6" AutomationProperties.Name="Remove selected reference criterion" Classes="authoringAction"
+                      AutomationProperties.HelpText="Removes only the selected criterion. Undo restores it."/>
+                </WrapPanel>
+                <TextBlock Text="{Binding ReferenceCriteriaOverview}" TextWrapping="Wrap"
+                    IsVisible="{Binding ReferenceCriteriaOverview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    AutomationProperties.Name="All reference criteria"/>
+                <StackPanel x:Name="ReferenceKeyField" Spacing="6">
+                  <TextBlock x:Name="ReferenceKeyLabel" Text="Reference input key" TextWrapping="Wrap"/>
+                  <TextBox x:Name="ReferenceKeyBox" Text="{Binding ReferenceKey}" AutomationProperties.Name="Reference input key"
+                      TextChanged="OnReferenceInputChanged" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.LabeledBy="{Binding #ReferenceKeyLabel}" AutomationProperties.HelpText="{Binding ReferenceKeyError}"/>
+                  <TextBlock Text="{Binding ReferenceKeyError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceKeyError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference input key error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <StackPanel x:Name="ReferenceTargetField" Spacing="6">
+                  <TextBlock Text="{Binding ReferenceTarget}" TextWrapping="Wrap" AutomationProperties.Name="Reference measurement identity"/>
+                  <Button x:Name="ReferenceRebindButton" Content="Use current measurement identity" Click="OnRebindReference" Classes="authoringAction" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.Name="Rebind reference measurement" AutomationProperties.HelpText="{Binding ReferenceTargetError}" HorizontalAlignment="Left"/>
+                  <TextBlock Text="{Binding ReferenceTargetError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceTargetError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference target error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ReferenceReduction}" TextWrapping="Wrap" Classes="purpose"/>
+                <StackPanel x:Name="ReferenceComparisonField" Spacing="6">
+                  <TextBlock x:Name="ReferenceComparisonLabel" Text="Comparison" TextWrapping="Wrap"/>
+                  <ComboBox x:Name="ReferenceComparisonBox" ItemsSource="{Binding ReferenceComparisonOptions}" SelectedItem="{Binding ReferenceComparison}"
+                      GotFocus="OnReferenceFieldFocused" SelectionChanged="OnReferenceComparisonChanged"
+                      AutomationProperties.Name="Reference comparison" AutomationProperties.LabeledBy="{Binding #ReferenceComparisonLabel}" AutomationProperties.HelpText="{Binding ReferenceComparisonError}"/>
+                  <TextBlock Text="{Binding ReferenceComparisonError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceComparisonError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference comparison error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ReferenceEquation}" TextWrapping="Wrap"/>
+                <StackPanel x:Name="ReferenceToleranceField" Spacing="6">
+                  <TextBlock x:Name="ReferenceToleranceLabel" Text="Tolerance (inclusive)" TextWrapping="Wrap"/>
+                  <TextBox x:Name="ReferenceToleranceBox" Text="{Binding ReferenceTolerance}" AutomationProperties.Name="Reference tolerance"
+                      TextChanged="OnReferenceInputChanged" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.LabeledBy="{Binding #ReferenceToleranceLabel}" AutomationProperties.HelpText="{Binding ReferenceToleranceError}"/>
+                  <TextBlock Text="{Binding ReferenceToleranceError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceToleranceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference criterion error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="The operator selects a compatible saved reference before Run. Reference acceptance is additional to the fixed pass decision."
+                    TextWrapping="Wrap" Classes="purpose"/>
+              </StackPanel>
+            </StackPanel>
             <StackPanel Spacing="6" IsVisible="{Binding HasStepSettings}">
-              <TextBlock x:Name="FunctionIdLabel" Text="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" TextWrapping="Wrap"/>
-              <ComboBox ItemsSource="{Binding MetricFunctionChoices}" SelectedItem="{Binding SelectedMetricFunction}" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" AutomationProperties.LabeledBy="{Binding #FunctionIdLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeTooltip}">
+              <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+              <TextBlock Grid.Column="0" MaxWidth="110" VerticalAlignment="Center" x:Name="FunctionIdLabel" Text="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" TextWrapping="Wrap"/>
+              <ComboBox Grid.Column="1" ItemsSource="{Binding MetricFunctionChoices}" SelectedItem="{Binding SelectedMetricFunction}" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" AutomationProperties.LabeledBy="{Binding #FunctionIdLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeTooltip}">
+                <ComboBox.SelectionBoxItemTemplate><DataTemplate x:DataType="vm:AuthoringFunctionDisplay"><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis"/></DataTemplate></ComboBox.SelectionBoxItemTemplate>
                 <ComboBox.ItemTemplate>
                   <DataTemplate x:DataType="vm:AuthoringFunctionDisplay">
                     <StackPanel>
@@ -94,39 +177,30 @@
                   </DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
+              </Grid>
               <StackPanel Spacing="6" IsVisible="{Binding HasMetricInputs}">
                 <TextBlock x:Name="MetricInputsLabel" Text="Input channel" TextWrapping="Wrap"/>
                 <TextBox Text="{Binding MetricInputChannels}" AutomationProperties.Name="Metric input channels" AutomationProperties.LabeledBy="{Binding #MetricInputsLabel}" ToolTip.Tip="Exactly one stable channel ID from a preceding producer."/>
               </StackPanel>
               <TextBlock x:Name="MeasureSettingsLabel" Text="Recipe settings" TextWrapping="Wrap"/>
-              <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{x:Static vm:AuthoringInspectorCopy.MeasureSettingsPurpose}"/>
-              <ItemsControl ItemsSource="{Binding MetricSettingRows}" AutomationProperties.Name="Recipe settings" AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
+
+              <ItemsControl ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.MeasureSettingsPurpose}" ItemsSource="{Binding MetricSettingRows}" AutomationProperties.Name="Recipe settings" AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:AuthoringSettingRow">
-                    <Grid ColumnDefinitions="*" Margin="0,0,0,4" RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="110,*" ColumnSpacing="10" Margin="0,0,0,4" RowDefinitions="Auto,Auto">
                       <TextBlock Text="{Binding Label}" VerticalAlignment="Center" Grid.Row="0" TextWrapping="Wrap"/>
-                      <Panel Grid.Row="1">
+                      <Panel Grid.Column="1">
                         <TextBox IsVisible="{Binding UsesTextInput}" Text="{Binding Value, Mode=OneWay}" TextChanged="OnMetricSettingTextChanged" LostFocus="OnMetricSettingLostFocus" ToolTip.Tip="{Binding ValueTooltip}" PlaceholderText="{Binding ValuePlaceholder}" AutomationProperties.Name="{Binding Key}" AutomationProperties.HelpText="{Binding Error}"/>
                         <CheckBox IsVisible="{Binding IsBoolean}" IsChecked="{Binding BoolValue, Mode=OneWay}" Click="OnMetricSettingBoolChanged" ToolTip.Tip="{Binding ValueTooltip}" AutomationProperties.Name="{Binding Key}"/>
                         <ComboBox IsVisible="{Binding IsChoice}" ItemsSource="{Binding Choices}" SelectedItem="{Binding Value, Mode=OneWay}" IsEditable="{Binding ChoiceIsEditable}" SelectionChanged="OnMetricSettingChoiceChanged" LostFocus="OnMetricSettingLostFocus" ToolTip.Tip="{Binding ValueTooltip}" AutomationProperties.Name="{Binding Key}"/>
                       </Panel>
-                      <TextBlock Grid.Row="2" Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="{Binding Error}" AutomationProperties.LiveSetting="Polite"/>
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Error}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="{Binding Error}" AutomationProperties.LiveSetting="Polite"/>
                     </Grid>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
             </StackPanel>
-            <Border Classes="surface taskSection" IsVisible="{Binding HasMetricPresentation}">
-              <StackPanel Spacing="12">
-                <TextBlock Text="Pass decision" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-                <TextBlock x:Name="LimitLowLabel" Text="Limit low" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
-                <TextBox x:Name="LimitLowBox" Text="{Binding LimitLow}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit low" AutomationProperties.LabeledBy="{Binding #LimitLowLabel}"/>
-                <TextBlock x:Name="LimitHighLabel" Text="Limit high" IsVisible="{Binding ShowBandLimits}" TextWrapping="Wrap"/>
-                <TextBox Text="{Binding LimitHigh}" IsVisible="{Binding ShowBandLimits}" AutomationProperties.Name="Limit high" AutomationProperties.LabeledBy="{Binding #LimitHighLabel}"/>
-                <TextBlock x:Name="ThresholdLabel" Text="Threshold" IsVisible="{Binding ShowThreshold}" TextWrapping="Wrap"/>
-                <TextBox x:Name="ThresholdBox" Text="{Binding Threshold}" IsVisible="{Binding ShowThreshold}" AutomationProperties.Name="Threshold" AutomationProperties.LabeledBy="{Binding #ThresholdLabel}" ToolTip.Tip="Mean GTE passes when the mean meets this threshold"/>
-              </StackPanel>
-            </Border>
+
           </StackPanel>
           <StackPanel Spacing="10" IsVisible="{Binding HasFormula}">
             <TextBlock FontWeight="SemiBold" Text="Formula" TextWrapping="Wrap"/>
@@ -211,15 +285,30 @@
           </StackPanel>
         </StackPanel>
       </Expander>
-      <Expander Header="Operator display" IsExpanded="True" IsVisible="{Binding HasMetricPresentation}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Operator display selected step" Classes="inspectorSection">
+      <Expander x:Name="IdentityExpander" Header="Step name and context" IsExpanded="True" Classes="inspectorSection" AutomationProperties.Name="Step identity">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Step name"/>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+          <TextBox x:Name="StepNameBox" Text="{Binding SequenceRename}" IsEnabled="{Binding CanRenameSequence}" AutomationProperties.Name="Selected step name"/>
+          <Button Grid.Column="1" Content="Rename" Click="OnRenameSequence" IsEnabled="{Binding CanRenameSequence}" Classes="authoringAction" AutomationProperties.Name="Rename selected step"/>
+        </Grid>
+          <TextBlock x:Name="InspectorBreadcrumbText" Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
+        </StackPanel>
+      </Expander>
+      <Expander x:Name="OperatorDisplayExpander" Header="Operator display" IsExpanded="True" IsVisible="{Binding HasMetricPresentation}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Operator display selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock Text="Name and present this result on the shared operator board. Pass criteria remain in Configure." TextWrapping="Wrap" Classes="purpose"/>
           <TextBlock Text="Friendly step name"/>
           <TextBox Text="{Binding MetricName}" AutomationProperties.Name="Friendly step name"/>
           <TextBlock x:Name="DisplayRoleLabel" Text="Display role" TextWrapping="Wrap"/>
           <ComboBox ItemsSource="{Binding DisplayRoleOptions}" SelectedItem="{Binding DisplayRole}" AutomationProperties.Name="Display role" AutomationProperties.LabeledBy="{Binding #DisplayRoleLabel}" ToolTip.Tip="Choose the operator visualization. Pass criteria stay in Configure."/>
-          <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" TextWrapping="Wrap"/>
-          <ComboBox ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
+          <StackPanel x:Name="MeasurementUnitField" Spacing="6">
+            <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" TextWrapping="Wrap"/>
+            <ComboBox x:Name="YUnitBox" ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit, Mode=OneWay}" Text="{Binding YUnit, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" AutomationProperties.HelpText="{Binding ReferenceMeasurementUnitError}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
+            <TextBlock Text="{Binding ReferenceMeasurementUnitError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                IsVisible="{Binding ReferenceMeasurementUnitError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                AutomationProperties.Name="Measurement unit error" AutomationProperties.LiveSetting="Polite"/>
+          </StackPanel>
           <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" AutomationProperties.Name="Operator preview note"/>
         </StackPanel>
       </Expander>

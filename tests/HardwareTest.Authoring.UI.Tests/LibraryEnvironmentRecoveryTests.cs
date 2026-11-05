@@ -17,7 +17,7 @@ public sealed class LibraryEnvironmentRecoveryTests
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         fixture.Control<TextBox>("Plan display name", dialog).Text = "Retained hardware task";
         fixture.Control<TextBox>("Stable plan ID", dialog).Text = "retained-hardware";
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
@@ -27,15 +27,16 @@ public sealed class LibraryEnvironmentRecoveryTests
         fixture.Control<TextBox>("Instrument I/O timeout ms", dialog).Text = "8123";
         Assert.Contains("Environment", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Open Environment — retain inputs", dialog));
-        Assert.Empty(fixture.Window.OwnedWindows);
-        Assert.Equal(3, fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        Assert.Empty(fixture.Window!.OwnedWindows);
+        Assert.Equal(3, fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
+        fixture.Control<Expander>("Environment dependency setup").IsExpanded = true; AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Declare Instrument Components dependency"));
         Assert.True(fixture.ViewModel.HasUnsavedChanges);
         Assert.True(fixture.ViewModel.CanUndoWorkspace);
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume New test plan"));
-        dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Assert.Equal("retained-hardware", fixture.Control<TextBox>("Stable plan ID", dialog).Text);
         Assert.Equal("Retained hardware task", fixture.Control<TextBox>("Plan display name", dialog).Text);
         Assert.Equal("Power rail", fixture.Control<TextBox>("Instrument slot", dialog).Text);
@@ -59,7 +60,7 @@ public sealed class LibraryEnvironmentRecoveryTests
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2;
         AuthoringUiFixture.Drain();
@@ -79,7 +80,7 @@ public sealed class LibraryEnvironmentRecoveryTests
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "foreign-home");
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
-        dialog = new PlanInitializationWindow(fixture.ViewModel, retained: state); dialog.Show(fixture.Window); AuthoringUiFixture.Drain();
+        dialog = new PlanInitializationWindow(fixture.ViewModel, retained: state); dialog.Show(fixture.Window!); AuthoringUiFixture.Drain();
         Assert.Contains("DC Power Supply", fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem!.ToString());
         Assert.Equal("8123", fixture.Control<TextBox>("Instrument I/O timeout ms", dialog).Text);
         Assert.Contains("unavailable", fixture.Control<TextBlock>("Hardware readiness", dialog).Text);

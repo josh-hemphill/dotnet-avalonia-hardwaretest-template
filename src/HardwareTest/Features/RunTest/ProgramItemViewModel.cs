@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.StationHealth;
 using HardwareTest.OpenTap.Host;
 using ReactiveUI;
@@ -11,7 +12,14 @@ public partial class ProgramItemViewModel : ReactiveObject
     public required string Id { get; init; }
     public required string DisplayName { get; init; }
     public required string Path { get; init; }
+    public string SelectionIdentity => $"{DisplayName} — {Id}";
+    public string DetailsText => $"{DisplayName}\nProgram ID: {Id}\nDUT family: {DutFamily}\nSource: {Path}"
+        + (PlanSha256 is null ? string.Empty : $"\nLoaded plan SHA-256: {PlanSha256}\nLoaded sidecar SHA-256: {SidecarSha256 ?? "Not recorded"}");
     public string DutFamily { get; init; } = "generic";
+    public IReadOnlyList<BenchReferenceRule> ReferenceRules { get; init; } = [];
+    public string? ReferenceDeclarationError { get; init; }
+    public string? PlanSha256 { get; init; }
+    public string? SidecarSha256 { get; init; }
     public bool IsSample { get; init; }
     public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;
     public ProgramRequirements Requirements { get; init; } = ProgramRequirements.Sample;

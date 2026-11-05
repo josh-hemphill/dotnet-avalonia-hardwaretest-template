@@ -185,7 +185,7 @@ public sealed class FileSuiteRunStoreTests
     [Theory]
     [InlineData("{\"schemaVersion\":3}", "unsupported")]
     [InlineData("{\"schemaVersion\":999}", "future")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}", "corrupt")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}", "corrupt")]
     public async Task Sole_blocked_child_backup_rejects_suite_before_rewriting_any_other_child(string backup, string failure)
     {
         using var temp = new TempDataDirectory();

@@ -12,6 +12,15 @@ public partial class SettingsViewModel
 {
     private IStationHealthStore? _stationHealthStore;
     private IClock _stationHealthClock = SystemClock.Instance;
+    private bool _hasHealthProgram;
+    private bool _hasHealthRecord;
+    private bool _healthPassed;
+
+    public string StationHealthNextStep => !_hasHealthProgram
+        ? "Open Run to review the selected test's station requirements."
+        : !_hasHealthRecord || !_healthPassed
+            ? "Choose the station-health program on Run to check this station before testing devices that require it."
+            : "Open Run to check whether this result meets the selected test's readiness policy.";
 
     [Reactive] private string _stationHealthGateOverride = string.Empty;
     [Reactive] private bool _stationHealthGateOverrideReadOnly;
@@ -35,16 +44,19 @@ public partial class SettingsViewModel
             ? FileStationHealthStore.DefaultProfileId
             : _settingsStore.AppSettings.StationHealthProfileId.Trim();
         var record = _stationHealthStore?.TryRead(profile);
-        var hasHealthProgram = ProgramCatalog.Enumerate()
+        _hasHealthProgram = ProgramCatalog.Enumerate()
             .Any(e => ProgramKinds.IsStationHealth(e.ProgramKind));
-        ShowStationHealthSummary = record is not null || hasHealthProgram;
+        _hasHealthRecord = record is not null;
+        _healthPassed = record?.Verdict == StationHealthVerdicts.Pass;
+        ShowStationHealthSummary = record is not null || _hasHealthProgram;
+        this.RaisePropertyChanged(nameof(StationHealthNextStep));
         StationHealthStorePath = _stationHealthStore is FileStationHealthStore files
             ? files.PathFor(profile)
             : string.Empty;
 
         if (record is null)
         {
-            StationHealthSummary = "Station health: none";
+            StationHealthSummary = "No station-health result is stored.";
             return;
         }
 

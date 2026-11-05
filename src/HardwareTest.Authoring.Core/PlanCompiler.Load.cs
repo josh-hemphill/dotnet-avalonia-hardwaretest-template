@@ -55,6 +55,9 @@ public sealed partial class PlanCompiler
         var setup = new List<SetupAction>();
         var measure = new List<MeasureNode>();
         var cleanup = new CleanupPolicy(false, string.Empty);
+        if (FlattenSteps(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep)
+            && sidecar.ReferenceRules is not { Count: > 0 })
+            throw new AuthoringWorkspaceException("REFERENCE_REQUIREMENTS_MISSING: This compiled program requires operator reference acceptance, but its reference declarations are missing. Restore the matching sidecar before importing it.");
 
         foreach (var step in plan.ChildTestSteps)
         {
@@ -104,6 +107,7 @@ public sealed partial class PlanCompiler
         ref CleanupPolicy cleanup,
         IReadOnlyDictionary<string, XElement> xmlById)
     {
+        if (step is RequireOperatorReferenceAcceptanceStep) return;
         if (IsColdLibraryCarrier(step, xmlById))
         {
             measure.Add(ToRaw(step, xmlById));

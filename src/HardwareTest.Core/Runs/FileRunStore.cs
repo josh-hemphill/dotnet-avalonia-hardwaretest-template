@@ -18,6 +18,9 @@ public sealed class TestRunSummary
     public required string RunId { get; init; }
     public required string PlanName { get; init; }
     public string PlanId { get; init; } = string.Empty;
+    public string? ExecutionScope { get; init; }
+    public string? SelectedStepPath { get; init; }
+    public string ExecutionScopeText => RunExecutionScopes.Describe(ExecutionScope, SelectedStepPath);
     public required DateTimeOffset StartedAt { get; init; }
     public required RunResult Result { get; init; }
     public string? DutSerial { get; init; }
@@ -57,6 +60,7 @@ public sealed class FileRunStore : IRunStore
                     run.AppVersion));
         }
 
+        RequireReadableReferenceEvidence(run, "run " + run.RunId);
         var dir = GetRunDirectory(run.RunId);
         DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, run.SchemaVersion,
             SchemaVersions.TestRunRecord, Path.Combine(dir, "run.json"), run.AppVersion);
@@ -76,6 +80,7 @@ public sealed class FileRunStore : IRunStore
         var (run, status) = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
             SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, cancellationToken).ConfigureAwait(false);
         if (run is null) return null;
+        RequireReadableReferenceEvidence(run, path);
         ApplySchemaStatus(run, status);
         return run;
     }
@@ -99,9 +104,13 @@ public sealed class FileRunStore : IRunStore
                 var loaded = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
                     SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, cancellationToken).ConfigureAwait(false);
                 run = loaded.Document;
-                if (run is not null) ApplySchemaStatus(run, loaded.Status);
+                if (run is not null)
+                {
+                    RequireReadableReferenceEvidence(run, path);
+                    ApplySchemaStatus(run, loaded.Status);
+                }
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
             {
                 Log.Warning(ex, "Skipping unreadable run record at {Path}", path);
                 continue;
@@ -117,6 +126,8 @@ public sealed class FileRunStore : IRunStore
                 RunId = run.RunId,
                 PlanName = run.PlanName,
                 PlanId = run.PlanId,
+                ExecutionScope = run.ExecutionScope,
+                SelectedStepPath = run.SelectedStepPath,
                 StartedAt = run.StartedAt,
                 Result = run.Result,
                 DutSerial = run.DutSerial,
@@ -137,6 +148,17 @@ public sealed class FileRunStore : IRunStore
     {
         run.StoredSchemaVersion = status.StoredVersion;
         run.IsSchemaReadOnly = status.IsReadOnly;
+    }
+
+    private static void RequireReadableReferenceEvidence(TestRunRecord run, string path)
+    {
+        if (run.ReferenceRules is null || run.ReferenceUses is null || run.ReferenceEvaluations is null
+            || run.ReferenceRules.Any(rule => rule is null)
+            || run.ReferenceUses.Any(use => use is null || use.Rule is null || use.ReferenceValue is null || use.Context is null)
+            || run.ReferenceEvaluations.Any(evaluation => evaluation is null))
+        {
+            throw new InvalidDataException($"Saved run has incomplete reference evidence: {path}. Preserve the original file and open another run or restore an intact copy.");
+        }
     }
 
     private static string Sanitize(string runId) => HardwareTest.Core.IO.PortableFileNames.Sanitize(runId);

@@ -23,6 +23,7 @@ public static class OpenTapStepKinds
         => IsIdentity(step)
            || IsSafeShutdown(step)
            || IsOperatorInteraction(step)
+           || step is RequireOperatorReferenceAcceptanceStep
            || step is HangForeverStep
            || step is RepeatLoopStep
            || step is TestGroupStep

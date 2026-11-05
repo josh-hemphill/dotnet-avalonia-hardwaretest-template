@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.RunTest" x:Class="HardwareTest.Features.RunTest.BenchReferenceView" x:DataType="vm:BenchReferencePanelViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Golden references" FontWeight="SemiBold" FontSize="22" AutomationProperties.HeadingLevel="1"/>
+      <TextBlock Text="{Binding ReadinessText}" TextWrapping="Wrap" AutomationProperties.Name="Reference readiness"/>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+    <WrapPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+      <Button Content="Save choices" Command="{Binding SaveChoicesCommand}" IsEnabled="{Binding CanEdit}" MinHeight="40" Margin="0,0,8,0" AutomationProperties.Name="Save reference choices"/>
+      <Button Content="Reload references" Command="{Binding RefreshCommand}" IsEnabled="{Binding CanEdit}" MinHeight="40" AutomationProperties.Name="Reload golden references"/>
+    </WrapPanel>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Golden reference inputs and management">
+      <StackPanel Spacing="16">
+        <ItemsControl ItemsSource="{Binding Rules}" IsEnabled="{Binding CanEdit}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:BenchReferenceRuleRow">
+              <Border Padding="12" Margin="0,0,0,12" CornerRadius="6" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" BorderThickness="1">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="{Binding Heading}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                  <TextBlock Text="{Binding Equation}" TextWrapping="Wrap"/>
+                  <TextBlock Text="Select a saved reference for this test" TextWrapping="Wrap"/>
+                  <ComboBox ItemsSource="{Binding Choices}" SelectedItem="{Binding SelectedChoice}" MinHeight="40" HorizontalAlignment="Stretch" MaxDropDownHeight="320"
+                            PlaceholderText="Choose a compatible reference" AutomationProperties.Name="{Binding AutomationName}" AutomationProperties.HelpText="{Binding SelectedDetails}">
+                    <ComboBox.Styles><Style Selector="ComboBoxItem" x:DataType="vm:BenchReferenceChoice"><Setter Property="AutomationProperties.Name" Value="{Binding Label}"/></Style></ComboBox.Styles>
+                    <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:BenchReferenceChoice"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+                  </ComboBox>
+                  <Expander Header="Reference value and source" HorizontalContentAlignment="Stretch"><StackPanel Spacing="8" Margin="8">
+                    <SelectableTextBlock Text="{Binding SelectedDetails}" TextWrapping="Wrap"/>
+                    <SelectableTextBlock Text="{Binding TargetDetails}" TextWrapping="Wrap" Opacity="0.8"/>
+                  </StackPanel></Expander>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Spacing="8" IsVisible="{Binding ShowManagement}">
+          <TextBlock Text="First reference or replacement" FontWeight="SemiBold" TextWrapping="Wrap"/>
+          <CheckBox Content="Reference acquisition (not a production test)" IsChecked="{Binding IsAcquisition}" IsEnabled="{Binding CanManage}"
+                    AutomationProperties.Name="Reference acquisition mode" AutomationProperties.HelpText="Collect declared measurements without applying dependent reference acceptance. Save qualified values from Results after completion."/>
+          <TextBlock Text="Acquisition uses saved authored settings and station overrides. Temporary debug patches are unavailable. Confirm the golden DUT and technician, explicitly Run or Run Selected, then save covered values from Results." TextWrapping="Wrap"/>
+          <Expander Header="Saved profiles and retirement" HorizontalContentAlignment="Stretch"><StackPanel Margin="8" Spacing="8">
+            <TextBlock Text="Saved profile"/>
+            <ComboBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" MinHeight="40" HorizontalAlignment="Stretch" MaxDropDownHeight="320" AutomationProperties.Name="Saved golden profiles">
+              <ComboBox.Styles><Style Selector="ComboBoxItem" x:DataType="vm:BenchReferenceCatalogItem"><Setter Property="AutomationProperties.Name" Value="{Binding Label}"/></Style></ComboBox.Styles>
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:BenchReferenceCatalogItem"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <SelectableTextBlock Text="{Binding SelectedProfile.Details}" TextWrapping="Wrap"/>
+            <StackPanel Spacing="4"><TextBlock Text="Reason for retirement"/>
+              <TextBox Text="{Binding RetirementReason}" IsEnabled="{Binding CanManage}" MinHeight="40" AutomationProperties.Name="Reference retirement reason"/>
+            </StackPanel>
+            <Button Content="Retire selected profile" Command="{Binding RetireCommand}" IsEnabled="{Binding CanRetire}" MinHeight="40" HorizontalAlignment="Left" AutomationProperties.Name="Retire selected golden profile"/>
+            <TextBlock Text="Retirement prevents future selection. Earlier runs keep the values they used. For a replacement, acquire and save a new profile; existing profiles are never overwritten." TextWrapping="Wrap"/>
+          </StackPanel></Expander>
+        </StackPanel>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

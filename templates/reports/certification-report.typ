@@ -9,6 +9,7 @@
 == Summary
 - *Run ID:* #sys.inputs.runId
 - *Plan / Suite:* #sys.inputs.planName
+- *Execution scope:* #sys.inputs.executionScope
 - *DUT Serial:* #sys.inputs.dutSerial
 - *Session operator:* #sys.inputs.operatorName
 - *Result:* #sys.inputs.result
@@ -20,10 +21,26 @@
 == Notes
 #sys.inputs.notes
 
-#if sys.inputs.result == "Passed" [
-  #text(fill: green)[*CERTIFIED PASS*]
+#if sys.inputs.executionScopeKind == "reference-acquisition" [
+  #text(fill: orange)[*REFERENCE ACQUISITION — NOT CERTIFIED*]
+  Dependent reference acceptance was not evaluated. This is not production acceptance.
+] else if sys.inputs.result == "Passed" [
+  #if sys.inputs.executionScopeKind == "full-suite" [
+    #text(fill: green)[*CERTIFIED PASS — full suite*]
+  ] else if sys.inputs.executionScopeKind == "selected-step" [
+    #text(fill: green)[*SELECTED SCOPE PASSED*]
+    This result covers the selected step or section only.
+  ] else [
+    #text(fill: green)[*PASSED — scope not recorded*]
+    This record does not establish full-suite execution.
+  ]
 ] else [
   #text(fill: red)[*NOT CERTIFIED*]
+]
+
+#if sys.inputs.includeReferenceEvidence == "true" [
+  == Bench reference evidence
+  #sys.inputs.referenceEvidence
 ]
 
 #if sys.inputs.attestationDetail != "" [

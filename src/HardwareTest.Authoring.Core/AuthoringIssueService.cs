@@ -8,6 +8,22 @@ public sealed record AuthoringEditingIssue(string Code, string Message, string P
     public string? Section { get; init; }
     public string? Field { get; init; }
     public string NavigationLabel => Section == "ProgramSettings" ? "Open program settings" : Field is null ? "Open location" : "Go to field";
+    public AuthoringRecoveryArea RecoveryArea { get; init; }
+    public string Headline => Code == "INSTRUMENT_UNAVAILABLE"
+        ? RecoveryArea == AuthoringRecoveryArea.Environment ? "The instrument package is not ready" : "This instrument type needs an authoring adapter"
+        : AuthoringIssuePresentation.Headline(Code);
+    public string RecoverySummary => Code == "INSTRUMENT_UNAVAILABLE"
+        ? RecoveryArea == AuthoringRecoveryArea.Environment
+            ? "Prepare or import the required package in Environment. Your instrument binding and draft are retained."
+            : "Choose a supported instrument type, or keep working in the original editor. Imported source is retained."
+        : AuthoringIssuePresentation.RecoverySummary(Code, Message);
+    public string RecoveryLabel => RecoveryArea switch
+    {
+        AuthoringRecoveryArea.Environment => "Open Environment",
+        AuthoringRecoveryArea.Instruments => "Configure instruments",
+        AuthoringRecoveryArea.Sequence => "Open Sequence",
+        _ => NavigationLabel == "Go to field" ? AuthoringIssuePresentation.FieldAction(Field) ?? NavigationLabel : NavigationLabel
+    };
 }
 
 /// Editing findings supplement compiler findings without blocking persistence.
@@ -19,12 +35,15 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        foreach (var finding in AuthoringReferenceRules.Validate(draft))
+            issues.Add(new("REFERENCE_CRITERION", finding.Message, draft.PlanId, finding.NodeId)
+            { Section = "Configure", Field = finding.RuleId is { Length: > 0 } ruleId ? finding.Field + ":" + ruleId : finding.Field });
         foreach (var raw in AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure))
             issues.Add(new("LIBRARY_LIFECYCLE_REIMPORT", AuthoringLibraryLifecycle.ReimportMessage, draft.PlanId, raw.NodeId));
         if (homeResolutionError is not null)
-            issues.Add(new("INVALID_OPENTAP_HOME", homeResolutionError, draft.PlanId, Guid.Empty));
+            issues.Add(new("INVALID_OPENTAP_HOME", homeResolutionError, draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Environment });
         if (!AuthoringSequence.HasMeasurement(draft.Measure))
-            issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty));
+            issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Sequence });
         if (RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(draft.Sidecar), RequiredFieldIds.Serial)
             && !draft.Setup.OfType<IdentitySetup>().Any())
             issues.Add(new("MISSING_IDENTITY", "DUT serial is required; add an instrument identity check before deployment.", draft.PlanId, Guid.Empty)
@@ -34,11 +53,12 @@ public static class AuthoringIssueService
             var parts = incomplete.Key.Split('/', 2);
             if (parts.Length != 2 || !Guid.TryParse(parts[0], out var nodeId)) continue;
             // Native consumers and formulas already use the shared compiler input finding.
-            if (EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
+            if (AuthoringReferenceRules.BaseField(parts[1]) != nameof(AuthoringWorkspaceViewModel.ReferenceTolerance)
+                && EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
                 && node.Metric.Source is ExpressionAlgorithm or TransferFunctionAlgorithm
                     or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })) continue;
             var field = parts[1].StartsWith("MetricSetting:", StringComparison.Ordinal) ? parts[1]["MetricSetting:".Length..] : parts[1];
-            issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {field} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
+            issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {AuthoringReferenceRules.BaseField(field)} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
             { Section = "Configure", Field = field });
         }
         var sharedInputNodes = EnumerateMetricNodes(draft.Measure).Where(node => UsesCompilerInputValidation(node.Metric.Source))
@@ -105,19 +125,19 @@ public static class AuthoringIssueService
         {
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId) && declaredPackages is not null
                 && !declaredPackages.Contains(AuthoringInstrumentCatalog.LibraryPackage, StringComparer.OrdinalIgnoreCase))
-                issues.Add(new("INSTRUMENT_DEPENDENCY_MISSING", "Declare Instrument Components in Environment, then Save All before preparing/importing the package or building. The exact binding is retained in this draft.", draft.PlanId, Guid.Empty));
+                issues.Add(new("INSTRUMENT_DEPENDENCY_MISSING", "Declare Instrument Components in Environment, then Save All before preparing/importing the package or building. The exact binding is retained in this draft.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Environment });
             if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))
-                issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty));
+                issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
             else if (homeResolutionError is null && adapter.Availability(home) is { Available: false } unavailable)
-                issues.Add(new("INSTRUMENT_UNAVAILABLE", unavailable.Reason!, draft.PlanId, Guid.Empty));
+                issues.Add(new("INSTRUMENT_UNAVAILABLE", unavailable.Reason!, draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Environment });
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId)
                 && instrument.Settings.TryGetValue("IoTimeoutMilliseconds", out var timeout)
                 && (!int.TryParse(timeout, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) || value is < 100 or > 120000))
-                issues.Add(new("INSTRUMENT_CONFIGURATION", $"Instrument '{instrument.SlotName}' I/O timeout must be between 100 and 120000 milliseconds. Entered text is retained in the draft.", draft.PlanId, Guid.Empty));
+                issues.Add(new("INSTRUMENT_CONFIGURATION", $"Instrument '{instrument.SlotName}' I/O timeout must be between 100 and 120000 milliseconds. Entered text is retained in the draft.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
         }
         foreach (var instrument in draft.Instruments)
             if (!AuthoringInstrumentCatalog.CanReplace(draft, instrument.SlotName, instrument))
-                issues.Add(new("INSTRUMENT_INCOMPATIBLE", $"Instrument '{instrument.SlotName}' lacks capabilities required by its bindings. Choose a compatible instrument or function.", draft.PlanId, Guid.Empty));
+                issues.Add(new("INSTRUMENT_INCOMPATIBLE", $"Instrument '{instrument.SlotName}' lacks capabilities required by its bindings. Choose a compatible instrument or function.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
         return issues.Select(issue =>
         {
             if (issue.Code == AuthoringCompileCodes.MissingLimits)
