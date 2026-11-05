@@ -17,7 +17,7 @@ Image=localhost/hardwaretest-ci:latest
 Volume=%h/dev/dotnet-avalonia-hardwaretest-template:/src:Z
 Volume=hardwaretest-nuget.volume:/home/ciuser/.nuget/packages:Z
 WorkingDir=/src
-Exec=npm --prefix tools/ci run all -- --rid linux-x64
+Exec=pnpm --dir tools/ci run all --rid linux-x64
 User=ciuser
 # One-shot: do not restart after the matrix finishes.
 PodmanArgs=--rm

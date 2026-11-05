@@ -64,7 +64,7 @@ templates/reports/                   # Typst templates (embedded)
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
-- [Node.js](https://nodejs.org/) 26.x for the shared CI task runner (`tools/ci/`)
+- [pnpm](https://pnpm.io/installation) for the shared CI task runner (`tools/ci/`); `pnpm install --frozen-lockfile` provisions the pinned Node.js 26 runtime
 - Optional: vendor VISA runtime for real instruments — mock instruments are the default
 - Optional for real PIV signing: [OpenSC](https://github.com/OpenSC/OpenSC) (PKCS#11 module) and a PC/SC/CCID reader; mock credentials remain the default
 - Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
@@ -88,7 +88,7 @@ cross-building or when you need a specific deployment target.
 
 ```bash
 # Full CI-shaped matrix (preferred):
-npm --prefix tools/ci run all -- --rid win-x64
+pnpm --dir tools/ci run all --rid win-x64
 
 # Or individual suites:
 dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
@@ -114,8 +114,8 @@ Author structure in **HardwareTest.Authoring** (`dotnet run --project src/Hardwa
 See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Node.js tasks.
 
 ```bash
-node tools/ci/main.ts publish --rid win-x64
-node tools/ci/main.ts publish --rid linux-x64
+pnpm exec node tools/ci/main.ts publish --rid win-x64
+pnpm exec node tools/ci/main.ts publish --rid linux-x64
 ```
 
 NativeAOT is **not** a product gate for the OpenTAP host.

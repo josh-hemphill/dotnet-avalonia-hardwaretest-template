@@ -226,7 +226,7 @@ Restart TUI after installing packs so the step list refreshes. On the bench, con
 
 In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/opentap/sample.TapPlan) and Save As). Add three **Test Group** steps (`HardwareTest` group): `Setup`, a measure group, and `Cleanup`. Add **one instrument resource per box**. Product plans: pick a typed *Instrument Components* instrument. In-repo demos use **Mock DMM**. Keep **`VisaAddress`** writable. Save as `{planId}.TapPlan` under `plans/opentap/` (copied to `Programs/` on build). Attach Presentation by hand (**Add Mixin** → **Presentation**). Then `--compat` / `--pack` as in [§6](#6-validate-pack-then-run-in-the-operator-shell).
 
-`--compat` compares the authoring catalog and a Load/Save round-trip against a TUI-equipped home. CI: `node tools/ci/main.ts test:authoring-compat`.
+`--compat` compares the authoring catalog and a Load/Save round-trip against a TUI-equipped home. CI: `pnpm exec node tools/ci/main.ts test:authoring-compat`.
 
 ## Next
 

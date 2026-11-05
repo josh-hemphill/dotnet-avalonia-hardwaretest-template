@@ -50,3 +50,6 @@ desktop.ini
 *.log
 .authoring/
 
+
+## Node tooling
+node_modules/

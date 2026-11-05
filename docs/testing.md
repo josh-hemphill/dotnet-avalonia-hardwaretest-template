@@ -99,17 +99,17 @@ Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a stri
 
 ```bash
 # Same tasks CI runs (RID defaults to the host):
-npm --prefix tools/ci run all -- --rid win-x64
+pnpm --dir tools/ci run all --rid win-x64
 
 # Or individual suites (OpenTAP host + E2E share process-global TapThread state):
-node tools/ci/main.ts test:arch --rid win-x64
-node tools/ci/main.ts test:host --rid win-x64
-node tools/ci/main.ts test:authoring-compat --rid win-x64
-node tools/ci/main.ts test:authoring-ui --rid win-x64
-node tools/ci/main.ts test:vm --rid win-x64
-node tools/ci/main.ts test:e2e --rid win-x64
-node tools/ci/main.ts coverage --rid win-x64
-node tools/ci/main.ts audit
+pnpm exec node tools/ci/main.ts test:arch --rid win-x64
+pnpm exec node tools/ci/main.ts test:host --rid win-x64
+pnpm exec node tools/ci/main.ts test:authoring-compat --rid win-x64
+pnpm exec node tools/ci/main.ts test:authoring-ui --rid win-x64
+pnpm exec node tools/ci/main.ts test:vm --rid win-x64
+pnpm exec node tools/ci/main.ts test:e2e --rid win-x64
+pnpm exec node tools/ci/main.ts coverage --rid win-x64
+pnpm exec node tools/ci/main.ts audit
 
 # Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1

@@ -7,37 +7,43 @@ Related: [appliance-linux.md](appliance-linux.md) (publish layout), [testing.md]
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned in `global.json`) for native runs
-- [Node.js](https://nodejs.org/) 26.x for the task runner
+- [pnpm](https://pnpm.io/installation) for the task runner; the root `packageManager` pins pnpm and `devEngines.runtime` pins Node.js 26
 - Optional: [Podman](https://podman.io/) for the Linux matrix / image rails
 
 ## Native tasks (Windows or Linux host)
 
-From the repo root:
+From the repo root, install the locked toolchain once (`pnpm install --frozen-lockfile`):
 
 ```bash
-npm --prefix tools/ci run list
-npm --prefix tools/ci run build -- --rid win-x64          # or linux-x64
-npm --prefix tools/ci run format
-npm --prefix tools/ci run test:arch -- --rid win-x64
-npm --prefix tools/ci run test:host -- --rid win-x64
-npm --prefix tools/ci run test:vm -- --rid win-x64
-npm --prefix tools/ci run test:e2e -- --rid win-x64
-npm --prefix tools/ci run coverage -- --rid win-x64
-npm --prefix tools/ci run audit
-npm --prefix tools/ci run publish -- --rid win-x64
-npm --prefix tools/ci run verify -- --rid win-x64
-npm --prefix tools/ci run all -- --rid win-x64            # full host matrix
+pnpm --dir tools/ci run list
+pnpm --dir tools/ci run build --rid win-x64          # or linux-x64
+pnpm --dir tools/ci run format
+pnpm --dir tools/ci run test:arch --rid win-x64
+pnpm --dir tools/ci run test:host --rid win-x64
+pnpm --dir tools/ci run test:vm --rid win-x64
+pnpm --dir tools/ci run test:e2e --rid win-x64
+pnpm --dir tools/ci run coverage --rid win-x64
+pnpm --dir tools/ci run audit
+pnpm --dir tools/ci run publish --rid win-x64
+pnpm --dir tools/ci run verify --rid win-x64
+pnpm --dir tools/ci run all --rid win-x64            # full host matrix
 ```
 
-The `.ts` scripts run directly with Node 26’s unflagged type stripping: `node tools/ci/main.ts list`. No `npm install`, transpiler, or runtime dependencies are needed. Keep scripts in erasable TypeScript (no enums or parameter properties), use explicit `.ts` import extensions, and use `import type` for type-only imports. Node strips types without type-checking.
+The `.ts` scripts run directly with Node 26’s unflagged type stripping: `pnpm exec node tools/ci/main.ts list`. pnpm downloads and verifies the exact Node runtime from `pnpm-lock.yaml`; no TypeScript transpiler or application JavaScript dependencies are needed. Keep scripts in erasable TypeScript (no enums or parameter properties), use explicit `.ts` import extensions, and use `import type` for type-only imports. Node strips types without type-checking.
 
 RID defaults to the host (`win-x64` on Windows, `linux-x64` on Linux x64). Coverage floors live in TypeScript (`tools/ci/lib/coverage.ts`); there is no Python dependency.
 
 Unit tests for the coverage port and task catalog:
 
 ```bash
-npm --prefix tools/ci run test
+pnpm --dir tools/ci run test
 ```
+
+### Central toolchain and dependency versions
+
+The root `package.json` owns the pnpm and Node pins. Run scripts through `pnpm` so they use the managed runtime, regardless of the system Node version. After changing a pin, run `pnpm install` and commit the updated `pnpm-lock.yaml`; CI installs with `--frozen-lockfile`.
+
+`pnpm-workspace.yaml` includes `tools/ci` and enables strict catalogs. Add future registry dependencies with `pnpm --filter hardwaretest-ci add --save-catalog <package>`: versions live in the root catalog and package manifests use `catalog:` references. The catalog is empty today because the scripts use Node built-ins. .NET versions remain centralized in `Directory.Packages.props`.
 
 ### Platform honesty
 
@@ -58,7 +64,7 @@ podman run --rm \
   -v hardwaretest-nuget:/home/ciuser/.nuget/packages:Z \
   -w /src \
   localhost/hardwaretest-ci:latest \
-  npm --prefix tools/ci run all -- --rid linux-x64
+  pnpm --dir tools/ci run all --rid linux-x64
 ```
 
 `verify` inside that run asserts `--version` and `--print-config` (DataDirectory overlay provenance) against the published `linux-x64` binary.

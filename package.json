@@ -1,0 +1,15 @@
+{
+  "name": "hardwaretest-tooling",
+  "private": true,
+  "packageManager": "pnpm@12.16.1",
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "26.13.0",
+      "onFail": "download"
+    }
+  },
+  "scripts": {
+    "test": "pnpm --dir tools/ci test"
+  }
+}

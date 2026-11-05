@@ -4,7 +4,6 @@
 ARG DOTNET_SDK_DIGEST=sha256:3dae2f7699441af56216ff64d5c9b6dfce7cd7dc7f4f71d353d29662b10a384f
 FROM mcr.microsoft.com/dotnet/sdk@${DOTNET_SDK_DIGEST}
 
-ARG NODE_VERSION=26.13.0
 ARG USERNAME=ciuser
 ARG USER_UID=10001
 ARG USER_GID=10001
@@ -22,6 +21,7 @@ RUN apt-get update \
         fontconfig \
         fonts-dejavu-core \
         git \
+        jq \
         libfontconfig1 \
         libfreetype6 \
         libice6 \
@@ -39,16 +39,22 @@ RUN apt-get update \
 RUN groupadd --gid ${USER_GID} ${USERNAME} \
     && useradd --uid ${USER_UID} --gid ${USER_GID} --create-home --shell /bin/bash ${USERNAME}
 
-RUN curl -fsSLO https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
+# Read both tool versions from the workspace's central manifest.
+COPY package.json /opt/hardwaretest-tooling/package.json
+RUN NODE_VERSION="$(jq -r '.devEngines.runtime.version' /opt/hardwaretest-tooling/package.json)" \
+    && PNPM_VERSION="$(jq -r '.packageManager | sub("^pnpm@"; "")' /opt/hardwaretest-tooling/package.json)" \
+    && curl -fsSLO https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz \
     && curl -fsSLO https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt \
     && grep " node-v${NODE_VERSION}-linux-x64.tar.xz$" SHASUMS256.txt | sha256sum -c - \
     && tar -xJf node-v${NODE_VERSION}-linux-x64.tar.xz -C /usr/local --strip-components=1 \
     && rm node-v${NODE_VERSION}-linux-x64.tar.xz SHASUMS256.txt \
-    && node --version
+    && node --version \
+    && npm install --global "pnpm@${PNPM_VERSION}" \
+    && pnpm --version
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
 
 WORKDIR /src
 # Expect the repo bind-mounted at /src; NuGet cache via volume at $NUGET_PACKAGES.
-CMD ["node", "tools/ci/main.ts", "all", "--rid", "linux-x64"]
+CMD ["pnpm", "exec", "node", "tools/ci/main.ts", "all", "--rid", "linux-x64"]
