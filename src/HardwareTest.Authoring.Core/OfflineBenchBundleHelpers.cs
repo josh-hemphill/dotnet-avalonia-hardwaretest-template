@@ -44,7 +44,9 @@ internal static class OfflineBenchBundleHelpers
         receipt="$release/offline-bench-capability.json"
         [ -f "$receipt" ] && [ -f "$release/HardwareTest.dll" ] && [ -f "$release/HardwareTest.OpenTap.Host.dll" ] || fail "This release has no offline-bench capability receipt. Install the matching operator release; no operator was started."
         # Generated capability receipts are deliberately pretty JSON, one field per line.
-        field() { sed -n 's/^[[:space:]]*"'"$2"'"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9.+_-]*\)"[[:space:]]*,\{0,1\}[[:space:]]*$/\1/p' "$1"; }
+        # The JSON writer escapes '+' in build identities. Decode only that
+        # literal escape; the strict field grammar still rejects other escapes.
+        field() { sed 's/\\u002[Bb]/+/g' "$1" | sed -n 's/^[[:space:]]*"'"$2"'"[[:space:]]*:[[:space:]]*"\([A-Za-z0-9.+_-]*\)"[[:space:]]*,\{0,1\}[[:space:]]*$/\1/p'; }
         schema=$(sed -n 's/^[[:space:]]*"schemaVersion"[[:space:]]*:[[:space:]]*\([0-9]*\)[[:space:]]*,\{0,1\}[[:space:]]*$/\1/p' "$receipt")
         [ "$schema" = 1 ] && [ "$(field "$receipt" capability)" = offline-bench-v1 ] || fail "Unsupported capability receipt; no operator was started."
         operatorHash=$(field "$receipt" operatorSha256)

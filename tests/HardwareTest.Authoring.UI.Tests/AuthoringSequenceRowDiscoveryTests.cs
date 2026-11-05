@@ -122,7 +122,15 @@ public sealed class AuthoringSequenceRowDiscoveryTests
     private static void Settle(Window window)
     {
         Dispatcher.UIThread.RunJobs();
-        using (var frame = window.CaptureRenderedFrame()) Assert.NotNull(frame);
+        // Default CI uses the headless drawing backend, which has no bitmap.
+        // Advance rendering/layout in either backend, then require real pixels
+        // only when the harness selected Skia for graphical capture.
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick(1);
+        if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") == "1")
+        {
+            using var frame = window.CaptureRenderedFrame();
+            Assert.NotNull(frame);
+        }
         Dispatcher.UIThread.RunJobs();
     }
 }

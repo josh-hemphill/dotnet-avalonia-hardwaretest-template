@@ -150,9 +150,10 @@ public sealed partial class BenchExportWindow : Window
                     : OfflineBenchBundleExporter.Export(_workspace, _planId, destination, options, ContextStillSelected, operation.Token));
                 publishedDirectory = result.Directory;
                 if (!Current()) return;
-                _status.Text = $"Offline bundle prepared at {result.Directory}. Copy the complete folder to the bench. Check it in Settings, then use its helper to prepare a separate installation with fresh bench data.";
+                _status.Text = "Offline bundle prepared. Copy the complete folder to the bench; check it in Settings before installation.";
                 AutomationProperties.SetName(_receipt, "Prepared offline bundle details");
-                _receipt.Text = result.Summary + Environment.NewLine + Environment.NewLine
+                _receipt.Text = $"Bundle folder: {result.Directory}" + Environment.NewLine + Environment.NewLine
+                    + result.Summary + Environment.NewLine + Environment.NewLine
                     + OfflineBenchBundle.Describe(result.Manifest);
             }
             else

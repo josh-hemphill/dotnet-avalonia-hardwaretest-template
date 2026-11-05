@@ -53,14 +53,77 @@ using its bound data. Helpers verify a release capability receipt bound to the
 actual application/host DLLs before invoking options older apps do not support.
 No package action, feed lookup or plugin execution is used by offline inspection.
 
-Initial full Release compilation passed after correcting SDK-reference wiring,
-the receipt build target and test access/import issues. The first 79-case Host
-run passed 63 and failed 16: runtime SDK resolution and an omitted explicit
-InvalidDataException recovery catch were found and repaired; reruns are pending.
-The first authoring run passed 16 of 19; three fixtures lacked the compiled plan's
-OpenTAP dependency. Compiled-plan dependency roots and their fixture archives are
-being integrated and verified. These intermediate runs are not final passes.
+Additional review repaired effective executable-mode conflicts, package/file
+completeness, protected runtime anchors, aggregate archive expansion limits,
+source-mode changes, source/capability races, merged file/directory conflicts,
+concurrent foreign destinations and cancellation at publication boundaries.
+Runtime collection follows the release dependency ledger rather than recursively
+copying station data. Startup refuses external plugin/settings overrides and
+validates its immutable runtime/program inventory before using bound data.
 
-The canonical dependency audit passes across the evaluated repository traversal.
-Final builds, regression outcomes, joined offline proof, rendered/native evidence
-and independent implementation scores will be recorded after verification.
+The genuine OpenTAP package declares built-in installation actions. All three
+definition reviewers accepted the narrowly documented same-version engine
+exceptions in W7: apply Linux executable permissions declaratively; never invoke
+the Windows in-place upgrader for a fresh same-version clone. Altered, additional
+or unrelated actions remain refused. This is not evidence of Windows execution.
+
+The joined execution exposed different same-version OpenTAP assemblies: authoring
+used the SDK runtime while operator/worker transitive references selected the
+NuGet library variant. Executable projects now reference the SDK directly and
+publish its complete runtime. Authoring, operator, worker, test process and the
+installed copy agree on engine SHA-256
+`674cdb1841b2371a77233007024bf52de15b9df4117cecf41c8942ee65345211`
+and loaded identity `9.35.0.0/bb7b4c3f-52e5-4575-8ac0-8cf134d5a828`.
+Golden-reference configuration now includes the loaded engine version/MVID. A
+same-version engine change blocks a stale selection before execution, requires a
+compatible choice or fresh acquisition, and preserves historical files.
+
+Verification also found an incomplete export receipt and generic reference
+recovery copy. The receipt now includes exact package versions, requirements and
+hashes; the recovery message offers compatible selection or fresh acquisition.
+An Escape test incorrectly sent a key release to an already closed window; its
+event sequence was corrected while retaining focus-return assertions.
+
+## Verification evidence
+
+Artifacts stay outside the repository and are not uploaded publicly. The source
+contract and recorded paths make the review reproducible without publishing
+station data. Intermediate failures are retained rather than counted as passes.
+
+| Evidence | Result |
+| --- | --- |
+| Initial Host runs | 63/79, then 86/108; SDK resolution and startup exception handling repaired |
+| Host focused round 3 / round 4 | 111/111, then 142/142 passed as coverage expanded |
+| Initial authoring runs | 16/19, then 22/24; compiled dependency fixtures and deepest conflict diagnostics repaired |
+| Authoring round 3 / round 4 | 26/26, then 27/27 passed, including genuine engine metadata |
+| UI rounds 1–4 | Revealed fixture setup problems, diagnostic overwriting, compact receipt overflow, genuine engine actions and missing exact-version receipt; corrected and rerun |
+| Joined rounds 1–3 | Failed at missing test-process SDK, strict cleanup fixture, then runtime variant mismatch; none counted as success |
+| Disconnected joined rounds 4 and 5 | Passed actual export, transfer, check/install, bound startup, installed worker plugin/dependency execution and saved result/PDF |
+| Disconnected published joined round 5 | Same journey passed against a freshly published operator baseline |
+| Release traversal and publication at `45dc97f` | Zero warnings/errors |
+| Canonical dependency audit | Passed, no known vulnerable packages in the evaluated traversal |
+
+The standalone xUnit journey is run in the network-disabled sandbox, without the
+VSTest network transport. `OfflineDeliveryJourneyTests` creates a strict authored
+plan and unique transitive plugin absent from the operator baseline, transfers
+only the bundle, renames source package/home paths out of reach, then uses the
+actual operator CLI and installed worker. It records the loaded plugin,
+dependency and engine paths/identity, value 1.25, saved run and generated PDF.
+Original runtime, existing credential/reference sentinels and transfer contents
+are compared before/after. The installed application also refuses an old data
+override before configuration is loaded.
+
+Round-5 artifacts are under `/workspace/offline-bench-joined-round5` and
+`/workspace/offline-bench-joined-published-round5`; TRX files and helper logs are
+under `/workspace/offline-bench-results`. Final graphical/native evidence and
+independent implementation votes follow after remaining checks.
+
+## Elevated follow-up
+
+The general existing-data `StationHealthGate` checks profile, verdict and age;
+it does not bind approval to engine or effective bench configuration. A general
+migration/invalidation policy is a larger change and is elevated for review.
+The offline workflow requires a new bound data directory, so it inherits neither
+old station-health approval nor golden references. Ordinary installations that
+reuse data must invalidate/rerun health after those changes. The engine-aware
+golden guard does not claim to solve general station-health qualification.

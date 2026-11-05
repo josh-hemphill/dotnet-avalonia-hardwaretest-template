@@ -21,6 +21,16 @@
             </WrapPanel>
           </StackPanel>
         </Border>
+        <StackPanel Spacing="12">
+          <TextBlock Text="Operator preferences" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+          <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+            <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding ThemePreference}" IsEnabled="{Binding !ThemePreferenceReadOnly}" MinWidth="160" AutomationProperties.LabeledBy="{Binding #ThemeLabel}" AutomationProperties.Name="Theme" MinHeight="40"/>
+          </Grid>
+          <CheckBox Content="Embed plots in report" IsChecked="{Binding EmbedPlotsInReport}" IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" MinHeight="40"/>
+          <CheckBox Content="DUT history on Run board" IsChecked="{Binding ShowDutHistoryOnRun}" IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}" ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." MinHeight="40"/>
+          <CheckBox Content="Prefer removable media for export" IsChecked="{Binding PreferRemovableExport}" IsEnabled="{Binding !PreferRemovableExportReadOnly}" ToolTip.Tip="When on (default), inserted USB/SD volumes are listed first in Results → Export package. When off, Settings → Export directory is listed first." MinHeight="40"/>
+        </StackPanel>
         <Expander Header="Offline bench bundle" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Offline bench bundle">
           <StackPanel Spacing="12" Margin="0,12,0,0">
             <TextBlock Text="Check a copied bundle, then prepare a separate operator installation. Checking does not install packages or change this station." TextWrapping="Wrap"/>
@@ -63,16 +73,6 @@
             </StackPanel>
           </StackPanel>
         </Expander>
-        <StackPanel Spacing="12">
-          <TextBlock Text="Operator preferences" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
-          <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
-            <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" TextWrapping="Wrap"/>
-            <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding ThemePreference}" IsEnabled="{Binding !ThemePreferenceReadOnly}" MinWidth="160" AutomationProperties.LabeledBy="{Binding #ThemeLabel}" AutomationProperties.Name="Theme" MinHeight="40"/>
-          </Grid>
-          <CheckBox Content="Embed plots in report" IsChecked="{Binding EmbedPlotsInReport}" IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" MinHeight="40"/>
-          <CheckBox Content="DUT history on Run board" IsChecked="{Binding ShowDutHistoryOnRun}" IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}" ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." MinHeight="40"/>
-          <CheckBox Content="Prefer removable media for export" IsChecked="{Binding PreferRemovableExport}" IsEnabled="{Binding !PreferRemovableExportReadOnly}" ToolTip.Tip="When on (default), inserted USB/SD volumes are listed first in Results → Export package. When off, Settings → Export directory is listed first." MinHeight="40"/>
-        </StackPanel>
         <Expander Header="Engineer tools and run options" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Engineer settings">
           <StackPanel Spacing="12">
             <CheckBox Content="Engineer / debug mode" IsChecked="{Binding IsEngineerDebugMode}" IsEnabled="{Binding !IsEngineerDebugModeReadOnly}" ToolTip.Tip="Presentation only — not authentication. Unlocks Inspect, Instruments, on-bench overlays, and opening arbitrary .TapPlan files." MinHeight="40"/>
