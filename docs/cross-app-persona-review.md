@@ -275,3 +275,206 @@ and publication ownership now preserve the genuinely new selected ID. GUI tests
 assert previous criteria remain unchanged. Same-metric promotion candidates now
 disclose their input keys and unique native criterion identities. These changes
 are being built and reverified together before final independent scoring.
+
+## Final implementation and joined evidence
+
+The implemented scope includes all seven personas and the complete golden-unit
+lifecycle in both apps. A practical review route is in
+[bench-reference-walkthrough.md](bench-reference-walkthrough.md).
+
+The final review repairs include:
+
+- Independent criterion selection, additions/removal and unfinished numeric input;
+  directed missing-unit recovery; editable custom units and supported dropdown
+  choices; stable sequence accessibility identities.
+- A pure criterion-options getter with guarded publication. Native repeated
+  Sequence/Preview navigation found a real stack overflow in the earlier candidate;
+  the repaired candidate passes both actual-view and native reentry checks.
+- Checked bench-file preparation, local stale-revision recovery, early reserved-ID
+  validation, read-only historical previews and genuinely themed recording dialogs.
+- Distinct promotion inputs, immutable reference snapshots and retirement, explicit
+  acquisition, coherent final-versus-backend verdicts and compact failure navigation.
+- Deliberate new-DUT/new-known-technician session boundaries that clear prior
+  attempts and credentials, while same-identity reconfirmation remains continuous.
+  Refreshed export targets retain the destination captured by an existing request.
+- Malformed preference/run-evidence recovery, atomic all-profile acceptance and
+  exact configuration/mode compatibility. Mechanical partial extraction restores
+  the existing 600-line architecture limit without changing moved method bodies.
+
+The final joined fixture is `/workspace/cross-app-joined-round9`. These are four
+stages using the same persistent authored program and exported recording:
+
+| Stage | Evidence | Outcome |
+| --- | --- | --- |
+| Empty plan → measurement/reference → compile → actual preparation dialog | `cross-authoring-critical-round9.trx`, individual `Stage1_Author_compile_prepare_bench_files` | Passed |
+| Bench discovery → genuine acquisitions → saved A/B → production A/pass, B/fail, A/pass → PDF/export/retirement | `cross-joined-stage2-final-round9.trx` | 1/1 passed |
+| Exact exported run → authoring import/review → criterion edit → compile/prepare revised program | `cross-authoring-critical-and-return-round10.trx`, individual `Stage3_Import_exact_operator_recording_edit_recompile` | Passed |
+| Restart → old reference refused for revised program → new acquisition/profile → revised production pass | `cross-joined-stage4-layout-fix.trx` | 1/1 passed |
+
+The Stage1 and Stage3 batch files also contain historical failures; only the
+named stage outcomes above are counted as joined evidence. Their unrelated
+authoring failures were repaired and verified separately below.
+
+All three production attempts use `PRODUCTION-UNIT` and retain the same session.
+Their measured mean is `1.2581548662800748`. A supplies that same reference value;
+B supplies `1.2733360403144651`, with absolute tolerance `0.001 V`. Consequently
+the final outcomes are Pass/Fail/Pass while the raw backend passes in all three.
+The failed reference remains visible in the compact Light/Dark run hierarchy,
+failure filter and saved result. Different golden DUTs use actual Change session.
+
+Returned run `907227223d8d45bdbd0143b3d2725efd` is byte-identical in the saved run,
+exported package, operator-result fixture and authoring imported recording:
+SHA-256 `1fda86191589abca8c18305010dbff6d06a72519b5c4a2e3da4f51416349a8fa`.
+The tolerance-only revision changes the checked sidecar hash, as intended, while
+preserving the plan hash and criterion/producer identities. Old profile A becomes
+incompatible, retired B remains unavailable, a new profile qualifies the revised
+program, and the original run/report/profile bytes remain unchanged.
+
+## Final regression accounting
+
+Local TRX files are under `/workspace/cross-app-results`. Counts below deliberately
+retain broader failures and their passing repairs; overlapping runs are not summed.
+
+| Verification | Result and repair evidence |
+| --- | --- |
+| Complete Release traversal build | Passed, zero warnings/errors, after final product edits and partial extraction |
+| Canonical dependency audit | All 26 projects passed; no subsequent dependency changes |
+| Core/settings/reference/storage/report checks | `cross-core-settings-round7.trx`: 250/250 passed |
+| Complete operator VM suite | `cross-vm-full-final-round9-fixture-fix.trx`: 667/667 passed |
+| VM checks after mechanical partial extraction | `cross-vm-final-partials.trx`: 67/67 passed |
+| Complete authoring domain suite | 1,983 passed, six failed, four intentional platform/tooling skips; all six failures and surrounding cases repaired and passed in `cross-authoring-domain-repairs-round6.trx` (111/111) |
+| Domain checks after final authoring product edits | `cross-authoring-domain-final-repairs.trx`: 104/104 passed |
+| Complete final real-render authoring UI suite | `cross-authoring-ui-full-final.trx`: 543 passed, two test-fixture input failures, two opt-in joined-stage skips, 547 total |
+| Both final authoring UI failures plus related creation/history/reference workflows | `cross-authoring-ui-final-keyboard-pointer-repairs.trx`: 18/18 passed; expands/realizes ID fields and targets the editable unit field/popup's actual input root |
+| Complete operator graphical suite | `cross-operator-e2e-full-final.trx`: 82 passed, two stale same-actor fixture failures, two opt-in joined-stage skips, 86 total |
+| Both operator failures and four reference graphical cases | `cross-operator-final-repairs.trx`: 6/6 passed; fixture starts with the same mock actor it later reconfirms |
+| Operator graphical repairs after mechanical partial extraction | `cross-operator-final-partials.trx`: 6/6 passed |
+| Architecture | `cross-architecture-final-repairs.trx`: 45/45 passed; the earlier line-budget failure is repaired, not waived |
+| Final canonical formatting | `deno run -A tools/ci/main.ts format`: passed after the last test edits |
+
+Fresh complete authoring renders are under
+`/workspace/cross-app-captures-final/authoring` (165 PNGs); final repair renders
+are under `/workspace/cross-app-captures-final-repairs/authoring`. Operator renders
+include `/workspace/cross-app-captures-round11/operator` and
+`/workspace/cross-app-captures-final/operator`. Actual bounds are asserted for
+900×600/font20 and 1280×800/font14; actual application/dialog theme is asserted
+for Dark. Screenshots and raw bench evidence remain outside the repository.
+
+The two opt-in joined tests per app are intentionally skipped in ordinary runs;
+the four individually passing stages above supply their separate persistent proof.
+
+## Final native evidence and candidate identity
+
+Product source is frozen at `f1120515026083bb5c1a203c206f6162b8a12c77`.
+The joined run records retain feature commit `d400b0f`; the subsequent source
+changes fix authoring recovery/input and mechanically extract operator partials.
+They do not change generated reference criteria or runtime comparison semantics.
+The final UI/native and post-extraction regressions above cover those follow-ups;
+the joined records are not rewritten to claim a later commit identity.
+The final Release binaries were compiled from that working tree immediately
+before committing; commit metadata alone was not used to relabel old binaries.
+Each native case carries its own complete assembly manifest. The relevant final
+product SHA-256 values are:
+
+| Assembly | SHA-256 |
+| --- | --- |
+| Authoring | `62d78cafa29e0b7974443f96464fa250185b08614140e8313263d8a67a7d350d` |
+| Authoring.Core | `6b0f62c19e93a600be2814ea3793c79565279a361fbc297ab3b92bdbed4e9001` |
+| Operator | `c6b9f59e5d050a9ddc780a7e42153e455ce538676145e61b98d03d3b07f7f4b0` |
+| Shared Core | `dfe966372bec2239e716371431ee1bb2677ad4f1218ec6ad3a25c1dc3eb39e8d` |
+
+All four final native app/theme cases complete with exit 0 and their full PASS
+marker at actual 900×600/font20: authoring Light round11, authoring Dark round12,
+operator Light and Dark round13. These use the production X11/Skia entrypoints
+and services through an external presentation host, private data/displays and
+matched joined fixtures. Logs verify source profiles/runs/recordings unchanged.
+
+The native route checks actual accessibility roles/names/descriptions, realized
+sequence-row discovery, keyboard/focus, independent criterion editing, validation
+recovery, full provenance selection/copy, acquisition-recording switching, modal
+escape and pinned handoff/promotion actions. Numerical execution is proved by the
+separate joined tests; the native probe does not execute or retire profiles.
+
+Reviewer B correctly rejected the initial round11 native authoring Dark-dialog
+coverage: the external host had themed only the main window, leaving owned dialogs
+Light. That is retained as intermediate evidence. The corrected external host
+sets the application's theme and logs each owned window's actual theme. Round12
+replays the entire authoring Dark journey, asserting actual Dark dialog pixels and
+theme logs. Operator round13 repeats both themes against its final binary after
+the mechanical source split, including Dark-dialog pixel checks. Earlier passing
+operator/authoring binaries are not substituted for these repaired cases.
+
+Complete local manifests, probe logs and screenshots are indexed in
+`/workspace/cross-app-native-a11y/native-final-results.json` (48 final local PNGs).
+Evidence applies to
+Linux X11/AT-SPI and mock-station flows. It does not establish Windows UIA,
+spoken screen-reader output, physical instrument/credential/calibration behavior
+or measured newcomer success. Scores below are independent expert judgments
+within this scope, not measured human completion percentages.
+
+## Independent final votes
+
+Each reviewer independently inspected the frozen product candidate, final
+renders/native evidence and exact joined artifacts. Votes were withheld from
+the other reviewers until all had submitted. No average or best reviewer score
+can hide a failing cell. C1–C7 use the frozen persona rubric above.
+
+### Reviewer A: accept
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 | 94 | 93 | 94 | 94 | 95 | 92 | 94 |
+| P2 | 95 | 93 | 94 | 94 | 96 | 92 | 94 |
+| P3 | 94 | 93 | 93 | 94 | 95 | 92 | 94 |
+| P4 | 95 | 93 | 93 | 94 | 96 | 93 | 95 |
+| P5 | 94 | 92 | 92 | 94 | 96 | 92 | 94 |
+| P6 | 94 | 92 | 92 | 94 | 95 | 91 | 94 |
+| P7 | 94 | 92 | 92 | 94 | 96 | 92 | 95 |
+
+### Reviewer B: accept
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 | 94 | 93 | 92 | 94 | 96 | 92 | 94 |
+| P2 | 95 | 93 | 94 | 94 | 96 | 92 | 94 |
+| P3 | 94 | 92 | 93 | 94 | 95 | 92 | 94 |
+| P4 | 95 | 93 | 93 | 94 | 96 | 93 | 95 |
+| P5 | 95 | 92 | 93 | 94 | 96 | 92 | 94 |
+| P6 | 94 | 92 | 93 | 94 | 96 | 92 | 94 |
+| P7 | 94 | 92 | 92 | 94 | 96 | 92 | 94 |
+
+### Reviewer C: accept
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 | 94 | 93 | 92 | 93 | 95 | 92 | 94 |
+| P2 | 95 | 93 | 94 | 93 | 95 | 92 | 94 |
+| P3 | 93 | 92 | 92 | 94 | 95 | 92 | 94 |
+| P4 | 95 | 93 | 92 | 94 | 96 | 92 | 95 |
+| P5 | 94 | 92 | 92 | 94 | 96 | 91 | 94 |
+| P6 | 94 | 92 | 91 | 94 | 95 | 91 | 94 |
+| P7 | 95 | 92 | 92 | 94 | 96 | 92 | 95 |
+
+### Separate final graphical scores
+
+| Reviewer | App | Hierarchy | Navigation | Primary task | Setup | Space | Recovery | Keyboard |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | authoring | 93 | 92 | 94 | 93 | 91 | 94 | 92 |
+| A | operator | 94 | 93 | 94 | 93 | 92 | 94 | 93 |
+| B | authoring | 93 | 93 | 94 | 93 | 92 | 94 | 92 |
+| B | operator | 93 | 93 | 95 | 93 | 91 | 94 | 92 |
+| C | authoring | 93 | 92 | 94 | 92 | 91 | 94 | 91 |
+| C | operator | 93 | 93 | 95 | 93 | 91 | 94 | 92 |
+
+All three report no unresolved actionable finding. Their lowest scores reflect
+deliberate scrolling and disclosure for dense compact engineering views, with
+tested access/copy paths. Their earlier settings, identity, session, compact
+failure, unit recovery, stale/busy actions and theme-evidence findings are repaired
+and verified above.
+
+All 147 persona cells and 42 separate graphical cells exceed 90 simultaneously
+on the same product candidate: **189/189, minimum 91**. All three independently
+accept; no failing cell is averaged away. No additional product edit follows
+these votes; later commits only record the evidence and review instructions.
+The original authoring #239 and operator #241 remain unmerged drafts. The combined
+branch supplies the integrated review candidate.
