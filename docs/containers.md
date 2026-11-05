@@ -1,13 +1,13 @@
 # Containers — local CI parity and appliance rails
 
-Podman is the documented path (OCI-compatible; Docker works for build/run). Quadlets over compose. Deno tasks in [`tools/ci/`](../tools/ci/) are the single source of truth for CI steps — GitHub Actions and a laptop both call them.
+Podman is the documented path (OCI-compatible; Docker works for build/run). Quadlets over compose. Node.js tasks in [`tools/ci/`](../tools/ci/) are the single source of truth for CI steps — GitHub Actions and a laptop both call them.
 
 Related: [appliance-linux.md](appliance-linux.md) (publish layout), [testing.md](testing.md) (which suite to run).
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned in `global.json`) for native runs
-- [Deno](https://deno.land/) 2.x for the task runner
+- [Node.js](https://nodejs.org/) 26.x for the task runner
 - Optional: [Podman](https://podman.io/) for the Linux matrix / image rails
 
 ## Native tasks (Windows or Linux host)
@@ -15,26 +15,28 @@ Related: [appliance-linux.md](appliance-linux.md) (publish layout), [testing.md]
 From the repo root:
 
 ```bash
-deno task --cwd tools/ci list
-deno task --cwd tools/ci build -- --rid win-x64          # or linux-x64
-deno task --cwd tools/ci format
-deno task --cwd tools/ci test:arch -- --rid win-x64
-deno task --cwd tools/ci test:host -- --rid win-x64
-deno task --cwd tools/ci test:vm -- --rid win-x64
-deno task --cwd tools/ci test:e2e -- --rid win-x64
-deno task --cwd tools/ci coverage -- --rid win-x64
-deno task --cwd tools/ci audit
-deno task --cwd tools/ci publish -- --rid win-x64
-deno task --cwd tools/ci verify -- --rid win-x64
-deno task --cwd tools/ci all -- --rid win-x64            # full host matrix
+npm --prefix tools/ci run list
+npm --prefix tools/ci run build -- --rid win-x64          # or linux-x64
+npm --prefix tools/ci run format
+npm --prefix tools/ci run test:arch -- --rid win-x64
+npm --prefix tools/ci run test:host -- --rid win-x64
+npm --prefix tools/ci run test:vm -- --rid win-x64
+npm --prefix tools/ci run test:e2e -- --rid win-x64
+npm --prefix tools/ci run coverage -- --rid win-x64
+npm --prefix tools/ci run audit
+npm --prefix tools/ci run publish -- --rid win-x64
+npm --prefix tools/ci run verify -- --rid win-x64
+npm --prefix tools/ci run all -- --rid win-x64            # full host matrix
 ```
+
+The `.ts` scripts run directly with Node 26’s unflagged type stripping: `node tools/ci/main.ts list`. No `npm install`, transpiler, or runtime dependencies are needed. Keep scripts in erasable TypeScript (no enums or parameter properties), use explicit `.ts` import extensions, and use `import type` for type-only imports. Node strips types without type-checking.
 
 RID defaults to the host (`win-x64` on Windows, `linux-x64` on Linux x64). Coverage floors live in TypeScript (`tools/ci/lib/coverage.ts`); there is no Python dependency.
 
 Unit tests for the coverage port and task catalog:
 
 ```bash
-deno task --cwd tools/ci test
+npm --prefix tools/ci run test
 ```
 
 ### Platform honesty
@@ -47,7 +49,7 @@ deno task --cwd tools/ci test
 
 ## CI image (`Containerfile.ci`)
 
-Base: .NET 10.0.302 SDK (noble amd64), **pinned by digest**. Adds Deno, fontconfig/Skia-ish deps for headless Avalonia, non-root `ciuser`, NuGet cache under `/home/ciuser/.nuget/packages`.
+Base: .NET 10.0.302 SDK (noble amd64), **pinned by digest**. Adds Node.js, fontconfig/Skia-ish deps for headless Avalonia, non-root `ciuser`, NuGet cache under `/home/ciuser/.nuget/packages`.
 
 ```bash
 podman build -t localhost/hardwaretest-ci:latest -f Containerfile.ci .
@@ -56,7 +58,7 @@ podman run --rm \
   -v hardwaretest-nuget:/home/ciuser/.nuget/packages:Z \
   -w /src \
   localhost/hardwaretest-ci:latest \
-  deno task --cwd tools/ci all -- --rid linux-x64
+  npm --prefix tools/ci run all -- --rid linux-x64
 ```
 
 `verify` inside that run asserts `--version` and `--print-config` (DataDirectory overlay provenance) against the published `linux-x64` binary.
@@ -110,13 +112,13 @@ Product layout and publish flags: [appliance-linux.md](appliance-linux.md). No `
 
 ## GitHub Actions
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) is a thin runner over the Deno tasks:
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) is a thin runner over the Node.js tasks:
 
 - **windows-latest** — primary shipping matrix (`win-x64`), including required E2E and coverage.
 - **ubuntu-latest** — `linux-x64` build / host / VM / arch / coverage / publish / verify; E2E is **advisory** (step name says so; `continue-on-error`).
 - Actions are pinned by commit SHA. Workflow default token is `contents: read`; artifact-upload jobs add `actions: write`. Jobs have `timeout-minutes` and PR concurrency cancel-in-progress.
 - Publish artifacts retain self-contained outputs for demo pulls.
-- Format is a Deno catalog task (`main.ts format`); both jobs assert the same catalog and dump expected/actual on drift.
+- Format is a Node.js catalog task (`main.ts format`); both jobs assert the same catalog and dump expected/actual on drift.
 - `setup-dotnet` pins `global.json` (`10.0.302`). Artifact uploads fail if publish output is missing.
-- A catalog assert step fails if a Deno task is renamed without updating the workflow.
+- A catalog assert step fails if a Node.js task is renamed without updating the workflow.
 - `audit` fails the job when `dotnet list package --vulnerable --include-transitive` reports known vulns.

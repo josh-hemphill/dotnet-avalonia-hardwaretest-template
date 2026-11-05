@@ -1,11 +1,13 @@
-import { join } from "@std/path";
+import { readTextFile, writeTextFile, makeTempDir } from "./lib/fs.ts";
+import * as fs from "node:fs/promises";
+import { join } from "node:path";
 import { formatSolution } from "./lib/format.ts";
 import {
   AUTHORING_FAST_FILTER,
   AUTHORING_UI_WINDOWS_FILTER,
   AUTHORING_WINDOWS_FILTER,
 } from "./lib/profile.ts";
-import { parseArgs } from "@std/cli/parse-args";
+import { parseArgs } from "node:util";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
 import {
@@ -66,7 +68,7 @@ function usage(): string {
   return `HardwareTest CI tasks
 
 Usage:
-  deno run -A main.ts <task> [--rid <rid>] [--configuration Release]
+  node main.ts <task> [--rid <rid>] [--configuration Release]
 
 Tasks:
   ${TASKS.join(", ")}
@@ -86,19 +88,20 @@ function defaultRidSafe(): string {
 }
 
 function parseOptions(args: string[]): Options {
-  const parsed = parseArgs(args, {
-    string: ["rid", "configuration", "profile"],
-    boolean: ["advisory-e2e", "help"],
-    alias: { h: "help", c: "configuration" },
-    default: {
-      configuration: "Release",
-      "advisory-e2e": false,
+  const { values: parsed } = parseArgs({
+    args,
+    options: {
+      rid: { type: "string" },
+      configuration: { type: "string", short: "c", default: "Release" },
+      profile: { type: "string" },
+      "advisory-e2e": { type: "boolean", default: false },
+      help: { type: "boolean", short: "h" },
     },
   });
 
   if (parsed.help) {
     console.log(usage());
-    Deno.exit(0);
+    process.exit(0);
   }
 
   const rid = typeof parsed.rid === "string" && parsed.rid.length > 0
@@ -147,7 +150,7 @@ async function projectPaths(opts: Options): Promise<string[]> {
 async function formatCheck(opts: Options): Promise<void> {
   const workspace = join(opts.root, ".ci-format.slnx");
   try {
-    await Deno.writeTextFile(
+    await writeTextFile(
       workspace,
       formatSolution(opts.root, await projectPaths(opts)),
     );
@@ -160,9 +163,9 @@ async function formatCheck(opts: Options): Promise<void> {
     ], { cwd: opts.root });
   } finally {
     try {
-      await Deno.remove(workspace);
+      await fs.rm(workspace);
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
   }
 }
@@ -257,11 +260,11 @@ async function testArch(opts: Options): Promise<void> {
 async function collectCoreCoverage(opts: Options): Promise<void> {
   const results = coverageDir(opts.root);
   try {
-    await Deno.remove(results, { recursive: true });
+    await fs.rm(results, { recursive: true });
   } catch (err) {
-    if (!(err instanceof Deno.errors.NotFound)) throw err;
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
   }
-  await Deno.mkdir(results, { recursive: true });
+  await fs.mkdir(results, { recursive: true });
   await run([
     "dotnet",
     "test",
@@ -292,7 +295,7 @@ async function coverage(opts: Options): Promise<void> {
     );
   }
 
-  const xml = await Deno.readTextFile(cobertura);
+  const xml = await readTextFile(cobertura);
   const report = evaluateCobertura(xml);
   console.log(report.summary);
   for (const failure of report.failures) {
@@ -344,7 +347,7 @@ async function audit(opts: Options): Promise<void> {
 
 async function publish(opts: Options): Promise<void> {
   const out = publishDir(opts.rid, opts.root);
-  await Deno.mkdir(out, { recursive: true });
+  await fs.mkdir(out, { recursive: true });
   await run([
     "dotnet",
     "publish",
@@ -397,7 +400,7 @@ async function publish(opts: Options): Promise<void> {
 
 /** Exercise the shipped app from a directory with no checkout ancestry. */
 async function verifyAuthoring(opts: Options): Promise<void> {
-  const smoke = await Deno.makeTempDir({ prefix: "ht-authoring-published-" });
+  const smoke = await makeTempDir({ prefix: "ht-authoring-published-" });
   try {
     const bundle = `${smoke}/app`;
     const workspace = `${smoke}/workspace`;
@@ -436,7 +439,7 @@ async function verifyAuthoring(opts: Options): Promise<void> {
     for (
       const name of ["OpenTAP", "HardwareTest Basic", "HardwareTest Mixins"]
     ) {
-      await Deno.stat(`${smoke}/home/Packages/${name}/package.xml`);
+      await fs.stat(`${smoke}/home/Packages/${name}/package.xml`);
     }
     for (
       const file of [
@@ -446,30 +449,30 @@ async function verifyAuthoring(opts: Options): Promise<void> {
         "OpenTap.Package.dll",
       ]
     ) {
-      await Deno.stat(`${smoke}/home/${file}`);
+      await fs.stat(`${smoke}/home/${file}`);
     }
     console.log(
       "verify authoring ok: isolated published startup, strict validate, offline bootstrap",
     );
   } finally {
-    await Deno.remove(smoke, { recursive: true });
+    await fs.rm(smoke, { recursive: true });
   }
 }
 
 async function copyTree(source: string, destination: string): Promise<void> {
-  await Deno.mkdir(destination, { recursive: true });
-  for await (const entry of Deno.readDir(source)) {
-    if (entry.isDirectory) {
+  await fs.mkdir(destination, { recursive: true });
+  for (const entry of await fs.readdir(source, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
       await copyTree(`${source}/${entry.name}`, `${destination}/${entry.name}`);
-    } else if (entry.isFile) {
-      await Deno.copyFile(
+    } else if (entry.isFile()) {
+      await fs.copyFile(
         `${source}/${entry.name}`,
         `${destination}/${entry.name}`,
       );
-      if (Deno.build.os !== "windows") {
-        const info = await Deno.stat(`${source}/${entry.name}`);
+      if (process.platform !== "win32") {
+        const info = await fs.stat(`${source}/${entry.name}`);
         if (info.mode !== null) {
-          await Deno.chmod(`${destination}/${entry.name}`, info.mode);
+          await fs.chmod(`${destination}/${entry.name}`, info.mode);
         }
       }
     }
@@ -488,12 +491,12 @@ async function verify(opts: Options): Promise<void> {
   const exe = publishedExe(expectedRid, opts.root);
   try {
     for (const output of consumerOutputs(opts)) {
-      await Deno.stat(
+      await fs.stat(
         `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
       );
     }
-    await Deno.stat(exe);
-    await Deno.stat(
+    await fs.stat(exe);
+    await fs.stat(
       `${publishDir(expectedRid, opts.root)}/authoring/HardwareTest.Authoring${
         expectedRid.startsWith("win-") ? ".exe" : ""
       }`,
@@ -509,14 +512,14 @@ async function verify(opts: Options): Promise<void> {
   }
   console.log(`version: ${version.stdout.trim()}`);
 
-  const dataDir = await Deno.makeTempDir({ prefix: "ht-verify-" });
+  const dataDir = await makeTempDir({ prefix: "ht-verify-" });
   try {
     const config = await runCapture(
       [exe, "--print-config", "--data-directory", dataDir],
       {
         cwd: opts.root,
         env: {
-          ...Deno.env.toObject(),
+          ...process.env,
           HARDWARETEST_LOG_MINIMUM_LEVEL: "Warning",
         },
       },
@@ -551,7 +554,7 @@ async function verify(opts: Options): Promise<void> {
     console.log(`verify ok: rid=${expectedRid} config-source=${source}`);
   } finally {
     try {
-      await Deno.remove(dataDir, { recursive: true });
+      await fs.rm(dataDir, { recursive: true });
     } catch {
       // best-effort cleanup
     }
@@ -587,17 +590,17 @@ function listTasks(): void {
   console.log(TASKS.join("\n"));
 }
 
-export async function main(argv = Deno.args): Promise<void> {
+export async function main(argv = process.argv.slice(2)): Promise<void> {
   const [task, ...rest] = argv;
   if (!task || task === "help" || task === "--help" || task === "-h") {
     console.log(usage());
-    Deno.exit(task ? 0 : 2);
+    process.exit(task ? 0 : 2);
   }
 
   if (!(TASKS as readonly string[]).includes(task)) {
     console.error(`Unknown task: ${task}\n`);
     console.error(usage());
-    Deno.exit(2);
+    process.exit(2);
   }
 
   if (task === "list") {
@@ -658,6 +661,6 @@ if (import.meta.main) {
     await main();
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);
-    Deno.exit(1);
+    process.exit(1);
   }
 }

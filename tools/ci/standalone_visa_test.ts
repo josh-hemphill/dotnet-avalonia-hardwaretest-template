@@ -1,5 +1,10 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import * as path from "@std/path";
+import { runCapture } from "./lib/run.ts";
+import { fileURLToPath } from "node:url";
+import { test } from "node:test";
+import { readTextFile, writeTextFile, makeTempDir } from "./lib/fs.ts";
+import * as fs from "node:fs/promises";
+import { assertEquals, assertStringIncludes } from "./lib/assert.ts";
+import * as path from "node:path";
 import { consumerOutputs } from "./lib/instrument_artifacts.ts";
 
 const fixtureProject =
@@ -7,7 +12,7 @@ const fixtureProject =
 type Event = { command: string; args: string[]; cwd: string };
 
 async function exerciseCleanVerification(failBuild: boolean) {
-  const root = await Deno.makeTempDir({ prefix: "ht-ci-clean-publish-" });
+  const root = await makeTempDir({ prefix: "ht-ci-clean-publish-" });
   try {
     const opts = { root, rid: "win-x64", configuration: "Debug" };
     const generated = path.join(root, "generated.TapPackage");
@@ -18,72 +23,67 @@ async function exerciseCleanVerification(failBuild: boolean) {
     const harness = path.join(root, "verify.js");
     for (const consumer of consumerOutputs(opts)) {
       const artifacts = path.join(consumer.path, "PublishedArtifacts");
-      await Deno.mkdir(artifacts, { recursive: true });
-      await Deno.writeTextFile(
+      await fs.mkdir(artifacts, { recursive: true });
+      await writeTextFile(
         path.join(artifacts, "HardwareTest.Standalone.VISA.0.1.0.TapPackage"),
         "deterministic archive",
       );
     }
-    await Deno.writeTextFile(generated, "deterministic archive");
-    await Deno.writeTextFile(
+    await writeTextFile(generated, "deterministic archive");
+    await writeTextFile(
       stub,
-      `const [command, ...args] = Deno.args;
-await Deno.writeTextFile(${
+      `import * as fs from "node:fs/promises";
+import { readTextFile, writeTextFile } from ${JSON.stringify(new URL("./lib/fs.ts", import.meta.url).href)};
+const [command, ...args] = process.argv.slice(2);
+await writeTextFile(${
         JSON.stringify(record)
-      }, JSON.stringify({ command, args, cwd: Deno.cwd() }) + "\\n", { append: true });
+      }, JSON.stringify({ command, args, cwd: process.cwd() }) + "\\n", { append: true });
 const fixture = ${JSON.stringify(fixture)};
 if (command === "dotnet" && args[0] === "build" && args[1] === ${
         JSON.stringify(fixtureProject)
       }) {
-  if (${failBuild}) Deno.exit(23);
-  await Deno.mkdir(${
+  if (${failBuild}) process.exit(23);
+  await fs.mkdir(${
         JSON.stringify(path.dirname(fixture))
       }, { recursive: true });
-  await Deno.writeTextFile(fixture, "built dispatcher fixture");
+  await writeTextFile(fixture, "built dispatcher fixture");
 } else if (command === "dotnet" && args[0] === "build") {
   // Repeated wrapper builds preserve the deterministic archive above.
 } else if (command === "dotnet" && args[0] === "msbuild") {
   if (args.includes("-getProperty:TargetPath")) {
     // A clean checkout has no fixture until the build succeeds.
-    await Deno.stat(fixture);
+    await fs.stat(fixture);
     console.log(fixture);
   } else console.log(${JSON.stringify(generated)});
 } else if (args[0] === "--bootstrap") {
-  await Deno.mkdir(args[args.indexOf("--opentap-home") + 1], { recursive: true });
+  await fs.mkdir(args[args.indexOf("--opentap-home") + 1], { recursive: true });
 } else if (command === "dotnet" && args[1] === "visa-boundary") {
-  if (await Deno.readTextFile(${
+  if (await readTextFile(${
         JSON.stringify(path.basename(fixture))
-      }) !== "built dispatcher fixture") Deno.exit(24);
+      }) !== "built dispatcher fixture") process.exit(24);
   console.log("standalone-registered-before-dispatch-existing-provider-preserved");
-  Deno.exit(17);
+  process.exit(17);
 } else throw new Error("Unexpected command: " + command + " " + args.join(" "));
 `,
     );
-    // Keep run()/runCapture() and filesystem operations real, replacing only
-    // external SDK/app processes with portable Deno subprocesses.
-    await Deno.writeTextFile(
+    // Keep subprocess execution real; replace external SDK/app commands only.
+    await writeTextFile(
       shim,
-      `const Command = Deno.Command;
-Deno.Command = class extends Command {
-  constructor(command, options = {}) {
-    super(Deno.execPath(), {
-      ...options,
-      args: ["run", "-A", ${
-        JSON.stringify(stub)
-      }, command, ...(options.args ?? [])],
-    });
-  }
+      `import childProcess from "node:child_process";
+import fs from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
+const spawn = childProcess.spawn;
+childProcess.spawn = (command, args, options) => spawn(process.execPath,
+  [${JSON.stringify(stub)}, command, ...args], options);
+const mkdtemp = fs.mkdtemp;
+fs.mkdtemp = async (...args) => {
+  await fs.appendFile(${JSON.stringify(record)}, JSON.stringify({ command: "makeTempDir", args: [], cwd: process.cwd() }) + "\\n");
+  return await mkdtemp(...args);
 };
-const makeTempDir = Deno.makeTempDir;
-Deno.makeTempDir = async (options) => {
-  await Deno.writeTextFile(${
-        JSON.stringify(record)
-      }, JSON.stringify({ command: "makeTempDir", args: [], cwd: Deno.cwd() }) + "\\n", { append: true });
-  return await makeTempDir(options);
-};
+syncBuiltinESMExports();
 `,
     );
-    await Deno.writeTextFile(
+    await writeTextFile(
       harness,
       `import { verifyStandaloneVisaArtifacts } from ${
         JSON.stringify(
@@ -93,31 +93,20 @@ Deno.makeTempDir = async (options) => {
 await verifyStandaloneVisaArtifacts(${JSON.stringify(opts)});
 `,
     );
-    const output = await new Deno.Command(Deno.execPath(), {
-      args: [
-        "run",
-        "-A",
-        "--config",
-        path.fromFileUrl(new URL("./deno.json", import.meta.url)),
-        "--preload",
-        shim,
-        harness,
-      ],
-      cwd: path.dirname(path.fromFileUrl(import.meta.url)),
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
-    const events: Event[] = (await Deno.readTextFile(record)).trim().split("\n")
+    const output = await runCapture([process.execPath, "--import", shim, harness], {
+      cwd: path.dirname(fileURLToPath(import.meta.url)),
+    });
+    const events: Event[] = (await readTextFile(record)).trim().split("\n")
       .map((line) => JSON.parse(line));
     return { output, events, opts };
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await fs.rm(root, { recursive: true });
   }
 }
 
-Deno.test("standalone publish verification builds a missing fixture before relocation", async () => {
+test("standalone publish verification builds a missing fixture before relocation", async () => {
   const { output, events, opts } = await exerciseCleanVerification(false);
-  assertEquals(output.code, 0, new TextDecoder().decode(output.stderr));
+  assertEquals(output.code, 0, output.stderr);
   const build = events.findIndex((event) => event.args[1] === fixtureProject);
   assertEquals(events[build], {
     command: "dotnet",
@@ -135,16 +124,16 @@ Deno.test("standalone publish verification builds a missing fixture before reloc
   assertEquals(events[build + 3].args[0], "--bootstrap");
   assertEquals(events[build + 4].args[1], "visa-boundary");
   assertStringIncludes(
-    new TextDecoder().decode(output.stdout),
+    output.stdout,
     "relocated bootstrap and actual dispatcher",
   );
 });
 
-Deno.test("standalone fixture build failure stops before evaluating or creating a smoke home", async () => {
+test("standalone fixture build failure stops before evaluating or creating a smoke home", async () => {
   const { output, events } = await exerciseCleanVerification(true);
   assertEquals(output.code, 1);
   assertStringIncludes(
-    new TextDecoder().decode(output.stderr),
+    output.stderr,
     "Command failed (exit 23): dotnet build " + fixtureProject,
   );
   assertEquals(events.at(-1)?.args[1], fixtureProject);

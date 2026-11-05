@@ -1,4 +1,6 @@
-import * as path from "@std/path";
+import { readTextFile, writeTextFile, makeTempDir } from "./fs.ts";
+import * as fs from "node:fs/promises";
+import * as path from "node:path";
 import {
   type ArtifactOptions,
   consumerOutputs,
@@ -29,10 +31,10 @@ function requireSameBytes(
 }
 
 async function* files(directory: string): AsyncGenerator<string> {
-  for await (const entry of Deno.readDir(directory)) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
     const file = path.join(directory, entry.name);
-    if (entry.isDirectory) yield* files(file);
-    else if (entry.isFile) yield file;
+    if (entry.isDirectory()) yield* files(file);
+    else if (entry.isFile()) yield file;
   }
 }
 
@@ -61,7 +63,7 @@ export async function verifyStandaloneVisaArtifacts(
 ): Promise<void> {
   let expected: Uint8Array | undefined;
   for (const consumer of consumerOutputs(opts)) {
-    const archive = await Deno.readFile(
+    const archive = await fs.readFile(
       path.join(consumer.path, "PublishedArtifacts", archiveName),
     );
     if (expected) requireSameBytes(expected, archive, consumer.name);
@@ -74,7 +76,7 @@ export async function verifyStandaloneVisaArtifacts(
         throw new Error(`${consumer.name}: loose execution payload ${file}`);
       }
       if (file.endsWith(".deps.json")) {
-        const graph = JSON.parse(await Deno.readTextFile(file));
+        const graph = JSON.parse(await readTextFile(file));
         const names = [
           ...Object.keys(graph.libraries ?? {}),
           ...Object.values(graph.targets ?? {}).flatMap((target) =>
@@ -114,7 +116,7 @@ export async function verifyStandaloneVisaArtifacts(
     ], { cwd: opts.root });
     requireSameBytes(
       expected,
-      await Deno.readFile(generated),
+      await fs.readFile(generated),
       `generation ${attempt + 1}`,
     );
   }
@@ -147,22 +149,22 @@ async function verifyRelocatedConsumer(opts: ArtifactOptions): Promise<void> {
     fixtureProject,
     "TargetPath",
   );
-  const smoke = await Deno.makeTempDir({ prefix: "ht-standalone-published-" });
+  const smoke = await makeTempDir({ prefix: "ht-standalone-published-" });
   try {
     const app = path.join(smoke, "app");
     for await (const file of files(authoring.path)) {
       const destination = path.join(app, path.relative(authoring.path, file));
-      await Deno.mkdir(path.dirname(destination), { recursive: true });
-      await Deno.copyFile(file, destination);
-      if (Deno.build.os !== "windows") {
-        const mode = (await Deno.stat(file)).mode;
-        if (mode !== null) await Deno.chmod(destination, mode);
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      await fs.copyFile(file, destination);
+      if (process.platform !== "win32") {
+        const mode = (await fs.stat(file)).mode;
+        if (mode !== null) await fs.chmod(destination, mode);
       }
     }
     const workspace = path.join(smoke, "workspace");
     const home = path.join(smoke, "home");
-    await Deno.mkdir(path.join(workspace, "plans"), { recursive: true });
-    await Deno.writeTextFile(
+    await fs.mkdir(path.join(workspace, "plans"), { recursive: true });
+    await writeTextFile(
       path.join(workspace, "authoring.json"),
       JSON.stringify({
         schemaVersion: 2,
@@ -196,7 +198,7 @@ async function verifyRelocatedConsumer(opts: ArtifactOptions): Promise<void> {
         `Relocated library bootstrap failed: ${bootstrap.stdout}\n${bootstrap.stderr}`,
       );
     }
-    await Deno.copyFile(fixture, path.join(home, path.basename(fixture)));
+    await fs.copyFile(fixture, path.join(home, path.basename(fixture)));
     const dispatch = await runCapture([
       "dotnet",
       path.join(home, `${wrapperName}.dll`),
@@ -213,6 +215,6 @@ async function verifyRelocatedConsumer(opts: ArtifactOptions): Promise<void> {
       );
     }
   } finally {
-    await Deno.remove(smoke, { recursive: true });
+    await fs.rm(smoke, { recursive: true });
   }
 }

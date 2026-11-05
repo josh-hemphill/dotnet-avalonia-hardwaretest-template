@@ -18,7 +18,7 @@ Stack: latest <- fix/traversal-test-discovery <- feat/authoring-ui-tests <- feat
 - Goal: dedicated headless authoring tests and isolated deterministic fixtures for future protection flows.
 - Depends on: traversal-test-discovery prerequisite.
 - Out of scope: packaging, lifecycle or destructive behavior changes; recreating retired solution file.
-- Files: new tests/HardwareTest.Authoring.UI.Tests; tools/ci/main.ts and deno.json; .github/workflows/ci.yml; docs/testing.md; narrowly necessary authoring testability seams.
+- Files: new tests/HardwareTest.Authoring.UI.Tests; tools/ci/main.ts and package.json; .github/workflows/ci.yml; docs/testing.md; narrowly necessary authoring testability seams.
 - Surface: separate Avalonia application fixture; isolated workspace/preferences fixture; injectable interaction abstractions only if needed for tests, with real behavior unchanged.
 - Pseudo-code: Build a headless Application with Fluent styles/Inter and initialize MainWindow(viewModel) directly; copy sample or create minimal workspace in unique temp directory; pass explicit preference store; show window; drive controls using actual input/routed events; dispatcher drains; assert empty/loaded/edit states and selected data/context; dispose windows and fixture directories. Add a required test:authoring-ui task wired through all, task catalogs and both Windows/Linux workflow steps. Do not apply existing advisory operator E2E behavior to authoring tests.
 - Tests: empty workspace opening action visible/editor hidden; populated workspace bindings load without recursion; edit reaches VM and unsaved status; independent preference roots; normal/minimum width render layout; CLI exits before Avalonia remains covered by existing core suite.

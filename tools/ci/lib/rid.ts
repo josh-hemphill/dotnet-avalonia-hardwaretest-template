@@ -1,11 +1,11 @@
-/** Map Deno OS/arch to a .NET RID, or undefined when unknown. */
+/** Map Node OS/arch to a .NET RID, or undefined when unknown. */
 export function mapRid(os: string, arch: string): string | undefined {
-  if (os === "windows" && arch === "x86_64") return "win-x64";
-  if (os === "windows" && arch === "aarch64") return "win-arm64";
-  if (os === "linux" && arch === "x86_64") return "linux-x64";
-  if (os === "linux" && arch === "aarch64") return "linux-arm64";
-  if (os === "darwin" && arch === "aarch64") return "osx-arm64";
-  if (os === "darwin" && arch === "x86_64") return "osx-x64";
+  if (os === "win32" && arch === "x64") return "win-x64";
+  if (os === "win32" && arch === "arm64") return "win-arm64";
+  if (os === "linux" && arch === "x64") return "linux-x64";
+  if (os === "linux" && arch === "arm64") return "linux-arm64";
+  if (os === "darwin" && arch === "arm64") return "osx-arm64";
+  if (os === "darwin" && arch === "x64") return "osx-x64";
   return undefined;
 }
 
@@ -20,14 +20,14 @@ export function requireRid(os: string, arch: string): string {
 
 /** Resolve the default RID for the host OS/arch. */
 export function defaultRid(): string {
-  return requireRid(Deno.build.os, Deno.build.arch);
+  return requireRid(process.platform, process.arch);
 }
 
 /** Whether this RID can run natively on the given host (defaults to this process). */
 export function isNativeRid(
   rid: string,
-  os: string = Deno.build.os,
-  arch: string = Deno.build.arch,
+  os: string = process.platform,
+  arch: string = process.arch,
 ): boolean {
   const mapped = mapRid(os, arch);
   return mapped !== undefined && rid === mapped;

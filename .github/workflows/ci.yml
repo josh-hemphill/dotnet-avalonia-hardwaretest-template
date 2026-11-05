@@ -26,15 +26,15 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          deno-version: v2.7.7
+          node-version: '26'
       - id: profile
         name: Classify dependencies (unknown changes require full validation)
         env:
           CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: deno run -A tools/ci/profile.ts
+        run: node tools/ci/profile.ts
 
   linux:
     needs: policy
@@ -82,15 +82,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          deno-version: v2.7.7
+          node-version: '26'
       - name: Require successful Windows children
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
           CI_REQUIRED: ${{ needs.policy.outputs.full == 'true' && 'policy,windows,publish-win' || 'policy,windows' }}
           CI_OPTIONAL: ${{ needs.policy.outputs.full != 'true' && 'publish-win' || '' }}
-        run: deno run -A tools/ci/profile.ts aggregate
+        run: node tools/ci/profile.ts aggregate
 
   test-linux:
     if: always()
@@ -98,12 +98,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          deno-version: v2.7.7
+          node-version: '26'
       - name: Require successful Linux children
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
           CI_REQUIRED: ${{ needs.policy.outputs.full == 'true' && 'policy,linux,publish-linux' || 'policy,linux' }}
           CI_OPTIONAL: ${{ needs.policy.outputs.full != 'true' && 'publish-linux' || '' }}
-        run: deno run -A tools/ci/profile.ts aggregate
+        run: node tools/ci/profile.ts aggregate

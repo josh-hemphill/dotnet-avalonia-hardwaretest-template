@@ -19,7 +19,7 @@ The PR policy allows fast validation for documentation, operator ViewModel tests
 
 `test:authoring-ui` is a required full Linux task and runs full on Windows in full validation. Its dedicated assembly owns a serial Avalonia Headless lifecycle with a Fluent/Inter test application, constructs `MainWindow(viewModel)` directly, and never starts the production authoring `App`. Each fixture copies the sample workspace and supplies its own preferences file, then closes windows, drains the dispatcher, and deletes temporary files. Keep CLI-before-Avalonia coverage in the existing CLI tests. Jobs isolate process-global OpenTAP state; the existing serial test collections remain intact.
 
-Formatting uses one temporary solution generated from evaluated `dirs.proj` references. Every traversal project is represented once; the SDK loads a single formatting workspace. Formatting, vulnerability audit, coverage floors and Deno policy/catalog tests run once on Linux. Each suite logs command durations and uploads TRX, coverage and OpenTAP SessionLogs even after failure. Full/manual runs also provide verified publish artifacts. The required aggregates reject failed, cancelled or missing children; publishing can skip only when the policy selected fast.
+Formatting uses one temporary solution generated from evaluated `dirs.proj` references. Every traversal project is represented once; the SDK loads a single formatting workspace. Formatting, vulnerability audit, coverage floors and Node.js policy/catalog tests run once on Linux. Each suite logs command durations and uploads TRX, coverage and OpenTAP SessionLogs even after failure. Full/manual runs also provide verified publish artifacts. The required aggregates reject failed, cancelled or missing children; publishing can skip only when the policy selected fast.
 
 Where coverage lives:
 
@@ -99,17 +99,17 @@ Coverage lives in `PlanContractValidatorTests` (OpenTapSerial), including a stri
 
 ```bash
 # Same tasks CI runs (RID defaults to the host):
-deno task --cwd tools/ci all -- --rid win-x64
+npm --prefix tools/ci run all -- --rid win-x64
 
 # Or individual suites (OpenTAP host + E2E share process-global TapThread state):
-deno run -A tools/ci/main.ts test:arch --rid win-x64
-deno run -A tools/ci/main.ts test:host --rid win-x64
-deno run -A tools/ci/main.ts test:authoring-compat --rid win-x64
-deno run -A tools/ci/main.ts test:authoring-ui --rid win-x64
-deno run -A tools/ci/main.ts test:vm --rid win-x64
-deno run -A tools/ci/main.ts test:e2e --rid win-x64
-deno run -A tools/ci/main.ts coverage --rid win-x64
-deno run -A tools/ci/main.ts audit
+node tools/ci/main.ts test:arch --rid win-x64
+node tools/ci/main.ts test:host --rid win-x64
+node tools/ci/main.ts test:authoring-compat --rid win-x64
+node tools/ci/main.ts test:authoring-ui --rid win-x64
+node tools/ci/main.ts test:vm --rid win-x64
+node tools/ci/main.ts test:e2e --rid win-x64
+node tools/ci/main.ts coverage --rid win-x64
+node tools/ci/main.ts audit
 
 # Raw dotnet still works:
 dotnet test dirs.proj -r win-x64 -m:1

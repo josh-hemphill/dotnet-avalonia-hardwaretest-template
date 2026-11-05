@@ -265,7 +265,7 @@ Checks:
 3. **Contract** — `PlanContractValidator.Validate` in both homes with `--strict` semantics for pack.
 4. **Optional Open in TUI** — spawn `tap tui` with the isolated `OpenTapHome` as cwd and `tap` on `PATH` pointing at that home (manual; not CI). This repo has no `OPENTAP_PATH` setting.
 
-CI: `deno` task `test:authoring-compat`. Offline when TUI `.TapPackage` is cached; otherwise advisory like Linux E2E. Template plans (Basic only) run in required CI; InstrumentComponents round-trip is required only when that pack path is provided.
+CI: `npm` task `test:authoring-compat`. Offline when TUI `.TapPackage` is cached; otherwise advisory like Linux E2E. Template plans (Basic only) run in required CI; InstrumentComponents round-trip is required only when that pack path is provided.
 
 ## Pack / ship
 
@@ -436,7 +436,7 @@ public static class PresentationAttach
 
 - Goal: `WorkspacePacker.Pack` validates, writes `package.xml`, creates the program TapPackage, copies declared plugin packs, writes `dist/ship-manifest.json`. No exe in this area.
 - Depends on: Areas 1–3 (validate compiled plans). Optional `ITuiCompatChecker` until Area 8.
-- Out of scope: Avalonia, `src/HardwareTest.Authoring/`, appliance bake, publishing to a feed, Deno TASKS catalog
+- Out of scope: Avalonia, `src/HardwareTest.Authoring/`, appliance bake, publishing to a feed, Node.js TASKS catalog
 - Likely files: `Authoring.Core/WorkspacePacker.cs`; tests call the API. Architecture: PlanValidate stays Avalonia-free and remains the operator pack-gate.
 - Public surface:
 
@@ -485,7 +485,7 @@ public static class WorkspacePacker
 - Goal: Create `src/HardwareTest.Authoring/` WinExe that opens a workspace, lists programs, shows a **read-only** decompile tree + **sidecar-only** editor, contract findings, Bootstrap, Validate, Pack. No metric editor yet.
 - Depends on: Areas 1–4
 - Out of scope: metric-first editor, operator preview widgets, execute, rewriting TapPlan XML
-- Likely files: `src/HardwareTest.Authoring/` (App, MainWindow, WorkspaceViewModel, `Program.cs` headless parse), `HardwareTest.Authoring.csproj` Avalonia 12 same as operator; optional Deno `pack:template` that runs the exe `--pack` (update CI TASKS in this PR if added)
+- Likely files: `src/HardwareTest.Authoring/` (App, MainWindow, WorkspaceViewModel, `Program.cs` headless parse), `HardwareTest.Authoring.csproj` Avalonia 12 same as operator; optional Node.js `pack:template` that runs the exe `--pack` (update CI TASKS in this PR if added)
 - Public surface: `dotnet run --project src/HardwareTest.Authoring -r win-x64 -- <workspace>`; flags `--pack` / `--bootstrap` / `--validate` / `--compat` exit 0/1/2 like PlanValidate (usage 2) and **do not start Avalonia**.
 - Pseudo-code:
   - Composition separate from operator `App/Composition.cs`.
@@ -514,7 +514,7 @@ public static class WorkspacePacker
 
 ### Area 8: TUI compatibility checker + CI
 
-- Goal: Automated catalog + round-trip report; Deno task; template workspace required-green without IC; fail pack on unknown types / dropped mixins.
+- Goal: Automated catalog + round-trip report; Node.js task; template workspace required-green without IC; fail pack on unknown types / dropped mixins.
 - Depends on: Areas 2–3 (home + IR). Pack (Area 4) should call this when present.
 - Out of scope: launching TUI curses UI in CI
 - Likely files: `Authoring.Core/TuiCompatChecker.cs`, `tools/ci/main.ts` task `test:authoring-compat`, workflow step

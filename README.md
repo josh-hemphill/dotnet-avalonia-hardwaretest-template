@@ -24,7 +24,7 @@ docs/adapting.md                     # Productize plans, plugins, station bindin
 docs/testing.md                      # UI vs OpenTAP suite separation
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
 docs/appliance-linux.md              # Appliance layout + publish notes
-tools/ci/                            # Deno CI tasks shared by Actions + local runs
+tools/ci/                            # Node.js CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
   HardwareTest.Authoring.Tests/      # Workspace, compiler, pack, TUI compat
@@ -58,13 +58,13 @@ templates/reports/                   # Typst templates (embedded)
 | [docs/getting-started.md](docs/getting-started.md) | First HardwareTest.Authoring plan; TUI is an optional escape hatch |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
-| [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
+| [docs/containers.md](docs/containers.md) | Running the Node.js CI matrix locally or in Podman |
 | [docs/appliance-linux.md](docs/appliance-linux.md) | Publishing a sealed Linux bench image |
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
-- [Deno](https://deno.land/) 2.x for the shared CI task runner (`tools/ci/`)
+- [Node.js](https://nodejs.org/) 26.x for the shared CI task runner (`tools/ci/`)
 - Optional: vendor VISA runtime for real instruments — mock instruments are the default
 - Optional for real PIV signing: [OpenSC](https://github.com/OpenSC/OpenSC) (PKCS#11 module) and a PC/SC/CCID reader; mock credentials remain the default
 - Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
@@ -88,7 +88,7 @@ cross-building or when you need a specific deployment target.
 
 ```bash
 # Full CI-shaped matrix (preferred):
-deno task --cwd tools/ci all -- --rid win-x64
+npm --prefix tools/ci run all -- --rid win-x64
 
 # Or individual suites:
 dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
@@ -111,11 +111,11 @@ Author structure in **HardwareTest.Authoring** (`dotnet run --project src/Hardwa
 
 ## Appliance publish
 
-See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Deno tasks.
+See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Node.js tasks.
 
 ```bash
-deno run -A tools/ci/main.ts publish --rid win-x64
-deno run -A tools/ci/main.ts publish --rid linux-x64
+node tools/ci/main.ts publish --rid win-x64
+node tools/ci/main.ts publish --rid linux-x64
 ```
 
 NativeAOT is **not** a product gate for the OpenTAP host.

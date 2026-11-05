@@ -1,5 +1,7 @@
+import { readTextFile, makeTempDir } from "./fs.ts";
+import * as fs from "node:fs/promises";
 import { publishDir } from "./paths.ts";
-import { resolve } from "@std/path";
+import { resolve } from "node:path";
 import { runCapture } from "./run.ts";
 
 export type ArtifactOptions = {
@@ -44,15 +46,15 @@ export async function assertNoRuntimeLeak(
   directory: string,
   names: Set<string>,
 ): Promise<void> {
-  for await (const entry of Deno.readDir(directory)) {
+  for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
     const path = `${directory}/${entry.name}`;
-    if (entry.isDirectory) await assertNoRuntimeLeak(path, names);
-    else if (entry.isFile) {
+    if (entry.isDirectory()) await assertNoRuntimeLeak(path, names);
+    else if (entry.isFile()) {
       if (entry.name.endsWith(".dll") && names.has(entry.name.slice(0, -4))) {
         throw new Error(`Loose instrument payload leaked into ${path}`);
       }
       if (entry.name.endsWith(".deps.json")) {
-        const graph = JSON.parse(await Deno.readTextFile(path));
+        const graph = JSON.parse(await readTextFile(path));
         for (const library of Object.keys(graph.libraries ?? {})) {
           if (names.has(library.split("/")[0])) {
             throw new Error(
@@ -70,7 +72,7 @@ export async function verifyPublishedRelease(
 ): Promise<void> {
   for (const output of consumerOutputs(opts)) {
     const hash = await sha256(
-      await Deno.readFile(`${output.path}/PublishedArtifacts/${archiveName}`),
+      await fs.readFile(`${output.path}/PublishedArtifacts/${archiveName}`),
     );
     if (hash !== releaseHash) {
       throw new Error(`${output.name}: published release hash mismatch`);
@@ -86,7 +88,7 @@ export async function verifyPublishedRelease(
 export async function verifyReleaseProvisioning(
   opts: ArtifactOptions,
 ): Promise<void> {
-  const temporary = await Deno.makeTempDir({ prefix: "ht-release-input-" });
+  const temporary = await makeTempDir({ prefix: "ht-release-input-" });
   try {
     const evaluated = await runCapture([
       "dotnet",
@@ -112,17 +114,18 @@ export async function verifyReleaseProvisioning(
     );
     let cachedBefore: Uint8Array | undefined;
     try {
-      cachedBefore = await Deno.readFile(cached);
+      cachedBefore = await fs.readFile(cached);
     } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) throw error;
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    const genuine = await Deno.readFile(supplied);
+    const genuine = await fs.readFile(supplied);
     const valid = `${temporary}/valid.TapPackage`;
     const tampered = `${temporary}/tampered.TapPackage`;
-    await Deno.writeFile(valid, genuine);
-    const changed = genuine.slice();
+    await fs.writeFile(valid, genuine);
+    // Buffer.slice() shares storage; tampering must leave the genuine bytes intact.
+    const changed = Uint8Array.from(genuine);
     changed[0] ^= 1;
-    await Deno.writeFile(tampered, changed);
+    await fs.writeFile(tampered, changed);
     for (
       const [path, expected, extra] of [
         [valid, null, []],
@@ -161,12 +164,12 @@ export async function verifyReleaseProvisioning(
       }
     }
     if (
-      await sha256(await Deno.readFile(valid)) !== releaseHash ||
-      await sha256(await Deno.readFile(supplied)) !== releaseHash ||
+      await sha256(await fs.readFile(valid)) !== releaseHash ||
+      await sha256(await fs.readFile(supplied)) !== releaseHash ||
       (cachedBefore !== undefined &&
-        await sha256(await Deno.readFile(cached)) !==
+        await sha256(await fs.readFile(cached)) !==
           await sha256(cachedBefore)) ||
-      await sha256(await Deno.readFile(tampered)) !== await sha256(changed)
+      await sha256(await fs.readFile(tampered)) !== await sha256(changed)
     ) {
       throw new Error(
         "Provisioning changed its supplied or cached input bytes",
@@ -176,6 +179,6 @@ export async function verifyReleaseProvisioning(
       "verify release provisioning: genuine, missing and tampered explicit archives passed",
     );
   } finally {
-    await Deno.remove(temporary, { recursive: true });
+    await fs.rm(temporary, { recursive: true });
   }
 }

@@ -37,7 +37,7 @@ Install packages **outside** the Avalonia UI (no feed browser in-app):
 
 ```bash
 dotnet publish src/HardwareTest -c Release -r linux-x64 --self-contained -p:PublishAot=false -o ./artifacts/appliance/app
-# or: deno run -A tools/ci/main.ts publish --rid linux-x64
+# or: node tools/ci/main.ts publish --rid linux-x64
 ```
 
 Windows primary smoke (CI `publish-win`):

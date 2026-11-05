@@ -1,4 +1,4 @@
-import * as path from "@std/path";
+import * as path from "node:path";
 
 /** One workspace, deduplicated evaluated traversal inputs; generated in the root
  * so SDK selection and Directory.Build/Packages lookup match the regular build. */

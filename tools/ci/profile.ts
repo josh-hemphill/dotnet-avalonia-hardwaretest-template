@@ -1,18 +1,19 @@
+import { writeTextFile } from "./lib/fs.ts";
 import { aggregatePassed, eventProfile } from "./lib/profile.ts";
 import { runCapture } from "./lib/run.ts";
 
-if (Deno.args[0] === "aggregate") {
-  const jobs = JSON.parse(Deno.env.get("CI_NEEDS") ?? "{}") as Record<
+if (process.argv.slice(2)[0] === "aggregate") {
+  const jobs = JSON.parse(process.env["CI_NEEDS"] ?? "{}") as Record<
     string,
     { result: string }
   >;
   const results = Object.fromEntries(
     Object.entries(jobs).map(([key, value]) => [key, value.result]),
   );
-  const required = (Deno.env.get("CI_REQUIRED") ?? "").split(",").filter(
+  const required = (process.env["CI_REQUIRED"] ?? "").split(",").filter(
     Boolean,
   );
-  const optional = (Deno.env.get("CI_OPTIONAL") ?? "").split(",").filter(
+  const optional = (process.env["CI_OPTIONAL"] ?? "").split(",").filter(
     Boolean,
   );
   if (required.length === 0 || !aggregatePassed(results, required, optional)) {
@@ -20,14 +21,14 @@ if (Deno.args[0] === "aggregate") {
       "Required CI child failed, was cancelled, or did not run",
       results,
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 } else {
   let paths: string[] | undefined;
-  if (Deno.env.get("GITHUB_EVENT_NAME") === "pull_request") {
+  if (process.env["GITHUB_EVENT_NAME"] === "pull_request") {
     try {
-      const base = Deno.env.get("CI_BASE_SHA") ?? "";
-      const head = Deno.env.get("CI_HEAD_SHA") ?? "";
+      const base = process.env["CI_BASE_SHA"] ?? "";
+      const head = process.env["CI_HEAD_SHA"] ?? "";
       if (!/^[a-f0-9]{40}$/i.test(base) || !/^[a-f0-9]{40}$/i.test(head)) {
         throw new Error("Missing valid PR commit identities");
       }
@@ -48,13 +49,13 @@ if (Deno.args[0] === "aggregate") {
       console.warn(`Diff unavailable; selecting full validation: ${error}`);
     }
   }
-  const profile = eventProfile(Deno.env.get("GITHUB_EVENT_NAME") ?? "", paths);
+  const profile = eventProfile(process.env["GITHUB_EVENT_NAME"] ?? "", paths);
   console.log(
     `CI profile=${profile}; changed paths=${paths?.length ?? "unknown"}`,
   );
-  const output = Deno.env.get("GITHUB_OUTPUT");
+  const output = process.env["GITHUB_OUTPUT"];
   if (output) {
-    await Deno.writeTextFile(
+    await writeTextFile(
       output,
       `profile=${profile}\nfull=${profile === "full"}\n`,
       {

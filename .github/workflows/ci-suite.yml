@@ -63,10 +63,10 @@ jobs:
           $sdkFiles = Get-ChildItem -LiteralPath $env:DOTNET_ROOT -Recurse -File | Measure-Object -Property Length -Sum
           Write-Host "SDK identity root=$env:DOTNET_ROOT files=$($sdkFiles.Count) bytes=$($sdkFiles.Sum)"
 
-      - name: Setup Deno
-        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          deno-version: v2.7.7
+          node-version: '26'
 
       - name: Install Avalonia headless dependencies
         if: runner.os == 'Linux'
@@ -77,7 +77,7 @@ jobs:
             libx11-6 libxcursor1 libxext6 libxi6 libxrandr2 libxrender1
 
       - name: Build and verify real package provisioning
-        run: deno run -A tools/ci/main.ts build --rid ${{ inputs.rid }}
+        run: node tools/ci/main.ts build --rid ${{ inputs.rid }}
 
       - name: Run selected suite
         shell: bash
@@ -85,36 +85,36 @@ jobs:
           set -euo pipefail
           case "$CI_SUITE" in
             host)
-              deno run -A tools/ci/main.ts test:host --rid "$CI_RID" --profile "$CI_PROFILE"
-              deno run -A tools/ci/main.ts test:arch --rid "$CI_RID"
-              deno run -A tools/ci/main.ts test:e2e --rid "$CI_RID" --advisory-e2e
+              node tools/ci/main.ts test:host --rid "$CI_RID" --profile "$CI_PROFILE"
+              node tools/ci/main.ts test:arch --rid "$CI_RID"
+              node tools/ci/main.ts test:e2e --rid "$CI_RID" --advisory-e2e
               ;;
             ui)
-              deno run -A tools/ci/main.ts test:authoring-ui --rid "$CI_RID"
+              node tools/ci/main.ts test:authoring-ui --rid "$CI_RID"
               ;;
             vm)
-              deno run -A tools/ci/main.ts test:vm --rid "$CI_RID"
+              node tools/ci/main.ts test:vm --rid "$CI_RID"
               ;;
             quality)
-              deno run -A tools/ci/main.ts format
-              deno run -A tools/ci/main.ts audit
-              deno run -A tools/ci/main.ts coverage --rid "$CI_RID"
-              deno task --cwd tools/ci test
+              node tools/ci/main.ts format
+              node tools/ci/main.ts audit
+              node tools/ci/main.ts coverage --rid "$CI_RID"
+              npm --prefix tools/ci run test
               ;;
             windows)
               profile=windows-smoke
               if [[ "$CI_PROFILE" == full ]]; then profile=full; fi
-              deno run -A tools/ci/main.ts test:host --rid "$CI_RID" --profile "$profile"
-              deno run -A tools/ci/main.ts test:authoring-ui --rid "$CI_RID" --profile "$profile"
-              deno run -A tools/ci/main.ts test:arch --rid "$CI_RID"
-              deno run -A tools/ci/main.ts test:e2e --rid "$CI_RID"
+              node tools/ci/main.ts test:host --rid "$CI_RID" --profile "$profile"
+              node tools/ci/main.ts test:authoring-ui --rid "$CI_RID" --profile "$profile"
+              node tools/ci/main.ts test:arch --rid "$CI_RID"
+              node tools/ci/main.ts test:e2e --rid "$CI_RID"
               if [[ "$CI_PROFILE" == full ]]; then
-                deno run -A tools/ci/main.ts test:vm --rid "$CI_RID"
+                node tools/ci/main.ts test:vm --rid "$CI_RID"
               fi
               ;;
             publish)
-              deno run -A tools/ci/main.ts publish --rid "$CI_RID"
-              deno run -A tools/ci/main.ts verify --rid "$CI_RID"
+              node tools/ci/main.ts publish --rid "$CI_RID"
+              node tools/ci/main.ts verify --rid "$CI_RID"
               ;;
             *) echo "Unknown suite: $CI_SUITE" >&2; exit 1 ;;
           esac

@@ -1,5 +1,7 @@
-import { assert, assertEquals } from "@std/assert";
-import * as path from "@std/path";
+import { test } from "node:test";
+import { readTextFile } from "./lib/fs.ts";
+import { assert, assertEquals } from "./lib/assert.ts";
+import * as path from "node:path";
 import {
   aggregatePassed,
   AUTHORING_FAST_FILTER,
@@ -11,7 +13,7 @@ import {
 import { formatSolution } from "./lib/format.ts";
 import { TASKS } from "./main.ts";
 
-Deno.test("shared inputs, SDK, tooling, unknown paths and both rename sides require full", () => {
+test("shared inputs, SDK, tooling, unknown paths and both rename sides require full", () => {
   for (
     const changed of [
     "src/HardwareTest.Core/Engine/Engine.cs",
@@ -39,7 +41,7 @@ Deno.test("shared inputs, SDK, tooling, unknown paths and both rename sides requ
       "global.json",
       "NuGet.Config",
       "dirs.proj",
-      "tools/ci/deno.lock",
+      "tools/ci/package.json",
       "src/HardwareTest/Features/Results/packages.lock.json",
       "tests/HardwareTest.ViewModels.Tests/HardwareTest.ViewModels.Tests.csproj",
       ".github/workflows/ci.yml",
@@ -54,7 +56,7 @@ Deno.test("shared inputs, SDK, tooling, unknown paths and both rename sides requ
   assertEquals(classifyPaths([]), "full");
 });
 
-Deno.test("known operator UI and docs use fast; non-PR and absent diff always use full", () => {
+test("known operator UI and docs use fast; non-PR and absent diff always use full", () => {
   const paths = [
     "src/HardwareTest/Features/RunTest/RunTestViewModel.cs",
     "docs/testing.md",
@@ -100,7 +102,7 @@ Deno.test("known operator UI and docs use fast; non-PR and absent diff always us
   }
 });
 
-Deno.test("aggregate rejects failed, cancelled, skipped and missing required children", () => {
+test("aggregate rejects failed, cancelled, skipped and missing required children", () => {
   for (const result of ["failure", "cancelled", "skipped", "", "unknown"]) {
     assertEquals(
       aggregatePassed({ policy: "success", child: result }, [
@@ -135,7 +137,7 @@ Deno.test("aggregate rejects failed, cancelled, skipped and missing required chi
   );
 });
 
-Deno.test("format workspace includes each traversal project once with safe XML paths", () => {
+test("format workspace includes each traversal project once with safe XML paths", () => {
   const root = path.resolve("format-fixture");
   const projects = ["src/A/A.csproj", "tests/B/B.csproj", "src/R&D/R&D.csproj"]
     .map((project) => path.join(root, project));
@@ -145,7 +147,7 @@ Deno.test("format workspace includes each traversal project once with safe XML p
   assert(xml.includes("B.csproj"));
 });
 
-Deno.test("fast authoring keeps logical compatibility, progress and pre-SDK safety guards", async () => {
+test("fast authoring keeps logical compatibility, progress and pre-SDK safety guards", async () => {
   assertEquals(AUTHORING_FAST_FILTER, "Category!=AuthoringIntegration");
   const directory = new URL(
     "../../tests/HardwareTest.Authoring.Tests/",
@@ -159,7 +161,7 @@ Deno.test("fast authoring keeps logical compatibility, progress and pre-SDK safe
       "AuthoringDocumentStoreTests",
     ]
   ) {
-    const source = await Deno.readTextFile(new URL(`${file}.cs`, directory));
+    const source = await readTextFile(new URL(`${file}.cs`, directory));
     assertEquals(
       source.includes('[Trait("Category", "AuthoringIntegration")]'),
       false,
@@ -181,7 +183,7 @@ Deno.test("fast authoring keeps logical compatibility, progress and pre-SDK safe
     ],
   };
   for (const [file, methods] of Object.entries(guards)) {
-    const source = await Deno.readTextFile(new URL(`${file}.cs`, directory));
+    const source = await readTextFile(new URL(`${file}.cs`, directory));
     const classDeclaration = source.indexOf(`public sealed class ${file}`);
     assert(classDeclaration >= 0, `Missing guard class ${file}`);
     assertEquals(
@@ -225,11 +227,11 @@ Deno.test("fast authoring keeps logical compatibility, progress and pre-SDK safe
   assert(AUTHORING_UI_WINDOWS_FILTER.includes("AuthoringOperationWindowTests"));
 });
 
-Deno.test("reusable workflow preserves platform gates, required aggregates and real publish verification", async () => {
-  const workflow = await Deno.readTextFile(
+test("reusable workflow preserves platform gates, required aggregates and real publish verification", async () => {
+  const workflow = await readTextFile(
     new URL("../../.github/workflows/ci.yml", import.meta.url),
   );
-  const suite = await Deno.readTextFile(
+  const suite = await readTextFile(
     new URL("../../.github/workflows/ci-suite.yml", import.meta.url),
   );
   for (const yaml of [workflow, suite]) {
@@ -269,7 +271,7 @@ Deno.test("reusable workflow preserves platform gates, required aggregates and r
   assert(suite.includes('main.ts test:e2e --rid "$CI_RID"\n')); // Windows is blocking.
   assert(suite.includes('main.ts test:e2e --rid "$CI_RID" --advisory-e2e'));
   const globalJson = JSON.parse(
-    await Deno.readTextFile(new URL("../../global.json", import.meta.url)),
+    await readTextFile(new URL("../../global.json", import.meta.url)),
   );
   assert(suite.includes(`dotnet-version: "${globalJson.sdk.version}"`));
   for (
@@ -285,9 +287,9 @@ Deno.test("reusable workflow preserves platform gates, required aggregates and r
     assert(suite.includes(identity), identity);
   }
   const config = JSON.parse(
-    await Deno.readTextFile(new URL("./deno.json", import.meta.url)),
+    await readTextFile(new URL("./package.json", import.meta.url)),
   );
   for (const task of TASKS) {
-    assertEquals(config.tasks[task], `deno run -A main.ts ${task}`);
+    assertEquals(config.scripts[task], `node main.ts ${task}`);
   }
 });
