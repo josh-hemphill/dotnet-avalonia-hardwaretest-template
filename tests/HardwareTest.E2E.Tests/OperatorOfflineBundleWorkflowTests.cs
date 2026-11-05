@@ -205,6 +205,58 @@ public sealed class OperatorOfflineBundleWorkflowTests
         finally { vm?.StopOfflineBundleInspection(); Directory.Delete(root, true); app.RequestedThemeVariant = oldTheme; }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Watcher_recovery_yields_to_outer_navigation_focus_moved_after_revocation_before_layout(bool dark)
+    {
+        var app = E2EHarness.RequireApp(); var oldTheme = app.RequestedThemeVariant;
+        app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        using var shown = E2EHarness.ShowMainWindow(); var window = shown.Window;
+        window.Width = 900; window.Height = 600; window.FontSize = 20; shown.Main.IsNavPaneOpen = false;
+        var root = Path.Combine(Path.GetTempPath(), "offline-outer-focus-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        SettingsViewModel? vm = null;
+        System.ComponentModel.PropertyChangedEventHandler? invalidated = null;
+        try
+        {
+            shown.Main.NavigateToPageId("Settings"); await E2EHarness.PumpUiAsync();
+            vm = Assert.IsType<SettingsViewModel>(shown.Main.CurrentPage);
+            vm.OfflineBundleInspector = (_, _) => Task.FromResult(new OfflineBundleInspection("Outer focus UI fixture", "Injected UI result; real watcher remains active."));
+            Named<Expander>(window, "Offline bench bundle").IsExpanded = true;
+            vm.OfflineBundlePath = root; await vm.CheckOfflineBundleCommand.ExecuteAsync(); Settle(window);
+            Named<Expander>(window, "Offline bundle installation instructions").IsExpanded = true; Settle(window);
+            Type(window, Named<TextBox>(window, "New operator copy folder"), root + " new app");
+            Type(window, Named<TextBox>(window, "Fresh operator data folder"), root + " fresh data");
+            var copy = Named<Button>(window, "Copy offline bundle installation command"); Enter(window, copy);
+            await E2EHarness.WaitUntilAsync(() => copy.IsEnabled && vm.OfflineBundleCommandStatus.StartsWith("Copied installation command", StringComparison.Ordinal));
+            Settle(window); window.FocusManager!.Focus(null); Assert.True(copy.Focus());
+            var outer = Named<Button>(window, "Toggle navigation");
+            Assert.DoesNotContain(outer.GetVisualAncestors(), ancestor => ancestor is SettingsView);
+            var scheduled = false; var moveRan = false; var moved = false;
+            invalidated = (_, args) =>
+            {
+                if (scheduled || args.PropertyName != nameof(SettingsViewModel.HasOfflineBundleInspection) || vm.HasOfflineBundleInspection) return;
+                scheduled = true;
+                // The pre-hide event already queued Loaded recovery. A new shell focus request
+                // runs first at Normal and never bubbles through Settings' local activity tracker.
+                Dispatcher.UIThread.Post(() => { moved = outer.Focus(); moveRan = true; }, DispatcherPriority.Normal);
+            };
+            vm.PropertyChanged += invalidated;
+            File.WriteAllText(Path.Combine(root, "source-mutated.txt"), "real watcher race");
+            await E2EHarness.WaitUntilAsync(() => !vm.HasOfflineBundleInspection && moveRan);
+            await E2EHarness.PumpUiAsync(); Settle(window);
+            Assert.True(scheduled); Assert.True(moved); Assert.True(outer.IsFocused);
+            Assert.False(Named<TextBox>(window, "Offline bundle folder").IsFocused);
+            Assert.Empty(vm.OfflineBundleInstallationCommand);
+            Assert.Contains("Bundle files changed", vm.OfflineBundleStatus, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (vm is not null && invalidated is not null) vm.PropertyChanged -= invalidated;
+            vm?.StopOfflineBundleInspection(); Directory.Delete(root, true); app.RequestedThemeVariant = oldTheme;
+        }
+    }
+
     private static T Named<T>(Control root, string name) where T : Control => Assert.Single(root.GetVisualDescendants().OfType<T>(),
         control => control.IsEffectivelyVisible && AutomationProperties.GetName(control) == name);
     private static void Enter(Window window, Button button)

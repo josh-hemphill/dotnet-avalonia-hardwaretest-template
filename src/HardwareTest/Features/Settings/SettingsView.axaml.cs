@@ -120,7 +120,12 @@ public partial class SettingsView : UserControl
         if (focused is not null && !IsWithinOfflineInspection(focused)) return;
         var activity = _offlineBundleFocusActivity;
         var generation = vm.OfflineBundleGeneration;
-        FocusOfflineField("Offline bundle folder", () => activity == _offlineBundleFocusActivity && generation == vm.OfflineBundleGeneration);
+        FocusOfflineField("Offline bundle folder", () =>
+        {
+            var current = owner.FocusManager?.GetFocusedElement();
+            return activity == _offlineBundleFocusActivity && generation == vm.OfflineBundleGeneration
+                && (current is null || IsWithinOfflineInspection(current));
+        });
     }
 
     private void FocusOfflineField(string name) => FocusOfflineField(name, null);
