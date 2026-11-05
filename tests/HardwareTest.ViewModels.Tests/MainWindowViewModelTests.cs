@@ -310,14 +310,14 @@ public sealed class MainWindowViewModelTests
             clock: clock);
         var vm = CreateMain(store, new FakeOpenTapSession(), new FakeRunControl(), settings: settings);
 
-        Assert.Contains("none", settings.StationHealthSummary, StringComparison.Ordinal);
+        Assert.Equal("No station-health result is stored.", settings.StationHealthSummary);
         await health.WriteAsync(new StationHealthRecord
         {
             ProfileId = FileStationHealthStore.DefaultProfileId,
             MeasuredAt = clock.UtcNow.AddHours(-2),
             Verdict = StationHealthVerdicts.Pass,
         });
-        Assert.Contains("none", settings.StationHealthSummary, StringComparison.Ordinal);
+        Assert.Equal("No station-health result is stored.", settings.StationHealthSummary);
 
         vm.NavigateToPageId(ShellNavigationPolicy.Settings);
         Assert.Contains("Pass", settings.StationHealthSummary, StringComparison.Ordinal);

@@ -6,78 +6,38 @@
              xmlns:shell="using:HardwareTest.Features.Shell"
              x:Class="HardwareTest.Features.RunTest.RunChartWorkspaceView"
              x:DataType="vm:RunTestViewModel">
-  <DockPanel>
-    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
-      <StackPanel Orientation="Horizontal" Spacing="8">
-        <Button Content="Back to steps"
-                Command="{Binding Workspace.OpenStepsCommand}"
-                Classes="operator" />
-        <ComboBox ItemsSource="{Binding Live.AvailableSeries}"
-                   SelectedItem="{Binding Live.SelectedSeries, Mode=TwoWay}"
-                   MinWidth="200"
-                   MaxDropDownHeight="280"
-                   AutomationProperties.Name="Metric">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:LiveSeriesItemViewModel">
-              <TextBlock Text="{Binding DisplayName}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
+  <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8" AutomationProperties.Name="Live chart workspace">
+    <Grid x:Name="ChartControls" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+      <Button Content="Back to steps" Command="{Binding Workspace.OpenStepsCommand}" Classes="operator"
+              VerticalAlignment="Bottom" AutomationProperties.Name="Back to steps"/>
+      <StackPanel Grid.Column="1" Spacing="4">
+        <TextBlock x:Name="ChartMetricLabel" Text="Metric"/>
+        <ComboBox ItemsSource="{Binding Live.AvailableSeries}" SelectedItem="{Binding Live.SelectedSeries, Mode=TwoWay}"
+                  HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="280"
+                  AutomationProperties.Name="Metric" AutomationProperties.LabeledBy="{Binding #ChartMetricLabel}">
+          <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:LiveSeriesItemViewModel">
+            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding DisplayName}"/>
+          </DataTemplate></ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBlock Text="Sample window"
-                   VerticalAlignment="Center"
-                   Opacity="0.8"
-                   ToolTip.Tip="{x:Static vm:ChartTimeWindow.OperatorTip}" />
-        <ComboBox ItemsSource="{Binding Live.TimeWindows}"
-                   SelectedItem="{Binding Live.SelectedTimeWindow, Mode=TwoWay}"
-                   MinWidth="130"
-                   ToolTip.Tip="{x:Static vm:ChartTimeWindow.OperatorTip}"
-                   AutomationProperties.Name="Sample window">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="vm:ChartTimeWindow">
-              <TextBlock Text="{Binding Label}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-        <ToggleButton Content="Follow live"
-                      Classes="filter-chip"
-                      IsChecked="{Binding Live.FollowLive}" />
-        <Button Content="Reset"
-                Command="{Binding Live.ResetViewCommand}"
-                Classes="operator" />
-        <Button Content="Clear readout"
-                Command="{Binding Live.ClearCursorCommand}"
-                Classes="operator"
-                IsVisible="{Binding Live.HasCursor}" />
       </StackPanel>
-      <TextBlock Text="{x:Static vm:ChartTimeWindow.OperatorTip}"
-                 Opacity="0.65"
-                 TextWrapping="Wrap"
-                 FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-    </StackPanel>
-    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="16" Margin="0,8,0,0">
-      <TextBlock Text="{Binding Live.ChartValueText}" FontWeight="SemiBold" FontSize="16" />
-      <TextBlock Text="{Binding Live.ChartElapsedText}"
-                 VerticalAlignment="Center"
-                 FontWeight="SemiBold"
-                 IsVisible="{Binding Live.ChartElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-      <TextBlock Text="{Binding Live.ChartEventLabel}"
-                 VerticalAlignment="Center"
-                 Opacity="0.85"
-                 IsVisible="{Binding Live.ChartEventLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-      <TextBlock Text="{Binding Live.ChartBandText}"
-                 VerticalAlignment="Center"
-                 FontWeight="SemiBold" />
-      <TextBlock Text="{Binding Live.ChartAgeText}"
-                 Opacity="0.75"
-                 VerticalAlignment="Center"
-                 FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-      <TextBlock Text="{x:Static vm:LivePresentationViewModel.CursorHint}"
-                 Opacity="0.65"
-                 VerticalAlignment="Center"
-                 FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
-                 IsVisible="{Binding !Live.HasCursor}" />
-    </StackPanel>
-    <Panel>
+      <Button x:Name="ChartOptionsButton" Grid.Column="2" Content="Chart options" Classes="operator" VerticalAlignment="Bottom" AutomationProperties.Name="Chart options">
+        <Button.Flyout><Flyout><ScrollViewer Width="280" MaxHeight="360" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="10">
+            <TextBlock x:Name="ChartWindowLabel" Text="Sample window" FontWeight="SemiBold"/>
+            <ComboBox ItemsSource="{Binding Live.TimeWindows}" SelectedItem="{Binding Live.SelectedTimeWindow, Mode=TwoWay}"
+                      MinHeight="40" HorizontalAlignment="Stretch" AutomationProperties.Name="Sample window"
+                      AutomationProperties.LabeledBy="{Binding #ChartWindowLabel}">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:ChartTimeWindow"><TextBlock Text="{Binding Label}"/></DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox>
+            <ToggleButton Content="Follow live" Classes="filter-chip" IsChecked="{Binding Live.FollowLive}" AutomationProperties.Name="Follow live chart"/>
+            <Button Content="Reset chart" Command="{Binding Live.ResetViewCommand}" Classes="operator" AutomationProperties.Name="Reset chart view"/>
+            <Button Content="Clear readout" Command="{Binding Live.ClearCursorCommand}" Classes="operator" IsVisible="{Binding Live.HasCursor}" AutomationProperties.Name="Clear chart readout"/>
+            <TextBlock Text="{x:Static vm:ChartTimeWindow.OperatorTip}" TextWrapping="Wrap"/>
+          </StackPanel>
+        </ScrollViewer></Flyout></Button.Flyout>
+      </Button>
+    </Grid>
+    <Panel Grid.Row="1">
       <DockPanel>
         <widgetsPres:TimingStripView DockPanel.Dock="Bottom"
                                      Margin="0,6,0,0"
@@ -87,7 +47,7 @@
                                      IsVisible="{Binding Live.HasTimingStrip}" />
         <Panel>
           <widgets:MeasurementPlotView x:Name="Plot"
-                                       MinHeight="{x:Static shell:OperatorTouchDensity.ChartPlotMinHeight}"
+                                       MinHeight="0"
                                        VerticalAlignment="Stretch" />
           <TextBlock Text="{Binding Live.ChartEmptyText}"
                      HorizontalAlignment="Center"
@@ -97,5 +57,15 @@
         </Panel>
       </DockPanel>
     </Panel>
-  </DockPanel>
+    <WrapPanel x:Name="ChartReadout" Grid.Row="2">
+      <TextBlock Text="{Binding Live.ChartValueText}" FontWeight="SemiBold" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"/>
+      <TextBlock Text="{Binding Live.ChartElapsedText}" FontWeight="SemiBold" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"
+                 IsVisible="{Binding Live.ChartElapsedText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <TextBlock Text="{Binding Live.ChartEventLabel}" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"
+                 IsVisible="{Binding Live.ChartEventLabel, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <TextBlock Text="{Binding Live.ChartBandText}" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"/>
+      <TextBlock Text="{Binding Live.ChartAgeText}" Margin="0,0,16,4" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"/>
+      <TextBlock Text="Tap the chart for a readout." ToolTip.Tip="{x:Static vm:LivePresentationViewModel.CursorHint}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" Margin="0,0,16,4" IsVisible="{Binding !Live.HasCursor}"/>
+    </WrapPanel>
+  </Grid>
 </UserControl>

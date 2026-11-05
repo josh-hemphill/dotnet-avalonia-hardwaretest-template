@@ -16,17 +16,23 @@ public partial class ProgramSelectionViewModel : ReactiveObject
     private readonly Func<bool> _isEngineerDebugMode;
     private readonly Func<CancellationToken, Task> _loadSelectedProgramAsync;
     private readonly Action _onCatalogRefreshed;
+    private readonly Func<bool> _isSelectedProgramReady;
+    private readonly Func<bool> _isRunning;
 
     public ProgramSelectionViewModel(
         Action<string> setStatus,
         Func<bool>? isEngineerDebugMode = null,
         Func<CancellationToken, Task>? loadSelectedProgramAsync = null,
-        Action? onCatalogRefreshed = null)
+        Action? onCatalogRefreshed = null,
+        Func<bool>? isSelectedProgramReady = null,
+        Func<bool>? isRunning = null)
     {
         _setStatus = setStatus;
         _isEngineerDebugMode = isEngineerDebugMode ?? (() => false);
         _loadSelectedProgramAsync = loadSelectedProgramAsync ?? (_ => Task.CompletedTask);
         _onCatalogRefreshed = onCatalogRefreshed ?? (() => { });
+        _isSelectedProgramReady = isSelectedProgramReady ?? (() => true);
+        _isRunning = isRunning ?? (() => false);
 
         RefreshProgramsCommand = ReactiveCommand.CreateFromTask(() => RefreshProgramsAsync());
         OpenPlanFileCommand = ReactiveCommand.CreateFromTask(OpenPlanFileAsync);
@@ -45,6 +51,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
 
     public async Task RefreshProgramsAsync(CancellationToken cancellationToken = default)
     {
+        if (!CanChangePrograms()) return;
         if (IsBusy)
         {
             return;
@@ -89,7 +96,10 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            _setStatus($"Loaded {Programs.Count} program(s).");
+            if (SelectedProgram is null)
+                _setStatus("No test programs are available. Ask a station technician to install the assigned program, then Reload programs.");
+            else if (_isSelectedProgramReady())
+                _setStatus($"Loaded {Programs.Count} program(s).");
             _onCatalogRefreshed();
         }
         finally
@@ -100,6 +110,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
 
     private async Task OpenPlanFileAsync()
     {
+        if (!CanChangePrograms()) return;
         if (!_isEngineerDebugMode())
         {
             _setStatus("Open arbitrary plan requires Engineer/Debug mode.");
@@ -125,6 +136,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             {
                 return;
             }
+            if (!CanChangePrograms()) return;
 
             var item = new ProgramItemViewModel
             {
@@ -138,11 +150,18 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             Programs.Add(item);
             SelectedProgram = item;
             await _loadSelectedProgramAsync(CancellationToken.None);
-            _setStatus($"Opened {item.DisplayName}");
+            if (_isSelectedProgramReady()) _setStatus($"Opened {item.DisplayName}");
         }
         finally
         {
             IsBusy = false;
         }
+    }
+
+    private bool CanChangePrograms()
+    {
+        if (!_isRunning()) return true;
+        _setStatus("Finish or Stop Run before changing test programs.");
+        return false;
     }
 }

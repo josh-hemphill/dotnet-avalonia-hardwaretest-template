@@ -1,429 +1,248 @@
-<UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="using:HardwareTest.Features.Settings"
-             xmlns:conv="using:HardwareTest.Converters"
-             x:Class="HardwareTest.Features.Settings.SettingsView"
-             x:DataType="vm:SettingsViewModel">
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Features.Settings" xmlns:conv="using:HardwareTest.Converters" x:Class="HardwareTest.Features.Settings.SettingsView" x:DataType="vm:SettingsViewModel">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,16,12" MaxWidth="920">
-      <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold"
-                 AutomationProperties.HeadingLevel="1" />
-      <TextBlock Text="Theme, engineer options, storage gates, and About. Save writes writable fields to settings.json; env/CLI overlays stay out of the file."
-                 TextWrapping="Wrap"
-                 Opacity="0.8" />
-      <StackPanel Orientation="Horizontal" Spacing="12">
-        <Button Content="Save all settings" Command="{Binding SaveCommand}"
-                IsEnabled="{Binding !IsBusy}"
-                ToolTip.Tip="Writes writable Settings fields to settings.json" />
-        <TextBlock Text="Saving…"
-                   IsVisible="{Binding IsBusy}"
-                   VerticalAlignment="Center"
-                   FontWeight="SemiBold"
-                   Opacity="0.8" />
-      </StackPanel>
-      <TextBlock Text="{Binding Status}"
-                 MinHeight="20"
-                 TextWrapping="NoWrap"
-                 TextTrimming="CharacterEllipsis" />
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Text="Settings" FontSize="22" FontWeight="SemiBold" AutomationProperties.HeadingLevel="1" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        <Button Grid.Column="1" Content="Save all settings" Command="{Binding SaveCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Save all settings"/>
+      </Grid>
+      <TextBlock Text="Station readiness, operator preferences and setup." TextWrapping="Wrap" Opacity="0.8"/>
+      <TextBlock Text="{Binding Status}" MinHeight="20" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Settings feedback"/>
     </StackPanel>
-
-    <ScrollViewer>
-      <StackPanel Spacing="10" Margin="0,0,16,0" MaxWidth="920">
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="DataDirectoryLabel" Text="Data directory" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True"
-                   AutomationProperties.LabeledBy="{Binding #DataDirectoryLabel}"
-                   AutomationProperties.Name="Data directory" />
-        </Grid>
-
-        <TextBlock Text="Theme" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" />
-          <ComboBox Grid.Column="1"
-                    ItemsSource="{Binding ThemeOptions}"
-                    SelectedItem="{Binding ThemePreference}"
-                    IsEnabled="{Binding !ThemePreferenceReadOnly}"
-                    MinWidth="160"
-                    AutomationProperties.LabeledBy="{Binding #ThemeLabel}"
-                    AutomationProperties.Name="Theme" />
-        </Grid>
-
-        <TextBlock Text="Engineer" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <CheckBox Content="Engineer / debug mode"
-                  IsChecked="{Binding IsEngineerDebugMode}"
-                  IsEnabled="{Binding !IsEngineerDebugModeReadOnly}"
-                  ToolTip.Tip="Presentation only — not authentication. Unlocks Inspect, Instruments, on-bench overlays, and opening arbitrary .TapPlan files." />
-        <TextBlock Text="Presentation only — not a login. Operators keep Home, Run, Results, and Settings; Inspect and Instruments appear after Save."
-                   TextWrapping="Wrap"
-                   Opacity="0.75"
-                   FontSize="12"
-                   Margin="28,0,0,8" />
-
-        <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
-          <CheckBox Content="Use mock VISA"
-                    IsChecked="{Binding UseMockVisa}"
-                    IsEnabled="{Binding !UseMockVisaReadOnly}"
-                    ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." />
-
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock x:Name="LogLevelLabel" Text="Log level" VerticalAlignment="Center" />
-            <ComboBox Grid.Column="1"
-                      ItemsSource="{Binding LogLevelOptions}"
-                      SelectedItem="{Binding LogMinimumLevel}"
-                      IsEnabled="{Binding !LogMinimumLevelReadOnly}"
-                      MinWidth="160"
-                      AutomationProperties.LabeledBy="{Binding #LogLevelLabel}"
-                      AutomationProperties.Name="Log level" />
-          </Grid>
-
-          <CheckBox Content="Windows Event Log"
-                    IsVisible="{Binding ShowEventLogOptions}"
-                    IsChecked="{Binding EnableOsEventSink}"
-                    IsEnabled="{Binding !EnableOsEventSinkReadOnly}" />
-
-          <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
-            <CheckBox Content="Unix Syslog"
-                      IsChecked="{Binding EnableSyslogOnUnix}"
-                      IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" />
-            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-              <TextBlock x:Name="SyslogHostLabel" Text="Syslog host" VerticalAlignment="Center" />
-              <TextBox Grid.Column="1" Text="{Binding SyslogHost}"
-                       IsReadOnly="{Binding SyslogHostReadOnly}"
-                       AutomationProperties.LabeledBy="{Binding #SyslogHostLabel}"
-                       AutomationProperties.Name="Syslog host" />
-            </Grid>
-            <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-              <TextBlock x:Name="SyslogPortLabel" Text="Syslog port" VerticalAlignment="Center" />
-              <TextBox Grid.Column="1" Text="{Binding SyslogPort}"
-                       IsReadOnly="{Binding SyslogPortReadOnly}"
-                       AutomationProperties.LabeledBy="{Binding #SyslogPortLabel}"
-                       AutomationProperties.Name="Syslog port" />
-            </Grid>
+    <ScrollViewer x:Name="SettingsViewport" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Settings page viewport">
+      <StackPanel Spacing="16" Margin="0,0,16,16" MaxWidth="920">
+        <Border Padding="16" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
+          <StackPanel Spacing="6">
+            <TextBlock Text="Station readiness" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+            <TextBlock Text="{Binding StationHealthSummary}" TextWrapping="Wrap" AutomationProperties.Name="Station health summary"/>
+            <TextBlock Text="{Binding StationHealthNextStep}" TextWrapping="Wrap" AutomationProperties.Name="Station readiness next action"/>
+            <WrapPanel>
+              <Button Content="Open Run" Click="OnOpenRun" Classes="operator" AutomationProperties.Name="Open station readiness on Run" Margin="0,0,8,4"/>
+              <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" Classes="operator" AutomationProperties.Name="Copy station diagnostics" Margin="0,0,0,4"/>
+            </WrapPanel>
           </StackPanel>
-
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock x:Name="PlotRefreshLabel" Text="Plot refresh Hz" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}"
-                     IsReadOnly="{Binding PlotRefreshHzReadOnly}"
-                     AutomationProperties.LabeledBy="{Binding #PlotRefreshLabel}"
-                     AutomationProperties.Name="Plot refresh Hz" />
-          </Grid>
-
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock x:Name="IdleMinutesLabel" Text="DUT session idle (minutes)" VerticalAlignment="Center"
-                       ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." />
-            <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}"
-                     IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}"
-                     AutomationProperties.LabeledBy="{Binding #IdleMinutesLabel}"
-                     AutomationProperties.Name="DUT session idle (minutes)" />
-          </Grid>
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock x:Name="IdleWarnLabel" Text="Idle soft-warn %" VerticalAlignment="Center"
-                       ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." />
-            <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}"
-                     IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}"
-                     AutomationProperties.LabeledBy="{Binding #IdleWarnLabel}"
-                     AutomationProperties.Name="Idle soft-warn %" />
-          </Grid>
-          <CheckBox Content="Confirm DUT every run"
-                    IsChecked="{Binding RequireDutConfirmEveryRun}"
-                    IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}"
-                    ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." />
-        </StackPanel>
-
-        <CheckBox Content="Embed plots in report"
-                  IsChecked="{Binding EmbedPlotsInReport}"
-                  IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" />
-
-        <CheckBox Content="Export OpenTAP results (CSV)"
-                  IsChecked="{Binding ExportOpenTapResults}"
-                  IsEnabled="{Binding !ExportOpenTapResultsReadOnly}"
-                  ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." />
-
-        <CheckBox Content="DUT history on Run board"
-                  IsChecked="{Binding ShowDutHistoryOnRun}"
-                  IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}"
-                  ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." />
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="Operator credential" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Chip (insert) and tap (contactless) fill the technician field from the badge certificate subject (or SAN email) and sign a certification report before export or print. Presence-only is a site-policy fallback when the organization cannot use on-card signatures — it is not a substitute for signing."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="SigningBackendLabel" Text="Physical signing backend" VerticalAlignment="Center" />
-          <ComboBox Grid.Column="1" ItemsSource="{Binding SigningBackendOptions}" SelectedItem="{Binding PhysicalSigningBackend}"
-                    IsEnabled="{Binding !PhysicalSigningBackendReadOnly}" AutomationProperties.LabeledBy="{Binding #SigningBackendLabel}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="Pkcs11PathLabel" Text="PKCS#11 middleware path" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding Pkcs11LibraryPath}" IsReadOnly="{Binding Pkcs11LibraryPathReadOnly}"
-                   AutomationProperties.LabeledBy="{Binding #Pkcs11PathLabel}" PlaceholderText="Automatic discovery when empty" />
-        </Grid>
-        <Button Content="Check signing setup" Command="{Binding CheckSigningSetupCommand}" />
-        <TextBlock Text="{Binding SigningSetupStatus}" TextWrapping="Wrap" />
-        <CheckBox Content="Use mock badge"
-                  IsChecked="{Binding UseMockOperatorCredential}"
-                  IsEnabled="{Binding !UseMockOperatorCredentialReadOnly}"
-                  ToolTip.Tip="CI and benches without a reader. Applies on the next tap." />
-        <CheckBox Content="Require badge when technician is required"
-                  IsChecked="{Binding RequireCredentialForOperator}"
-                  IsEnabled="{Binding !RequireCredentialForOperatorReadOnly}"
-                  ToolTip.Tip="Session confirm still needs DUT identity. This only requires a chip or tap when the program requires a technician." />
-        <CheckBox Content="Require attestation before certification export or print"
-                  IsChecked="{Binding RequireAttestationBeforeExport}"
-                  IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}"
-                  ToolTip.Tip="Gates exporting or printing a certification PDF until a badge is presented. Opening and preview stay available so the operator can review before signing." />
-        <CheckBox Content="Allow presence when signing cannot be used"
-                  IsChecked="{Binding AllowPresenceInLieuOfSigning}"
-                  IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}"
-                  ToolTip.Tip="Site-policy fallback when the organization cannot use on-card signatures. The app still signs when the card can." />
-        <CheckBox Content="Start probing when technician is focused"
-                  IsChecked="{Binding ProbeBadgeWhenTechnicianFocused}"
-                  IsEnabled="{Binding !ProbeBadgeWhenTechnicianFocusedReadOnly}"
-                  ToolTip.Tip="When on, focusing an empty technician field waits for a chip insert or tap. The Tap or insert button still works." />
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="Storage" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="RetentionDaysLabel" Text="Retention days" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}"
-                   IsReadOnly="{Binding RunRetentionDaysReadOnly}"
-                   ToolTip.Tip="0 disables age-based retention"
-                   AutomationProperties.LabeledBy="{Binding #RetentionDaysLabel}"
-                   AutomationProperties.Name="Retention days" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="MaxRunsLabel" Text="Max retained runs" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}"
-                   IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}"
-                   ToolTip.Tip="0 disables count-based retention"
-                   AutomationProperties.LabeledBy="{Binding #MaxRunsLabel}"
-                   AutomationProperties.Name="Max retained runs" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="ExportDirectoryLabel" Text="Export directory" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding ExportDirectory}"
-                   IsReadOnly="{Binding ExportDirectoryReadOnly}"
-                   PlaceholderText="Optional fixed export path"
-                   ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder are listed only when this path is empty and no removable media is present."
-                   AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}"
-                   AutomationProperties.Name="Export directory" />
-        </Grid>
-        <CheckBox Content="Prefer removable media for export"
-                  IsChecked="{Binding PreferRemovableExport}"
-                  IsEnabled="{Binding !PreferRemovableExportReadOnly}"
-                  ToolTip.Tip="When on (default), inserted USB/SD volumes are listed first in Results → Export package. When off, Settings → Export directory is listed first." />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="WarnFreeLabel" Text="Warn free space (GB)" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}"
-                   IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}"
-                   AutomationProperties.LabeledBy="{Binding #WarnFreeLabel}"
-                   AutomationProperties.Name="Warn free space (GB)" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="CriticalFreeLabel" Text="Critical free space (GB)" VerticalAlignment="Center" />
-          <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}"
-                   IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}"
-                   AutomationProperties.LabeledBy="{Binding #CriticalFreeLabel}"
-                   AutomationProperties.Name="Critical free space (GB)" />
-        </Grid>
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="Clock" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Idle, retention, and run timestamps use an injected clock. Skew above the threshold warns on the shell strip and does not block Run."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="ClockSkewLabel" Text="Clock skew warn (minutes)" VerticalAlignment="Center"
-                     ToolTip.Tip="Warn when the local clock differs from NTP, or jumps backward vs last-known-good, by more than this many minutes. Default 5." />
-          <TextBox Grid.Column="1" Text="{Binding ClockSkewWarnThresholdMinutes}"
-                   IsReadOnly="{Binding ClockSkewWarnThresholdMinutesReadOnly}"
-                   AutomationProperties.LabeledBy="{Binding #ClockSkewLabel}"
-                   AutomationProperties.Name="Clock skew warn (minutes)" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock x:Name="NtpHostLabel" Text="NTP host (optional)" VerticalAlignment="Center"
-                     ToolTip.Tip="Local NTP or domain time host. Empty skips the NTP query and uses last-known-good only. Safety Stop never waits on NTP." />
-          <TextBox Grid.Column="1" Text="{Binding NtpHost}"
-                   IsReadOnly="{Binding NtpHostReadOnly}"
-                   PlaceholderText="Empty = last-known-good only"
-                   AutomationProperties.LabeledBy="{Binding #NtpHostLabel}"
-                   AutomationProperties.Name="NTP host (optional)" />
-        </Grid>
-
-        <Separator Margin="0,8" />
-
-        <StackPanel Spacing="6" IsVisible="{Binding ShowStationHealthSummary}">
-          <TextBlock Text="Station health" Classes="settings-h2"
-                     AutomationProperties.HeadingLevel="2" />
-          <TextBlock Text="{Binding StationHealthSummary}"
-                     TextWrapping="Wrap"
-                     AutomationProperties.Name="Station health summary" />
-          <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-            <TextBlock x:Name="HealthGateLabel" Text="Gate override" VerticalAlignment="Center"
-                       ToolTip.Tip="Empty follows the DUT sidecar. off disables the gate; warn or block pins enforcement. Env HARDWARETEST_STATION_HEALTH_GATE." />
-            <TextBox Grid.Column="1" Text="{Binding StationHealthGateOverride}"
-                     IsReadOnly="{Binding StationHealthGateOverrideReadOnly}"
-                     PlaceholderText="Empty = follow sidecar"
-                     AutomationProperties.LabeledBy="{Binding #HealthGateLabel}"
-                     AutomationProperties.Name="Station health gate override" />
-          </Grid>
-          <Button Content="Copy store path"
-                  Command="{Binding CopyStationHealthPathCommand}"
-                  IsVisible="{Binding IsEngineerDebugMode}"
-                  HorizontalAlignment="Left"
-                  AutomationProperties.Name="Copy station health store path" />
-        </StackPanel>
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="About" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="What is running on this bench (build-stamped version, runtime, OpenTAP engine)."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Version" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutVersion}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Commit" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1"
-                     Text="{Binding AboutCommit, Converter={x:Static conv:ShortIdConverter.Instance}}"
-                     VerticalAlignment="Center"
-                     ToolTip.Tip="{Binding AboutCommit}" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Build (UTC)" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutBuildTimestamp}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Runtime" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutRuntime}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="RID" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutRuntimeIdentifier}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding AboutOpenTapEngine}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <StackPanel Spacing="6" IsVisible="{Binding HasShellApps}">
-          <TextBlock Text="Baked shell applications" Opacity="0.8" TextWrapping="Wrap" />
-          <ItemsControl ItemsSource="{Binding ShellAppSummaries}" />
-        </StackPanel>
-        <Grid ColumnDefinitions="220,*" ColumnSpacing="12">
-          <TextBlock Text="Hardware interlock" VerticalAlignment="Center" />
-          <TextBlock Grid.Column="1" Text="{Binding SafetyInterlockStatus}" VerticalAlignment="Center" TextWrapping="Wrap" />
-        </Grid>
-        <Button Content="Open crashes folder"
-                Command="{Binding OpenCrashesFolderCommand}"
-                IsVisible="{Binding AllowOsFolderBrowse}"
-                HorizontalAlignment="Left" />
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="Diagnostics" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Effective configuration and provenance (defaults → settings.json → environment → command line). Env/CLI overlays are read-only above and are not written back on Save. Copy diagnostics includes the About support block."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-        <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" />
-        <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
-                BorderThickness="1"
-                Padding="8"
-                MaxHeight="280">
-          <ScrollViewer>
-            <StackPanel Spacing="4">
-              <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8">
-                <TextBlock Text="Key" FontWeight="SemiBold" FontSize="12" />
-                <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" FontSize="12" />
-                <TextBlock Grid.Column="2" Text="Source" FontWeight="SemiBold" FontSize="12" />
-                <TextBlock Grid.Column="3" Text="Detail" FontWeight="SemiBold" FontSize="12" />
-              </Grid>
-              <ItemsControl ItemsSource="{Binding ProvenanceRows}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8" Margin="0,2">
-                      <TextBlock Text="{Binding Key}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" FontSize="12" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Grid.Column="2" Text="{Binding Source}" FontSize="12" />
-                      <TextBlock Grid.Column="3" Text="{Binding SourceDetail}" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.8" />
-                    </Grid>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </ScrollViewer>
         </Border>
-
-        <Separator Margin="0,8" />
-
-        <TextBlock Text="OpenTAP packages &amp; plugins" Classes="settings-h2"
-                   AutomationProperties.HeadingLevel="2" />
-        <TextBlock Text="Offline install only (tap package install / bake .TapPackage). Extra plugin directories load from the data directory's plugins folder at startup unless Engineer debug is on. Changing plugin directories requires an application restart — Refresh does not reload assemblies."
-                   TextWrapping="Wrap"
-                   Opacity="0.8" />
-
-        <StackPanel Orientation="Horizontal" Spacing="8">
-          <Button Content="Refresh" Command="{Binding RefreshPackagesCommand}" />
-          <Button Content="Copy path" Command="{Binding CopyPathCommand}" />
-          <Button Content="Open folder"
-                  Command="{Binding OpenFolderCommand}"
-                  IsVisible="{Binding AllowOsFolderBrowse}" />
+        <StackPanel Spacing="12">
+          <TextBlock Text="Operator preferences" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+          <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+            <TextBlock x:Name="ThemeLabel" Text="Theme" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            <ComboBox Grid.Column="1" ItemsSource="{Binding ThemeOptions}" SelectedItem="{Binding ThemePreference}" IsEnabled="{Binding !ThemePreferenceReadOnly}" MinWidth="160" AutomationProperties.LabeledBy="{Binding #ThemeLabel}" AutomationProperties.Name="Theme" MinHeight="40"/>
+          </Grid>
+          <CheckBox Content="Embed plots in report" IsChecked="{Binding EmbedPlotsInReport}" IsEnabled="{Binding !EmbedPlotsInReportReadOnly}" MinHeight="40"/>
+          <CheckBox Content="DUT history on Run board" IsChecked="{Binding ShowDutHistoryOnRun}" IsEnabled="{Binding !ShowDutHistoryOnRunReadOnly}" ToolTip.Tip="When off (default), history appears only on Results. When on, show a summary banner on Run after Pass/Fail." MinHeight="40"/>
+          <CheckBox Content="Prefer removable media for export" IsChecked="{Binding PreferRemovableExport}" IsEnabled="{Binding !PreferRemovableExportReadOnly}" ToolTip.Tip="When on (default), inserted USB/SD volumes are listed first in Results → Export package. When off, Settings → Export directory is listed first." MinHeight="40"/>
         </StackPanel>
-
-        <TextBlock Text="Installed packages" FontWeight="SemiBold" Margin="0,4,0,0" />
-        <ListBox ItemsSource="{Binding Packages}"
-                 SelectedItem="{Binding SelectedPackage}"
-                 MinHeight="100"
-                 MaxHeight="180">
-          <ListBox.ItemTemplate>
-            <DataTemplate>
-              <TextBlock>
-                <TextBlock.Text>
-                  <MultiBinding StringFormat="{}{0}  {1}  —  {2}">
-                    <Binding Path="Name" />
-                    <Binding Path="Version" />
-                    <Binding Path="Path" />
-                  </MultiBinding>
-                </TextBlock.Text>
-              </TextBlock>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-
-        <TextBlock Text="Plugin directories" FontWeight="SemiBold" Margin="0,4,0,0" />
-        <ListBox ItemsSource="{Binding PluginDirectories}"
-                 SelectedItem="{Binding SelectedPluginDirectory}"
-                 MinHeight="80"
-                 MaxHeight="140">
-          <ListBox.ItemTemplate>
-            <DataTemplate>
-              <TextBlock>
-                <TextBlock.Text>
-                  <MultiBinding StringFormat="{}{0}  [{1}]">
-                    <Binding Path="Path" />
-                    <Binding Path="Source" />
-                  </MultiBinding>
-                </TextBlock.Text>
-              </TextBlock>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
+        <Expander Header="Engineer tools and run options" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Engineer settings">
+          <StackPanel Spacing="12">
+            <CheckBox Content="Engineer / debug mode" IsChecked="{Binding IsEngineerDebugMode}" IsEnabled="{Binding !IsEngineerDebugModeReadOnly}" ToolTip.Tip="Presentation only — not authentication. Unlocks Inspect, Instruments, on-bench overlays, and opening arbitrary .TapPlan files." MinHeight="40"/>
+            <TextBlock Text="Show instrument tools, plan inspection and diagnostic controls. This changes presentation only; it does not grant authorization." TextWrapping="Wrap" Opacity="0.75" FontSize="12" Margin="28,0,0,8"/>
+            <StackPanel Spacing="10" IsVisible="{Binding IsEngineerDebugMode}">
+              <CheckBox Content="Use mock VISA" IsChecked="{Binding UseMockVisa}" IsEnabled="{Binding !UseMockVisaReadOnly}" ToolTip.Tip="Applies immediately when idle (no active run or open VISA session). Refused flips revert this checkbox. When off, demo MOCK:: resources cannot run." MinHeight="40"/>
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                <TextBlock x:Name="LogLevelLabel" Text="Log level" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding LogLevelOptions}" SelectedItem="{Binding LogMinimumLevel}" IsEnabled="{Binding !LogMinimumLevelReadOnly}" MinWidth="160" AutomationProperties.LabeledBy="{Binding #LogLevelLabel}" AutomationProperties.Name="Log level" MinHeight="40"/>
+              </Grid>
+              <CheckBox Content="Windows Event Log" IsVisible="{Binding ShowEventLogOptions}" IsChecked="{Binding EnableOsEventSink}" IsEnabled="{Binding !EnableOsEventSinkReadOnly}" MinHeight="40"/>
+              <StackPanel Spacing="10" IsVisible="{Binding ShowSyslogOptions}">
+                <CheckBox Content="Unix Syslog" IsChecked="{Binding EnableSyslogOnUnix}" IsEnabled="{Binding !EnableSyslogOnUnixReadOnly}" MinHeight="40"/>
+                <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                  <TextBlock x:Name="SyslogHostLabel" Text="Syslog host" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                  <TextBox Grid.Column="1" Text="{Binding SyslogHost}" IsReadOnly="{Binding SyslogHostReadOnly}" AutomationProperties.LabeledBy="{Binding #SyslogHostLabel}" AutomationProperties.Name="Syslog host" MinHeight="40"/>
+                </Grid>
+                <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                  <TextBlock x:Name="SyslogPortLabel" Text="Syslog port" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                  <TextBox Grid.Column="1" Text="{Binding SyslogPort}" IsReadOnly="{Binding SyslogPortReadOnly}" AutomationProperties.LabeledBy="{Binding #SyslogPortLabel}" AutomationProperties.Name="Syslog port" MinHeight="40"/>
+                </Grid>
+              </StackPanel>
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                <TextBlock x:Name="PlotRefreshLabel" Text="Plot refresh Hz" VerticalAlignment="Center" TextWrapping="Wrap"/>
+                <TextBox Grid.Column="1" Text="{Binding PlotRefreshHz}" IsReadOnly="{Binding PlotRefreshHzReadOnly}" AutomationProperties.LabeledBy="{Binding #PlotRefreshLabel}" AutomationProperties.Name="Plot refresh Hz" MinHeight="40"/>
+              </Grid>
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                <TextBlock x:Name="IdleMinutesLabel" Text="DUT session idle (minutes)" VerticalAlignment="Center" ToolTip.Tip="Idle window before Soft-warn → Stale. Default 240 (4 hours). High-throughput lines may use shorter values." TextWrapping="Wrap"/>
+                <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleMinutes}" IsReadOnly="{Binding OperatorSessionIdleMinutesReadOnly}" AutomationProperties.LabeledBy="{Binding #IdleMinutesLabel}" AutomationProperties.Name="DUT session idle (minutes)" MinHeight="40"/>
+              </Grid>
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                <TextBlock x:Name="IdleWarnLabel" Text="Idle soft-warn %" VerticalAlignment="Center" ToolTip.Tip="Warn when idle elapsed reaches this percent of the idle window (50–95, default 80)." TextWrapping="Wrap"/>
+                <TextBox Grid.Column="1" Text="{Binding OperatorSessionIdleWarnPercent}" IsReadOnly="{Binding OperatorSessionIdleWarnPercentReadOnly}" AutomationProperties.LabeledBy="{Binding #IdleWarnLabel}" AutomationProperties.Name="Idle soft-warn %" MinHeight="40"/>
+              </Grid>
+              <CheckBox Content="Confirm DUT every run" IsChecked="{Binding RequireDutConfirmEveryRun}" IsEnabled="{Binding !RequireDutConfirmEveryRunReadOnly}" ToolTip.Tip="After each terminal run, require Same DUT / Change Session before the next Run." MinHeight="40"/>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+        <Expander Header="Badge and report signing" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Badge and signing settings">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Configure badge capture and report signing for this station. Site policy controls whether a signature or presence attestation is required before export or print." TextWrapping="Wrap" Opacity="0.8"/>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="SigningBackendLabel" Text="Physical signing backend" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <ComboBox Grid.Column="1" ItemsSource="{Binding SigningBackendOptions}" SelectedItem="{Binding PhysicalSigningBackend}" IsEnabled="{Binding !PhysicalSigningBackendReadOnly}" AutomationProperties.LabeledBy="{Binding #SigningBackendLabel}" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="Pkcs11PathLabel" Text="PKCS#11 middleware path" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding Pkcs11LibraryPath}" IsReadOnly="{Binding Pkcs11LibraryPathReadOnly}" AutomationProperties.LabeledBy="{Binding #Pkcs11PathLabel}" PlaceholderText="Automatic discovery when empty" MinHeight="40"/>
+            </Grid>
+            <Button Content="Check signing setup" Command="{Binding CheckSigningSetupCommand}" Classes="operator"/>
+            <TextBlock Text="{Binding SigningSetupStatus}" TextWrapping="Wrap"/>
+            <CheckBox Content="Use mock badge" IsChecked="{Binding UseMockOperatorCredential}" IsEnabled="{Binding !UseMockOperatorCredentialReadOnly}" ToolTip.Tip="CI and benches without a reader. Applies on the next tap." MinHeight="40"/>
+            <CheckBox Content="Require badge when technician is required" IsChecked="{Binding RequireCredentialForOperator}" IsEnabled="{Binding !RequireCredentialForOperatorReadOnly}" ToolTip.Tip="Session confirm still needs DUT identity. This only requires a chip or tap when the program requires a technician." MinHeight="40"/>
+            <CheckBox Content="Require attestation before certification export or print" IsChecked="{Binding RequireAttestationBeforeExport}" IsEnabled="{Binding !RequireAttestationBeforeExportReadOnly}" ToolTip.Tip="Gates exporting or printing a certification PDF until a badge is presented. Opening and preview stay available so the operator can review before signing." MinHeight="40"/>
+            <CheckBox Content="Allow presence when signing cannot be used" IsChecked="{Binding AllowPresenceInLieuOfSigning}" IsEnabled="{Binding !AllowPresenceInLieuOfSigningReadOnly}" ToolTip.Tip="Site-policy fallback when the organization cannot use on-card signatures. The app still signs when the card can." MinHeight="40"/>
+            <CheckBox Content="Start probing when technician is focused" IsChecked="{Binding ProbeBadgeWhenTechnicianFocused}" IsEnabled="{Binding !ProbeBadgeWhenTechnicianFocusedReadOnly}" ToolTip.Tip="When on, focusing an empty technician field waits for a chip insert or tap. The Tap or insert button still works." MinHeight="40"/>
+          </StackPanel>
+        </Expander>
+        <Expander Header="Storage and station policy" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Storage and station policy">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Retention and free-space gates for the data directory. Critical free space blocks new runs." TextWrapping="Wrap" Opacity="0.8"/>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="RetentionDaysLabel" Text="Retention days" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding RunRetentionDays}" IsReadOnly="{Binding RunRetentionDaysReadOnly}" ToolTip.Tip="0 disables age-based retention" AutomationProperties.LabeledBy="{Binding #RetentionDaysLabel}" AutomationProperties.Name="Retention days" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="MaxRunsLabel" Text="Max retained runs" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding RunRetentionMaxRuns}" IsReadOnly="{Binding RunRetentionMaxRunsReadOnly}" ToolTip.Tip="0 disables count-based retention" AutomationProperties.LabeledBy="{Binding #MaxRunsLabel}" AutomationProperties.Name="Max retained runs" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="ExportDirectoryLabel" Text="Export directory" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding ExportDirectory}" IsReadOnly="{Binding ExportDirectoryReadOnly}" PlaceholderText="Optional fixed export path" ToolTip.Tip="Listed in Results → Export package together with inserted removable media. Local exports under the data folder are listed only when this path is empty and no removable media is present." AutomationProperties.LabeledBy="{Binding #ExportDirectoryLabel}" AutomationProperties.Name="Export directory" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="WarnFreeLabel" Text="Warn free space (GB)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceWarnGb}" IsReadOnly="{Binding DataFreeSpaceWarnGbReadOnly}" AutomationProperties.LabeledBy="{Binding #WarnFreeLabel}" AutomationProperties.Name="Warn free space (GB)" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="CriticalFreeLabel" Text="Critical free space (GB)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding DataFreeSpaceCriticalGb}" IsReadOnly="{Binding DataFreeSpaceCriticalGbReadOnly}" AutomationProperties.LabeledBy="{Binding #CriticalFreeLabel}" AutomationProperties.Name="Critical free space (GB)" MinHeight="40"/>
+            </Grid>
+            <CheckBox Content="Export OpenTAP results (CSV)" IsChecked="{Binding ExportOpenTapResults}" IsEnabled="{Binding !ExportOpenTapResultsReadOnly}" ToolTip.Tip="Writes published OpenTAP result tables under runs/{runId}/opentap-results/ for MES/QA handoff. Typst PDF is unchanged." MinHeight="40"/>
+            <TextBlock Text="Clock and session policy" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+            <TextBlock Text="Clock differences above the threshold show a warning. Run stopping does not wait for a time-server response." TextWrapping="Wrap" Opacity="0.8"/>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="ClockSkewLabel" Text="Clock skew warn (minutes)" VerticalAlignment="Center" ToolTip.Tip="Warn when the local clock differs from NTP, or jumps backward vs last-known-good, by more than this many minutes. Default 5." TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding ClockSkewWarnThresholdMinutes}" IsReadOnly="{Binding ClockSkewWarnThresholdMinutesReadOnly}" AutomationProperties.LabeledBy="{Binding #ClockSkewLabel}" AutomationProperties.Name="Clock skew warn (minutes)" MinHeight="40"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="NtpHostLabel" Text="NTP host (optional)" VerticalAlignment="Center" ToolTip.Tip="Local NTP or domain time host. Empty skips the NTP query and uses last-known-good only. Safety Stop never waits on NTP." TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding NtpHost}" IsReadOnly="{Binding NtpHostReadOnly}" PlaceholderText="Empty = last-known-good only" AutomationProperties.LabeledBy="{Binding #NtpHostLabel}" AutomationProperties.Name="NTP host (optional)" MinHeight="40"/>
+            </Grid>
+            <StackPanel Spacing="10" IsVisible="{Binding ShowStationHealthSummary}">
+              <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+                <TextBlock x:Name="HealthGateLabel" Text="Gate override" VerticalAlignment="Center" ToolTip.Tip="Empty follows the DUT sidecar. off disables the gate; warn or block pins enforcement. Env HARDWARETEST_STATION_HEALTH_GATE." TextWrapping="Wrap"/>
+                <TextBox Grid.Column="1" Text="{Binding StationHealthGateOverride}" IsReadOnly="{Binding StationHealthGateOverrideReadOnly}" PlaceholderText="Empty = follow sidecar" AutomationProperties.LabeledBy="{Binding #HealthGateLabel}" AutomationProperties.Name="Station health gate override" MinHeight="40"/>
+              </Grid>
+              <Button Content="Copy station-health record path" Command="{Binding CopyStationHealthPathCommand}" IsVisible="{Binding IsEngineerDebugMode}" HorizontalAlignment="Left" AutomationProperties.Name="Copy station health store path" Classes="operator"/>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
+        <Expander Header="About this station" HorizontalContentAlignment="Stretch" AutomationProperties.Name="About this station">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Version and support information for this test station." TextWrapping="Wrap" Opacity="0.8"/>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="Version" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutVersion}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="Commit" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutCommit, Converter={x:Static conv:ShortIdConverter.Instance}}" VerticalAlignment="Center" ToolTip.Tip="{Binding AboutCommit}" TextWrapping="Wrap"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="Build (UTC)" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutBuildTimestamp}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="Runtime" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutRuntime}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="RID" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutRuntimeIdentifier}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="OpenTAP engine" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding AboutOpenTapEngine}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <StackPanel Spacing="6" IsVisible="{Binding HasShellApps}">
+              <TextBlock Text="Baked shell applications" Opacity="0.8" TextWrapping="Wrap"/>
+              <ItemsControl ItemsSource="{Binding ShellAppSummaries}"/>
+            </StackPanel>
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock Text="Hardware interlock" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBlock Grid.Column="1" Text="{Binding SafetyInterlockStatus}" VerticalAlignment="Center" TextWrapping="Wrap"/>
+            </Grid>
+            <Button Content="Open crashes folder" Command="{Binding OpenCrashesFolderCommand}" IsVisible="{Binding AllowOsFolderBrowse}" HorizontalAlignment="Left" Classes="operator"/>
+          </StackPanel>
+        </Expander>
+        <Expander Header="Settings sources and diagnostics" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Settings diagnostics">
+          <StackPanel Spacing="12">
+            <Grid ColumnDefinitions="180,*" ColumnSpacing="12">
+              <TextBlock x:Name="DataDirectoryLabel" Text="Data directory" VerticalAlignment="Center" TextWrapping="Wrap"/>
+              <TextBox Grid.Column="1" Text="{Binding DataDirectory}" IsReadOnly="True" AutomationProperties.LabeledBy="{Binding #DataDirectoryLabel}" AutomationProperties.Name="Data directory" MinHeight="40"/>
+            </Grid>
+            <TextBlock Text="View effective settings and their source. Settings supplied by station deployment remain read-only. Copy diagnostics includes the complete support information." TextWrapping="Wrap" Opacity="0.8"/>
+            <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" HorizontalAlignment="Left" Classes="operator"/>
+            <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" BorderThickness="1" Padding="8">
+              <StackPanel Spacing="4">
+                <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8">
+                  <TextBlock Text="Key" FontWeight="SemiBold" FontSize="12"/>
+                  <TextBlock Grid.Column="1" Text="Value" FontWeight="SemiBold" FontSize="12"/>
+                  <TextBlock Grid.Column="2" Text="Source" FontWeight="SemiBold" FontSize="12"/>
+                  <TextBlock Grid.Column="3" Text="Detail" FontWeight="SemiBold" FontSize="12"/>
+                </Grid>
+                <ItemsControl ItemsSource="{Binding ProvenanceRows}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid ColumnDefinitions="2*,2*,*,2*" ColumnSpacing="8" Margin="0,2">
+                        <TextBlock Text="{Binding Key}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="1" Text="{Binding EffectiveValue}" FontSize="12" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="2" Text="{Binding Source}" FontSize="12"/>
+                        <TextBlock Grid.Column="3" Text="{Binding SourceDetail}" FontSize="12" TextTrimming="CharacterEllipsis" Opacity="0.8"/>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Expander>
+        <Expander Header="Installed instrument packages" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Installed instrument packages">
+          <StackPanel Spacing="12">
+            <TextBlock Text="Installed instrument packages and plugin locations. Install or update packages through your station deployment process, then restart the application. Refresh updates this list without reloading plugins." TextWrapping="Wrap" Opacity="0.8"/>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Content="Refresh" Command="{Binding RefreshPackagesCommand}" Classes="operator"/>
+              <Button Content="Copy path" Command="{Binding CopyPathCommand}" Classes="operator"/>
+              <Button Content="Open folder" Command="{Binding OpenFolderCommand}" IsVisible="{Binding AllowOsFolderBrowse}" Classes="operator"/>
+            </StackPanel>
+            <TextBlock Text="Installed packages" FontWeight="SemiBold" Margin="0,4,0,0"/>
+            <ListBox ItemsSource="{Binding Packages}" SelectedItem="{Binding SelectedPackage}" MinHeight="100" MaxHeight="180">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock>
+                    <TextBlock.Text>
+                      <MultiBinding StringFormat="{}{0}  {1}  —  {2}">
+                        <Binding Path="Name"/>
+                        <Binding Path="Version"/>
+                        <Binding Path="Path"/>
+                      </MultiBinding>
+                    </TextBlock.Text>
+                  </TextBlock>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="Plugin directories" FontWeight="SemiBold" Margin="0,4,0,0"/>
+            <ListBox ItemsSource="{Binding PluginDirectories}" SelectedItem="{Binding SelectedPluginDirectory}" MinHeight="80" MaxHeight="140">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock>
+                    <TextBlock.Text>
+                      <MultiBinding StringFormat="{}{0}  [{1}]">
+                        <Binding Path="Path"/>
+                        <Binding Path="Source"/>
+                      </MultiBinding>
+                    </TextBlock.Text>
+                  </TextBlock>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+        </Expander>
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

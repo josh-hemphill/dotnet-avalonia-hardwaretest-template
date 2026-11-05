@@ -170,13 +170,17 @@ public sealed class RunExecutionViewModel
         }
 
         _sessionPanel.ApplyIdleStaleCheck();
-        if (!_session.CanRun)
+        _sessionPanel.RefreshRequirementFlags();
+        _sessionPanel.RefreshSessionSummary();
+        if (_sessionPanel.SessionBlocked || !_session.CanRun)
         {
             _sessionPanel.ShowSessionForm = true;
-            var msg = _session.State == OperatorSessionState.Stale
+            var msg = _sessionPanel.IsStalePrompt || _sessionPanel.IsIdleWarningPrompt
                 ? $"Still testing {_session.DutSerial}? Confirm Same DUT or Change Session."
-                : "Confirm DUT to run.";
-            BlockStart(RunBannerSeverity.Warning, msg);
+                : "Confirm DUT and required session information before Run.";
+            _host.Status = msg;
+            if (_host is RunTestViewModel sessionBoard) sessionBoard.SetSessionGateBanner(RunBannerSeverity.Warning, msg);
+            else _host.SetBanner(RunBannerSeverity.Warning, msg);
             _sessionPanel.RefreshSessionSummary();
             return;
         }
@@ -185,6 +189,12 @@ public sealed class RunExecutionViewModel
         if (program is null)
         {
             BlockStart(RunBannerSeverity.Warning, "Select a program.");
+            return;
+        }
+
+        if (_host is RunTestViewModel selectedBoard && !selectedBoard.IsProgramReadyFor(program))
+        {
+            _host.Status = selectedBoard.ProgramAvailabilityMessage;
             return;
         }
 
@@ -231,6 +241,7 @@ public sealed class RunExecutionViewModel
         }
 
         _host.IsRunning = true;
+        if (_host is RunTestViewModel startingBoard) startingBoard.BeginRunNotifications();
         _live.ResetForRun();
         _host.HistoryBanner = string.Empty;
         _host.ResetPumpForRun();
@@ -287,6 +298,12 @@ public sealed class RunExecutionViewModel
         CancellationToken cancellationToken)
     {
         await _host.LoadSelectedProgramAsync(stagePath, selectionPath);
+        if (_host is RunTestViewModel loadedBoard && !loadedBoard.IsProgramReadyFor(program))
+        {
+            await _host.RunOnUiAsync(() => _host.Status = loadedBoard.ProgramAvailabilityMessage)
+                .ConfigureAwait(false);
+            return;
+        }
         _stationOverrides.ApplySavedParameterOverrides();
         var station = _stationOverrides.BuildStationProfile();
         if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
@@ -342,6 +359,8 @@ public sealed class RunExecutionViewModel
             RunId = runId,
             PlanId = program.Id,
             PlanName = program.DisplayName,
+            ExecutionScope = selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
             DutSerial = _session.DutSerial,
             DutPartNumber = _session.DutPartNumber,
             DutRevision = _session.DutRevision,
@@ -354,6 +373,10 @@ public sealed class RunExecutionViewModel
         }).ConfigureAwait(false);
 
         using var runLog = LogContext.PushProperty("TestRunId", runId);
+        await _host.RunOnUiAsync(() =>
+        {
+            if (_host is RunTestViewModel savedBoard) savedBoard.MarkLastRunSaved(runId);
+        }).ConfigureAwait(false);
         var summary = selectionOnly
             ? await _runSession.RunSelectionAsync(
                 selectionPath!,
@@ -390,6 +413,8 @@ public sealed class RunExecutionViewModel
             RunId = summary.RunId,
             PlanId = program.Id,
             PlanName = summary.PlanName,
+            ExecutionScope = selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
             DutSerial = summary.DutSerial ?? _session.DutSerial,
             DutPartNumber = summary.DutPartNumber ?? _session.DutPartNumber,
             DutRevision = summary.DutRevision ?? _session.DutRevision,
@@ -407,6 +432,10 @@ public sealed class RunExecutionViewModel
             AppCommitSha = _buildInfo.CommitSha,
         };
         await _runStore.SaveAsync(record).ConfigureAwait(false);
+        await _host.RunOnUiAsync(() =>
+        {
+            if (_host is RunTestViewModel savedBoard) savedBoard.MarkLastRunSaved(record.RunId);
+        }).ConfigureAwait(false);
         if (_stationHealthStore is not null)
         {
             await StationHealthRecorder.TryWriteAsync(
@@ -453,7 +482,8 @@ public sealed class RunExecutionViewModel
             RunResult.Failed or RunResult.Error => RunBannerSeverity.Error,
             _ => RunBannerSeverity.Warning,
         };
-        _host.SetBanner(completionSeverity, _host.Status);
+        if (_host is RunTestViewModel completedBoard) completedBoard.SetRunCompletionBanner(completionSeverity, _host.Status);
+        else _host.SetBanner(completionSeverity, _host.Status);
         _stepDetail.AttemptSummaryChip = string.Empty;
         if (selectionOnly
             && !string.IsNullOrWhiteSpace(selectionPath)

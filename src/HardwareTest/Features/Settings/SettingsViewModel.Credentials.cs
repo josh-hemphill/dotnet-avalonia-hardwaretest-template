@@ -1,5 +1,6 @@
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Settings;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.Primitives;
 using ReactiveUI.SourceGenerators;
@@ -42,7 +43,7 @@ public partial class SettingsViewModel
                 Pkcs11LibraryPath = Pkcs11LibraryPathReadOnly ? settingsStore.AppSettings.Pkcs11LibraryPath : Pkcs11LibraryPath,
             };
             var result = await Task.Run(() => SigningSetupDiagnostics.Check(snapshot));
-            SigningSetupStatus = $"{result.Backend}; {result.Architecture}; module: {result.ResolvedModule ?? "none"}; stage: {result.Stage}; available: {result.Available}; code: {result.NativeCode?.ToString() ?? "none"}. {result.Message}";
+            await UiDispatch.RunAsync(() => SigningSetupStatus = $"{result.Backend}; {result.Architecture}; module: {result.ResolvedModule ?? "none"}; stage: {result.Stage}; available: {result.Available}; code: {result.NativeCode?.ToString() ?? "none"}. {result.Message}", UiScheduler);
         });
         UseMockOperatorCredential = s.UseMockOperatorCredential;
         RequireCredentialForOperator = s.RequireCredentialForOperator;

@@ -63,7 +63,7 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("Content=\"Chart\"", run, StringComparison.Ordinal);
         Assert.Contains("Content=\"Overview\"", run, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Steps\"", header, StringComparison.Ordinal);
-        Assert.Contains("OperatorTouchDensity.ChartPlotMinHeight", chart, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"0\"", chart, StringComparison.Ordinal); // Real viewport bounds are covered by OperatorResultsLayoutTests.
         Assert.Contains("Sample window", chart, StringComparison.Ordinal);
         Assert.Contains("Text=\"Sample window\"", chart, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Sample window\"", chart, StringComparison.Ordinal);
@@ -123,7 +123,7 @@ public sealed class Phase18TouchDensityTests
         Assert.Contains("Export directory", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);
         Assert.Contains("Local exports", ResultsViewModel.ExportPackageHelp, StringComparison.Ordinal);
         Assert.Contains("are listed only when neither", ResultsViewModel.ExportPackageHelp, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("MinWidth=\"280\"", axaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Export destination\"", axaml, StringComparison.Ordinal);
         Assert.Contains("ToolTip.Tip=\"{Binding DisplayName}\"", axaml, StringComparison.Ordinal);
         var settings = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/Settings/SettingsView.axaml"));
         Assert.Contains("Prefer removable media for export", settings, StringComparison.Ordinal);
@@ -145,6 +145,7 @@ public sealed class Phase18TouchDensityTests
     public async Task ShowStartBlockedTip_false_after_session_confirm()
     {
         var vm = RunTestViewModelTestFactory.Create();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         vm.SessionPanel.DutSerialInput = "SN-TOUCH";
         vm.SessionPanel.OperatorInput = "Tech";
         await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();

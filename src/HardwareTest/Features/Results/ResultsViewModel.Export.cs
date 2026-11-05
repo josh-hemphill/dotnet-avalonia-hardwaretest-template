@@ -7,7 +7,9 @@ namespace HardwareTest.Features.Results;
 
 public partial class ResultsViewModel
 {
-    private void RefreshExportTargets()
+    private ExportTarget? _requestedExportTarget;
+
+    private void RefreshExportTargets(ExportTarget? previousTarget = null, bool selectDefault = true)
     {
         ExportTargets.Clear();
         if (_exportTargets is null)
@@ -23,8 +25,16 @@ public partial class ResultsViewModel
         }
 
         HasExportTargets = ExportTargets.Count > 0;
-        SelectedExportTarget = ExportTargets.FirstOrDefault();
+        SelectedExportTarget = previousTarget is null
+            ? selectDefault ? ExportTargets.FirstOrDefault() : null
+            : ExportTargets.FirstOrDefault(target => SameExportTarget(target, previousTarget));
     }
+
+    private static bool SameExportTarget(ExportTarget left, ExportTarget right)
+        => string.Equals(left.Id, right.Id, StringComparison.Ordinal)
+            && ReportAttestationService.PathEquals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(left.RootPath)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(right.RootPath)));
 
     private Task ExportPackageAsync()
     {
@@ -34,6 +44,8 @@ public partial class ResultsViewModel
             return Task.CompletedTask;
         }
 
+        // Keep this destination with the request while a badge/PIN may be pending.
+        _requestedExportTarget = SelectedExportTarget;
         _pendingPrintPath = null;
         if (!TryBeginCertifiedAction(OpenedRun, ReportAttestationService.PackageKind, PendingExport))
         {
@@ -61,11 +73,17 @@ public partial class ResultsViewModel
         IsBusy = true;
         try
         {
-            RefreshExportTargets();
-            var target = SelectedExportTarget ?? ExportTargets.FirstOrDefault();
+            var requestedTarget = _requestedExportTarget;
+            _requestedExportTarget = null;
+            RefreshExportTargets(requestedTarget, selectDefault: false);
+            var target = SelectedExportTarget;
             if (target is null || _exportTargets is null)
             {
-                Status = "No export target available. Set ExportDirectory or insert removable media.";
+                Status = requestedTarget is not null
+                    ? $"Selected export destination is no longer available: {requestedTarget.DisplayName}. Choose a destination and retry."
+                    : HasExportTargets
+                        ? "Choose an export destination and retry."
+                        : "No export target available. Set ExportDirectory or insert removable media.";
                 return;
             }
 
@@ -74,11 +92,14 @@ public partial class ResultsViewModel
                 var runDir = _runStore.GetRunDirectory(run.RunId);
                 var files = new List<(string SourcePath, string RelativeName)>();
                 var runJson = Path.Combine(runDir, "run.json");
-                if (File.Exists(runJson))
+                var incomplete = ExportEvidenceProblem(run, runJson);
+                if (incomplete is not null)
                 {
-                    files.Add((runJson, "run.json"));
+                    Status = incomplete;
+                    return;
                 }
 
+                files.Add((runJson, "run.json"));
                 files.AddRange(CollectExportReportFiles(run));
 
                 var csvDir = Path.Combine(runDir, "opentap-results");
@@ -94,12 +115,6 @@ public partial class ResultsViewModel
                 {
                     File.WriteAllText(diagnosticsPath, BuildExportDiagnostics(run));
                     files.Add((diagnosticsPath, "diagnostics.txt"));
-
-                    if (files.Count == 0)
-                    {
-                        Status = "Nothing to export for this run.";
-                        return;
-                    }
 
                     var packageName = $"run-{run.RunId}";
                     var dest = _exportTargets.ExportPackage(target, packageName, files);
@@ -122,6 +137,39 @@ public partial class ResultsViewModel
         }
     }
 
+    private static string? ExportEvidenceProblem(TestRunRecord run, string runJson)
+    {
+        if (!File.Exists(runJson))
+        {
+            return $"Export blocked: saved run.json is missing for {run.RunId}. Restore this run's saved data or choose another run, then retry export. No package was written.";
+        }
+
+        // The package includes declared history as well as the current report. Do not
+        // silently replace missing issued evidence with a working PDF or a partial copy.
+        foreach (var report in run.Reports)
+        {
+            var issued = ReportArtifactRoles.IsIssued(report.Role);
+            if (string.IsNullOrWhiteSpace(report.PdfPath) || !File.Exists(report.PdfPath))
+            {
+                return issued
+                    ? $"Export blocked: the declared issued {report.Kind} PDF ({report.RevisionId ?? "unrevisioned"}) is missing. Restore the original issued file or choose another run, then retry export. No package was written."
+                    : $"Export blocked: the declared working {report.Kind} PDF is missing. Regenerate working reports or restore the missing file, then retry export. No package was written.";
+            }
+
+            if (issued && !string.IsNullOrWhiteSpace(report.RunSnapshotPath) && !File.Exists(report.RunSnapshotPath))
+            {
+                return "Export blocked: a declared issued report snapshot is missing. Restore the original report evidence or choose another run, then retry export. No package was written.";
+            }
+        }
+
+        if (run.Attestations.Any(stamp => !string.IsNullOrWhiteSpace(stamp.SidecarPath) && !File.Exists(stamp.SidecarPath)))
+        {
+            return "Export blocked: a declared report attestation sidecar is missing. Restore the original report evidence or choose another run, then retry export. No package was written.";
+        }
+
+        return null;
+    }
+
     private string BuildExportDiagnostics(TestRunRecord? requestedRun = null)
     {
         var run = requestedRun ?? OpenedRun;
@@ -135,6 +183,7 @@ public partial class ResultsViewModel
             block,
             $"RunId: {run?.RunId}",
             $"PlanId: {run?.PlanId}",
+            $"ExecutionScope: {run?.ExecutionScopeText ?? "Not recorded"}",
             $"Result: {run?.Result}",
             $"SchemaVersion: {run?.StoredSchemaVersion}",
             $"AppVersion: {run?.AppVersion ?? "unknown"}",

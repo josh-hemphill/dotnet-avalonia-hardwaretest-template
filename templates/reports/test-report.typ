@@ -9,6 +9,7 @@
 == Summary
 - *Run ID:* #sys.inputs.runId
 - *Plan / Suite:* #sys.inputs.planName
+- *Execution scope:* #sys.inputs.executionScope
 - *DUT Serial:* #sys.inputs.dutSerial
 - *Result:* #sys.inputs.result
 - *Started:* #sys.inputs.startedAt

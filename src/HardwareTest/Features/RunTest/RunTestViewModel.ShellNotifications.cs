@@ -6,8 +6,44 @@ namespace HardwareTest.Features.RunTest;
 /// pipeline contract; the strip is the only presentation chrome.
 public partial class RunTestViewModel
 {
+    private string? _runCompletionMessage;
+    private string? _sessionGateMessage;
+
+    internal void SetSessionGateBanner(RunBannerSeverity severity, string message)
+    {
+        _sessionGateMessage = message;
+        SetBanner(severity, message);
+    }
+
+    private void ClearResolvedSessionGateNotice()
+    {
+        if (SessionPanel.SessionBlocked || !_session.CanRun) return;
+        var message = _sessionGateMessage;
+        _sessionGateMessage = null;
+        if (message is null) return;
+        _shellNotification?.Clear(ShellNotificationViewModel.SourceRun, message);
+        if (string.Equals(BannerMessage, message, StringComparison.Ordinal)) ClearLocalRunBanner();
+    }
+
+    internal void SetRunCompletionBanner(RunBannerSeverity severity, string message)
+    {
+        _runCompletionMessage = message;
+        SetBanner(severity, message);
+    }
+
+    internal void BeginRunNotifications()
+    {
+        var completion = _runCompletionMessage;
+        _runCompletionMessage = null;
+        if (completion is null) return;
+        _shellNotification?.Clear(ShellNotificationViewModel.SourceRun, completion);
+        if (string.Equals(BannerMessage, completion, StringComparison.Ordinal)) ClearLocalRunBanner();
+    }
+
     private void PublishRunBannerToShell(RunBannerSeverity severity, string message)
     {
+        if (!string.Equals(message, _runCompletionMessage, StringComparison.Ordinal)) _runCompletionMessage = null;
+        if (!string.Equals(message, _sessionGateMessage, StringComparison.Ordinal)) _sessionGateMessage = null;
         _shellNotification?.Publish(
             ShellNotificationBrushConverter.FromRun(severity),
             message,

@@ -1,5 +1,6 @@
 using Avalonia.Data.Converters;
 using Avalonia.Media;
+using Avalonia.Styling;
 using HardwareTest.Core.Runs;
 
 namespace HardwareTest.Features.RunTest;
@@ -39,8 +40,15 @@ public static class ChipBrushConverter
         return new SolidColorBrush(Color.Parse(hex));
     });
 
-    /// Light banner wash so Pass/Pending/Running filters are not fail-red.
-    public static readonly IValueConverter BannerFill = new FuncValueConverter<object?, IBrush>(chip =>
+    /// Light banner wash remains available to nonvisual consumers.
+    public static readonly IValueConverter BannerFill = new FuncValueConverter<object?, IBrush>(
+        chip => FilterBannerFill(chip, ThemeVariant.Light));
+
+    /// Observe the actual control theme, so a retained filter updates without changing its value.
+    public static readonly IMultiValueConverter BannerFillForTheme = new FuncMultiValueConverter<object?, IBrush>(
+        values => FilterBannerFill(values.ElementAtOrDefault(0), values.ElementAtOrDefault(1) as ThemeVariant));
+
+    public static IBrush FilterBannerFill(object? chip, ThemeVariant? theme)
     {
         var key = chip switch
         {
@@ -48,13 +56,21 @@ public static class ChipBrushConverter
             string text => text,
             _ => chip?.ToString(),
         };
-        var hex = key switch
-        {
-            "Pass" or "Passed" => "#C8E6C9",
-            "Fail" or "Failed" => "#FFCDD2",
-            "Running" => "#BBDEFB",
-            _ => "#ECEFF1",
-        };
+        var hex = theme == ThemeVariant.Dark
+            ? key switch
+            {
+                "Pass" or "Passed" => "#153C26",
+                "Fail" or "Failed" => "#3B1820",
+                "Running" => "#173754",
+                _ => "#27353A",
+            }
+            : key switch
+            {
+                "Pass" or "Passed" => "#C8E6C9",
+                "Fail" or "Failed" => "#FFCDD2",
+                "Running" => "#BBDEFB",
+                _ => "#ECEFF1",
+            };
         return new SolidColorBrush(Color.Parse(hex));
-    });
+    }
 }

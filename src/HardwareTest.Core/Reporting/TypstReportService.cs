@@ -330,6 +330,8 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("title", title)
                 .WithInput("runId", run.RunId)
                 .WithInput("planName", run.PlanName)
+                .WithInput("executionScope", run.ExecutionScopeText)
+                .WithInput("executionScopeKind", run.ExecutionScope ?? string.Empty)
                 .WithInput("dutSerial", run.DutSerial ?? "n/a")
                 .WithInput("result", run.Result.ToString())
                 .WithInput("startedAt", run.StartedAt.ToString("u", CultureInfo.InvariantCulture))

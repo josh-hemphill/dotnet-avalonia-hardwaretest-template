@@ -21,6 +21,10 @@ public partial class InteractionFieldViewModel : ReactiveObject
         {
             BoolValue = b;
         }
+        PropertyChanged += (_, change) =>
+        {
+            if (change.PropertyName is nameof(Value) or nameof(BoolValue)) ValidationError = string.Empty;
+        };
     }
 
     public string Id { get; }
@@ -41,6 +45,7 @@ public partial class InteractionFieldViewModel : ReactiveObject
 
     [Reactive] private string _value = string.Empty;
     [Reactive] private bool _boolValue;
+    [Reactive] private string _validationError = string.Empty;
 
     public string ToResponseValue()
     {

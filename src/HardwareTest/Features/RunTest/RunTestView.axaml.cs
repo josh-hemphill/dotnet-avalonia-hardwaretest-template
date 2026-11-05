@@ -16,6 +16,10 @@ public partial class RunTestView : UserControl
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
         SizeChanged += OnBoardSizeChanged;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.Property == FontSizeProperty) ApplyCompactFlags();
+        };
         DetachedFromVisualTree += (_, _) => Unsubscribe();
         Loaded += (_, _) => ApplyCompactFlags();
     }
@@ -61,7 +65,12 @@ public partial class RunTestView : UserControl
             return;
         }
 
-        _subscribed.IsCompactLayout = Bounds.Width > 0 && Bounds.Width < ShellLayoutBreakpoints.CompactBoardWidth;
+        // Compactness describes the remaining working area, not the board plus a
+        // secondary rail. Keep the saved overview preference so it returns when
+        // there is room for both content and the 200px overview at this text size.
+        var contentWidthWithOverview = Bounds.Width - OperatorTouchDensity.OverviewSidebarWidth - 8;
+        var readableContentWidth = ShellLayoutBreakpoints.CompactBoardWidth * Math.Max(1, FontSize / 14);
+        _subscribed.IsCompactLayout = Bounds.Width > 0 && contentWidthWithOverview < readableContentWidth;
         _subscribed.IsCompactHeight = Bounds.Height > 0 && Bounds.Height < ShellLayoutBreakpoints.CompactBoardHeight;
     }
 

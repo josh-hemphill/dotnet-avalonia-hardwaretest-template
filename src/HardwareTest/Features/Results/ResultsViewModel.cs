@@ -110,6 +110,7 @@ public partial class ResultsViewModel : ReactiveObject
         CaptureAttestationCommand = ReactiveCommand.CreateFromTask(CaptureAttestationAsync);
         UsePresenceAttestationCommand = ReactiveCommand.CreateFromTask(UsePresenceAttestationAsync);
         CancelAttestationCommand = ReactiveCommand.Create(DismissAttestationPrompt);
+        ClearFiltersCommand = ReactiveCommand.Create(ResetFilters);
         CloseDetailCommand = ReactiveCommand.Create(() =>
         {
             ShowDetail = false;
@@ -140,12 +141,13 @@ public partial class ResultsViewModel : ReactiveObject
 
         PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(OpenedRun)) this.RaisePropertyChanged(nameof(RunIdentityText));
             if (args.PropertyName == nameof(OpenedRun) && !ReferenceEquals(OpenedRun, _pendingAttestationRun)) DismissAttestationPrompt();
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
                 or nameof(PlanFilter) or nameof(DutFilter)
                 or nameof(OperatorFilter) or nameof(DateFilter))
             {
-                ApplyFilters();
+                if (!_resettingFilters) ApplyFilters();
             }
             else if (args.PropertyName == nameof(ShowFailedStepsOnly) && OpenedRun is not null)
             {

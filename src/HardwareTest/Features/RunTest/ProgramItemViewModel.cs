@@ -11,6 +11,8 @@ public partial class ProgramItemViewModel : ReactiveObject
     public required string Id { get; init; }
     public required string DisplayName { get; init; }
     public required string Path { get; init; }
+    public string SelectionIdentity => $"{DisplayName} — {Id}";
+    public string DetailsText => $"{DisplayName}\nProgram ID: {Id}\nDUT family: {DutFamily}\nSource: {Path}";
     public string DutFamily { get; init; } = "generic";
     public bool IsSample { get; init; }
     public ProgramLoadKind LoadKind { get; init; } = ProgramLoadKind.TapPlanFile;

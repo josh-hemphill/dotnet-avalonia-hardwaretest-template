@@ -1,4 +1,5 @@
 using System.Reactive;
+using System.Text.Json;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
@@ -551,6 +552,8 @@ public sealed class ResultsViewModelTests
             ],
         };
         store.Seed(run);
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "run.json"),
+            JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         var settings = new AppSettings
         {
             RequireAttestationBeforeExport = true,
@@ -1071,9 +1074,14 @@ public sealed class ResultsViewModelTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
+        await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("legacy-export"), "run.json"),
+            JsonSerializer.Serialize(Assert.IsType<TestRunRecord>(vm.OpenedRun), AppJsonContext.Default.TestRunRecord));
         await vm.ExportPackageCommand.ExecuteAsync();
-        Assert.NotNull(export.LastPackageDir);
-        Assert.False(File.Exists(Path.Combine(export.LastPackageDir!, "status.pdf")));
+        Assert.Null(export.LastPackageDir);
+        Assert.Contains("Export blocked", vm.Status, StringComparison.Ordinal);
+        Assert.Contains("issued", vm.Status, StringComparison.Ordinal);
+        Assert.Contains("Restore the original", vm.Status, StringComparison.Ordinal);
+        Assert.Equal("working bytes", await File.ReadAllTextAsync(working));
     }
 
     [Fact]

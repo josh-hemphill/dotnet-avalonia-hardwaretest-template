@@ -10,6 +10,19 @@ namespace HardwareTest.Widgets.MeasurementPlot;
 /// Maps Avalonia Fluent chrome + app accents onto ScottPlot so live charts match the shell.
 internal static class PlotTheme
 {
+    private static readonly Lazy<string?> ReadableFallbackFont = new(() =>
+    {
+        if (!string.IsNullOrWhiteSpace(Fonts.Default) && Fonts.GetTypeface(Fonts.Default, false, false).GlyphCount > 0)
+            return null;
+        // Some Linux font managers expose installed families but return an empty default
+        // typeface. Select a real family for this plot instead of rendering invisible labels.
+        var installed = SkiaSharp.SKFontManager.Default.FontFamilies.ToArray();
+        return new[] { "Segoe UI", "Arial", "DejaVu Sans", "Liberation Sans", "Noto Sans" }
+            .Concat(installed).Distinct(StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(name => installed.Contains(name, StringComparer.OrdinalIgnoreCase)
+                && Fonts.GetTypeface(name, false, false).GlyphCount > 0);
+    });
+
     /// Matches <c>Button.primary</c> / Running chip.
     private static readonly SpColor SeriesLight = SpColor.FromHex("#1565C0");
 
@@ -69,6 +82,7 @@ internal static class PlotTheme
             LegendFontColor = axis,
             LegendOutlineColor = muted,
         });
+        if (ReadableFallbackFont.Value is { } font) plot.Font.Set(font);
     }
 
     public static bool IsDarkTheme()

@@ -20,6 +20,7 @@ public sealed class Phase12ChromeTests
 
     private static async Task ConfirmReadyAsync(RunTestViewModel vm, string serial = "SN-1")
     {
+        if (!vm.IsSelectedProgramReady) await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         vm.SessionPanel.DutSerialInput = serial;
         vm.SessionPanel.OperatorInput = "Tech";
         await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();

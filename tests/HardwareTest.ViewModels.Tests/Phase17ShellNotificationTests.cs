@@ -264,7 +264,7 @@ public sealed class Phase17ShellNotificationTests
             shell);
 
         Assert.Same(shell, vm.ShellNotification);
-        Assert.Equal("Ready", vm.ShellNotification.IdleHint);
+        Assert.Equal("No station alerts", vm.ShellNotification.IdleHint);
         Assert.False(vm.ShellNotification.HasContent);
     }
 }
