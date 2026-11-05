@@ -5,6 +5,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using HardwareTest.Features;
 
 namespace HardwareTest.Features.Settings;
@@ -12,21 +13,30 @@ namespace HardwareTest.Features.Settings;
 public partial class SettingsView : UserControl
 {
     private SettingsViewModel? _offlineBundleOwner;
+    private long _offlineBundleFocusActivity;
+    private bool _offlineBundleOwnsLastInteraction;
 
     public SettingsView()
     {
         InitializeComponent();
+        AddHandler(InputElement.GotFocusEvent, (_, args) => TrackOfflineBundleInteraction(args), RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(InputElement.PointerPressedEvent, (_, args) => TrackOfflineBundleInteraction(args), RoutingStrategies.Tunnel, handledEventsToo: true);
         DataContextChanged += OnDataContextChanged;
         AttachedToVisualTree += (_, _) =>
         {
             if (_offlineBundleOwner is not { } vm) return;
             vm.OfflineBundleFocusRequested -= FocusOfflineField;
             vm.OfflineBundleFocusRequested += FocusOfflineField;
+            vm.OfflineBundleInspectionInvalidating -= RecoverInvalidatedInspection;
+            vm.OfflineBundleInspectionInvalidating += RecoverInvalidatedInspection;
         };
         DetachedFromVisualTree += (_, _) =>
         {
             if (_offlineBundleOwner is not { } vm) return;
             vm.OfflineBundleFocusRequested -= FocusOfflineField;
+            vm.OfflineBundleInspectionInvalidating -= RecoverInvalidatedInspection;
+            _offlineBundleFocusActivity++;
+            _offlineBundleOwnsLastInteraction = false;
             vm.StopOfflineBundleInspection();
         };
     }
@@ -36,8 +46,11 @@ public partial class SettingsView : UserControl
         if (_offlineBundleOwner is { } previous)
         {
             previous.OfflineBundleFocusRequested -= FocusOfflineField;
+            previous.OfflineBundleInspectionInvalidating -= RecoverInvalidatedInspection;
             previous.StopOfflineBundleInspection();
         }
+        _offlineBundleFocusActivity++;
+        _offlineBundleOwnsLastInteraction = false;
         _offlineBundleOwner = DataContext as SettingsViewModel;
         if (DataContext is not SettingsViewModel vm)
         {
@@ -55,6 +68,7 @@ public partial class SettingsView : UserControl
             await clipboard.SetTextAsync(text);
         };
         vm.OfflineBundleFocusRequested += FocusOfflineField;
+        vm.OfflineBundleInspectionInvalidating += RecoverInvalidatedInspection;
     }
 
     private void OnOpenRun(object? sender, RoutedEventArgs e)
@@ -86,7 +100,32 @@ public partial class SettingsView : UserControl
         if (sender is Control control) Dispatcher.UIThread.Post(() => control.BringIntoView(), DispatcherPriority.Loaded);
     }
 
-    private void FocusOfflineField(string name)
+    private bool IsWithinOfflineInspection(object? source)
+    {
+        var panel = this.FindControl<StackPanel>("OfflineBundleInspectionPanel");
+        return source is Control control && panel is not null
+            && (ReferenceEquals(control, panel) || control.GetVisualAncestors().Contains(panel));
+    }
+
+    private void TrackOfflineBundleInteraction(RoutedEventArgs args)
+    {
+        _offlineBundleFocusActivity++;
+        _offlineBundleOwnsLastInteraction = IsWithinOfflineInspection(args.Source);
+    }
+
+    private void RecoverInvalidatedInspection()
+    {
+        if (!_offlineBundleOwnsLastInteraction || DataContext is not SettingsViewModel vm || TopLevel.GetTopLevel(this) is not { } owner) return;
+        var focused = owner.FocusManager?.GetFocusedElement();
+        if (focused is not null && !IsWithinOfflineInspection(focused)) return;
+        var activity = _offlineBundleFocusActivity;
+        var generation = vm.OfflineBundleGeneration;
+        FocusOfflineField("Offline bundle folder", () => activity == _offlineBundleFocusActivity && generation == vm.OfflineBundleGeneration);
+    }
+
+    private void FocusOfflineField(string name) => FocusOfflineField(name, null);
+
+    private void FocusOfflineField(string name, Func<bool>? stillOwnsFocus)
     {
         var context = DataContext;
         var owner = TopLevel.GetTopLevel(this);
@@ -98,7 +137,7 @@ public partial class SettingsView : UserControl
         };
         Dispatcher.UIThread.Post(() =>
         {
-            if (!ReferenceEquals(DataContext, context) || owner is null || TopLevel.GetTopLevel(this) != owner) return;
+            if (!ReferenceEquals(DataContext, context) || owner is null || TopLevel.GetTopLevel(this) != owner || stillOwnsFocus?.Invoke() == false) return;
             field?.BringIntoView();
             (name == "Offline bundle folder" ? this.FindControl<TextBlock>("OfflineBundleStatusText") : this.FindControl<TextBlock>("OfflineBundleCommandStatusText"))?.BringIntoView();
             field?.Focus();

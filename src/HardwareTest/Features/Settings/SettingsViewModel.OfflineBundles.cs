@@ -26,6 +26,7 @@ public partial class SettingsViewModel
         = InspectOfflineBundleAsync;
     internal long OfflineBundleGeneration => Interlocked.Read(ref _offlineBundleGeneration);
     public event Action<string>? OfflineBundleFocusRequested;
+    public event Action? OfflineBundleInspectionInvalidating;
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CheckOfflineBundleCommand { get; private set; } = null!;
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> CancelOfflineBundleCommand { get; private set; } = null!;
@@ -166,6 +167,7 @@ public partial class SettingsViewModel
     private void InvalidateOfflineBundle(string message)
     {
         Interlocked.Increment(ref _offlineBundleGeneration);
+        if (HasOfflineBundleInspection) OfflineBundleInspectionInvalidating?.Invoke();
         var check = _offlineBundleCheck;
         _offlineBundleCheck = null;
         check?.Cancel();

@@ -102,6 +102,14 @@ station data. Intermediate failures are retained rather than counted as passes.
 | Disconnected published joined round 5 | Same journey passed against a freshly published operator baseline |
 | Release traversal and publication at `45dc97f` | Zero warnings/errors |
 | Canonical dependency audit | Passed, no known vulnerable packages in the evaluated traversal |
+| Full Host suite, round 5 | 1,091/1,091 passed, including all 142 offline checks |
+| Full operator VM suite, round 5 | 679 passed; one existing Settings-priority assertion exposed the new disclosure ahead of daily preferences |
+| Repaired operator VM checks, round 6 | 41/41 passed, including Settings order, engine requalification and offline inspection |
+| Authoring offline suite, round 6 | 32/32 passed, including five actual generated Linux-script protocol cases |
+| Authoring graphical handoff, round 5 | 12/12 passed across Light/Dark wide and compact conditions |
+| Operator graphical offline workflow, round 5 | 5/5 passed; four presentation cases use an explicitly injected inspection result and one checks dialog ownership |
+| Architecture, round 5 | 45/45 passed |
+| Default headless sequence discovery, round 6 | 3/3 passed with capture disabled, reproducing the prior CI environment |
 
 The standalone xUnit journey is run in the network-disabled sandbox, without the
 VSTest network transport. `OfflineDeliveryJourneyTests` creates a strict authored
@@ -117,6 +125,35 @@ Round-5 artifacts are under `/workspace/offline-bench-joined-round5` and
 `/workspace/offline-bench-joined-published-round5`; TRX files and helper logs are
 under `/workspace/offline-bench-results`. Final graphical/native evidence and
 independent implementation votes follow after remaining checks.
+
+Executing the generated Linux helper against the genuine release exposed the
+JSON writer's escaped `+` in the build identity. The field reader now decodes only
+that exact escape before its existing restricted grammar. Actual generated-script
+protocol tests verify escaped identity, quoted argument boundaries, check-before-
+install ordering, and old/tampered-client refusal before any invocation. Other
+escapes fail closed. These stub-based protocol tests are distinct from the real
+published-release integration proof.
+
+Prior PR CI failures were retrieved through the GitHub connector. Linux and
+Windows both failed the same three sequence-discovery tests because their settle
+helper required a bitmap while the default harness selected non-Skia headless
+drawing. The fix retains render/layout ticks and all peer/name/bounds/keyboard
+assertions, and requires a bitmap only when capture mode installs Skia.
+
+Native intermediate Light/Dark authoring journeys passed real missing-package
+recovery, manual archive retry, cancellation at a pending private loopback HTTPS
+endpoint, retained inputs, full receipt copying, option-change revocation and
+natural Escape. The native pass caught an incorrect directional error-message
+suffix, which was replaced with neutral wording. Compact rendered review also
+shortened the pinned success summary and moved the full folder path into the
+copyable receipt.
+
+Native operator journeys used the real shared `CheckBundle`, copied exact
+program/export/build/package provenance from the full dialog, exercised fresh-
+folder correction and copied the explicit command without installing. Real source
+mutation then exposed a recovery defect: installation controls disappeared while
+focus/scroll stayed in the removed area, leaving the recheck feedback offscreen.
+That finding must be repaired and verified before final implementation votes.
 
 ## Elevated follow-up
 
