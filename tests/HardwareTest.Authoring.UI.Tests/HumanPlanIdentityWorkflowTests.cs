@@ -19,9 +19,12 @@ public sealed class HumanPlanIdentityWorkflowTests
         var window = fixture.Show();
         await fixture.WaitForReadinessAsync();
         Assert.Empty(fixture.ViewModel.Programs);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        fixture.NavigateTask(8);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create first test plan from overview"));
         var dialog = Assert.IsType<QuickPlanCreationWindow>(Assert.Single(window.OwnedWindows));
         Enter(dialog, fixture.Control<TextBox>("Plan display name", dialog), title);
+        fixture.Control<Expander>("Plan ID and destination", dialog).IsExpanded = true;
+        AuthoringUiFixture.Drain();
         Assert.Equal(expectedId, fixture.Control<TextBox>("Stable plan ID", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(window.OwnedWindows);
@@ -39,11 +42,13 @@ public sealed class HumanPlanIdentityWorkflowTests
         OpenEmptyWorkspace(fixture);
         var window = fixture.Show();
         await fixture.WaitForReadinessAsync();
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
+        fixture.NavigateTask(8);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Create first test plan from overview"));
         var dialog = Assert.IsType<QuickPlanCreationWindow>(Assert.Single(window.OwnedWindows));
         Enter(dialog, fixture.Control<TextBox>("Plan display name", dialog), "Retain this title");
         Enter(dialog, fixture.Control<TextBox>("Device family", dialog), "retained-family");
         fixture.Control<Expander>("Plan ID and destination", dialog).IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var id = fixture.Control<TextBox>("Stable plan ID", dialog);
         Enter(dialog, id, " sample ");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));

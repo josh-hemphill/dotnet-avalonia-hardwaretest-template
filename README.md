@@ -55,6 +55,7 @@ templates/reports/                   # Typst templates (embedded)
 | Guide | Use when |
 | --- | --- |
 | [docs/authoring-app.md](docs/authoring-app.md) | Engineer authoring app architecture: metric-first plans, pack/ship, TUI compat |
+| [docs/bench-reference-walkthrough.md](docs/bench-reference-walkthrough.md) | Author, transfer, capture/select golden references, execute and review returned evidence |
 | [docs/getting-started.md](docs/getting-started.md) | First HardwareTest.Authoring plan; TUI is an optional escape hatch |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |

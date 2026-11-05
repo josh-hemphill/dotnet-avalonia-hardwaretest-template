@@ -387,7 +387,8 @@ public sealed class RunBoardChildViewModelTests
     {
         var session = new OperatorSession();
         session.ConfirmDut("SN-1");
-        session.OperatorName = "Tech";
+        session.OperatorName = MockOperatorCredentialBroker.MockDisplayName;
+        var confirmedSession = session.SessionId;
         session.MarkStale();
         var settings = new AppSettings { RequireCredentialForOperator = true };
         var panel = new OperatorSessionPanelViewModel(
@@ -410,9 +411,12 @@ public sealed class RunBoardChildViewModelTests
         Assert.Contains("badge", panel.OperatorError, StringComparison.OrdinalIgnoreCase);
 
         await panel.CaptureCredentialCommand.ExecuteAsync();
+        Assert.Equal(MockOperatorCredentialBroker.MockSerial, session.OperatorCredentialSerial);
+        Assert.Equal(confirmedSession, session.SessionId);
         panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.False(panel.SessionBlocked);
         Assert.True(session.CanRun);
+        Assert.Equal(confirmedSession, session.SessionId);
     }
 
     [Fact]

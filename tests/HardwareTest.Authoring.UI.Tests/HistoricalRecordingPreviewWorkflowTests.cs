@@ -20,6 +20,14 @@ public sealed class HistoricalRecordingPreviewWorkflowTests
         bool dark, int width, int height, int font)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
+        // The supplied plan's MeanGte step takes its own acquisition. Author a
+        // genuine mean(VDC) calculation for this recording, which contains VDC only.
+        var planPath = Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan");
+        var compiler = new PlanCompiler();
+        var draft = compiler.Load(planPath) with { Measure = [] };
+        draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Acquire);
+        draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Formula);
+        compiler.Save(draft, planPath);
         var app = Application.Current!;
         var oldTheme = app.RequestedThemeVariant;
         try
@@ -117,8 +125,10 @@ public sealed class HistoricalRecordingPreviewWorkflowTests
 
     private static void Press(Window window, Key key, PhysicalKey physical)
     {
+        var owner = window.Owner;
         window.KeyPress(key, RawInputModifiers.None, physical, null);
-        window.KeyRelease(key, RawInputModifiers.None, physical, null);
+        var receiver = window.IsVisible ? window : owner;
+        if (receiver?.IsVisible == true) receiver.KeyRelease(key, RawInputModifiers.None, physical, null);
         AuthoringUiFixture.Drain();
     }
 

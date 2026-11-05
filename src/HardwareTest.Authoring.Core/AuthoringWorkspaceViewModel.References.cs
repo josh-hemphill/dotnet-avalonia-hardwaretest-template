@@ -42,38 +42,40 @@ public sealed partial class AuthoringWorkspaceViewModel
         && _referenceCriterionSelection.TryGetValue(owner, out var selected)
         ? SelectedReferenceRules.FirstOrDefault(rule => rule.RuleId == selected) ?? SelectedReferenceRules.FirstOrDefault()
         : SelectedReferenceRules.FirstOrDefault();
-    public IReadOnlyList<AuthoringReferenceCriterionOption> ReferenceCriterionOptions
+    public IReadOnlyList<AuthoringReferenceCriterionOption> ReferenceCriterionOptions => _referenceCriterionOptions;
+
+    private void RefreshReferenceOptions()
     {
-        get
+        if (_publishingReferenceOptions) return;
+        var owner = ReferenceSelectionOwner;
+        var rules = SelectedReferenceRules;
+        if (owner == _referenceOptionsOwner && rules.SequenceEqual(_referenceOptionsSource)) return;
+        var reset = owner != _referenceOptionsOwner;
+        // Compiled bindings read the selection during CollectionChanged. Publish
+        // the cache before any notification, and keep all property getters pure.
+        _referenceOptionsOwner = owner;
+        _referenceOptionsSource = rules;
+        _publishingReferenceOptions = true;
+        try
         {
-            var owner = ReferenceSelectionOwner;
-            var rules = SelectedReferenceRules;
-            if (owner == _referenceOptionsOwner && rules.SequenceEqual(_referenceOptionsSource)) return _referenceCriterionOptions;
-            _publishingReferenceOptions = true;
-            try
+            if (reset) _referenceCriterionOptions.Clear();
+            foreach (var stale in _referenceCriterionOptions.Where(option => !rules.Any(rule => rule.RuleId == option.RuleId)).ToArray())
+                _referenceCriterionOptions.Remove(stale);
+            for (var index = 0; index < rules.Count; index++)
             {
-                if (owner != _referenceOptionsOwner) _referenceCriterionOptions.Clear();
-                _referenceOptionsOwner = owner;
-                _referenceOptionsSource = rules;
-                foreach (var stale in _referenceCriterionOptions.Where(option => !rules.Any(rule => rule.RuleId == option.RuleId)).ToArray())
-                    _referenceCriterionOptions.Remove(stale);
-                for (var index = 0; index < rules.Count; index++)
+                var rule = rules[index];
+                var label = $"{index + 1}. {rule.ReferenceKey} · {BenchReferenceEvidence.DescribeRule(rule)}";
+                var option = _referenceCriterionOptions.FirstOrDefault(item => item.RuleId == rule.RuleId);
+                if (option is null) _referenceCriterionOptions.Insert(index, new(rule.RuleId, label));
+                else
                 {
-                    var rule = rules[index];
-                    var label = $"{index + 1}. {rule.ReferenceKey} · {BenchReferenceEvidence.DescribeRule(rule)}";
-                    var option = _referenceCriterionOptions.FirstOrDefault(item => item.RuleId == rule.RuleId);
-                    if (option is null) _referenceCriterionOptions.Insert(index, new(rule.RuleId, label));
-                    else
-                    {
-                        var previousIndex = _referenceCriterionOptions.IndexOf(option);
-                        if (previousIndex != index) _referenceCriterionOptions.Move(previousIndex, index);
-                        option.UpdateLabel(label);
-                    }
+                    var previousIndex = _referenceCriterionOptions.IndexOf(option);
+                    if (previousIndex != index) _referenceCriterionOptions.Move(previousIndex, index);
+                    option.UpdateLabel(label);
                 }
             }
-            finally { _publishingReferenceOptions = false; }
-            return _referenceCriterionOptions;
         }
+        finally { _publishingReferenceOptions = false; }
     }
     public AuthoringReferenceCriterionOption? SelectedReferenceCriterion
     {
@@ -252,6 +254,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseReferenceProperties()
     {
+        RefreshReferenceOptions();
         OnPropertyChanged(nameof(HasRecordedReferences));
         OnPropertyChanged(nameof(RecordingReferenceSummary));
         OnPropertyChanged(nameof(RecordingReferenceReview));

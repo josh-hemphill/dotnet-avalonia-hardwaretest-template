@@ -319,6 +319,7 @@ public sealed class CrossAppReferenceJourneyTests
         // The changed artifact must be qualified with a genuinely new capture;
         // demonstrating only the refusal above would leave the recovery path untested.
         main.NavigateToPageId("RunTest");
+        Settle(shown.Window);
         OperatorWorkflowUiTests.Click(Named<Button>(shown.Window, "Golden references"));
         await E2EHarness.WaitUntilAsync(() => shown.Window.OwnedWindows.Any(child => child.Title == "Golden references"));
         var choices = shown.Window.OwnedWindows.Single(child => child.Title == "Golden references");
@@ -334,6 +335,8 @@ public sealed class CrossAppReferenceJourneyTests
         Assert.NotEqual((await store.LoadAsync(passId))!.ReferenceContext!.SidecarSha256, acquired.ReferenceContext!.SidecarSha256);
         main.NavigateToPageId("Results");
         await main.Results.OpenRunByIdAsync(acquired.RunId);
+        Assert.Equal(acquired.RunId, main.Results.OpenedRun?.RunId);
+        Settle(shown.Window);
         OperatorWorkflowUiTests.Click(Named<Button>(shown.Window, "Save golden reference from this run"));
         await E2EHarness.WaitUntilAsync(() => shown.Window.OwnedWindows.Any(child => child.Title == "Save golden reference"));
         var promotion = shown.Window.OwnedWindows.Single(child => child.Title == "Save golden reference");

@@ -304,7 +304,7 @@
           <ComboBox ItemsSource="{Binding DisplayRoleOptions}" SelectedItem="{Binding DisplayRole}" AutomationProperties.Name="Display role" AutomationProperties.LabeledBy="{Binding #DisplayRoleLabel}" ToolTip.Tip="Choose the operator visualization. Pass criteria stay in Configure."/>
           <StackPanel x:Name="MeasurementUnitField" Spacing="6">
             <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" TextWrapping="Wrap"/>
-            <ComboBox x:Name="YUnitBox" ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" AutomationProperties.HelpText="{Binding ReferenceMeasurementUnitError}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
+            <ComboBox x:Name="YUnitBox" ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit, Mode=OneWay}" Text="{Binding YUnit, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" AutomationProperties.HelpText="{Binding ReferenceMeasurementUnitError}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
             <TextBlock Text="{Binding ReferenceMeasurementUnitError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
                 IsVisible="{Binding ReferenceMeasurementUnitError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                 AutomationProperties.Name="Measurement unit error" AutomationProperties.LiveSetting="Polite"/>

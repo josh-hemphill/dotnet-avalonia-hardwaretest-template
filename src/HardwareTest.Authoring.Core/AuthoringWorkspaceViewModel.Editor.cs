@@ -143,6 +143,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedMetric?.YUnit ?? string.Empty;
         set
         {
+            // Editable selection controls can clear SelectedItem with null. Keep
+            // incomplete unit text representable in source and recovery snapshots.
+            value ??= string.Empty;
             if (string.Equals(YUnit, value, StringComparison.Ordinal))
             {
                 return;

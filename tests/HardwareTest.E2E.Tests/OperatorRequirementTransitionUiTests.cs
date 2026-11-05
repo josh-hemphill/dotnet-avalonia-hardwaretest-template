@@ -46,11 +46,14 @@ public sealed class OperatorRequirementTransitionUiTests
             await run.SessionPanel.ChangeSessionCommand.ExecuteAsync();
             Settle(window);
             Type(window, "DutSerialBox", "STRICTER-PROGRAM-DUT");
-            Type(window, "TechnicianBox", "Confirmed technician");
+            // Reconfirm this same technician when policy later requires a badge;
+            // a different known badge identity is a separate handoff boundary.
+            Type(window, "TechnicianBox", MockOperatorCredentialBroker.MockDisplayName);
             OperatorWorkflowUiTests.Click(Named<Button>(window, "Confirm session"));
             Settle(window);
             Assert.True(run.CanStartRun);
             Assert.Null(run.Session.DutPartNumber);
+            Assert.Null(run.Session.OperatorCredentialSerial);
             var lastRunId = run.LastRunId;
             var sessionId = run.Session.SessionId;
 
@@ -61,7 +64,7 @@ public sealed class OperatorRequirementTransitionUiTests
             Assert.False(run.SessionPanel.ShowSameDutPrompt);
             Assert.Equal(sessionId, run.Session.SessionId);
             Assert.Equal("STRICTER-PROGRAM-DUT", run.SessionPanel.DutSerialInput);
-            Assert.Equal("Confirmed technician", run.SessionPanel.OperatorInput);
+            Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, run.SessionPanel.OperatorInput);
             OperatorWorkflowUiTests.Inside(Named<Button>(window, "Change session"), window);
             await run.Run.RunCommand.ExecuteAsync();
             Assert.False(run.IsRunning);

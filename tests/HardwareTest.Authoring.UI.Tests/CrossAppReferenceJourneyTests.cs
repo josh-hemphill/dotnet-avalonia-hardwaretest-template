@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -29,6 +30,7 @@ public sealed class CrossAppReferenceJourneyTests
         Assert.True(Path.IsPathFullyQualified(shared!));
         Directory.CreateDirectory(shared!);
         Assert.False(File.Exists(Path.Combine(shared!, "plan-id.txt")), "Use a fresh joined evidence directory for initial authoring.");
+        using var theme = new ThemeScope(ThemeVariant.Light);
         using var fixture = new AuthoringUiFixture();
         var workspace = Path.Combine(shared!, "authoring-workspace");
         Directory.CreateDirectory(workspace);
@@ -97,6 +99,7 @@ public sealed class CrossAppReferenceJourneyTests
         var original = JsonSerializer.Deserialize(originalBytes, AppJsonContext.Default.TestRunRecord)!;
         Assert.Equal(PlanId, original.PlanId);
         Assert.NotEmpty(original.ReferenceUses);
+        using var theme = new ThemeScope(ThemeVariant.Dark);
         using var fixture = new AuthoringUiFixture();
         var window = fixture.Show(900, 600);
         Assert.Equal(900d, window.ClientSize.Width);
@@ -116,6 +119,7 @@ public sealed class CrossAppReferenceJourneyTests
         var trigger = fixture.Control<Button>("Review recorded references");
         AuthoringUiFixture.Click(trigger);
         var dialog = Assert.Single(window.OwnedWindows);
+        Assert.Equal(ThemeVariant.Dark, dialog.ActualThemeVariant);
         var review = fixture.Control<TextBox>("Full recorded reference review", dialog);
         Assert.Contains(original.RunId, review.Text);
         foreach (var use in original.ReferenceUses)
@@ -147,6 +151,13 @@ public sealed class CrossAppReferenceJourneyTests
         Capture(fixture.Window!.OwnedWindows.Single(), shared!, "cross-stage3-updated-receipt");
         Assert.Equal(originalBytes, File.ReadAllBytes(recordingPath));
         File.WriteAllText(Path.Combine(shared!, "edited-plan-id.txt"), PlanId);
+    }
+
+    private sealed class ThemeScope : IDisposable
+    {
+        private readonly ThemeVariant? _previous = Application.Current!.RequestedThemeVariant;
+        public ThemeScope(ThemeVariant theme) => Application.Current!.RequestedThemeVariant = theme;
+        public void Dispose() => Application.Current!.RequestedThemeVariant = _previous;
     }
 
     private static async Task PrepareBenchFiles(AuthoringUiFixture fixture, string destination)

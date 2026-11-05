@@ -73,6 +73,7 @@ public sealed class QuickPlanCreationTests
         Enter(dialog, name, "sample");
         Assert.Equal(originalNameHelp, AutomationProperties.GetHelpText(name));
         fixture.Control<Expander>("Plan ID and destination", dialog).IsExpanded = true;
+        AuthoringUiFixture.Drain();
         Enter(dialog, fixture.Control<TextBox>("Stable plan ID", dialog), "sample");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var id = fixture.Control<TextBox>("Stable plan ID", dialog);
