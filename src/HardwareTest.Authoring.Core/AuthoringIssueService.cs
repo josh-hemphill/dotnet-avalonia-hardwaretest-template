@@ -35,6 +35,9 @@ public static class AuthoringIssueService
     {
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
+        foreach (var finding in AuthoringReferenceRules.Validate(draft))
+            issues.Add(new("REFERENCE_CRITERION", finding.Message, draft.PlanId, finding.NodeId)
+            { Section = "Configure", Field = finding.RuleId is { Length: > 0 } ruleId ? finding.Field + ":" + ruleId : finding.Field });
         foreach (var raw in AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure))
             issues.Add(new("LIBRARY_LIFECYCLE_REIMPORT", AuthoringLibraryLifecycle.ReimportMessage, draft.PlanId, raw.NodeId));
         if (homeResolutionError is not null)
@@ -50,11 +53,12 @@ public static class AuthoringIssueService
             var parts = incomplete.Key.Split('/', 2);
             if (parts.Length != 2 || !Guid.TryParse(parts[0], out var nodeId)) continue;
             // Native consumers and formulas already use the shared compiler input finding.
-            if (EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
+            if (AuthoringReferenceRules.BaseField(parts[1]) != nameof(AuthoringWorkspaceViewModel.ReferenceTolerance)
+                && EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
                 && node.Metric.Source is ExpressionAlgorithm or TransferFunctionAlgorithm
                     or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })) continue;
             var field = parts[1].StartsWith("MetricSetting:", StringComparison.Ordinal) ? parts[1]["MetricSetting:".Length..] : parts[1];
-            issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {field} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
+            issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {AuthoringReferenceRules.BaseField(field)} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
             { Section = "Configure", Field = field });
         }
         var sharedInputNodes = EnumerateMetricNodes(draft.Measure).Where(node => UsesCompilerInputValidation(node.Metric.Source))

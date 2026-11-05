@@ -13,10 +13,14 @@
           <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,6,4"/>
           <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,6,4"/>
           <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,6,4"/>
-          <Button Content="Source details" Click="OnShowSourceDetails" AutomationProperties.Name="Preview data source details" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Source details" Click="OnShowSourceDetails" IsEnabled="{Binding CanInspectPreviewDetails}" AutomationProperties.Name="Preview data source details" AutomationProperties.HelpText="{Binding PreviewDetailsHelp}" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Reference review" Click="OnShowReferenceDetails" IsVisible="{Binding HasRecordedReferences}" IsEnabled="{Binding CanInspectPreviewDetails}" AutomationProperties.HelpText="{Binding PreviewDetailsHelp}"
+              AutomationProperties.Name="Review recorded references" Classes="authoringAction" Margin="0,0,6,4"/>
           <Button Content="{Binding DatasetItems.Count, StringFormat='Recordings ({0})'}" IsVisible="{Binding HasRecordings}" Click="OnChooseRecording" AutomationProperties.Name="Choose a recording" Classes="authoringAction" Margin="0,0,6,4"/>
         </WrapPanel>
         <TextBlock Text="Preview only; no hardware execution." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Preview does not execute hardware"/>
+        <TextBlock Text="{Binding RecordingReferenceSummary}" IsVisible="{Binding HasRecordedReferences}" TextWrapping="Wrap"
+            AutomationProperties.Name="Recorded reference input summary"/>
       </StackPanel>
     </Border>
     <Grid x:Name="BoardRegion" RowDefinitions="Auto,*" RowSpacing="8" Grid.Row="1">

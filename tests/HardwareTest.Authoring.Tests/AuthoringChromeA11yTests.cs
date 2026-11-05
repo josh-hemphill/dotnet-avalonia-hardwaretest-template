@@ -41,7 +41,7 @@ public sealed class AuthoringChromeA11yTests
             "WorkspaceBuildView", "WorkspacePreviewView", "HardwareView", "WorkspaceDefinitionsView", "ProgramSettingsView",
             "OperatorReportsView", "WorkspaceOverviewView", "StepPaletteView"];
         var documents = views.ToDictionary(view => view, view => XDocument.Load(Path.Combine(root, view + ".axaml")));
-        var lists = documents.Values.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName == "ListBox").ToArray();
+        var lists = documents.Values.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName is "ListBox" or "AuthoringSequenceListBox").ToArray();
         string[] sources = ["SequenceItems", "FindingRows", "Instruments", "HardwareDefinitions", "Recipes"];
         Assert.Equal(sources.Length, lists.Length);
         foreach (var source in sources)
@@ -70,7 +70,9 @@ public sealed class AuthoringChromeA11yTests
         Assert.Equal("{Binding SequenceRename}", (string?)nameBox.Attribute("Text"));
         foreach (var name in new[] { "Configure selected step", "Operator display selected step", "Advanced selected step", "Selected step errors", "Raw step XML", "Destination section" })
             Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
-        var settingLabel = Assert.Single(inspector.Descendants(), element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
+        var settingTemplate = Assert.Single(inspector.Descendants(), element => element.Name.LocalName == "DataTemplate"
+            && (string?)element.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2006/xaml")) == "vm:AuthoringSettingRow");
+        var settingLabel = Assert.Single(settingTemplate.Descendants(), element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
         Assert.Equal("0", (string?)settingLabel.Attribute("Grid.Row"));
         var settingError = Assert.Single(settingLabel.Parent!.Elements(), element => (string?)element.Attribute("Text") == "{Binding Error}");
         Assert.Equal("1", (string?)settingError.Attribute("Grid.Row"));

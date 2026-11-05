@@ -600,6 +600,7 @@ public sealed class RunBoardChildViewModelTests
     [Fact]
     public async Task ProgramSelection_open_plan_file_loads_selection()
     {
+        using var plan = new TemporaryCatalogPlan("demo");
         var loads = 0;
         var programs = new ProgramSelectionViewModel(
             _ => { },
@@ -610,13 +611,35 @@ public sealed class RunBoardChildViewModelTests
                 return Task.CompletedTask;
             })
         {
-            RequestPlanFilePath = _ => Task.FromResult<string?>("plans/demo.TapPlan"),
+            RequestPlanFilePath = _ => Task.FromResult<string?>(plan.Path),
         };
 
         await programs.OpenPlanFileCommand.ExecuteAsync();
 
         Assert.Equal(1, loads);
         Assert.Equal("demo", programs.SelectedProgram?.Id);
+        Assert.Equal(BenchProgramHandoff.Hash(File.ReadAllBytes(plan.Path)), programs.SelectedProgram!.PlanSha256);
+        Assert.False(programs.IsBusy);
+    }
+
+    [Fact]
+    public async Task ProgramSelection_missing_plan_keeps_existing_selection_and_explains_recovery()
+    {
+        using var plan = new TemporaryCatalogPlan("existing-fixture");
+        var loads = 0;
+        var status = string.Empty;
+        var programs = new ProgramSelectionViewModel(value => status = value, () => true,
+            _ => { loads++; return Task.CompletedTask; })
+        { RequestPlanFilePath = _ => Task.FromResult<string?>(plan.Path) };
+        await programs.OpenPlanFileCommand.ExecuteAsync();
+        var existing = programs.SelectedProgram;
+        programs.RequestPlanFilePath = _ => Task.FromResult<string?>(Path.Combine(Path.GetDirectoryName(plan.Path)!, "missing.TapPlan"));
+        await programs.OpenPlanFileCommand.ExecuteAsync();
+        Assert.Equal(1, loads);
+        Assert.Same(existing, programs.SelectedProgram);
+        Assert.Single(programs.Programs);
+        Assert.Contains("Cannot open this program", status, StringComparison.Ordinal);
+        Assert.Contains("Restore the complete compiled plan and sidecar", status, StringComparison.Ordinal);
         Assert.False(programs.IsBusy);
     }
 

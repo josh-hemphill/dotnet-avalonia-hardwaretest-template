@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using HardwareTest.Authoring;
 using HardwareTest.Core.Runs;
 using HardwareTest.OpenTap.Host;
@@ -25,14 +26,54 @@ public sealed class RunDatasetTests
         Assert.DoesNotContain("mutated", dataset.Identity.DisplayDetails);
     }
 
-    [Fact]
-    public void Load_current_fixture_exposes_vdc_series()
+    [Theory]
+    [InlineData("run-v4.json", 4, true)]
+    [InlineData("run-v5.json", 5, false)]
+    public void Load_supported_fixture_exposes_vdc_series_and_preserves_schema_read_only_status(string fixture, int version, bool readOnly)
     {
-        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", "run-v4.json"));
+        var dataset = RunDatasetCatalog.Load(Path.Combine(FindRepoRoot(), "tests", "fixtures", "schema", fixture));
         var series = RunDatasetBinder.SeriesByMetric(dataset.Run);
         Assert.True(series.ContainsKey("VDC"));
         Assert.Equal(10, Assert.Single(series["VDC"]).Value);
-        Assert.False(dataset.Run.IsSchemaReadOnly);
+        Assert.Equal(readOnly, dataset.Run.IsSchemaReadOnly);
+        Assert.Equal(version, dataset.Run.StoredSchemaVersion);
+    }
+
+    [Fact]
+    public void Historical_read_only_recording_previews_samples_and_formula_while_future_schema_stays_blocked()
+    {
+        var source = Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json");
+        var bytes = File.ReadAllBytes(source);
+        var recording = RunDatasetCatalog.Load(source).Run;
+        Assert.True(recording.IsSchemaReadOnly);
+        Assert.Equal(4, recording.StoredSchemaVersion);
+        var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("sample"), AuthoringRecipeIds.Acquire);
+        draft = AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Formula);
+        var tiles = BoardPreviewBuilder.Build(draft, recording);
+        Assert.Equal(2, tiles.Count);
+        Assert.All(tiles, tile => Assert.NotEmpty(tile.Preview.CannedSamples));
+        Assert.Equal(new[] { 1d, 3d }, tiles[0].Preview.CannedSamples);
+        Assert.Equal(2, tiles[1].Preview.CannedValue);
+        Assert.True(recording.IsSchemaReadOnly);
+        Assert.Equal(bytes, File.ReadAllBytes(source));
+
+        var temporary = NewTempDir();
+        try
+        {
+            var future = JsonNode.Parse(bytes)!;
+            future["schemaVersion"] = 999;
+            var path = Path.Combine(temporary, "run.json");
+            File.WriteAllText(path, future.ToJsonString());
+            var futureBytes = File.ReadAllBytes(path);
+            var unsupported = RunDatasetCatalog.Load(path).Run;
+            Assert.All(BoardPreviewBuilder.Build(draft, unsupported), tile =>
+            {
+                Assert.Empty(tile.Preview.CannedSamples);
+                Assert.Contains("Unsupported recording schema 999", tile.Preview.Note);
+            });
+            Assert.Equal(futureBytes, File.ReadAllBytes(path));
+        }
+        finally { Directory.Delete(temporary, recursive: true); }
     }
 
     [Fact]

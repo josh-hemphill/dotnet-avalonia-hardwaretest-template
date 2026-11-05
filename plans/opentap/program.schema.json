@@ -66,6 +66,24 @@
       "enum": ["warn", "block"],
       "description": "DUT gate level when requireStationHealth is true. Default warn."
     },
+    "referenceRules": {
+      "type": ["array", "null"],
+      "description": "Additional operator acceptance against explicitly selected bench reference values. Measurements and references use the arithmetic mean of all samples for the declared producer and metric.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ruleId", "metricKey", "producerStepId", "referenceKey", "unit", "comparison", "tolerance"],
+        "properties": {
+          "ruleId": { "type": "string", "minLength": 1 },
+          "metricKey": { "type": "string", "minLength": 1 },
+          "producerStepId": { "type": "string", "format": "uuid" },
+          "referenceKey": { "type": "string", "minLength": 1 },
+          "unit": { "type": "string", "minLength": 1 },
+          "comparison": { "enum": ["absolute", "percent"] },
+          "tolerance": { "type": "number", "minimum": 0 }
+        }
+      }
+    },
     "stationHealthProfileId": {
       "type": "string",
       "description": "Store key under {DataDirectory}/station-health/{id}.json. Default default."

@@ -332,6 +332,8 @@ public sealed class TypstReportService : IReportService, IDisposable
                 .WithInput("planName", run.PlanName)
                 .WithInput("executionScope", run.ExecutionScopeText)
                 .WithInput("executionScopeKind", run.ExecutionScope ?? string.Empty)
+                .WithInput("referenceEvidence", HardwareTest.Core.BenchReferences.BenchReferenceEvidence.Describe(run))
+                .WithInput("includeReferenceEvidence", run.ReferenceRules.Count > 0 || run.ReferenceUses.Count > 0 ? "true" : "false")
                 .WithInput("dutSerial", run.DutSerial ?? "n/a")
                 .WithInput("result", run.Result.ToString())
                 .WithInput("startedAt", run.StartedAt.ToString("u", CultureInfo.InvariantCulture))

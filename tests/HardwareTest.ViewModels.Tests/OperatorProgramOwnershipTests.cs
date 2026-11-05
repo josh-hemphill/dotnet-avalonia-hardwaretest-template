@@ -33,7 +33,8 @@ public sealed class OperatorProgramOwnershipTests
             if (change.PropertyName == nameof(vm.Status) && vm.Status.Contains("Finish or Stop Run", StringComparison.Ordinal))
                 explainedOwnership = true;
         };
-        var pickedPath = Path.Combine(Path.GetTempPath(), "owner-recovery.TapPlan");
+        using var pickedPlan = new TemporaryCatalogPlan("owner-recovery");
+        var pickedPath = pickedPlan.Path;
         vm.ProgramSelection.RequestPlanFilePath = _ =>
         {
             pickerCalls++;

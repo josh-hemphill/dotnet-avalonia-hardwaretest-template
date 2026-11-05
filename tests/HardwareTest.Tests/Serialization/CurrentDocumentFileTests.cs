@@ -21,7 +21,7 @@ public sealed class CurrentDocumentFileTests
 
     [Theory]
     [InlineData("{invalid-json")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}")]
     public async Task Corrupt_primary_recovers_only_valid_current_backup_atomically(string primary)
     {
         using var temp = new TempDataDirectory();
@@ -92,7 +92,7 @@ public sealed class CurrentDocumentFileTests
     [InlineData("{\"schemaVersion\":3}", "unsupported")]
     [InlineData("{\"schemaVersion\":999}", "future")]
     [InlineData("{invalid", "corrupt")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}", "corrupt")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}", "corrupt")]
     public async Task Recovery_rejects_noncurrent_or_invalid_backups_without_rewriting(string backup, string failure)
     {
         using var temp = new TempDataDirectory();
@@ -167,7 +167,7 @@ public sealed class CurrentDocumentFileTests
 
     [Theory]
     [InlineData("{invalid")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}")]
     public async Task Sole_corrupt_backup_blocks_preflight_and_write_without_replacing_evidence(string backup)
     {
         using var temp = new TempDataDirectory();

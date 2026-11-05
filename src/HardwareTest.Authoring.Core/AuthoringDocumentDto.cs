@@ -22,7 +22,7 @@ public sealed class AuthoringDocumentState
 /// Durable source document; deliberately contains no OpenTAP runtime instances.
 public sealed record AuthoringDocumentDto
 {
-    public const int CurrentSchemaVersion = 3;
+    public const int CurrentSchemaVersion = 4;
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
     public required string PlanId { get; set; }
     /// Missing in legacy source. Once true, intentionally empty or ungrouped layouts stay ungrouped.
@@ -67,6 +67,8 @@ public sealed record AuthoringDocumentDto
             throw new InvalidDataException("The authoring source document is incomplete.");
         if (Instruments.Any(instrument => instrument is null || instrument.Settings is null))
             throw new InvalidDataException("Instrument source configuration is incomplete.");
+        if (Sidecar.ReferenceRules?.Any(rule => rule is null) == true)
+            throw new InvalidDataException("The reference criteria contain an empty declaration.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
             Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy())
         { AuthoringState = State.Clone() };

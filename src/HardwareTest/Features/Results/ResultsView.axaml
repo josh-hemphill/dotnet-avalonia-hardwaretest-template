@@ -185,6 +185,14 @@
               <TextBlock Text="Certification" FontWeight="SemiBold" />
               <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
             </StackPanel>
+            <StackPanel Spacing="8" IsVisible="{Binding HasReferenceEvidence}">
+              <TextBlock Text="Golden reference acceptance" FontWeight="SemiBold"/>
+              <Expander Header="Exact reference inputs, decisions and source" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Saved golden reference evidence">
+                <SelectableTextBlock Text="{Binding ReferenceEvidenceText}" TextWrapping="Wrap" Margin="8"/>
+              </Expander>
+              <Button Content="Save golden reference" Click="OnSaveReferenceClick" IsVisible="{Binding ShowReferencePromotion}" IsEnabled="{Binding ReferencePromotion.CanEdit}"
+                      Classes="operator" HorizontalAlignment="Left" AutomationProperties.Name="Save golden reference from this run"/>
+            </StackPanel>
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
               <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">

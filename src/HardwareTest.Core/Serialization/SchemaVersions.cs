@@ -5,10 +5,12 @@ public static class SchemaVersions
 {
     public const int AppSettings = 1;
     public const int UiState = 1;
-    public const int TestRunRecord = 4;
+    public const int TestRunRecord = 5;
     public const int SuiteRunRecord = 1;
     public const int CrashReport = 1;
     public const int StationHealthRecord = 1;
+    public const int BenchReferenceProfile = 1;
+    public const int BenchReferenceRetirement = 1;
 }
 
 /// Stable document-type keys for schema validation and diagnostics.
@@ -20,4 +22,6 @@ public static class SchemaDocumentTypes
     public const string SuiteRunRecord = "SuiteRunRecord";
     public const string CrashReport = "CrashReport";
     public const string StationHealthRecord = "StationHealthRecord";
+    public const string BenchReferenceProfile = "BenchReferenceProfile";
+    public const string BenchReferenceRetirement = "BenchReferenceRetirement";
 }

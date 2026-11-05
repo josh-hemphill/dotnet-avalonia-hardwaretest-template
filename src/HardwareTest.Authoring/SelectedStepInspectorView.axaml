@@ -95,6 +95,73 @@
                 </Grid>
               </StackPanel>
             </Border>
+            <StackPanel Spacing="8">
+              <TextBlock Text="Golden-unit reference" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+              <CheckBox IsChecked="{Binding RequireGoldenReference}"
+                  AutomationProperties.Name="Require golden reference" AutomationProperties.HelpText="{Binding ReferenceRequirementHelp}">
+                <TextBlock Text="{Binding ReferenceRequirementLabel}" TextWrapping="Wrap"/>
+              </CheckBox>
+              <StackPanel Spacing="6" IsVisible="{Binding RequireGoldenReference}">
+                <TextBlock x:Name="ReferenceCriterionLabel" Text="Criterion to edit" TextWrapping="Wrap"/>
+                <ComboBox x:Name="ReferenceCriterionSelector" ItemsSource="{Binding ReferenceCriterionOptions}" SelectedItem="{Binding SelectedReferenceCriterion, Mode=TwoWay}"
+                    HorizontalAlignment="Stretch" AutomationProperties.Name="Reference criterion to edit" AutomationProperties.LabeledBy="{Binding #ReferenceCriterionLabel}"
+                    SelectionChanged="OnReferenceComparisonChanged" GotFocus="OnReferenceFieldFocused">
+                  <ComboBox.Styles><Style Selector="ComboBoxItem" x:DataType="vm:AuthoringReferenceCriterionOption">
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
+                  </Style></ComboBox.Styles>
+                  <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringReferenceCriterionOption">
+                    <TextBlock Text="{Binding Label}" TextWrapping="Wrap" MaxWidth="340"/>
+                  </DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+                <WrapPanel>
+                  <Button Content="Add criterion" Click="OnAddReferenceCriterion" Margin="0,0,6,6" AutomationProperties.Name="Add reference criterion" Classes="authoringAction"/>
+                  <Button Content="Remove selected" Click="OnRemoveReferenceCriterion" Margin="0,0,0,6" AutomationProperties.Name="Remove selected reference criterion" Classes="authoringAction"
+                      AutomationProperties.HelpText="Removes only the selected criterion. Undo restores it."/>
+                </WrapPanel>
+                <TextBlock Text="{Binding ReferenceCriteriaOverview}" TextWrapping="Wrap"
+                    IsVisible="{Binding ReferenceCriteriaOverview, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    AutomationProperties.Name="All reference criteria"/>
+                <StackPanel x:Name="ReferenceKeyField" Spacing="6">
+                  <TextBlock x:Name="ReferenceKeyLabel" Text="Reference input key" TextWrapping="Wrap"/>
+                  <TextBox x:Name="ReferenceKeyBox" Text="{Binding ReferenceKey}" AutomationProperties.Name="Reference input key"
+                      TextChanged="OnReferenceInputChanged" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.LabeledBy="{Binding #ReferenceKeyLabel}" AutomationProperties.HelpText="{Binding ReferenceKeyError}"/>
+                  <TextBlock Text="{Binding ReferenceKeyError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceKeyError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference input key error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <StackPanel x:Name="ReferenceTargetField" Spacing="6">
+                  <TextBlock Text="{Binding ReferenceTarget}" TextWrapping="Wrap" AutomationProperties.Name="Reference measurement identity"/>
+                  <Button x:Name="ReferenceRebindButton" Content="Use current measurement identity" Click="OnRebindReference" Classes="authoringAction" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.Name="Rebind reference measurement" AutomationProperties.HelpText="{Binding ReferenceTargetError}" HorizontalAlignment="Left"/>
+                  <TextBlock Text="{Binding ReferenceTargetError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceTargetError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference target error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ReferenceReduction}" TextWrapping="Wrap" Classes="purpose"/>
+                <StackPanel x:Name="ReferenceComparisonField" Spacing="6">
+                  <TextBlock x:Name="ReferenceComparisonLabel" Text="Comparison" TextWrapping="Wrap"/>
+                  <ComboBox x:Name="ReferenceComparisonBox" ItemsSource="{Binding ReferenceComparisonOptions}" SelectedItem="{Binding ReferenceComparison}"
+                      GotFocus="OnReferenceFieldFocused" SelectionChanged="OnReferenceComparisonChanged"
+                      AutomationProperties.Name="Reference comparison" AutomationProperties.LabeledBy="{Binding #ReferenceComparisonLabel}" AutomationProperties.HelpText="{Binding ReferenceComparisonError}"/>
+                  <TextBlock Text="{Binding ReferenceComparisonError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceComparisonError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference comparison error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="{Binding ReferenceEquation}" TextWrapping="Wrap"/>
+                <StackPanel x:Name="ReferenceToleranceField" Spacing="6">
+                  <TextBlock x:Name="ReferenceToleranceLabel" Text="Tolerance (inclusive)" TextWrapping="Wrap"/>
+                  <TextBox x:Name="ReferenceToleranceBox" Text="{Binding ReferenceTolerance}" AutomationProperties.Name="Reference tolerance"
+                      TextChanged="OnReferenceInputChanged" GotFocus="OnReferenceFieldFocused"
+                      AutomationProperties.LabeledBy="{Binding #ReferenceToleranceLabel}" AutomationProperties.HelpText="{Binding ReferenceToleranceError}"/>
+                  <TextBlock Text="{Binding ReferenceToleranceError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                      IsVisible="{Binding ReferenceToleranceError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                      AutomationProperties.Name="Reference criterion error" AutomationProperties.LiveSetting="Polite"/>
+                </StackPanel>
+                <TextBlock Text="The operator selects a compatible saved reference before Run. Reference acceptance is additional to the fixed pass decision."
+                    TextWrapping="Wrap" Classes="purpose"/>
+              </StackPanel>
+            </StackPanel>
             <StackPanel Spacing="6" IsVisible="{Binding HasStepSettings}">
               <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
               <TextBlock Grid.Column="0" MaxWidth="110" VerticalAlignment="Center" x:Name="FunctionIdLabel" Text="{x:Static vm:AuthoringInspectorCopy.MeasureRecipeLabel}" TextWrapping="Wrap"/>
@@ -228,15 +295,20 @@
           <TextBlock x:Name="InspectorBreadcrumbText" Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
         </StackPanel>
       </Expander>
-      <Expander Header="Operator display" IsExpanded="True" IsVisible="{Binding HasMetricPresentation}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Operator display selected step" Classes="inspectorSection">
+      <Expander x:Name="OperatorDisplayExpander" Header="Operator display" IsExpanded="True" IsVisible="{Binding HasMetricPresentation}" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Operator display selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock Text="Name and present this result on the shared operator board. Pass criteria remain in Configure." TextWrapping="Wrap" Classes="purpose"/>
           <TextBlock Text="Friendly step name"/>
           <TextBox Text="{Binding MetricName}" AutomationProperties.Name="Friendly step name"/>
           <TextBlock x:Name="DisplayRoleLabel" Text="Display role" TextWrapping="Wrap"/>
           <ComboBox ItemsSource="{Binding DisplayRoleOptions}" SelectedItem="{Binding DisplayRole}" AutomationProperties.Name="Display role" AutomationProperties.LabeledBy="{Binding #DisplayRoleLabel}" ToolTip.Tip="Choose the operator visualization. Pass criteria stay in Configure."/>
-          <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" TextWrapping="Wrap"/>
-          <ComboBox ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
+          <StackPanel x:Name="MeasurementUnitField" Spacing="6">
+            <TextBlock x:Name="YUnitLabel" Text="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" TextWrapping="Wrap"/>
+            <ComboBox x:Name="YUnitBox" ItemsSource="{Binding YUnitOptions}" SelectedItem="{Binding YUnit}" IsEditable="True" AutomationProperties.Name="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitLabel}" AutomationProperties.LabeledBy="{Binding #YUnitLabel}" AutomationProperties.HelpText="{Binding ReferenceMeasurementUnitError}" ToolTip.Tip="{x:Static vm:AuthoringInspectorCopy.OperatorYUnitTooltip}"/>
+            <TextBlock Text="{Binding ReferenceMeasurementUnitError}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}"
+                IsVisible="{Binding ReferenceMeasurementUnitError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                AutomationProperties.Name="Measurement unit error" AutomationProperties.LiveSetting="Polite"/>
+          </StackPanel>
           <TextBlock Text="{Binding PreviewNote}" TextWrapping="Wrap" AutomationProperties.Name="Operator preview note"/>
         </StackPanel>
       </Expander>

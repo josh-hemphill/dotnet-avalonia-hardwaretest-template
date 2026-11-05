@@ -27,20 +27,27 @@ public partial class WorkspacePreviewView : UserControl
     }
 
     private async void OnShowSourceDetails(object? sender, RoutedEventArgs e)
+        => await ShowDetailsAsync(sender, reference: false);
+
+    private async void OnShowReferenceDetails(object? sender, RoutedEventArgs e)
+        => await ShowDetailsAsync(sender, reference: true);
+
+    private async Task ShowDetailsAsync(object? sender, bool reference)
     {
         if (_sourceDetailsWindow is not null) { _sourceDetailsWindow.Activate(); return; }
         if (DataContext is not AuthoringWorkspaceViewModel vm
             || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner) return;
         if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
+        if (!vm.CanInspectPreviewDetails || reference && !vm.HasRecordedReferences) return;
         var details = new TextBox
         {
-            Text = string.Join(Environment.NewLine + Environment.NewLine,
+            Text = reference ? vm.RecordingReferenceReview : string.Join(Environment.NewLine + Environment.NewLine,
                 new[] { vm.DataSourceDetails, vm.RecordingEmptyState }.Where(value => !string.IsNullOrWhiteSpace(value))),
             IsReadOnly = true,
             AcceptsReturn = true,
             TextWrapping = TextWrapping.Wrap
         };
-        AutomationProperties.SetName(details, "Full preview data source");
+        AutomationProperties.SetName(details, reference ? "Full recorded reference review" : "Full preview data source");
         ScrollViewer.SetHorizontalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         ScrollViewer.SetVerticalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         var close = new Button
@@ -50,7 +57,7 @@ public partial class WorkspacePreviewView : UserControl
             IsCancel = true,
             Classes = { "authoringAction" }
         };
-        AutomationProperties.SetName(close, "Close preview data source");
+        AutomationProperties.SetName(close, reference ? "Close recorded reference review" : "Close preview data source");
         var footer = new StackPanel
         {
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -63,7 +70,7 @@ public partial class WorkspacePreviewView : UserControl
         panel.Children.Add(details);
         var dialog = new Window
         {
-            Title = "Preview data source",
+            Title = reference ? "Recorded reference review" : "Preview data source",
             Width = Math.Min(760, owner.ClientSize.Width - 60),
             Height = Math.Min(560, owner.ClientSize.Height - 60),
             MinWidth = 400,

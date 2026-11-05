@@ -11,7 +11,7 @@ namespace HardwareTest.OpenTap.Host;
 
 /// One execute: CTS, pause/interaction, samples, step results, and <see cref="IStepRuntime"/>.
 /// Production <see cref="OpenTapSession"/> still single-flights; unit tests may construct two contexts.
-public sealed class OpenTapRunContext : IStepRuntime, IDisposable
+public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptanceRuntime, IDisposable
 {
     private readonly OpenTapRunControlState _control = new();
     private readonly List<StoredSample> _samples = [];
@@ -28,16 +28,22 @@ public sealed class OpenTapRunContext : IStepRuntime, IDisposable
         AppSettings settings,
         ILogger logger,
         bool cancelExecuteWithToken = false,
-        IClock? clock = null)
+        IClock? clock = null,
+        bool referenceAcceptancePrepared = false,
+        bool referenceAcquisition = false)
     {
         _settings = settings;
         _logger = logger;
         _cancelExecuteWithToken = cancelExecuteWithToken;
         _clock = clock ?? SystemClock.Instance;
+        IsOperatorReferenceAcceptancePrepared = referenceAcceptancePrepared;
+        IsReferenceAcquisition = referenceAcceptancePrepared && referenceAcquisition;
         _control.OperatorStateChanged += () => OperatorStateChanged?.Invoke();
     }
 
     public OpenTapRunControlState Control => _control;
+    public bool IsOperatorReferenceAcceptancePrepared { get; }
+    public bool IsReferenceAcquisition { get; }
 
     public IReadOnlyList<StoredSample> Samples => _samples;
 

@@ -1,7 +1,9 @@
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
+using HardwareTest.Core.Engine;
 using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -69,7 +71,10 @@ public partial class ResultsViewModel : ReactiveObject
         IRunComparisonService? comparison = null,
         BuildInfo? buildInfo = null,
         IReportAttestationService? attestation = null,
-        AppSettings? settings = null)
+        AppSettings? settings = null,
+        IBenchReferenceStore? benchReferenceStore = null,
+        IRunControl? runControl = null,
+        ISettingsStore? settingsStore = null)
     {
         _runStore = runStore;
         _reportService = reportService;
@@ -81,6 +86,17 @@ public partial class ResultsViewModel : ReactiveObject
         _buildInfo = buildInfo;
         _attestation = attestation;
         _settings = settings;
+        ReferencePromotion = new BenchReferencePromotionViewModel(benchReferenceStore, _clock,
+            () => _settings?.IsEngineerDebugMode == true && runControl?.IsRunning != true, RunOnUiAsync);
+        if (settingsStore is not null)
+            settingsStore.AppSettingsSaved += (_, _) => PostToUi(() =>
+            {
+                RefreshAvailableExportTargets();
+                ReferencePromotion.RefreshPermissions();
+                this.RaisePropertyChanged(nameof(ShowReferencePromotion));
+            });
+        if (runControl is not null)
+            runControl.PropertyChanged += (_, _) => PostToUi(ReferencePromotion.RefreshPermissions);
         Runs = [];
         StepDetails = [];
         SampleDetails = [];
@@ -101,7 +117,7 @@ public partial class ResultsViewModel : ReactiveObject
         {
             ShowFailedStepsOnly = false;
         });
-        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshAsync);
+        RefreshCommand = ReactiveCommand.CreateFromTask(RefreshResultsAndExportTargetsAsync);
         OpenCommand = ReactiveCommand.CreateFromTask(OpenAsync);
         OpenDefaultReportCommand = ReactiveCommand.CreateFromTask(OpenDefaultReportAsync);
         ReprintCommand = ReactiveCommand.CreateFromTask(ReprintAsync);
@@ -141,7 +157,14 @@ public partial class ResultsViewModel : ReactiveObject
 
         PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName == nameof(OpenedRun)) this.RaisePropertyChanged(nameof(RunIdentityText));
+            if (args.PropertyName == nameof(OpenedRun))
+            {
+                this.RaisePropertyChanged(nameof(RunIdentityText));
+                this.RaisePropertyChanged(nameof(ReferenceEvidenceText));
+                this.RaisePropertyChanged(nameof(HasReferenceEvidence));
+                this.RaisePropertyChanged(nameof(ShowReferencePromotion));
+                ReferencePromotion.Configure(OpenedRun);
+            }
             if (args.PropertyName == nameof(OpenedRun) && !ReferenceEquals(OpenedRun, _pendingAttestationRun)) DismissAttestationPrompt();
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
                 or nameof(PlanFilter) or nameof(DutFilter)
@@ -161,4 +184,10 @@ public partial class ResultsViewModel : ReactiveObject
 
         RefreshExportTargets();
     }
+
+    public BenchReferencePromotionViewModel ReferencePromotion { get; }
+    public bool HasReferenceEvidence => OpenedRun is { ReferenceRules.Count: > 0 } or { ReferenceUses.Count: > 0 };
+    public bool ShowReferencePromotion => _settings?.IsEngineerDebugMode == true && OpenedRun is { ReferenceRules.Count: > 0 };
+    public string ReferenceEvidenceText => OpenedRun is { } run
+        ? $"Backend execution: {run.ReferenceBackendResult?.ToString() ?? "Not separately recorded"}\n{BenchReferenceEvidence.Describe(run)}" : string.Empty;
 }

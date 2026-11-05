@@ -1,4 +1,5 @@
 using System.Globalization;
+using HardwareTest.Core.BenchReferences;
 
 namespace HardwareTest.Features.Results;
 
@@ -23,7 +24,9 @@ public partial class ResultsViewModel
                 $"Operator: {Recorded(run.OperatorName)}",
                 $"Started at: {(run.StartedAt == default ? "Not recorded" : run.StartedAt.ToString("O", CultureInfo.InvariantCulture))}",
                 $"Completed at: {run.CompletedAt?.ToString("O", CultureInfo.InvariantCulture) ?? "Not recorded"}",
-                $"Execution: {run.ExecutionScopeText}");
+                $"Execution: {run.ExecutionScopeText}",
+                $"Backend execution: {run.ReferenceBackendResult?.ToString() ?? "Not separately recorded"}",
+                BenchReferenceEvidence.Describe(run));
         }
     }
 

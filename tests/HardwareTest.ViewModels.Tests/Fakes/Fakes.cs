@@ -96,6 +96,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     public bool ReportSamples { get; set; } = true;
     /// When set, replaces the default VDC summary samples on RunAsync.
     public List<StoredSample>? SummarySamples { get; set; }
+    /// Optional deterministic samples bounded by the exact fake execution interval.
+    public Func<DateTimeOffset, DateTimeOffset, List<StoredSample>>? SummarySamplesFactory { get; set; }
     /// When true with ReportSamples, also emits a scalar presentation Sample for gauge tiles.
     public bool ReportPresentationMetrics { get; set; } = true;
     public DutIdentity? LastDut { get; private set; }
@@ -799,6 +801,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
         MarkTreeStatuses(CompletionResult);
         var leaf = Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);
+        var fixtureCompletedAt = DateTimeOffset.UtcNow;
+        var fixtureStartedAt = fixtureCompletedAt.AddSeconds(-1);
         var summary = new OpenTapRunSummary
         {
             RunId = runId,
@@ -807,9 +811,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             DutSerial = LastDut?.Serial,
             DutPartNumber = LastDut?.PartNumber,
             DutRevision = LastDut?.Revision,
-            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
-            CompletedAt = DateTimeOffset.UtcNow,
-            Samples = SummarySamples ??
+            StartedAt = fixtureStartedAt,
+            CompletedAt = fixtureCompletedAt,
+            Samples = SummarySamplesFactory?.Invoke(fixtureStartedAt, fixtureCompletedAt) ?? SummarySamples ??
             [
                 new StoredSample
                 {
@@ -1010,6 +1014,8 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         var leaf = scopeLeaves.FirstOrDefault()
                    ?? Flatten(Tree).FirstOrDefault(n => n.Children.Count == 0);
 
+        var fixtureCompletedAt = DateTimeOffset.UtcNow;
+        var fixtureStartedAt = fixtureCompletedAt.AddSeconds(-1);
         var summary = new OpenTapRunSummary
         {
             RunId = runId,
@@ -1018,9 +1024,9 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             DutSerial = LastDut?.Serial,
             DutPartNumber = LastDut?.PartNumber,
             DutRevision = LastDut?.Revision,
-            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
-            CompletedAt = DateTimeOffset.UtcNow,
-            Samples =
+            StartedAt = fixtureStartedAt,
+            CompletedAt = fixtureCompletedAt,
+            Samples = SummarySamplesFactory?.Invoke(fixtureStartedAt, fixtureCompletedAt) ??
             [
                 new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25, StepPath = leaf?.Path ?? stepPath },
             ],

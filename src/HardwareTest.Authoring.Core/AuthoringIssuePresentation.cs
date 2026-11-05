@@ -15,6 +15,7 @@ internal static class AuthoringIssuePresentation
         "EMPTY_MEASURE" => "Add the first measurement or calculation",
         "MISSING_IDENTITY" => "Add the required DUT identity check",
         "INCOMPLETE_NUMERIC_INPUT" => "Complete a numeric value",
+        "REFERENCE_CRITERION" => "Complete the golden-reference criterion",
         "DUPLICATE_CHANNEL" => "Give each output a unique channel",
         "MISSING_CHANNEL" => "Connect this input to an earlier output",
         "MISSING_INSTRUMENT" or "MISSING_INSTRUMENT_BINDING" => "Choose an instrument for this step",
@@ -39,6 +40,7 @@ internal static class AuthoringIssuePresentation
         "EMPTY_MEASURE" => "Add an acquisition or calculation to the sequence before building this plan.",
         "MISSING_IDENTITY" => "This plan requires a serial number. Add an identity check or review that requirement.",
         "INCOMPLETE_NUMERIC_INPUT" => "Enter a valid number in the affected field; your incomplete entry has been retained.",
+        "REFERENCE_CRITERION" => "Review this measurement's reference input, units and tolerance. Your draft is retained; invalid reference criteria cannot be deployed.",
         "DUPLICATE_CHANNEL" => "Rename an output channel so later calculations can identify its producer.",
         "MISSING_CHANNEL" => "Choose an existing channel from a preceding supported step.",
         "MISSING_INSTRUMENT" or "MISSING_INSTRUMENT_BINDING" => "Configure a slot in Instruments, then select that slot in this step.",
@@ -49,11 +51,13 @@ internal static class AuthoringIssuePresentation
         _ => message
     };
 
-    internal static string? FieldAction(string? field) => field switch
+    internal static string? FieldAction(string? field) => (field is null ? null : AuthoringReferenceRules.BaseField(field)) switch
     {
         "Threshold" => "Edit pass criterion",
         "LimitLow" or "LimitHigh" => "Edit limits",
         "ChannelKey" => "Edit channel",
+        "ReferenceMeasurementUnit" => "Edit measurement unit",
+        "ReferenceKey" or "ReferenceComparison" or "ReferenceTolerance" or "ReferenceTarget" or "ReferenceRuleIdentity" => "Edit golden-reference criterion",
         _ => null
     };
 }

@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -36,6 +38,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     private int _runGate;
     private OpenTapRunContext? _activeContext;
     private bool _pausedBeforeRun;
+    private bool _referenceAcceptancePrepared;
+    private bool _referenceAcquisition;
 
     /// <param name="cancelExecuteWithToken">
     /// When true (OpenTAP worker), pass the run CTS into <c>TestPlan.ExecuteAsync</c>.
@@ -71,6 +75,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadSampleProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = SampleProgramFactory.Create();
@@ -80,6 +85,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadBoardDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = BoardDemoProgramFactory.Create();
@@ -89,6 +95,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadSweepDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = SweepDemoProgramFactory.Create();
@@ -98,6 +105,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadTimingDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = TimingDemoProgramFactory.Create();
@@ -107,6 +115,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadEnvelopeSweepDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = EnvelopeSweepDemoProgramFactory.Create();
@@ -116,6 +125,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadStationHealthDemoProgramAsync(CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var plan = StationHealthDemoProgramFactory.Create();
@@ -125,6 +135,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         var match = PlanShapeFixtures.All.FirstOrDefault(f =>
@@ -141,6 +152,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task LoadPlanAsync(string tapPlanPath, CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
         if (!File.Exists(tapPlanPath))
@@ -149,6 +161,21 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         }
 
         var plan = TestPlan.Load(tapPlanPath);
+        LogicalInstrumentBindings.Canonicalize(plan, tapPlanPath);
+        var sidecarPath = Path.ChangeExtension(tapPlanPath, ".program.json");
+        if (File.Exists(sidecarPath))
+        {
+            var raw = File.ReadAllText(sidecarPath);
+            ProgramReferenceDeclarations.RequireSupportedJson(raw);
+            var sidecar = JsonSerializer.Deserialize(raw, ProgramCatalogJsonContext.Default.ProgramSidecar)
+                ?? throw new InvalidOperationException("The program's operator settings are empty. Prepare the complete program again.");
+            var ruleErrors = BenchReferenceEvaluator.ValidateRules(sidecar.ReferenceRules ?? []);
+            if (ruleErrors.Count > 0)
+                throw new InvalidOperationException("The program's reference acceptance rules are invalid: " + string.Join(" ", ruleErrors));
+            if (sidecar.ReferenceRules is { Count: > 0 }
+                && !OpenTapStepTree.Flatten(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep))
+                throw new InvalidOperationException("OPERATOR_REFERENCE_GUARD_MISSING: This program declares reference acceptance but its compiled plan has no operator capability guard. Recompile with the current authoring app and prepare the complete program again.");
+        }
         BindPlan(plan, tapPlanPath, string.IsNullOrWhiteSpace(plan.Name) ? Path.GetFileNameWithoutExtension(tapPlanPath) : plan.Name);
         return Task.CompletedTask;
     }
@@ -158,6 +185,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         lock (_sync)
         {
             ThrowIfExecuting("load or bind a plan");
+            _referenceAcceptancePrepared = false;
+            _referenceAcquisition = false;
             _plan = plan;
             _instruments.Clear();
             foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
@@ -180,10 +209,14 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
     public Task ApplyStationAndDutAsync(StationProfile station, DutIdentity dut, CancellationToken cancellationToken = default)
     {
+        ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         lock (_sync)
         {
             ThrowIfExecuting("apply station or DUT bindings");
+            // Failed station preparation must not leave a previous capability available.
+            _referenceAcceptancePrepared = false;
+            _referenceAcquisition = false;
             _dutIdentity = dut;
             if (_dut is not null)
             {
@@ -201,6 +234,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                     TryBindSlotResource_NoLock(slot.Name, resource);
                 }
             }
+            _referenceAcceptancePrepared = station.ReferenceAcceptancePrepared;
+            _referenceAcquisition = station.ReferenceAcceptancePrepared && station.ReferenceAcquisition;
         }
 
         Raise(nameof(InstrumentSlots));
@@ -216,11 +251,16 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     {
         if (_plan is null)
         {
+            ClearReferencePreparation();
             throw new InvalidOperationException("Load a plan before running.");
         }
 
-        var selected = FindStepByPath(stepPath)
-                       ?? throw new InvalidOperationException($"Step not found: {stepPath}");
+        var selected = FindStepByPath(stepPath);
+        if (selected is null)
+        {
+            ClearReferencePreparation();
+            throw new InvalidOperationException($"Step not found: {stepPath}");
+        }
         var mask = OpenTapStepTree.Flatten(_plan).ToDictionary(s => s.Id, s => s.Enabled);
 
         // Reset only steps that will execute (subtree + optional SafeShutdown). Ancestors stay enabled for
@@ -230,7 +270,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         foreach (var step in OpenTapStepTree.Flatten(_plan))
         {
             var isCleanup = includeCleanup && OpenTapStepKinds.IsSafeShutdown(step);
-            if (!OpenTapStepTree.IsInSubtree(step, selected) && !isCleanup)
+            if (!OpenTapStepTree.IsInSubtree(step, selected) && !isCleanup
+                && step is not RequireOperatorReferenceAcceptanceStep)
             {
                 continue;
             }
@@ -248,12 +289,14 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             var cleanupSteps = includeCleanup
                 ? OpenTapStepTree.Flatten(_plan).Where(OpenTapStepKinds.IsSafeShutdown).ToList()
                 : [];
+            var referenceGuards = OpenTapStepTree.Flatten(_plan).OfType<RequireOperatorReferenceAcceptanceStep>().ToArray();
             foreach (var step in OpenTapStepTree.Flatten(_plan))
             {
                 var keep = OpenTapStepTree.IsInSubtree(step, selected)
                            || OpenTapStepTree.IsAncestorOf(step, selected)
                            || cleanupSteps.Any(c =>
-                               ReferenceEquals(step, c) || OpenTapStepTree.IsAncestorOf(step, c));
+                               ReferenceEquals(step, c) || OpenTapStepTree.IsAncestorOf(step, c))
+                           || referenceGuards.Any(guard => ReferenceEquals(step, guard) || OpenTapStepTree.IsAncestorOf(step, guard));
                 step.Enabled = keep;
             }
 
@@ -303,11 +346,13 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         IDisposable? benchLease = null;
         if (_bench is not null && !_bench.TryEnter(BenchOperation.Run, out benchLease, out var busy))
         {
+            ClearReferencePreparation();
             throw new InvalidOperationException(busy);
         }
 
         if (Interlocked.CompareExchange(ref _runGate, 1, 0) != 0)
         {
+            ClearReferencePreparation();
             benchLease?.Dispose();
             throw new InvalidOperationException("A run is already in progress.");
         }
@@ -344,7 +389,14 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         OpenTapRunContext context;
         lock (_sync)
         {
+            var referencePrepared = _referenceAcceptancePrepared;
+            var referenceAcquisition = _referenceAcquisition;
+            _referenceAcceptancePrepared = false;
+            _referenceAcquisition = false;
             plan = _plan ?? throw new InvalidOperationException("Load a plan before running.");
+            if (OpenTapStepTree.Flatten(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep)
+                && !referencePrepared)
+                throw new InvalidOperationException(RequireOperatorReferenceAcceptanceStep.RequiredMessage);
             if (sampleScopePaths is not null)
             {
                 preservedSamples = _lastSamples.ToList();
@@ -352,7 +404,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             }
 
             OpenTapStepTree.ResetLiveState(_stepTree, resetStepIds);
-            context = new OpenTapRunContext(_settings, _logger, _cancelExecuteWithToken, _clock);
+            context = new OpenTapRunContext(_settings, _logger, _cancelExecuteWithToken, _clock,
+                referencePrepared, referenceAcquisition);
             _activeContext = context;
             // Begin CTS before releasing the lock so Abort in the worker IPC loop cannot
             // miss the run token. Apply live pause here (not a snapshot into BeginRun).
@@ -429,12 +482,23 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
     {
         lock (_sync)
         {
+            _referenceAcceptancePrepared = false;
+            _referenceAcquisition = false;
             _pausedBeforeRun = false;
             _activeContext?.Abort();
         }
 
         RaiseOperatorState();
         _logger.Warning("OpenTAP abort requested (safety={Safety})", safetyStop);
+    }
+
+    private void ClearReferencePreparation()
+    {
+        lock (_sync)
+        {
+            _referenceAcceptancePrepared = false;
+            _referenceAcquisition = false;
+        }
     }
 
     private void UpdateNodeLive(string stepId, string? name, string status, string verdict, string? keyValue)

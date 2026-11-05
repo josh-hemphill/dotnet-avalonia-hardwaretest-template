@@ -49,7 +49,13 @@ public static class TestAppBuilder
 
     private static ISettingsStore CreateIsolatedSettingsStore()
     {
-        var root = Path.Combine(Path.GetTempPath(), "HardwareTestE2E", Guid.NewGuid().ToString("N"));
+        var joined = Environment.GetEnvironmentVariable("HT_CROSS_APP_REVIEW_DIRECTORY");
+        var persistentJoinedBench = Environment.GetEnvironmentVariable("HT_CROSS_APP_OPERATOR_PERSISTENCE") == "1"
+            && !string.IsNullOrWhiteSpace(joined) && Path.IsPathFullyQualified(joined);
+        // Only the explicitly selected, multi-process joined workflow uses the
+        // same bench data across its restart. Ordinary cases remain isolated.
+        var root = persistentJoinedBench ? Path.Combine(joined!, "bench-data")
+            : Path.Combine(Path.GetTempPath(), "HardwareTestE2E", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var store = new SettingsStore(root);
         store.LoadAsync().GetAwaiter().GetResult();

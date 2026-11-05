@@ -39,7 +39,7 @@
         </WrapPanel>
       </StackPanel></Border>
     </ScrollViewer>
-    <ListBox x:Name="SequenceList" Focusable="True" IsVisible="{Binding HasSequenceContent}" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
+    <vm:AuthoringSequenceListBox x:Name="SequenceList" Focusable="True" IsVisible="{Binding HasSequenceContent}" Classes="sequenceCanvas" Background="Transparent" BorderThickness="0" Grid.Row="1" MinHeight="80" ItemsSource="{Binding SequenceItems}" SelectedIndex="{Binding SelectedSequenceIndex}"
         KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Program sequence">
       <ListBox.Styles>
         <Style Selector="ListBoxItem"><Setter Property="Padding" Value="4,4,4,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
@@ -48,6 +48,8 @@
         <Style Selector="ListBoxItem" x:DataType="vm:SequenceRow">
           <Setter Property="IsEnabled" Value="{Binding IsSelectable}"/>
           <Setter Property="Focusable" Value="{Binding IsSelectable}"/>
+          <Setter Property="AutomationProperties.Name" Value="{Binding Label}"/>
+          <Setter Property="AutomationProperties.HelpText" Value="{Binding Detail}"/>
         </Style>
         <Style Selector="ListBoxItem:disabled TextBlock">
           <Setter Property="FontWeight" Value="SemiBold"/>
@@ -65,6 +67,6 @@
           </StackPanel></Grid></Border>
         </DataTemplate>
       </ListBox.ItemTemplate>
-    </ListBox>
+    </vm:AuthoringSequenceListBox>
   </Grid>
 </UserControl>

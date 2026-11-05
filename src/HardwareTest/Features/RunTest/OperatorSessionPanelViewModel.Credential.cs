@@ -42,6 +42,9 @@ public partial class OperatorSessionPanelViewModel
             return;
         }
 
+        // Bind fresh presence to an edited incoming DUT before awaiting the reader.
+        // Confirm then preserves this new context rather than clearing its fresh badge.
+        PrepareChangedSessionIdentity(requireTypedOperator: false);
         using var capture = new CancellationTokenSource();
         _credentialCaptureCancellation = capture;
         IsCapturingCredential = true;
@@ -67,6 +70,7 @@ public partial class OperatorSessionPanelViewModel
             }
 
             var credential = result.Credential;
+            PrepareCapturedTechnicianSession(credential);
             _session.ApplyOperatorCredential(credential.Serial, credential.Transport, credential.DisplayName);
             OperatorInput = credential.DisplayName;
             ClearFieldErrors();
@@ -95,6 +99,18 @@ public partial class OperatorSessionPanelViewModel
                 IsCapturingCredential = false;
             }
         }
+    }
+
+    private void PrepareCapturedTechnicianSession(OperatorCredential credential)
+    {
+        if (_session.ConfirmedAt is null || !ChangedKnownIdentity(_session.OperatorName, credential.DisplayName)) return;
+        if (ShowSameDutPrompt) RetainSameDutInputs();
+        // This owned response identifies the incoming technician. Keep its in-flight
+        // ownership while the session change cancels any other departing context.
+        var capture = _credentialCaptureCancellation;
+        _credentialCaptureCancellation = null;
+        try { StartNewSession(preserveInputs: true); }
+        finally { _credentialCaptureCancellation = capture; }
     }
 
     /// True when site policy requires a presented badge for this program's operator field.

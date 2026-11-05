@@ -81,6 +81,9 @@ public partial class RunTestViewModel
             await _programLoadGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             held = true;
             if (!IsCurrent()) return;
+            if (!string.IsNullOrWhiteSpace(program.ReferenceDeclarationError))
+                throw new InvalidOperationException(program.ReferenceDeclarationError);
+            var beforeArtifacts = ReadReferenceArtifactHashes(program);
             // A host may already own the exact initial plan (for example restored replay
             // evidence). Adopt it once; a later failed/changed selection must load again.
             var canAdoptInitialHostPlan = !_hasAttemptedProgramLoad && version == 1;
@@ -96,6 +99,9 @@ public partial class RunTestViewModel
                 && string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
             if (!alreadyLoaded)
                 await LoadProgramEntryAsync(program, cancellationToken).ConfigureAwait(false);
+            var afterArtifacts = ReadReferenceArtifactHashes(program);
+            if (beforeArtifacts != afterArtifacts)
+                throw new InvalidOperationException("The compiled plan or sidecar changed while loading. Reload the complete bench program before Run.");
             cancellationToken.ThrowIfCancellationRequested();
             await RunOnUiAsync(() =>
             {
@@ -115,12 +121,18 @@ public partial class RunTestViewModel
                 _programLoadDetails = string.Empty;
                 _readyProgram = program;
                 _readyProgramVersion = version;
+                _loadedReferenceArtifacts = afterArtifacts;
             }).ConfigureAwait(false);
+            await RefreshBenchReferencesAsync().ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             await SetProgramLoadErrorAsync("Loading was cancelled. Reload programs before Run.", "Loading was cancelled.").ConfigureAwait(false);
             throw;
+        }
+        catch (ReferenceConfigurationException ex)
+        {
+            await SetProgramLoadErrorAsync(ex.Message, ex.Message).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

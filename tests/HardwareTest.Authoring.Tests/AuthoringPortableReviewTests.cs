@@ -69,6 +69,8 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         var store = new AuthoringDocumentStore(root);
         var primary = Assert.IsType<AuthoringDocumentDto>(store.Load("board").Document);
         var recording = RunDatasetCatalog.Load(Path.Combine(root, "run.json")).Run;
+        Assert.True(recording.IsSchemaReadOnly);
+        Assert.Equal(4, recording.StoredSchemaVersion);
         var expected = BoardPreviewBuilder.Build(primary.ToDraft(), recording);
         Assert.NotEmpty(expected); Assert.All(expected, tile => Assert.NotEmpty(tile.Preview.CannedSamples));
         File.Copy(store.GetDocumentPath("board") + ".bak", store.GetDocumentPath("board"), overwrite: true);

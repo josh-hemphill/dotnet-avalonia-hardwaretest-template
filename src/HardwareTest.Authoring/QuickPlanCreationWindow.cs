@@ -37,6 +37,7 @@ public sealed class QuickPlanCreationWindow : Window
         _workspace = vm.Workspace ?? throw new AuthoringWorkspaceException("Open a workspace first.");
         _session = vm.WorkspaceSessionId;
         _automaticId = retained?.Id ?? vm.SuggestedPlanId;
+        if (retained?.IdEdited != true) _automaticId = AuthoringPlanFormIds.Automatic(_automaticId);
         _name.Text = retained?.Name ?? "";
         _id.Text = _automaticId;
         _family.Text = retained?.Family ?? "";
@@ -96,7 +97,7 @@ public sealed class QuickPlanCreationWindow : Window
             if (!_idEdited)
             {
                 var token = Slug(_name.Text ?? "");
-                _automaticId = token.Length == 0 ? vm.SuggestedPlanId : token;
+                _automaticId = AuthoringPlanFormIds.Automatic(token.Length == 0 ? vm.SuggestedPlanId : token);
                 _id.Text = _automaticId;
             }
             ShowDestination();
@@ -129,6 +130,7 @@ public sealed class QuickPlanCreationWindow : Window
                 ShowError("A plan already uses this ID. Choose a different plan ID, or change the title to generate another one.", _id);
                 return;
             }
+            AuthoringPlanFormIds.RequireCustom(_id.Text ?? "");
             var request = new PlanInitializationRequest(_id.Text ?? "")
             {
                 WorkspaceRoot = _workspace.Root,

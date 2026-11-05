@@ -26,7 +26,7 @@ public sealed class SchemaVersioningTests
         var before = File.ReadAllBytes(dest);
 
         var error = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(runId));
-        Assert.Contains("requires schema 4", error.Message);
+        Assert.Contains($"requires schema {SchemaVersions.TestRunRecord}", error.Message);
         Assert.Contains(dest, error.Message);
         await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(new TestRunRecord { RunId = runId }));
         Assert.Equal(before, File.ReadAllBytes(dest));
@@ -106,6 +106,14 @@ public sealed class SchemaVersioningTests
         Assert.Equal(DocumentSchemaKind.Current, status.Kind);
         foreach (var json in new[] { "{}", "{\"schemaVersion\":0}", "{\"schemaVersion\":-1}", $"{{\"schemaVersion\":{current - 1}}}", $"{{\"SchemaVersion\":{current}}}" })
         {
+            if (kind == SchemaDocumentTypes.TestRunRecord && current == 5 && json == "{\"schemaVersion\":4}")
+            {
+                var previous = DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), kind, current);
+                Assert.Equal(DocumentSchemaKind.PreviousReadOnly, previous.Kind);
+                Assert.True(previous.IsReadOnly);
+                Assert.Contains("predates", previous.FormatOperatorWarning(), StringComparison.Ordinal);
+                continue;
+            }
             var error = Assert.Throws<UnsupportedDocumentSchemaException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), kind, current));
             Assert.Equal(current, error.Status.CurrentVersion);
             Assert.Equal(DocumentSchemaKind.Unsupported, error.Status.Kind);

@@ -117,9 +117,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         var id = string.IsNullOrWhiteSpace(dataset.Run.RunId)
             ? Path.GetFileName(Path.GetDirectoryName(dataset.Path)) ?? "run"
             : dataset.Run.RunId;
-        return string.IsNullOrWhiteSpace(dataset.Run.DutSerial)
+        var label = string.IsNullOrWhiteSpace(dataset.Run.DutSerial)
             ? id
             : $"{id} ({dataset.Run.DutSerial})";
+        return label + (dataset.Run.IsSchemaReadOnly ? " · read-only" : string.Empty);
     }
 
 }

@@ -24,6 +24,7 @@ public partial class RunTestViewModel
     {
         this.RaisePropertyChanged(nameof(VisaModeText));
         this.RaisePropertyChanged(nameof(VisaModeHelpText));
+        if (References is { HasRules: true } && !IsRunning) Observe(RefreshBenchReferencesAsync());
     }
 
     internal void MarkLastRunSaved(string runId)

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
@@ -55,7 +56,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IClock? clock = null,
         IOperatorCredentialBroker? credentialBroker = null,
         IStationHealthStore? stationHealthStore = null,
-        IStationHealthGate? stationHealthGate = null)
+        IStationHealthGate? stationHealthGate = null,
+        IBenchReferenceStore? benchReferenceStore = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -96,6 +98,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             credentialBroker,
             stationHealthStore,
             stationHealthGate);
+        InitializeBenchReferences(benchReferenceStore, station, settingsStore);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator, ObserveAwaitingOperator(Interaction));
         ClearRunCommand = ReactiveCommand.Create(ClearRun, ObserveCanClearRun());
@@ -235,6 +238,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             }
 
             InvalidateSelectedProgram();
+            SetReferenceOutcome(null, [], HardwareTest.Core.Runs.RunResult.Unknown);
+            References.Configure(ProgramSelection.SelectedProgram, null);
             if (ProgramSelection.SelectedProgram is null) return;
             SessionPanel.RefreshRequirementFlags();
             if (ProgramSelection.IsBusy)
@@ -248,6 +253,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         SessionPanel.PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(OperatorSessionPanelViewModel.IdleCountdownText)) References.RefreshState();
             if (args.PropertyName == nameof(OperatorSessionPanelViewModel.SessionBlocked) && !SessionPanel.SessionBlocked)
                 ClearResolvedSessionGateNotice();
             if (args.PropertyName is nameof(OperatorSessionPanelViewModel.SessionBlocked)
@@ -310,6 +316,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(IsEngineerDebugMode))
             {
                 StationOverrides.RefreshParameterFields();
+                References.RefreshState();
             }
             else if (args.PropertyName == nameof(IsCompactLayout))
             {
@@ -320,6 +327,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 RefreshHero();
                 if (args.PropertyName == nameof(IsRunning))
                 {
+                    References.RefreshState();
                     this.RaisePropertyChanged(nameof(ShowSavedResult));
                     RaiseStartGates();
                     this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
@@ -387,7 +395,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     }
 
     private string? ResolveConditionSummary(HierarchyStepViewModel step)
-        => IsEngineerDebugMode
+        => IsEngineerDebugMode && !step.IsReadOnlyEvidence
            && _plan.TryGetStepConditionSummary(step.Path, out var summary)
            && !string.IsNullOrWhiteSpace(summary)
             ? summary

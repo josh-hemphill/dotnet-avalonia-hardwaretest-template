@@ -14,6 +14,8 @@ internal sealed record AuthoringPreviewPresentation(IReadOnlyList<BoardPreviewTi
     IReadOnlyList<string> ExcludedFormulas, string SourceDetails, string FormulaError, FormulaSaveOutcome FormulaSave)
 {
     internal string SourceLabel { get; init; } = "Example data (simulated)";
+    internal string ReferenceReview { get; init; } = string.Empty;
+    internal int ReferenceInputCount { get; init; }
     internal static AuthoringPreviewPresentation Empty { get; } = new([], MetricPreviewBuilder.Empty,
         AuthoringPreviewChromeBuilder.Empty, null, string.Empty, [],
         "Example data · simulated values · no hardware execution", string.Empty,
@@ -55,8 +57,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (!SetField(ref _previewBusy, value)) return;
             OnPropertyChanged(nameof(PreviewSourceKind));
             OnPropertyChanged(nameof(PreviewSourceName));
+            OnPropertyChanged(nameof(CanInspectPreviewDetails));
+            OnPropertyChanged(nameof(PreviewDetailsHelp));
         }
     }
+    public bool CanInspectPreviewDetails => !PreviewBusy;
+    public string PreviewDetailsHelp => PreviewBusy
+        ? "Updating preview. Source and recorded-reference details are available when the update finishes."
+        : "Inspect the selected preview source and recorded evidence; this does not execute hardware.";
     public Task WaitForPreviewAsync(CancellationToken cancellationToken = default)
         => _previewIdle.Task.WaitAsync(cancellationToken);
 
@@ -169,7 +177,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             nameof(PreviewNote), nameof(DataSourceDetails), nameof(PreviewDataSourceLabel), nameof(PreviewSourceKind), nameof(PreviewSourceName), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaRecordingEvidence), nameof(ExcludedExplorationFormulas), nameof(FormulaError),
-            nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind) }) OnPropertyChanged(property);
+            nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind), nameof(HasRecordedReferences),
+            nameof(RecordingReferenceSummary), nameof(RecordingReferenceReview) }) OnPropertyChanged(property);
     }
 
     internal static AuthoringPreviewPresentation EvaluatePreview(AuthoringPreviewInput input)
@@ -212,9 +221,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             var time = recording.Samples.Count > 0 && recording.Samples.All(sample => sample.ElapsedMs is { } elapsed && double.IsFinite(elapsed)) ? "elapsed time available" : "elapsed time missing or incomplete";
             source = $"Recording · {input.Dataset!.Path}\nRun {recording.RunId} · DUT {(string.IsNullOrWhiteSpace(recording.DutSerial) ? "unspecified" : recording.DutSerial)} · {recording.Samples.Count} samples · {time}\nChannels: {string.Join(", ", recording.Samples.Select(sample => sample.EffectiveMetricKey).Distinct(StringComparer.OrdinalIgnoreCase))} · no hardware execution";
+            if (recording.IsSchemaReadOnly) source += "\n" + RunDatasetCatalog.SchemaNotice(recording);
         }
         return new(tiles, preview, AuthoringPreviewChromeBuilder.From(preview, recording?.Events), deployment, evidence, excluded, source, error, save)
-        { SourceLabel = recording is null ? "Example data (simulated)" : $"Recording: {recording.RunId}" };
+        {
+            SourceLabel = recording is null ? "Example data (simulated)" : $"Recording: {recording.RunId}",
+            ReferenceInputCount = recording?.ReferenceUses.Count ?? 0,
+            ReferenceReview = recording is null ? string.Empty : AuthoringReferenceReview.Describe(program, recording)
+        };
     }
 
     private static MetricDraft? FindPreviewMetric(IReadOnlyList<MeasureNode> nodes, Guid? nodeId)

@@ -146,14 +146,15 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
-          <WrapPanel Orientation="Horizontal">
+          <TextBlock Text="{Binding StationOverrides.TemporaryDebugOverlayHint}" IsVisible="{Binding !StationOverrides.AllowsTemporaryDebugOverlay}" TextWrapping="Wrap"/>
+          <WrapPanel Orientation="Horizontal" IsEnabled="{Binding StationOverrides.AllowsTemporaryDebugOverlay}">
             <TextBlock Text="Debug overlay" FontWeight="SemiBold" VerticalAlignment="Center" />
             <CheckBox Content="Enabled" IsChecked="{Binding StationOverrides.DebugStepEnabled}" />
             <ComboBox ItemsSource="{Binding StationOverrides.DebugSlotNames}" SelectedItem="{Binding StationOverrides.DebugSlotName}" PlaceholderText="Select slot" Width="140" />
             <TextBox PlaceholderText="Resource" Text="{Binding StationOverrides.DebugResource}" Width="140" />
             <NumericUpDown Value="{Binding StationOverrides.DebugSampleCount}" Minimum="1" Maximum="4096" Width="90" FormatString="0" />
             <NumericUpDown Value="{Binding StationOverrides.DebugIntervalMs}" Minimum="1" Maximum="60000" Width="90" FormatString="0" />
-            <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" Classes="operator" />
+            <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" IsEnabled="{Binding StationOverrides.AllowsTemporaryDebugOverlay}" Classes="operator" />
           </WrapPanel>
         </StackPanel>
 

@@ -458,7 +458,7 @@ public sealed class TypstReportServiceTests
     [Theory]
     [InlineData(0, false)]
     [InlineData(3, false)]
-    [InlineData(5, false)]
+    [InlineData(6, false)]
     [InlineData(4, true)]
     public async Task GenerateReportsAsync_rejected_run_preserves_pdf_and_attestation(int version, bool readOnly)
     {
@@ -489,7 +489,7 @@ public sealed class TypstReportServiceTests
     [Theory]
     [InlineData(0)]
     [InlineData(3)]
-    [InlineData(5)]
+    [InlineData(6)]
     public async Task GenerateReportsAsync_current_candidate_cannot_mutate_blocked_destination(int storedVersion)
     {
         using var temp = new TempDataDirectory();
@@ -515,7 +515,7 @@ public sealed class TypstReportServiceTests
     [InlineData("{\"schemaVersion\":3}", "unsupported")]
     [InlineData("{\"schemaVersion\":999}", "future")]
     [InlineData("{invalid", "corrupt")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}", "corrupt")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}", "corrupt")]
     public async Task Sole_blocked_backup_prevents_report_and_attestation_mutation(string backup, string failure)
     {
         using var temp = new TempDataDirectory();

@@ -190,6 +190,8 @@ public partial class StepTreeViewModel : ReactiveObject
     /// Mirrors the host plan tree into fresh view models, then restores stage / step selection by path.
     public void RebuildFromHost(string? preserveStagePath = null, string? preserveStepPath = null)
     {
+        _referenceAcceptanceStage = null;
+        _referenceAcceptanceParent = null;
         _fullHierarchy.Clear();
         Hierarchy.Clear();
         Stages.Clear();

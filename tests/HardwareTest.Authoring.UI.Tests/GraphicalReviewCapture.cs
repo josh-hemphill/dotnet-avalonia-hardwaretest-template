@@ -20,8 +20,8 @@ public sealed class GraphicalReviewCapture
     [AvaloniaTheory(SkipUnless = nameof(CaptureEnabled), Skip = "Set HT_CAPTURE_UI=1 to capture review screenshots.")]
     [InlineData("Light", 1280, 800, 14)]
     [InlineData("Dark", 1280, 800, 14)]
-    [InlineData("Light", 960, 600, 20)]
-    [InlineData("Dark", 960, 600, 20)]
+    [InlineData("Light", 900, 600, 20)]
+    [InlineData("Dark", 900, 600, 20)]
     public async Task Capture_authoring_tasks_and_empty_plan(string theme, int width, int height, int font)
     {
         Application.Current!.RequestedThemeVariant = theme == "Dark" ? ThemeVariant.Dark : ThemeVariant.Light;
@@ -29,6 +29,8 @@ public sealed class GraphicalReviewCapture
         var window = fixture.Show(width, height);
         window.FontSize = font;
         AuthoringUiFixture.Drain();
+        Assert.Equal(width, window.Bounds.Width);
+        Assert.Equal(height, window.Bounds.Height);
         var suffix = $"{theme.ToLowerInvariant()}-{width}x{height}-font{font}";
         Capture(window, $"welcome-{suffix}");
         fixture.OpenRememberedWorkspace();

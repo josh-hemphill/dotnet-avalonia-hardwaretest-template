@@ -1,7 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host"
     x:Class="HardwareTest.Authoring.MainWindow" x:DataType="vm:AuthoringWorkspaceViewModel"
-    Background="{DynamicResource AuthoringCanvas}" Title="HardwareTest Authoring" Width="1280" Height="800" MinWidth="960" MinHeight="600">
+    Background="{DynamicResource AuthoringCanvas}" Title="HardwareTest Authoring" Width="1280" Height="800" MinWidth="900" MinHeight="600">
   <Window.Styles>
     <Style Selector="Button.authoringAction">
       <Setter Property="ContentTemplate" Value="{x:Static vm:AuthoringActionLabels.WrappedText}"/>

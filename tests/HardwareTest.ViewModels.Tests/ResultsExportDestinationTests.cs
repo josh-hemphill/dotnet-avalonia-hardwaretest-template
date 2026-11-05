@@ -178,6 +178,81 @@ public sealed class ResultsExportDestinationTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Changed_real_settings_refresh_available_destinations_preserve_selection_and_require_explicit_replacement(bool saveSettings)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "export-settings-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var settings = new SettingsStore(root); await settings.LoadAsync();
+            using var fixture = new ExportFixture(persistentSettings: settings);
+            var vm = await fixture.OpenAsync();
+            vm.SelectedExportTarget = vm.ExportTargets.Single(target => target.RootPath == fixture.SecondRoot);
+            settings.AppSettings.ExportDirectory = fixture.ReplacementRoot;
+            await Refresh();
+            Assert.Contains(vm.ExportTargets, target => target.RootPath == fixture.ReplacementRoot);
+            Assert.Equal(fixture.SecondRoot, vm.SelectedExportTarget?.RootPath);
+
+            vm.SelectedExportTarget = vm.ExportTargets.Single(target => target.Id == "configured");
+            var replacement = Path.Combine(fixture.ReplacementRoot, "new-destination");
+            settings.AppSettings.ExportDirectory = replacement;
+            await Refresh();
+            Assert.Null(vm.SelectedExportTarget);
+            Assert.Contains("no longer available", vm.Status, StringComparison.Ordinal);
+            await vm.ExportPackageCommand.ExecuteAsync();
+            Assert.Contains("Choose an export destination", vm.Status, StringComparison.Ordinal);
+            Assert.False(Directory.Exists(fixture.FirstRoot));
+            Assert.False(Directory.Exists(fixture.SecondRoot));
+            Assert.False(Directory.Exists(fixture.ReplacementRoot));
+            vm.SelectedExportTarget = vm.ExportTargets.Single(target => target.RootPath == replacement);
+            await vm.ExportPackageCommand.ExecuteAsync();
+            fixture.AssertPackage(replacement);
+            Assert.False(Directory.Exists(fixture.FirstRoot));
+            Assert.False(Directory.Exists(fixture.SecondRoot));
+
+            Task Refresh() => saveSettings ? settings.SaveAppSettingsAsync() : vm.RefreshCommand.ExecuteAsync();
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Settings_save_during_pending_certification_never_redirects_the_captured_destination(bool removed)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "pending-export-settings-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var settings = new SettingsStore(root); await settings.LoadAsync();
+            using var fixture = new ExportFixture(certified: true, persistentSettings: settings);
+            var vm = await fixture.OpenAsync();
+            vm.SelectedExportTarget = vm.ExportTargets.Single(target => target.RootPath == fixture.SecondRoot);
+            await vm.ExportPackageCommand.ExecuteAsync();
+            Assert.True(vm.ShowAttestationPrompt);
+            vm.SelectedExportTarget = vm.ExportTargets.Single(target => target.RootPath == fixture.FirstRoot);
+            settings.AppSettings.ExportDirectory = fixture.ReplacementRoot;
+            fixture.SecondPresent = !removed;
+            await settings.SaveAppSettingsAsync();
+            Assert.True(vm.ShowAttestationPrompt);
+            Assert.Equal(fixture.FirstRoot, vm.SelectedExportTarget?.RootPath);
+            Assert.Contains(vm.ExportTargets, target => target.RootPath == fixture.ReplacementRoot);
+            await vm.CaptureAttestationCommand.ExecuteAsync();
+            Assert.False(vm.ShowAttestationPrompt);
+            Assert.False(Directory.Exists(fixture.FirstRoot));
+            Assert.False(Directory.Exists(fixture.ReplacementRoot));
+            if (removed)
+            {
+                Assert.Null(vm.SelectedExportTarget);
+                Assert.Contains("no longer available", vm.Status, StringComparison.Ordinal);
+                Assert.False(Directory.Exists(fixture.SecondRoot));
+            }
+            else fixture.AssertPackage(fixture.SecondRoot);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
     private sealed class ExportFixture : IDisposable
     {
         private readonly string _root = Path.Combine(Path.GetTempPath(), "operator-export-" + Guid.NewGuid().ToString("N"));
@@ -187,14 +262,18 @@ public sealed class ResultsExportDestinationTests
         private string _runJson;
         internal TestRunRecord Record => _run;
         internal string RunJsonPath => Path.Combine(_store.GetRunDirectory(_run.RunId), "run.json");
-        internal AppSettings Settings { get; } = new() { PreferRemovableExport = true };
+        private readonly SettingsStore? _persistentSettings;
+        internal AppSettings Settings { get; }
         internal bool SecondPresent { get; set; } = true;
         internal string FirstRoot => Path.Combine(_root, "media-a");
         internal string SecondRoot => Path.Combine(_root, "media-b");
         internal string ReplacementRoot => Path.Combine(_root, "replacement");
 
-        internal ExportFixture(bool certified = false)
+        internal ExportFixture(bool certified = false, SettingsStore? persistentSettings = null)
         {
+            _persistentSettings = persistentSettings;
+            Settings = persistentSettings?.AppSettings ?? new AppSettings();
+            Settings.PreferRemovableExport = true;
             _certified = certified;
             Settings.RequireAttestationBeforeExport = certified;
             Settings.AllowPresenceInLieuOfSigning = certified;
@@ -258,7 +337,8 @@ public sealed class ResultsExportDestinationTests
             var vm = new ResultsViewModel(_store, new FakeReportService(), exportTargets: export,
                 attestation: _certified ? new ReportAttestationService(
                     new MockOperatorCredentialBroker(canSign: false), _store, Settings) : null,
-                settings: Settings);
+                settings: Settings, settingsStore: _persistentSettings)
+            { UiScheduler = action => action() };
             await vm.RefreshCommand.ExecuteAsync();
             vm.SelectedRun = Assert.Single(vm.Runs);
             await vm.OpenCommand.ExecuteAsync();

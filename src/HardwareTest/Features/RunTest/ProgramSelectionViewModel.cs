@@ -66,23 +66,7 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             foreach (var entry in ProgramCatalog.Enumerate())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Programs.Add(new ProgramItemViewModel
-                {
-                    Id = entry.Id,
-                    DisplayName = entry.DisplayName,
-                    Path = entry.Path,
-                    DutFamily = entry.DutFamily,
-                    IsSample = entry.IsBuiltIn,
-                    LoadKind = entry.LoadKind,
-                    Requirements = entry.Requirements,
-                    ReportKinds = entry.ReportKinds,
-                    SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
-                    ProgramKind = entry.ProgramKind,
-                    StationHealthProfileId = entry.StationHealthProfileId,
-                    RequireStationHealth = entry.RequireStationHealth,
-                    StationHealthMaxAgeHours = entry.StationHealthMaxAgeHours,
-                    StationHealthGate = entry.StationHealthGate,
-                });
+                Programs.Add(FromCatalogEntry(entry));
             }
 
             SelectedProgram = Programs.FirstOrDefault(p =>
@@ -138,25 +122,44 @@ public partial class ProgramSelectionViewModel : ReactiveObject
             }
             if (!CanChangePrograms()) return;
 
-            var item = new ProgramItemViewModel
-            {
-                Id = System.IO.Path.GetFileNameWithoutExtension(path),
-                DisplayName = System.IO.Path.GetFileNameWithoutExtension(path),
-                Path = path,
-                DutFamily = "generic",
-                LoadKind = ProgramLoadKind.TapPlanFile,
-                Requirements = ProgramRequirements.FromFamily("generic"),
-            };
+            BenchProgramHandoff.RequireCustomPlanId(System.IO.Path.GetFileNameWithoutExtension(path));
+            var item = FromCatalogEntry(ProgramCatalog.FromFile(path));
             Programs.Add(item);
             SelectedProgram = item;
             await _loadSelectedProgramAsync(CancellationToken.None);
             if (_isSelectedProgramReady()) _setStatus($"Opened {item.DisplayName}");
+        }
+        catch (Exception ex)
+        {
+            _setStatus($"Cannot open this program: {ex.Message}. Restore the complete compiled plan and sidecar, then retry.");
         }
         finally
         {
             IsBusy = false;
         }
     }
+
+    private static ProgramItemViewModel FromCatalogEntry(ProgramCatalogEntry entry) => new()
+    {
+        Id = entry.Id,
+        DisplayName = entry.DisplayName,
+        Path = entry.Path,
+        DutFamily = entry.DutFamily,
+        IsSample = entry.IsBuiltIn,
+        LoadKind = entry.LoadKind,
+        Requirements = entry.Requirements,
+        ReportKinds = entry.ReportKinds,
+        SelectionIncludesCleanup = entry.SelectionIncludesCleanup,
+        ProgramKind = entry.ProgramKind,
+        StationHealthProfileId = entry.StationHealthProfileId,
+        RequireStationHealth = entry.RequireStationHealth,
+        StationHealthMaxAgeHours = entry.StationHealthMaxAgeHours,
+        StationHealthGate = entry.StationHealthGate,
+        ReferenceRules = entry.ReferenceRules,
+        ReferenceDeclarationError = entry.ReferenceDeclarationError,
+        PlanSha256 = entry.PlanSha256,
+        SidecarSha256 = entry.SidecarSha256,
+    };
 
     private bool CanChangePrograms()
     {

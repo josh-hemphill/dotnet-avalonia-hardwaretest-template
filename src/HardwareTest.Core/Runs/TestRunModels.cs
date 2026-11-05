@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Serialization;
@@ -20,6 +21,7 @@ public static class RunExecutionScopes
 {
     public const string FullSuite = "full-suite";
     public const string SelectedStep = "selected-step";
+    public const string ReferenceAcquisition = "reference-acquisition";
 
     public static string Describe(string? scope, string? selectedStepPath)
         => scope switch
@@ -28,6 +30,9 @@ public static class RunExecutionScopes
             SelectedStep when !string.IsNullOrWhiteSpace(selectedStepPath)
                 => $"Selected step only: {selectedStepPath}",
             SelectedStep => "Selected step only",
+            ReferenceAcquisition when !string.IsNullOrWhiteSpace(selectedStepPath)
+                => $"Reference acquisition only: {selectedStepPath} (not production acceptance)",
+            ReferenceAcquisition => "Reference acquisition only (not production acceptance)",
             _ => "Scope not recorded",
         };
 }
@@ -45,6 +50,12 @@ public sealed class TestRunRecord
     public string? SelectedStepPath { get; set; }
     [JsonIgnore]
     public string ExecutionScopeText => RunExecutionScopes.Describe(ExecutionScope, SelectedStepPath);
+    public BenchReferenceContext? ReferenceContext { get; set; }
+    public List<BenchReferenceRule> ReferenceRules { get; set; } = [];
+    public List<BenchReferenceUse> ReferenceUses { get; set; } = [];
+    public List<BenchReferenceEvaluation> ReferenceEvaluations { get; set; } = [];
+    /// Raw backend result, kept distinct from additional reference-dependent operator acceptance.
+    public RunResult? ReferenceBackendResult { get; set; }
     public string? DutSerial { get; set; }
     public string? DutPartNumber { get; set; }
     public string? DutRevision { get; set; }
@@ -68,7 +79,7 @@ public sealed class TestRunRecord
     public List<RunReportArtifact> Reports { get; set; } = [];
     public List<string> PlotImagePaths { get; set; } = [];
 
-    /// Runtime: stored schema newer than this app — do not overwrite.
+    /// Runtime: a readable noncurrent schema — preserve its original bytes.
     [JsonIgnore]
     public bool IsSchemaReadOnly { get; set; }
 

@@ -6,11 +6,19 @@ using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HardwareTest.Core.Runs;
+using HardwareTest.Features.RunTest;
 
 namespace HardwareTest.Features.Results;
 
 public partial class ResultsView : UserControl
 {
+    private async void OnSaveReferenceClick(object? sender, RoutedEventArgs args)
+    {
+        if (DataContext is not ResultsViewModel vm || TopLevel.GetTopLevel(this) is not Window owner) return;
+        vm.ReferencePromotion.RefreshPermissions();
+        await BenchReferenceDialog.ShowAsync(owner, "Save golden reference", new BenchReferencePromotionView { DataContext = vm.ReferencePromotion });
+        (sender as Control)?.Focus();
+    }
     private ResultsViewModel? _observed;
     private bool _arranging;
     private bool _showingDetail;

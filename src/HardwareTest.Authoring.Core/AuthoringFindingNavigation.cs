@@ -16,7 +16,7 @@ internal static class AuthoringFindingNavigation
         var matches = AuthoringSequence.Flatten(draft).Where(row => row.NodeId == id).ToArray();
         if (matches.Length != 1)
             return Fallback("The source node is unavailable or ambiguous; opens program settings.");
-        if (target.Section is not null && target.Section is not ("Configure" or "Advanced"))
+        if (target.Section is not null && target.Section is not ("Configure" or "Advanced" or "OperatorDisplay"))
             return Fallback("The structured section has no supported editor destination; opens program settings.");
         if (target.Field is null)
             return target.Section is null
@@ -25,19 +25,21 @@ internal static class AuthoringFindingNavigation
                     "The source step and editor section are verified; no precise field was provided.");
         var metric = matches[0].Kind == SequenceRowKind.Metric
             ? (AuthoringSequence.ResolveMeasure(draft, matches[0].IndexPath) as MetricNode)?.Metric : null;
-        var supported = metric is not null && (target.Field switch
+        var sourceField = AuthoringReferenceRules.BaseField(target.Field);
+        var supported = metric is not null && (sourceField switch
         {
             "Threshold" => AuthoringCriteria.Requirements(metric)?.RequiresThreshold == true,
             "LimitLow" => AuthoringCriteria.Requirements(metric)?.RequiresBand == true,
             "ChannelKey" => true,
-            _ => HasVisibleSetting(metric, target.Field),
+            "ReferenceKey" or "ReferenceComparison" or "ReferenceTolerance" or "ReferenceTarget" or "ReferenceMeasurementUnit" or "ReferenceRuleIdentity" => true,
+            _ => HasVisibleSetting(metric, sourceField),
         });
         return supported
             ? new(target with
             {
                 ProgramId = draft.PlanId,
                 NodeId = id,
-                Section = target.Field == "ChannelKey" ? "Advanced" : "Configure"
+                Section = sourceField == "ReferenceMeasurementUnit" ? "OperatorDisplay" : target.Field == "ChannelKey" ? "Advanced" : "Configure"
             }, "Go to field",
                 "Explicit field target resolved through the checked compiler source map and supported editor.")
             : Fallback("The structured field has no supported editor control; opens program settings.");

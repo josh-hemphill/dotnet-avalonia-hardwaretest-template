@@ -169,6 +169,8 @@ public sealed class WorkerStationDutRequest
     public string? PartNumber { get; set; }
     public string? Revision { get; set; }
     public string Family { get; set; } = "generic";
+    public bool ReferenceAcceptancePrepared { get; set; }
+    public bool ReferenceAcquisition { get; set; }
 }
 
 public sealed class WorkerSetEnabledRequest

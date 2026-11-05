@@ -9,6 +9,32 @@ public partial class ResultsViewModel
 {
     private ExportTarget? _requestedExportTarget;
 
+    private async Task RefreshResultsAndExportTargetsAsync()
+    {
+        await RefreshAsync().ConfigureAwait(false);
+        await RunOnUiAsync(RefreshAvailableExportTargets).ConfigureAwait(false);
+    }
+
+    private void RefreshAvailableExportTargets()
+    {
+        var previous = SelectedExportTarget;
+        try
+        {
+            // A refresh never chooses another destination on the operator's behalf.
+            // The target captured for a pending certification request remains independent.
+            RefreshExportTargets(previous, selectDefault: false);
+            if (previous is not null && SelectedExportTarget is null)
+                Status = $"Selected export destination is no longer available: {previous.DisplayName}. Choose a destination and retry.";
+        }
+        catch (Exception ex)
+        {
+            ExportTargets.Clear();
+            SelectedExportTarget = null;
+            HasExportTargets = false;
+            Status = $"Cannot refresh export destinations: {ex.Message}. Correct Settings or reconnect the destination, then Refresh and choose a destination.";
+        }
+    }
+
     private void RefreshExportTargets(ExportTarget? previousTarget = null, bool selectDefault = true)
     {
         ExportTargets.Clear();
@@ -185,6 +211,8 @@ public partial class ResultsViewModel
             $"PlanId: {run?.PlanId}",
             $"ExecutionScope: {run?.ExecutionScopeText ?? "Not recorded"}",
             $"Result: {run?.Result}",
+            $"Backend execution: {run?.ReferenceBackendResult?.ToString() ?? "Not separately recorded"}",
+            run is null ? string.Empty : HardwareTest.Core.BenchReferences.BenchReferenceEvidence.Describe(run),
             $"SchemaVersion: {run?.StoredSchemaVersion}",
             $"AppVersion: {run?.AppVersion ?? "unknown"}",
             catalogBlock);

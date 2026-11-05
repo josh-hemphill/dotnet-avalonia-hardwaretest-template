@@ -14,6 +14,8 @@ namespace HardwareTest.Authoring.UI.Tests;
 public sealed class ResponsiveShellTests
 {
     [AvaloniaTheory]
+    [InlineData(900, 600, 14, 1)]
+    [InlineData(900, 600, 20, 1.5)]
     [InlineData(960, 600, 14, 1)]
     [InlineData(1280, 800, 14, 1)]
     [InlineData(960, 600, 20, 1.5)]

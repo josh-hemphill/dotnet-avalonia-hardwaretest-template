@@ -451,6 +451,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseReferenceProperties();
         RaiseBoardProperties();
         RaiseSequenceOperations();
         OnPropertyChanged(nameof(MetricName));

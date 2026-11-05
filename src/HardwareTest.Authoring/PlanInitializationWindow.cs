@@ -52,6 +52,7 @@ public sealed partial class PlanInitializationWindow : Window
     private readonly List<string> _resourceOrigins = [];
     private int _stage;
     private bool _idEdited;
+    private string _automaticPlanId = string.Empty;
     private bool _automaticDemoAddress;
     private bool _automaticSlot = true;
     private bool _updatingSlot;
@@ -77,13 +78,15 @@ public sealed partial class PlanInitializationWindow : Window
         _resourceOrigins.AddRange(candidates.Select(candidate => candidate.Origin));
         ShowHardwareChoices();
         _destination.IsReadOnly = false;
-        _name.Text = vm.SuggestedPlanId; _id.Text = vm.SuggestedPlanId;
-        _id.TextChanged += (_, _) => { _idEdited = true; ShowDestination(); };
+        _automaticPlanId = vm.SuggestedPlanId;
+        _name.Text = _automaticPlanId; _id.Text = _automaticPlanId;
+        _id.TextChanged += (_, _) => { _idEdited = _id.Text != _automaticPlanId; ShowDestination(); };
         _name.TextChanged += (_, _) =>
         {
             if (_idEdited) return;
             var token = string.Concat((_name.Text ?? "").Trim().Select(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' ? character : '-'));
-            _id.Text = token; _idEdited = false;
+            _automaticPlanId = AuthoringPlanFormIds.Automatic(token);
+            _id.Text = _automaticPlanId;
         };
         _address.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) _automaticDemoAddress = false; };
         _starting.SelectionChanged += (_, _) =>
@@ -172,6 +175,7 @@ public sealed partial class PlanInitializationWindow : Window
 
     private PlanInitializationRequest Request()
     {
+        AuthoringPlanFormIds.RequireCustom(_id.Text ?? "");
         EnsureGuidedIntervalApplicable();
         var resources = SelectedResources();
         return new PlanInitializationRequest(_id.Text ?? "")
@@ -249,6 +253,7 @@ public sealed partial class PlanInitializationWindow : Window
 
     internal void PrefillIdentity(string name, string id, string family)
     {
+        _automaticPlanId = string.Empty;
         _idEdited = true;
         if (!string.IsNullOrWhiteSpace(name)) _name.Text = name;
         _id.Text = id;

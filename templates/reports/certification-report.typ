@@ -21,7 +21,10 @@
 == Notes
 #sys.inputs.notes
 
-#if sys.inputs.result == "Passed" [
+#if sys.inputs.executionScopeKind == "reference-acquisition" [
+  #text(fill: orange)[*REFERENCE ACQUISITION — NOT CERTIFIED*]
+  Dependent reference acceptance was not evaluated. This is not production acceptance.
+] else if sys.inputs.result == "Passed" [
   #if sys.inputs.executionScopeKind == "full-suite" [
     #text(fill: green)[*CERTIFIED PASS — full suite*]
   ] else if sys.inputs.executionScopeKind == "selected-step" [
@@ -33,6 +36,11 @@
   ]
 ] else [
   #text(fill: red)[*NOT CERTIFIED*]
+]
+
+#if sys.inputs.includeReferenceEvidence == "true" [
+  == Bench reference evidence
+  #sys.inputs.referenceEvidence
 ]
 
 #if sys.inputs.attestationDetail != "" [

@@ -6,51 +6,49 @@ using Xunit;
 
 namespace HardwareTest.ViewModels.Tests;
 
-/// Phase 9 guard: RunTestView binds through child paths, and these bindings are not compile-checked.
+/// Guards bindings against each view or typed item context, including standalone task dialogs.
 public sealed partial class RunTestViewBindingPathTests
 {
-    /// Templated item types whose bindings resolve against the item, not the page ViewModel.
-    private static readonly string[] TemplateDataTypes =
-    [
-        "vm:ProgramItemViewModel",
-        "vm:InteractionFieldViewModel",
-        "vm:StepListItemViewModel",
-        "vm:StageItemViewModel",
-        "vm:LiveSeriesItemViewModel",
-        "vm:ChartTimeWindow",
-        "pres:PresentationTileViewModel",
-    ];
-
     [Fact]
-    public void Every_page_level_binding_resolves_on_RunTestViewModel()
+    public void Every_binding_resolves_on_its_declared_view_or_template_type()
     {
-        var markup = ConcatRunBoardMarkup();
-        var paths = PageLevelBindingRoots(markup).ToArray();
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var checkedPaths = new List<(string File, Type Type, string Path)>();
+        foreach (var file in Directory.EnumerateFiles(FindRunTestDirectory(), "*.axaml"))
+        {
+            var root = XDocument.Load(file).Root!;
+            Assert.NotNull(root.Attribute(xaml + "DataType"));
+            var regions = root.DescendantsAndSelf().Where(element => element == root || IsTypedItem(element, xaml));
+            foreach (var region in regions)
+            {
+                var declared = region.Attribute(xaml + "DataType")!.Value;
+                var parts = declared.Split(':', 2);
+                Assert.Equal(2, parts.Length);
+                var namespaceName = region.GetNamespaceOfPrefix(parts[0])?.NamespaceName;
+                Assert.StartsWith("using:", namespaceName);
+                var type = typeof(RunTestViewModel).Assembly.GetType(namespaceName!["using:".Length..] + "." + parts[1]);
+                Assert.NotNull(type);
+                var ownMarkup = new XElement(region);
+                ownMarkup.Descendants().Where(element => IsTypedItem(element, xaml)).ToArray().Remove();
+                foreach (var path in BindingPaths(ownMarkup.ToString(SaveOptions.DisableFormatting)))
+                    checkedPaths.Add((System.IO.Path.GetFileName(file), type, path));
+            }
+        }
 
-        // Guard against a silently-empty scrape making this assertion vacuous.
-        Assert.True(paths.Length > 40, $"Expected the view to declare many bindings; found {paths.Length}.");
-        Assert.Contains("Workspace.ShowSteps", paths);
-        Assert.Contains("StepTree.StepListItems", paths);
-
-        var unresolved = paths
-            .Where(path => !Resolves(typeof(RunTestViewModel), path))
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(p => p, StringComparer.Ordinal)
-            .ToArray();
-
-        Assert.True(
-            unresolved.Length == 0,
-            $"Run board AXAML binds paths that do not exist on RunTestViewModel: {string.Join(", ", unresolved)}");
+        // These guards ensure both page and child-dialog/template contexts are actually checked.
+        Assert.True(checkedPaths.Count > 40);
+        Assert.Contains(checkedPaths, item => item.Type == typeof(RunTestViewModel) && item.Path == "Workspace.ShowSteps");
+        Assert.Contains(checkedPaths, item => item.Type == typeof(RunTestViewModel) && item.Path == "StepTree.StepListItems");
+        Assert.Contains(checkedPaths, item => item.Type == typeof(BenchReferencePanelViewModel) && item.Path == "Rules");
+        Assert.Contains(checkedPaths, item => item.Type == typeof(BenchReferenceRuleRow) && item.Path == "AutomationName");
+        Assert.Contains(checkedPaths, item => item.Type == typeof(BenchReferenceCatalogItem) && item.Path == "Label");
+        var unresolved = checkedPaths.Where(item => !Resolves(item.Type, item.Path))
+            .Select(item => $"{item.File}: {item.Type.Name}.{item.Path}").Distinct().OrderBy(item => item).ToArray();
+        Assert.True(unresolved.Length == 0, $"Run board AXAML has unresolved bindings: {string.Join(", ", unresolved)}");
     }
 
-    private static string ConcatRunBoardMarkup()
-    {
-        var root = FindRunTestDirectory();
-        return string.Concat(
-            Directory.EnumerateFiles(root, "*.axaml")
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .Select(File.ReadAllText));
-    }
+    private static bool IsTypedItem(XElement element, XNamespace xaml)
+        => element.Name.LocalName is "DataTemplate" or "Style" && element.Attribute(xaml + "DataType") is not null;
 
     private static string FindRunTestDirectory()
     {
@@ -58,42 +56,19 @@ public sealed partial class RunTestViewBindingPathTests
         while (dir is not null)
         {
             var candidate = Path.Combine(dir.FullName, "src", "HardwareTest", "Features", "RunTest");
-            if (Directory.Exists(candidate))
-            {
-                return candidate;
-            }
-
+            if (Directory.Exists(candidate)) return candidate;
             dir = dir.Parent;
         }
-
         throw new InvalidOperationException($"RunTest views not found above '{AppContext.BaseDirectory}'.");
     }
 
-    /// Yields binding paths declared outside item DataTemplates, stripped of `!` and converter arguments.
-    private static IEnumerable<string> PageLevelBindingRoots(string markup)
+    private static IEnumerable<string> BindingPaths(string markup)
     {
-        foreach (var region in SplitOffItemTemplates(markup))
+        foreach (Match match in BindingRegex().Matches(markup))
         {
-            foreach (Match match in BindingRegex().Matches(region))
-            {
-                var path = match.Groups["path"].Value.Trim().TrimStart('!');
-                if (path.Length > 0 && !path.StartsWith('$') && !path.StartsWith('#'))
-                {
-                    yield return path;
-                }
-            }
+            var path = match.Groups["path"].Value.Trim().TrimStart('!');
+            if (path.Length > 0 && !path.StartsWith('$') && !path.StartsWith('#')) yield return path;
         }
-    }
-
-    /// Item templates and typed container styles resolve bindings on their item, not the page.
-    private static IEnumerable<string> SplitOffItemTemplates(string markup)
-    {
-        var document = XDocument.Parse("<Root>" + markup + "</Root>");
-        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
-        document.Descendants().Where(element => element.Name.LocalName is "DataTemplate" or "Style"
-            && TemplateDataTypes.Contains((string?)element.Attribute(xaml + "DataType"), StringComparer.Ordinal))
-            .ToArray().Remove();
-        yield return document.ToString(SaveOptions.DisableFormatting);
     }
 
     private static bool Resolves(Type root, string path)
@@ -102,14 +77,9 @@ public sealed partial class RunTestViewBindingPathTests
         foreach (var segment in path.Split('.'))
         {
             var property = current.GetProperty(segment, BindingFlags.Public | BindingFlags.Instance);
-            if (property is null)
-            {
-                return false;
-            }
-
+            if (property is null) return false;
             current = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
         }
-
         return true;
     }
 

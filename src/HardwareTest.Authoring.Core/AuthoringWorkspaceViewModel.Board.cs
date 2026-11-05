@@ -14,7 +14,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (SelectedDataset is not { } dataset) return "Example data · simulated values · no hardware execution";
             var run = dataset.Run;
             var time = run.Samples.Count > 0 && run.Samples.All(sample => sample.ElapsedMs is { } elapsed && double.IsFinite(elapsed)) ? "elapsed time available" : "elapsed time missing or incomplete";
-            return $"Recording · {dataset.Path}\nRun {run.RunId} · DUT {(string.IsNullOrWhiteSpace(run.DutSerial) ? "unspecified" : run.DutSerial)} · {run.Samples.Count} samples · {time}\nChannels: {string.Join(", ", run.Samples.Select(sample => sample.EffectiveMetricKey).Distinct(StringComparer.OrdinalIgnoreCase))} · no hardware execution";
+            return $"Recording · {dataset.Path}\nRun {run.RunId} · DUT {(string.IsNullOrWhiteSpace(run.DutSerial) ? "unspecified" : run.DutSerial)} · {run.Samples.Count} samples · {time}\nChannels: {string.Join(", ", run.Samples.Select(sample => sample.EffectiveMetricKey).Distinct(StringComparer.OrdinalIgnoreCase))} · no hardware execution"
+                + (run.IsSchemaReadOnly ? "\n" + RunDatasetCatalog.SchemaNotice(run) : string.Empty);
         }
     }
 

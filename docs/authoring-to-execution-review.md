@@ -40,16 +40,19 @@ dotnet build src/HardwareTest/HardwareTest.csproj -c Release
    **Save all** and **Save draft / compile** as needed until the saved source and
    compiled artifacts are current; saving the sidecar alone does not compile a
    changed sequence.
-4. Copy the resulting `<planId>.TapPlan` and `<planId>.program.json` together from
-   the workspace's configured plans directory into the operator build's
-   `Programs` folder:
+4. In **Build**, choose **Prepare selected program for bench**, enter a transfer
+   folder and prepare the copy. Keep its receipt. Copy the complete generated
+   `<planId>` folder, containing the plan, sidecar and `bench-program.json`, into
+   the operator build's `Programs` folder:
 
    ```text
    src/HardwareTest/bin/Release/net10.0/<rid>/Programs/
    ```
 
    `<rid>` is the platform used by the build, for example `linux-x64` or `win-x64`.
-   This local review uses the compiled-file handoff. The authoring app does not
+   The receipt verifies the exact compiled pair and required operator features.
+   Changed or mixed files are refused. This local review uses the compiled-file
+   handoff. The authoring app does not
    automatically install edits into a running operator app; package deployment
    is a separate workflow. Keep the workspace's authoring source files there for
    further edits.
@@ -63,13 +66,27 @@ dotnet build src/HardwareTest/HardwareTest.csproj -c Release
    inspect **Program details**. Confirm that its ID and path point to the copied
    plan. Confirm **VISA: simulated** and use the mock instrument binding created
    for the review.
-7. Enter the required session information, confirm it and explicitly start Run.
+7. If a measurement needs a golden unit, enable its **Golden reference** criterion
+   in authoring before compiling. Set its reference key, comparison and tolerance;
+   the editor shows the units and arithmetic-mean reduction. At the bench, open
+   **Golden references**. An engineer can explicitly enable **Reference acquisition**,
+   confirm the golden-unit session, acquire measurements and open the saved result.
+   Choose **Save golden reference**, name the immutable profile and optionally set
+   its validity. Return to **Golden references**, leave acquisition mode, choose a
+   compatible profile for each criterion and save the choices. Acquisition results
+   are labeled separately and do not qualify station health or production.
+8. Enter the required session information, confirm it and explicitly start Run.
    Exercise any prompts and inspect the terminal verdict. Use **View saved
    result** to check the exact program, DUT, operator, scope and saved Run ID.
-8. Inspect the report and export destination. For iteration, stop at an idle
-   station, edit and recompile in authoring, copy both updated compiled files,
-   then reload/reselect the program. Run again and verify the previous saved run
-   is still intact. An already loaded plan does not live-update from authoring.
+9. Inspect the report and export destination. Import the exported `run.json` into
+   authoring's recording review to inspect the frozen inputs and try proposed
+   criteria. For iteration, stop at an idle station, edit and recompile in
+   authoring, prepare and transfer the updated complete folder, then reload the
+   program. The previous revision's profiles are incompatible; explicitly capture
+   and select a new profile before production. Run again and verify the previous
+   saved run is still intact. An already loaded plan does not live-update from
+   authoring. Retiring a profile prevents future selection and preserves its use
+   in historical results.
 
 ## Validation boundaries
 
@@ -85,6 +102,11 @@ Local TRX records: `/workspace/combined-review-results/combined-authoring-ui.trx
 and `/workspace/combined-review-results/combined-operator-execution.trx`.
 These are focused checks within each application; the manual route above covers
 transferring a newly authored plan between them.
+
+These counts describe the initial combined baseline. The expanded golden-reference
+contract, fresh verification and independent voting rounds are documented in
+[cross-app-persona-workflows.md](cross-app-persona-workflows.md) and
+[cross-app-persona-review.md](cross-app-persona-review.md).
 
 The separate authoring and operator review reports retain their original scoring
 scope. Their scores do not constitute a new scored review of this combined

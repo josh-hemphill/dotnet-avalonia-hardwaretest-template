@@ -334,6 +334,15 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         if (string.IsNullOrWhiteSpace(OperatorInput)) OperatorInput = _session.OperatorName ?? string.Empty;
     }
 
+    /// A changed execution reference is new session context, not a new DUT.
+    public void RequireContextConfirmation()
+    {
+        if (_isRunning()) return;
+        _requiresFullConfirmation = true;
+        RetainConfirmedInputs();
+        RefreshSessionSummary();
+    }
+
     private void RefreshIdleCountdown()
     {
         if (_settings.RequireDutConfirmEveryRun && IsStalePrompt)
@@ -398,6 +407,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         DutPartInput = NormalizeScan(DutPartInput);
         DutRevisionInput = NormalizeScan(DutRevisionInput);
         OperatorInput = NormalizeScan(OperatorInput);
+        PrepareChangedSessionIdentity(requireTypedOperator: true);
         if (!TryRequireCredential(req, out var credentialError))
         {
             ApplyFieldError(credentialError, SessionFieldCredential);
@@ -466,6 +476,17 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
 
+        if (!string.IsNullOrWhiteSpace(OperatorInput)
+            && ChangedKnownIdentity(_session.OperatorName, OperatorInput))
+        {
+            // Same DUT does not mean the outgoing technician owns the next run.
+            // Keep this DUT in the form, but require the incoming session's identity.
+            RetainSameDutInputs();
+            PrepareChangedSessionIdentity(requireTypedOperator: true);
+            ConfirmSession();
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(OperatorInput))
         {
             OperatorInput = NormalizeScan(OperatorInput);
@@ -502,23 +523,62 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
 
+        StartNewSession(preserveInputs: false);
+        _setStatus(RequireOperator
+            ? "Enter the DUT and technician for the next session, then confirm. Saved runs remain in Results."
+            : "Enter the DUT for the next session, then confirm. Saved runs remain in Results.");
+        RequestFocusDutSerial?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void PrepareChangedSessionIdentity(bool requireTypedOperator)
+    {
+        if (_session.ConfirmedAt is null) return;
+        var requirements = CurrentRequirements;
+        if (requirements.RequireSerial && string.IsNullOrWhiteSpace(NormalizeScan(DutSerialInput))
+            || requirements.RequirePartNumber && string.IsNullOrWhiteSpace(NormalizeScan(DutPartInput))
+            || requirements.RequireRevision && string.IsNullOrWhiteSpace(NormalizeScan(DutRevisionInput))
+            || requireTypedOperator && requirements.RequireOperator && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput)))
+            return;
+        var changed = !string.Equals(_session.DutSerial, NormalizeScan(DutSerialInput), StringComparison.Ordinal)
+            || ChangedKnownIdentity(_session.DutPartNumber, DutPartInput)
+            || ChangedKnownIdentity(_session.DutRevision, DutRevisionInput)
+            || (requireTypedOperator || !string.IsNullOrWhiteSpace(OperatorInput))
+                && ChangedKnownIdentity(_session.OperatorName, OperatorInput);
+        if (changed) StartNewSession(preserveInputs: true);
+    }
+
+    private void RetainSameDutInputs()
+    {
+        DutSerialInput = _session.DutSerial;
+        DutPartInput = _session.DutPartNumber ?? string.Empty;
+        DutRevisionInput = _session.DutRevision ?? string.Empty;
+    }
+
+    private static bool ChangedKnownIdentity(string? confirmed, string input)
+        => !string.IsNullOrWhiteSpace(confirmed)
+            && !string.Equals(confirmed, NormalizeScan(input), StringComparison.Ordinal);
+
+    private void StartNewSession(bool preserveInputs)
+    {
+        // A full reconfirmation form can be reopened by reference/policy changes.
+        // Editing a known DUT or technician crosses the same boundary as Change Session.
+        // Completing previously unknown metadata with the same identity does not.
         _session.ChangeSession();
         _requiresFullConfirmation = false;
         PendingConfirmEveryRun = false;
         ClearFieldErrors();
         _onSessionCleared();
-        DutSerialInput = string.Empty;
-        DutPartInput = string.Empty;
-        DutRevisionInput = string.Empty;
-        OperatorInput = string.Empty;
+        if (!preserveInputs)
+        {
+            DutSerialInput = string.Empty;
+            DutPartInput = string.Empty;
+            DutRevisionInput = string.Empty;
+            OperatorInput = string.Empty;
+        }
         CredentialStatus = _credentialBroker?.StatusText ?? string.Empty;
         ShowSessionForm = true;
         RefreshSessionSummary();
         UpdateIdleTimer();
-        _setStatus(RequireOperator
-            ? "Enter the DUT and technician for the next session, then confirm. Saved runs remain in Results."
-            : "Enter the DUT for the next session, then confirm. Saved runs remain in Results.");
-        RequestFocusDutSerial?.Invoke(this, EventArgs.Empty);
     }
 
     /// Trims keyboard-wedge scanner suffixes without starting a run.

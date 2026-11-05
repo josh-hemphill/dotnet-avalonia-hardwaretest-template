@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
 using HardwareTest.Core.Hardware;
@@ -154,6 +155,11 @@ public sealed class RunExecutionViewModel
             BlockStart(RunBannerSeverity.Warning, "Already running.");
             return;
         }
+        if (_host is RunTestViewModel managingBoard && managingBoard.References.IsManagementPending)
+        {
+            BlockStart(RunBannerSeverity.Warning, "Reference management is still in progress. Wait for its saved result and confirm the reference context before Run.");
+            return;
+        }
 
         if (_host is RunTestViewModel runBoard)
         {
@@ -225,6 +231,12 @@ public sealed class RunExecutionViewModel
                 return;
             }
 
+            if (_stepTree.IsReadOnlyEvidenceSelection)
+            {
+                BlockStart(RunBannerSeverity.Warning, "Reference acceptance is read-only evidence. Select the measured test or use Run to evaluate it again.");
+                return;
+            }
+
             if (_stepTree.IsWholePlanSelection(selectionPath))
             {
                 BlockStart(
@@ -241,6 +253,7 @@ public sealed class RunExecutionViewModel
         }
 
         _host.IsRunning = true;
+        if (_host is RunTestViewModel resettingBoard) resettingBoard.SetReferenceOutcome(null, [], RunResult.Unknown);
         if (_host is RunTestViewModel startingBoard) startingBoard.BeginRunNotifications();
         _live.ResetForRun();
         _host.HistoryBanner = string.Empty;
@@ -306,7 +319,7 @@ public sealed class RunExecutionViewModel
         }
         _stationOverrides.ApplySavedParameterOverrides();
         var station = _stationOverrides.BuildStationProfile();
-        if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath))
+        if (_host.IsEngineerDebugMode && !string.IsNullOrWhiteSpace(selectionPath) && program.ReferenceRules.Count == 0)
         {
             _stepTree.SelectedStep = _stepTree.FindByPath(selectionPath) ?? _stepTree.SelectedStep;
             if (_stepTree.SelectedStep is not null && _stationOverrides.TryApplyDebugPatchForRunPreparation())
@@ -349,6 +362,10 @@ public sealed class RunExecutionViewModel
             return;
         }
 
+        var references = _host is RunTestViewModel referenceBoard
+            ? await referenceBoard.FreezeBenchReferencesAsync(program, selectionOnly).ConfigureAwait(false) : null;
+        if (references is not null)
+            station = station with { ReferenceAcceptancePrepared = true, ReferenceAcquisition = references.IsAcquisition };
         await _station.ApplyStationAndDutAsync(station, _session.ToDutIdentity());
         _session.TouchActivity();
 
@@ -359,8 +376,12 @@ public sealed class RunExecutionViewModel
             RunId = runId,
             PlanId = program.Id,
             PlanName = program.DisplayName,
-            ExecutionScope = selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
             SelectedStepPath = selectionOnly ? selectionPath : null,
+            ReferenceContext = references?.Context,
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            ReferenceUses = references?.Uses.Select(BenchReferenceEvaluator.CloneUse).ToList() ?? [],
             DutSerial = _session.DutSerial,
             DutPartNumber = _session.DutPartNumber,
             DutRevision = _session.DutRevision,
@@ -389,6 +410,20 @@ public sealed class RunExecutionViewModel
         _host.ForceUiFlush();
         await _host.WaitForPendingFlushesAsync().ConfigureAwait(false);
 
+        var backendResult = summary.Result;
+        var referenceRecord = new TestRunRecord
+        {
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            StartedAt = summary.StartedAt,
+            CompletedAt = summary.CompletedAt,
+            SelectedStepPath = selectionOnly ? selectionPath : null,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            Samples = summary.Samples,
+        };
+        var referenceEvaluations = references is { IsAcquisition: false } && summary.Result is RunResult.Passed or RunResult.Failed
+            ? BenchReferenceEvaluator.Evaluate(referenceRecord, references.Uses).ToList() : [];
+        if (referenceEvaluations.Count > 0) summary = WithReferenceOutcome(summary, referenceEvaluations);
         _host.LastRunId = summary.RunId;
         RecordAttempts(summary);
 
@@ -397,6 +432,24 @@ public sealed class RunExecutionViewModel
         await _host.RunOnUiAsync(() =>
         {
             PublishRunOutcome(selectionOnly, selectionPath, selectionName, summary);
+            if (_host is RunTestViewModel outcomeBoard)
+                outcomeBoard.SetReferenceOutcome(references, referenceEvaluations, backendResult);
+            if (references?.IsAcquisition == true)
+            {
+                _host.Status = $"Reference acquisition: {backendResult}. Not a production pass. Save qualified values from Results.";
+                if (_host is RunTestViewModel acquisitionBoard) acquisitionBoard.SetRunCompletionBanner(RunBannerSeverity.Warning, _host.Status);
+            }
+            else if (referenceEvaluations.Any(evaluation => !evaluation.Passed))
+            {
+                _host.Status = $"Reference acceptance: Failed. Saved result {ShortId.Display(summary.RunId)}.";
+                if (_host is RunTestViewModel failedBoard) failedBoard.SetRunCompletionBanner(RunBannerSeverity.Error, _host.Status);
+            }
+            if (ProgramKinds.IsStationHealth(program.ProgramKind) && (references?.IsAcquisition == true || selectionOnly))
+            {
+                _host.Status += " Health qualification was not updated; complete a full production run.";
+                var severity = summary.Result is RunResult.Failed or RunResult.Error ? RunBannerSeverity.Error : RunBannerSeverity.Warning;
+                if (_host is RunTestViewModel healthBoard) healthBoard.SetRunCompletionBanner(severity, _host.Status);
+            }
             if (terminal && _settings.RequireDutConfirmEveryRun)
             {
                 _sessionPanel.ApplyConfirmEveryRunPolicy(runReachedTerminal: true);
@@ -413,8 +466,14 @@ public sealed class RunExecutionViewModel
             RunId = summary.RunId,
             PlanId = program.Id,
             PlanName = summary.PlanName,
-            ExecutionScope = selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
+            ExecutionScope = references?.IsAcquisition == true ? RunExecutionScopes.ReferenceAcquisition
+                : selectionOnly ? RunExecutionScopes.SelectedStep : RunExecutionScopes.FullSuite,
             SelectedStepPath = selectionOnly ? selectionPath : null,
+            ReferenceContext = references?.Context,
+            ReferenceRules = references?.Rules.Select(BenchReferenceEvaluator.CloneRule).ToList() ?? [],
+            ReferenceUses = references?.Uses.Select(BenchReferenceEvaluator.CloneUse).ToList() ?? [],
+            ReferenceEvaluations = referenceEvaluations,
+            ReferenceBackendResult = references is null ? null : backendResult,
             DutSerial = summary.DutSerial ?? _session.DutSerial,
             DutPartNumber = summary.DutPartNumber ?? _session.DutPartNumber,
             DutRevision = summary.DutRevision ?? _session.DutRevision,
@@ -436,7 +495,7 @@ public sealed class RunExecutionViewModel
         {
             if (_host is RunTestViewModel savedBoard) savedBoard.MarkLastRunSaved(record.RunId);
         }).ConfigureAwait(false);
-        if (_stationHealthStore is not null)
+        if (_stationHealthStore is not null && references?.IsAcquisition != true && !selectionOnly)
         {
             await StationHealthRecorder.TryWriteAsync(
                     _stationHealthStore,
@@ -454,6 +513,41 @@ public sealed class RunExecutionViewModel
         await GenerateReportsAsync(record, program, summary.Result, historyReport).ConfigureAwait(false);
     }
 
+    private static OpenTapRunSummary WithReferenceOutcome(OpenTapRunSummary summary, IReadOnlyList<BenchReferenceEvaluation> evaluations)
+    {
+        var failed = evaluations.Any(evaluation => !evaluation.Passed);
+        var steps = summary.Steps.ToList();
+        foreach (var evaluation in evaluations)
+            steps.Add(new StepResultRecord
+            {
+                StepId = "reference:" + evaluation.RuleId,
+                StepType = "Bench reference acceptance",
+                StepPath = $"Reference acceptance/{evaluation.MetricKey} [{evaluation.RuleId}]",
+                Passed = evaluation.Passed,
+                Message = evaluation.Message,
+                StartedAt = summary.StartedAt,
+                CompletedAt = summary.CompletedAt,
+            });
+        return new OpenTapRunSummary
+        {
+            RunId = summary.RunId,
+            PlanName = summary.PlanName,
+            Result = failed && summary.Result == RunResult.Passed ? RunResult.Failed : summary.Result,
+            ErrorMessage = failed ? "Reference acceptance failed: " + string.Join(" ", evaluations.Where(evaluation => !evaluation.Passed).Select(evaluation => evaluation.Message)) : summary.ErrorMessage,
+            DutSerial = summary.DutSerial,
+            DutPartNumber = summary.DutPartNumber,
+            DutRevision = summary.DutRevision,
+            SessionId = summary.SessionId,
+            OperatorName = summary.OperatorName,
+            StartedAt = summary.StartedAt,
+            CompletedAt = summary.CompletedAt,
+            Samples = summary.Samples,
+            Events = summary.Events,
+            Steps = steps,
+            Verdict = failed ? "Fail" : summary.Verdict,
+        };
+    }
+
     private void PublishRunOutcome(
         bool selectionOnly,
         string? selectionPath,
@@ -463,8 +557,11 @@ public sealed class RunExecutionViewModel
         _host.SyncHierarchyLive();
         _stepTree.ApplyStepResults(summary.Steps);
         _stepTree.ApplyAttemptTexts();
+        if (summary.Result == RunResult.Passed && !_stepTree.HasFailedLeaves && _stepTree.IsFilteredToFail)
+            _stepTree.StepStatusFilter = StepFilter.All;
         if (!selectionOnly && summary.Result == RunResult.Failed)
         {
+            _stepTree.ClearScope();
             _stepTree.StepStatusFilter = StepFilter.Fail;
             _stepTree.MaybeAutoFocusFail();
         }

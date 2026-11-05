@@ -36,6 +36,8 @@ public sealed class AppSettings
     public List<PlanSlotOverride> PlanSlotOverrides { get; set; } = [];
     /// Per-plan OpenTAP parameter overrides (station overlay; does not mutate TapPlan files).
     public List<PlanParameterOverride> PlanParameterOverrides { get; set; } = [];
+    /// Last explicit per-rule golden-reference choices; never substitute another profile.
+    public List<BenchReferenceSelectionSetting> BenchReferenceSelections { get; set; } = [];
     /// When false, crash capture surfaces are no-ops.
     public bool CrashEnabled { get; set; } = true;
     /// Crash dossier root; empty means {DataDirectory}/crashes.

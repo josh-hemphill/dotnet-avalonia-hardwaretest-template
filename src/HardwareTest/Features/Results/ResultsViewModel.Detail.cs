@@ -102,7 +102,7 @@ public partial class ResultsViewModel
 
     public string SchemaDriftSummary =>
         HasSchemaDrift
-            ? "One or more runs used a newer schema and are read-only on this app."
+            ? "One or more runs use a read-only schema on this app."
             : string.Empty;
 
     /// Raised when the operator wants to navigate to the Run page from the empty state.
@@ -204,7 +204,20 @@ public partial class ResultsViewModel
         }
 
         var runId = SelectedRun.RunId;
-        var opened = await _runStore.LoadAsync(runId).ConfigureAwait(false);
+        TestRunRecord? opened;
+        try
+        {
+            opened = await _runStore.LoadAsync(runId).ConfigureAwait(false);
+        }
+        catch (InvalidDataException error)
+        {
+            await RunOnUiAsync(() =>
+            {
+                ApplyOpenedRun(null);
+                Status = $"Cannot open this saved result. {error.Message}";
+            }).ConfigureAwait(false);
+            return;
+        }
         await RunOnUiAsync(() => ApplyOpenedRun(opened)).ConfigureAwait(false);
         if (opened is null)
         {
@@ -267,9 +280,10 @@ public partial class ResultsViewModel
         {
             SchemaBadge = "Read-only";
             HasSchemaBadge = true;
-            SchemaWarning =
-                $"Schema {OpenedRun.StoredSchemaVersion} is newer than this app ({HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord}). "
-                + $"Written by {OpenedRun.AppVersion ?? "unknown"}.";
+            SchemaWarning = HardwareTest.Core.Serialization.DocumentSchemaGate.Evaluate(
+                HardwareTest.Core.Serialization.SchemaDocumentTypes.TestRunRecord,
+                OpenedRun.StoredSchemaVersion > 0 ? OpenedRun.StoredSchemaVersion : OpenedRun.SchemaVersion,
+                HardwareTest.Core.Serialization.SchemaVersions.TestRunRecord, OpenedRun.AppVersion).FormatOperatorWarning();
             HasSchemaWarning = true;
         }
 
