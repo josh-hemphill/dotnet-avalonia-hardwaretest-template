@@ -146,6 +146,7 @@ public partial class SettingsViewModel : ReactiveObject
         CopyDiagnosticsCommand = ReactiveCommand.CreateFromTask(CopyDiagnosticsAsync);
         CopyStationHealthPathCommand = ReactiveCommand.CreateFromTask(CopyStationHealthPathAsync);
         InitStationHealthChrome(stationHealthStore, clock ?? SystemClock.Instance);
+        InitOfflineBundles();
 
         _debounce = new System.Timers.Timer(400) { AutoReset = false };
         _debounce.Elapsed += (_, _) =>
@@ -164,6 +165,7 @@ public partial class SettingsViewModel : ReactiveObject
 
         PropertyChanged += (_, args) =>
         {
+            if (IsOfflineBundleProperty(args.PropertyName)) return;
             if (args.PropertyName == nameof(SelectedPackage) && SelectedPackage is not null)
             {
                 SelectedPluginDirectory = null;

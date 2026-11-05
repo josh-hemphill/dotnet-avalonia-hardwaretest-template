@@ -8,6 +8,7 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunTestViewModel
 {
+    internal Func<string> ExecutionEngineIdentityProvider { get; set; } = () => OpenTapBuildInfo.ExecutionEngineIdentity;
     private IOpenTapStationSession _referenceStation = null!;
     private (string Plan, string Sidecar)? _loadedReferenceArtifacts;
     public BenchReferencePanelViewModel References { get; private set; } = null!;
@@ -70,7 +71,11 @@ public partial class RunTestViewModel
             throw new InvalidOperationException("The compiled program changed or its reference identity is unavailable. Reload the complete plan and sidecar before Run.");
         var mode = (_visaModeController?.EffectiveUseMockVisa ?? _settings.UseMockVisa)
             ? BenchReferenceVisaModes.Simulated : BenchReferenceVisaModes.Physical;
-        var values = new List<KeyValuePair<string, string>> { new("visa-mode", mode) };
+        var values = new List<KeyValuePair<string, string>>
+        {
+            new("visa-mode", mode),
+            new("engine-build", ExecutionEngineIdentityProvider()),
+        };
         var station = StationOverrides.BuildStationProfile();
         foreach (var group in _referenceStation.InstrumentSlots.GroupBy(slot => slot.Name.Trim(), StringComparer.OrdinalIgnoreCase))
         {

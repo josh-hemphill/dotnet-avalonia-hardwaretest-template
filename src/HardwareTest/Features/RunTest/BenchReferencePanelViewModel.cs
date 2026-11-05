@@ -139,7 +139,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
                     if (row.SelectedChoice is { } choice && BenchReferenceEvaluator.CompatibilityError(row.Rule, choice.Profile, _context, _clock.UtcNow) is { } reason)
                         return $"{row.Rule.MetricKey}: {reason} Reload references or acquire a qualified replacement.";
             return IsReady ? "Reference values selected. Confirm the session before Run."
-                : "Choose compatible golden references for the affected tests, or ask a technician to acquire the first reference.";
+                : "Choose compatible golden references for the affected tests, or ask a technician to acquire and save a new reference.";
         }
     }
     public bool IsManagementPending => _managementPending;
@@ -274,7 +274,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
         foreach (var rule in rules)
         {
             if (_store is null || !choices.TryGetValue(rule.RuleId, out var choice) || choice is null)
-                throw new InvalidOperationException($"Choose a compatible golden reference for {rule.MetricKey} before Run.");
+                throw new InvalidOperationException($"{rule.MetricKey}: choose a compatible reference, or requalify with a fresh golden-unit acquisition after an engine or bench change.");
             selections.Add(new()
             {
                 Rule = rule,

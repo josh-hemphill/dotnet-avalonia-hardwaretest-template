@@ -2,7 +2,8 @@
 
 Use `review/authoring-to-execution` to review both applications together.
 The reviewed workflow uses mock instruments; use a separate bench data folder
-when experimenting. Required instrument packages must be installed on the bench.
+when experimenting. Required instrument packages must be installed on the bench,
+or supplied through the [offline bundle workflow](offline-bench-delivery.md).
 
 1. In authoring, create a plan with a title and add the measurement steps. Select
    the relevant measurement in **Sequence**. Give it its real unit, then enable

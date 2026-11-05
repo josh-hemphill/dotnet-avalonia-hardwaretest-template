@@ -21,6 +21,48 @@
             </WrapPanel>
           </StackPanel>
         </Border>
+        <Expander Header="Offline bench bundle" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Offline bench bundle">
+          <StackPanel Spacing="12" Margin="0,12,0,0">
+            <TextBlock Text="Check a copied bundle, then prepare a separate operator installation. Checking does not install packages or change this station." TextWrapping="Wrap"/>
+            <StackPanel Spacing="6">
+              <TextBlock x:Name="OfflineBundlePathLabel" Text="Bundle folder" TextWrapping="Wrap"/>
+              <TextBox x:Name="OfflineBundlePathBox" Text="{Binding OfflineBundlePath}" IsReadOnly="{Binding OfflineBundleIsChecking}" MinHeight="40"
+                       AutomationProperties.Name="Offline bundle folder" AutomationProperties.LabeledBy="{Binding #OfflineBundlePathLabel}" AutomationProperties.HelpText="{Binding OfflineBundleStatus}" GotFocus="OnOfflineFieldFocused"/>
+            </StackPanel>
+            <WrapPanel>
+              <Button Content="Choose folder…" Click="OnChooseOfflineBundleFolder" IsEnabled="{Binding OfflineBundleCanEdit}" Classes="operator" AutomationProperties.Name="Choose offline bundle folder" Margin="0,0,8,4"/>
+              <Button Content="Check bundle" Command="{Binding CheckOfflineBundleCommand}" IsEnabled="{Binding OfflineBundleCanEdit}" Classes="operator" AutomationProperties.Name="Check offline bundle" Margin="0,0,8,4"/>
+              <Button Content="Cancel check" Command="{Binding CancelOfflineBundleCommand}" IsVisible="{Binding OfflineBundleIsChecking}" Classes="operator" AutomationProperties.Name="Cancel offline bundle check" Margin="0,0,0,4"/>
+            </WrapPanel>
+            <TextBlock x:Name="OfflineBundleStatusText" Text="{Binding OfflineBundleStatus}" TextWrapping="Wrap" AutomationProperties.Name="Offline bundle inspection feedback" AutomationProperties.LiveSetting="Polite"/>
+            <StackPanel Spacing="12" IsVisible="{Binding HasOfflineBundleInspection}">
+              <TextBlock Text="{Binding OfflineBundleSummary}" TextWrapping="Wrap" AutomationProperties.Name="Checked offline bundle summary"/>
+              <WrapPanel>
+                <Button Content="View full inspection" Click="OnOfflineBundleDetails" Classes="operator" AutomationProperties.Name="View full offline bundle inspection" Margin="0,0,8,4"/>
+                <Button Content="Copy inspection" Command="{Binding CopyOfflineBundleDetailsCommand}" Classes="operator" AutomationProperties.Name="Copy offline bundle inspection" Margin="0,0,0,4"/>
+              </WrapPanel>
+              <Expander Header="Install into a separate copy" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Offline bundle installation instructions">
+                <StackPanel Spacing="12" Margin="0,8,0,0">
+                  <TextBlock Text="Choose two NEW absolute folder paths. This page only copies a command; the external installer validates and creates the folders." TextWrapping="Wrap"/>
+                  <StackPanel Spacing="6">
+                    <TextBlock x:Name="OfflineBundleDestinationLabel" Text="New operator installation folder" TextWrapping="Wrap"/>
+                    <TextBox x:Name="OfflineBundleDestinationBox" Text="{Binding OfflineBundleDestination}" MinHeight="40" AutomationProperties.Name="New operator copy folder"
+                             AutomationProperties.LabeledBy="{Binding #OfflineBundleDestinationLabel}" GotFocus="OnOfflineFieldFocused"/>
+                  </StackPanel>
+                  <StackPanel Spacing="6">
+                    <TextBlock x:Name="OfflineBundleDataLabel" Text="Fresh operator data folder" TextWrapping="Wrap"/>
+                    <TextBox x:Name="OfflineBundleDataBox" Text="{Binding OfflineBundleDataDirectory}" MinHeight="40" AutomationProperties.Name="Fresh operator data folder"
+                             AutomationProperties.LabeledBy="{Binding #OfflineBundleDataLabel}" GotFocus="OnOfflineFieldFocused"/>
+                  </StackPanel>
+                  <Button Content="Copy installation command" Command="{Binding CopyOfflineBundleCommand}" Classes="operator" HorizontalAlignment="Left" AutomationProperties.Name="Copy offline bundle installation command"/>
+                  <TextBlock x:Name="OfflineBundleCommandStatusText" Text="{Binding OfflineBundleCommandStatus}" TextWrapping="Wrap" AutomationProperties.Name="Offline bundle command feedback" AutomationProperties.LiveSetting="Polite"/>
+                  <SelectableTextBlock Text="{Binding OfflineBundleInstallationCommand}" TextWrapping="Wrap" AutomationProperties.Name="Offline bundle installation command"/>
+                  <TextBlock Text="{Binding OfflineBundleNextSteps}" TextWrapping="Wrap" AutomationProperties.Name="Offline bundle activation steps"/>
+                </StackPanel>
+              </Expander>
+            </StackPanel>
+          </StackPanel>
+        </Expander>
         <StackPanel Spacing="12">
           <TextBlock Text="Operator preferences" Classes="settings-h2" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
           <Grid ColumnDefinitions="180,*" ColumnSpacing="12">

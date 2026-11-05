@@ -4,12 +4,13 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using HardwareTest.OpenTap.Host;
 
 namespace HardwareTest.Authoring;
 
 /// A local compiled-file handoff; it does not install packages or control a running bench.
-public sealed class BenchExportWindow : Window
+public sealed partial class BenchExportWindow : Window
 {
     private readonly AuthoringWorkspaceViewModel _viewModel;
     private readonly AuthoringWorkspace _workspace;
@@ -23,9 +24,14 @@ public sealed class BenchExportWindow : Window
     private readonly TextBox _receipt;
     private readonly Button _prepare;
     private readonly Button _browse;
+    private readonly Button _cancel;
+    private readonly Button _close;
     private readonly CancellationTokenSource _cancellation = new();
+    private CancellationTokenSource? _preparation;
+    private int _preparationId;
     private bool _busy;
     private int _closed;
+    internal Func<OfflineBenchExportOptions, string, Func<bool>, CancellationToken, OfflineBenchExportResult>? OfflineExporter { get; set; }
 
     public BenchExportWindow(AuthoringWorkspaceViewModel viewModel, Func<bool> ownerIsCurrent)
     {
@@ -38,13 +44,15 @@ public sealed class BenchExportWindow : Window
         _ownerIsCurrent = ownerIsCurrent;
         Title = "Prepare bench files"; Width = 680; Height = 620; MinWidth = 420; MinHeight = 360;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto"), Margin = new Thickness(24), RowSpacing = 16 };
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*,Auto,Auto"), Margin = new Thickness(24), RowSpacing = 12 };
         layout.Children.Add(new TextBlock { Text = "Prepare bench files", FontSize = 22, FontWeight = FontWeight.SemiBold });
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(new TextBlock { Text = $"Selected program: {_planId}", TextWrapping = TextWrapping.Wrap, FontWeight = FontWeight.SemiBold });
         body.Children.Add(new TextBlock { Text = "Prepare the saved compiled plan and operator settings together. Choose the bench Programs folder or a local transfer folder.", TextWrapping = TextWrapping.Wrap });
+        AddOfflineOptions(body);
         body.Children.Add(new TextBlock { Text = "Destination folder" });
         _destination = new TextBox { MinHeight = 40 };
+        _destination.TextChanged += (_, _) => InvalidatePreparationFeedback();
         AutomationProperties.SetName(_destination, "Bench files destination folder");
         body.Children.Add(_destination);
         _browse = new Button { Content = "Choose folder…", MinHeight = 40 };
@@ -53,19 +61,25 @@ public sealed class BenchExportWindow : Window
         body.Children.Add(_browse);
         body.Children.Add(new TextBlock { Text = "A prepared folder for this program ID will be replaced. Unrelated or manually changed files are preserved and require another destination.", TextWrapping = TextWrapping.Wrap });
         _status = new TextBlock { TextWrapping = TextWrapping.Wrap };
-        AutomationProperties.SetName(_status, "Bench file preparation status"); body.Children.Add(_status);
+        AutomationProperties.SetName(_status, "Bench file preparation status");
+        AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
+        Grid.SetRow(_status, 2); layout.Children.Add(_status);
         _receipt = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, IsVisible = false };
         ScrollViewer.SetVerticalScrollBarVisibility(_receipt, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
         AutomationProperties.SetName(_receipt, "Prepared bench program receipt"); body.Children.Add(_receipt);
         var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Grid.SetRow(scroll, 1); layout.Children.Add(scroll);
         var footer = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var close = new Button { Content = "Close", MinHeight = 40, IsCancel = true, Margin = new Thickness(0, 0, 8, 0) };
-        AutomationProperties.SetName(close, "Close bench file preparation"); close.Click += (_, _) => Close();
+        _close = new Button { Content = "Close", MinHeight = 40, IsCancel = true, Margin = new Thickness(0, 0, 8, 0) };
+        AutomationProperties.SetName(_close, "Close bench file preparation"); _close.Click += (_, _) => Close();
+        _cancel = new Button { Content = "Cancel preparation", MinHeight = 40, IsVisible = false, Margin = new Thickness(0, 0, 8, 0) };
+        AutomationProperties.SetName(_cancel, "Cancel bench file preparation");
+        _cancel.Click += (_, _) => { _preparation?.Cancel(); _cancel.IsEnabled = false; _status.Text = "Cancelling preparation…"; };
         _prepare = new Button { Content = "Prepare / replace bench copy", MinHeight = 40, IsDefault = true };
         AutomationProperties.SetName(_prepare, "Prepare bench copy"); _prepare.Classes.Add("accent");
-        _prepare.Click += async (_, _) => await PrepareAsync(); footer.Children.Add(close); footer.Children.Add(_prepare);
-        Grid.SetRow(footer, 2); layout.Children.Add(footer); Content = layout;
+        _prepare.Click += async (_, _) => await PrepareAsync(); footer.Children.Add(_cancel); footer.Children.Add(_close); footer.Children.Add(_prepare);
+        Grid.SetRow(footer, 3); layout.Children.Add(footer); Content = layout;
+        UpdateOfflineMode();
         Opened += (_, _) => _destination.Focus();
         Closed += (_, _) =>
         {
@@ -89,7 +103,7 @@ public sealed class BenchExportWindow : Window
             var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Bench Programs or transfer folder", AllowMultiple = false });
             if (Current() && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) _destination.Text = path;
         }
-        catch (Exception error) { if (Current()) _status.Text = error.Message; }
+        catch (Exception error) { if (Current()) ShowPreparationError(error.Message); }
         finally { if (Current()) _destination.Focus(); }
     }
 
@@ -111,22 +125,65 @@ public sealed class BenchExportWindow : Window
         if (string.IsNullOrWhiteSpace(_destination.Text))
         { _status.Text = "Choose a destination folder."; _destination.Focus(); return; }
         var destination = _destination.Text;
-        _busy = true; _prepare.IsEnabled = _browse.IsEnabled = _destination.IsEnabled = false;
+        var offline = _includePackages.IsChecked == true;
+        var options = CaptureOfflineOptions();
+        var preparationId = ++_preparationId;
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(_cancellation.Token);
+        _preparation = operation;
+        _busy = true;
+        string? publishedDirectory = null;
+        SetPreparationBusy(true);
         _status.Text = "Checking saved files and preparing the bench copy…"; _receipt.IsVisible = false;
         try
         {
-            var result = await Task.Run(() => BenchProgramExporter.Export(_workspace, _planId, destination,
-                ContextStillSelected, _cancellation.Token));
-            if (!Current()) return;
-            _status.Text = $"Bench files prepared at {result.Directory}. Copy this complete program folder into the idle bench's Programs folder, then reload programs. Required packages must already be installed on that bench.";
-            _receipt.Text = BenchProgramHandoff.Describe(result.Receipt); _receipt.IsVisible = true;
+            if (offline)
+            {
+                options = options with
+                {
+                    Progress = message => Dispatcher.UIThread.Post(() =>
+                {
+                    if (_busy && preparationId == _preparationId && Current()) _status.Text = message;
+                })
+                };
+                var result = await Task.Run(() => OfflineExporter is { } export
+                    ? export(options, destination, ContextStillSelected, operation.Token)
+                    : OfflineBenchBundleExporter.Export(_workspace, _planId, destination, options, ContextStillSelected, operation.Token));
+                publishedDirectory = result.Directory;
+                if (!Current()) return;
+                _status.Text = $"Offline bundle prepared at {result.Directory}. Copy the complete folder to the bench. Check it in Settings, then use its helper to prepare a separate installation with fresh bench data.";
+                AutomationProperties.SetName(_receipt, "Prepared offline bundle details");
+                _receipt.Text = result.Summary + Environment.NewLine + Environment.NewLine
+                    + OfflineBenchBundle.Describe(result.Manifest);
+            }
+            else
+            {
+                var result = await Task.Run(() => BenchProgramExporter.Export(_workspace, _planId, destination,
+                    ContextStillSelected, operation.Token));
+                publishedDirectory = result.Directory;
+                if (!Current()) return;
+                _status.Text = $"Bench files prepared at {result.Directory}. Copy the complete folder into Programs, then reload. Required packages must already be installed.";
+                AutomationProperties.SetName(_receipt, "Prepared bench program receipt");
+                _receipt.Text = BenchProgramHandoff.Describe(result.Receipt);
+            }
+            _receipt.IsVisible = true;
         }
         catch (OperationCanceledException) { if (Current()) _status.Text = "Bench file preparation cancelled."; }
-        catch (Exception error) { if (Current()) _status.Text = error.Message; }
+        catch (Exception error) { if (Current()) ShowPreparationError(error.Message); }
         finally
         {
             _busy = false;
-            if (Current()) _prepare.IsEnabled = _browse.IsEnabled = _destination.IsEnabled = true;
+            _preparation = null;
+            if (Volatile.Read(ref _closed) == 0)
+            {
+                SetPreparationBusy(false);
+                if (!Current())
+                {
+                    _receipt.IsVisible = false;
+                    _status.Text = publishedDirectory is null
+                        ? "The selected revision changed. Close this dialog and reopen Prepare bench files for the intended program."
+                        : $"Files were prepared for the previous revision at {publishedDirectory}. Close this dialog and reopen Prepare bench files for the intended program.";
+                }
+            }
             if (Volatile.Read(ref _closed) != 0) _cancellation.Dispose();
         }
     }

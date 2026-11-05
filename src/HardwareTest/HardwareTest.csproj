@@ -6,6 +6,8 @@
     <PublishAot>false</PublishAot>
     <OptimizationPreference>Speed</OptimizationPreference>
     <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +38,7 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <PackageReference Include="OpenTAP" />
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
@@ -61,4 +64,6 @@
       <PrivateAssets Condition="'$(Configuration)' != 'Debug'">All</PrivateAssets>
     </PackageReference>
   </ItemGroup>
+  <Import Project="../HardwareTest.OpenTap.Host/OpenTapSdkRuntime.targets" />
+  <Import Project="OfflineBenchCapability.targets" />
 </Project>

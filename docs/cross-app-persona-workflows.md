@@ -192,6 +192,14 @@ verify earlier evidence is unchanged. Missing/mismatched recordings and unsuppor
 schemas retain current work and explain recovery. Recording selection never changes
 the bench's execution reference choices.
 
+## W7 Ship tests and required packages to an offline bench — P5/P6/P7
+
+The added workflow is defined in [offline-bench-workflows.md](offline-bench-workflows.md).
+It includes target-aware dependency collection, a complete checked transfer,
+read-only offline inspection, isolated installation and deliberate commissioning
+with fresh bound data. Existing-data reuse is outside this delivery workflow.
+The original W1–W6 requirements remain binding.
+
 ## Required joined evidence and graphical coverage
 
 A single evidence chain must use the **same newly authored unique-ID program**:

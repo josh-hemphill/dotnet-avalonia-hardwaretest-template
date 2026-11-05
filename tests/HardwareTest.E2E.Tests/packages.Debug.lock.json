@@ -40,6 +40,12 @@
           "Microsoft.TestPlatform.TestHost": "17.14.1"
         }
       },
+      "OpenTAP": {
+        "type": "Direct",
+        "requested": "[9.35.0, )",
+        "resolved": "9.35.0",
+        "contentHash": "StPb1oAhEzSLKKTUXUtKwS+R8IYOYecRZvZjUpMVZEpllOgAPDlWvq62yd52w6k5chyW6UTQm3+FTP2COtPjfg=="
+      },
       "ReactiveUI.Avalonia": {
         "type": "Direct",
         "requested": "[12.1.2, )",
@@ -637,12 +643,25 @@
           "HardwareTest.ShellApps.Notes": "[0.1.0, )",
           "HardwareTest.Widgets": "[0.1.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.12, )",
+          "OpenTAP": "[9.35.0, )",
           "PDFtoImage": "[5.4.0, )",
           "ReactiveUI": "[24.2.0, )",
           "ReactiveUI.Avalonia": "[12.1.2, )",
           "ReactiveUI.Binding": "[7.3.0, )",
           "SkiaSharp.NativeAssets.Linux": "[4.150.1, )",
           "System.Reactive": "[7.0.0, )"
+        }
+      },
+      "hardwaretest.authoring.core": {
+        "type": "Project",
+        "dependencies": {
+          "HardwareTest.Core": "[0.1.0, )",
+          "HardwareTest.OpenTap.Host": "[0.1.0, )",
+          "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
+          "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
+          "OpenTAP": "[9.35.0, )",
+          "Parlot": "[1.5.9, )",
+          "System.CommandLine": "[2.0.12, )"
         }
       },
       "hardwaretest.core": {
@@ -698,6 +717,7 @@
         "dependencies": {
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "MessagePack": "[2.5.303, )",
+          "OpenTAP": "[9.35.0, )",
           "StreamJsonRpc": "[2.25.29, )"
         }
       },
@@ -722,6 +742,16 @@
           "HardwareTest.OpenTap.Host": "[0.1.0, )",
           "ScottPlot.Avalonia": "[5.1.59, )"
         }
+      },
+      "OfflineBench.DeliveryFixture": {
+        "type": "Project",
+        "dependencies": {
+          "OfflineBench.ValueFixture": "[0.1.0, )",
+          "OpenTAP": "[9.35.0, )"
+        }
+      },
+      "OfflineBench.ValueFixture": {
+        "type": "Project"
       },
       "Avalonia": {
         "type": "CentralTransitive",
@@ -845,11 +875,11 @@
         "resolved": "10.0.12",
         "contentHash": "9/qymSh7hVDMGTGwrLz8MRp5zRyXy9adGDOs4HwRdnLil3oZGYuWeZjbmHgCQ9BL1qBroVfgUK3U/nb61617Cw=="
       },
-      "OpenTAP": {
+      "Parlot": {
         "type": "CentralTransitive",
-        "requested": "[9.35.0, )",
-        "resolved": "9.35.0",
-        "contentHash": "StPb1oAhEzSLKKTUXUtKwS+R8IYOYecRZvZjUpMVZEpllOgAPDlWvq62yd52w6k5chyW6UTQm3+FTP2COtPjfg=="
+        "requested": "[1.5.9, )",
+        "resolved": "1.5.9",
+        "contentHash": "Vro4ZKVZLBoPdCftyMUlzhlRpegI3N6TlT0zpyn79a42mH214VDqzkAdV70vu578W6NKS84hBA9H6j81cz0dLg=="
       },
       "PCSC": {
         "type": "CentralTransitive",

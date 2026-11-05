@@ -1,0 +1,34 @@
+<Project>
+  <!-- Bind the offline CLI capability to the actual entrypoint and host bytes.
+       Transfer helpers inspect this before invoking flags older apps do not know. -->
+  <Target Name="WriteOfflineBenchBuildCapability" AfterTargets="Build"
+          Condition="'$(DesignTimeBuild)' != 'true' And Exists('$(TargetDir)HardwareTest.dll') And Exists('$(TargetDir)HardwareTest.OpenTap.Host.dll')">
+    <GetFileHash Files="$(TargetDir)HardwareTest.dll" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_OfflineBuildOperator" />
+    </GetFileHash>
+    <GetFileHash Files="$(TargetDir)HardwareTest.OpenTap.Host.dll" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_OfflineBuildHost" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_OfflineBuildOperatorHash>@(_OfflineBuildOperator->'%(FileHash)')</_OfflineBuildOperatorHash>
+      <_OfflineBuildHostHash>@(_OfflineBuildHost->'%(FileHash)')</_OfflineBuildHostHash>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(TargetDir)offline-bench-capability.json" Overwrite="true" Encoding="UTF-8"
+      Lines="{%0A  &quot;schemaVersion&quot;: 1,%0A  &quot;capability&quot;: &quot;offline-bench-v1&quot;,%0A  &quot;operatorSha256&quot;: &quot;$(_OfflineBuildOperatorHash)&quot;,%0A  &quot;hostSha256&quot;: &quot;$(_OfflineBuildHostHash)&quot;,%0A  &quot;runtimeIdentifier&quot;: &quot;$(RuntimeIdentifier)&quot;%0A}" />
+  </Target>
+  <Target Name="WriteOfflineBenchPublishCapability" AfterTargets="Publish"
+          Condition="'$(DesignTimeBuild)' != 'true' And Exists('$(PublishDir)HardwareTest.dll') And Exists('$(PublishDir)HardwareTest.OpenTap.Host.dll')">
+    <GetFileHash Files="$(PublishDir)HardwareTest.dll" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_OfflinePublishOperator" />
+    </GetFileHash>
+    <GetFileHash Files="$(PublishDir)HardwareTest.OpenTap.Host.dll" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_OfflinePublishHost" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_OfflinePublishOperatorHash>@(_OfflinePublishOperator->'%(FileHash)')</_OfflinePublishOperatorHash>
+      <_OfflinePublishHostHash>@(_OfflinePublishHost->'%(FileHash)')</_OfflinePublishHostHash>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(PublishDir)offline-bench-capability.json" Overwrite="true" Encoding="UTF-8"
+      Lines="{%0A  &quot;schemaVersion&quot;: 1,%0A  &quot;capability&quot;: &quot;offline-bench-v1&quot;,%0A  &quot;operatorSha256&quot;: &quot;$(_OfflinePublishOperatorHash)&quot;,%0A  &quot;hostSha256&quot;: &quot;$(_OfflinePublishHostHash)&quot;,%0A  &quot;runtimeIdentifier&quot;: &quot;$(RuntimeIdentifier)&quot;%0A}" />
+  </Target>
+</Project>

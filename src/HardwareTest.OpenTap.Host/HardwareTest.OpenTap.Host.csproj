@@ -35,4 +35,12 @@
   </ItemGroup>
   <Import Project="PublishedInstrumentComponents.targets" />
   <Import Project="StandaloneVisaPackage.targets" />
+  <Target Name="ReferenceOpenTapPackage" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Include="OpenTap.Package">
+        <HintPath>$([System.String]::Copy('$(OpenTapRuntimeDir)').Replace('osx-', 'macos-'))/OpenTap.Package.dll</HintPath>
+        <Private>true</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
 </Project>
