@@ -2,6 +2,7 @@ using System.Text.Json;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -38,6 +39,7 @@ public sealed class OperatorBenchReferenceWorkflowTests
         using var fixture = new ReferencePlanFixture();
         var window = shown.Window; window.Width = width; window.Height = height; window.FontSize = font;
         var main = shown.Main; var run = main.RunTest; main.IsNavPaneOpen = false;
+        var typography = new List<(string Name, double Box, double Presenter)>();
         try
         {
             main.NavigateToPageId("RunTest");
@@ -89,6 +91,8 @@ public sealed class OperatorBenchReferenceWorkflowTests
             var promote = Named<Button>(window, "Save golden reference from this run");
             OperatorWorkflowUiTests.Click(promote);
             var saveDialog = await Dialog(window, "Save golden reference");
+            RecordReferenceTextFont(typography, Named<TextBox>(saveDialog, "Golden reference name"));
+            RecordReferenceTextFont(typography, Named<TextBox>(saveDialog, "Golden reference validity in days"));
             var save = Named<Button>(saveDialog, "Save new golden reference");
             OperatorWorkflowUiTests.Inside(save, saveDialog);
             OperatorWorkflowUiTests.Click(save);
@@ -130,6 +134,10 @@ public sealed class OperatorBenchReferenceWorkflowTests
             Assert.NotNull(run.References.Rules.Single().SelectedChoice);
             Assert.Contains(run.References.Rules.Single().SelectedChoice!.Profile.Id, new[] { original.Id, duplicate.Id });
             Assert.Equal(2, combo.ItemCount);
+            var selectedLabel = Assert.Single(combo.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.IsEffectivelyVisible && text.Text == run.References.Rules.Single().SelectedChoice!.Label);
+            var choiceTypography = $"Reference ComboBox={combo.FontSize:G17}px; selected label={selectedLabel.FontSize:G17}px; owner={dialog.FontSize:G17}px";
+            TestContext.Current.TestOutputHelper?.WriteLine(choiceTypography);
             Assert.True(run.SessionPanel.SessionBlocked);
             OperatorWorkflowUiTests.Inside(Named<Button>(dialog, "Save reference choices"), dialog);
             OperatorWorkflowUiTests.Click(Named<Button>(dialog, "Save reference choices"));
@@ -137,6 +145,10 @@ public sealed class OperatorBenchReferenceWorkflowTests
             Close(dialog); Settle(window);
             Assert.True(Named<Button>(window, "Golden references").IsFocused);
             Assert.Equal(originalBytes, File.ReadAllBytes(sourcePath));
+            Assert.True(typography.All(value => Math.Abs(value.Box - font) < 0.01 && Math.Abs(value.Presenter - font) < 0.01),
+                $"Expected golden-save text fields and presenters to equal {font}px. "
+                + string.Join("; ", typography.Select(value => $"{value.Name}: TextBox={value.Box:G17}px, PART_TextPresenter={value.Presenter:G17}px"))
+                + "; " + choiceTypography);
         }
         finally
         {
@@ -145,6 +157,13 @@ public sealed class OperatorBenchReferenceWorkflowTests
             app.RequestedThemeVariant = oldTheme;
             app.SettingsStore.AppSettings.IsEngineerDebugMode = oldEngineer;
         }
+    }
+
+    private static void RecordReferenceTextFont(List<(string Name, double Box, double Presenter)> typography, TextBox textBox)
+    {
+        var presenters = textBox.GetVisualDescendants().OfType<TextPresenter>().Where(presenter => presenter.Name == "PART_TextPresenter").ToArray();
+        Assert.True(presenters.Length == 1, $"{AutomationProperties.GetName(textBox)} must have one realized PART_TextPresenter; found {presenters.Length}.");
+        typography.Add((AutomationProperties.GetName(textBox) ?? "Golden reference field", textBox.FontSize, presenters[0].FontSize));
     }
 
     private static T Named<T>(Control root, string name) where T : Control

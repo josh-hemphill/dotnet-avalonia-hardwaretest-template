@@ -1,5 +1,6 @@
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -66,6 +67,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         using var shown = E2EHarness.ShowMainWindow();
         var window = shown.Window; window.Width = width; window.Height = height; window.FontSize = font;
         var main = shown.Main; main.IsNavPaneOpen = false;
+        var typography = new List<(string Name, double Box, double Presenter)>();
         var root = Path.Combine(Path.GetTempPath(), "offline-ui-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         SettingsViewModel? vm = null;
@@ -82,6 +84,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
             var check = Named<Button>(window, "Check offline bundle");
             Enter(window, check); await E2EHarness.PumpUiAsync(); Settle(window);
             var path = Named<TextBox>(window, "Offline bundle folder");
+            RecordOfflineTextFont(typography, path);
             Assert.True(path.IsFocused); Assert.Contains("absolute", vm.OfflineBundleStatus);
             OperatorWorkflowUiTests.Inside(path, window);
             OperatorWorkflowUiTests.Inside(Named<TextBlock>(window, "Offline bundle inspection feedback"), window);
@@ -96,6 +99,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
             var details = window.OwnedWindows.Single(child => child.Title == "Offline bench bundle inspection"); Settle(details);
             Assert.Equal(dark ? ThemeVariant.Dark : ThemeVariant.Light, details.ActualThemeVariant);
             var full = Named<TextBox>(details, "Full offline bundle inspection");
+            RecordOfflineTextFont(typography, full);
             Assert.True(full.IsReadOnly); Assert.True(full.IsFocused);
             Assert.Contains("UI workflow fixture (injected inspection result)", full.Text);
             details.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, "a");
@@ -115,12 +119,14 @@ public sealed class OperatorOfflineBundleWorkflowTests
             var copy = Named<Button>(window, "Copy offline bundle installation command");
             Enter(window, copy); await E2EHarness.PumpUiAsync(); Settle(window);
             var destination = Named<TextBox>(window, "New operator copy folder");
+            RecordOfflineTextFont(typography, destination);
             Assert.True(destination.IsFocused); Assert.Contains("absolute", vm.OfflineBundleCommandStatus);
             OperatorWorkflowUiTests.Inside(destination, window);
             OperatorWorkflowUiTests.Inside(Named<TextBlock>(window, "Offline bundle command feedback"), window);
             Capture(window, "offline-bundle-new-folders-required", dark, width, height, font);
             Type(window, destination, root + " new app's copy");
             var data = Named<TextBox>(window, "Fresh operator data folder");
+            RecordOfflineTextFont(typography, data);
             Type(window, data, root); Enter(window, copy);
             await E2EHarness.PumpUiAsync(); Settle(window);
             Assert.True(data.IsFocused); Assert.Contains("already exists", vm.OfflineBundleCommandStatus);
@@ -137,6 +143,9 @@ public sealed class OperatorOfflineBundleWorkflowTests
             Assert.Contains("Check this folder", vm.OfflineBundleStatus);
             Assert.Same(selected, main.RunTest.ProgramSelection.SelectedProgram); Assert.False(main.RunTest.IsRunning);
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), button => button.IsEffectivelyVisible && AutomationProperties.GetName(button) == "Copy offline bundle installation command");
+            Assert.True(typography.All(value => Math.Abs(value.Box - font) < 0.01 && Math.Abs(value.Presenter - font) < 0.01),
+                $"Window.FontSize={window.FontSize:G17}px; expected all offline text inputs and realized presenters to equal {font}px. "
+                + string.Join("; ", typography.Select(value => $"{value.Name}: TextBox={value.Box:G17}px, PART_TextPresenter={value.Presenter:G17}px")));
         }
         finally
         {
@@ -255,6 +264,14 @@ public sealed class OperatorOfflineBundleWorkflowTests
             if (vm is not null && invalidated is not null) vm.PropertyChanged -= invalidated;
             vm?.StopOfflineBundleInspection(); Directory.Delete(root, true); app.RequestedThemeVariant = oldTheme;
         }
+    }
+
+    private static void RecordOfflineTextFont(List<(string Name, double Box, double Presenter)> typography, TextBox textBox)
+    {
+        var presenters = textBox.GetVisualDescendants().OfType<TextPresenter>().Where(presenter => presenter.Name == "PART_TextPresenter").ToArray();
+        Assert.True(presenters.Length == 1,
+            $"{AutomationProperties.GetName(textBox)} must have one realized PART_TextPresenter; found {presenters.Length}.");
+        typography.Add((AutomationProperties.GetName(textBox) ?? textBox.Name ?? "TextBox", textBox.FontSize, presenters[0].FontSize));
     }
 
     private static T Named<T>(Control root, string name) where T : Control => Assert.Single(root.GetVisualDescendants().OfType<T>(),

@@ -2,12 +2,15 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Styling;
+using Avalonia.VisualTree;
 using HardwareTest.OpenTap.Host;
 using Xunit;
 
@@ -89,6 +92,7 @@ public sealed class OfflineBenchExportWorkflowTests
             trigger.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(trigger);
             var dialog = Assert.IsType<BenchExportWindow>(Assert.Single(owner.OwnedWindows));
             Assert.Equal(app.RequestedThemeVariant, dialog.ActualThemeVariant);
+            var typography = new List<(string Name, double Box, double Presenter)>();
             var include = fixture.Control<CheckBox>("Include packages for an offline bench", dialog);
             include.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(include.Focus()); Space(dialog);
             Assert.True(include.IsChecked);
@@ -96,8 +100,19 @@ public sealed class OfflineBenchExportWorkflowTests
             Assert.Equal(OfflineBenchBundle.CurrentOS == "Windows" ? "Windows x64" : "Linux x64", platform.SelectedItem);
             var source = Path.Combine(fixture.WorkspaceRoot, "manual-packages"); Directory.CreateDirectory(source);
             var target = Path.Combine(fixture.WorkspaceRoot, "transfer");
-            Type(dialog, fixture.Control<TextBox>("Offline package source folder", dialog), source);
-            Type(dialog, fixture.Control<TextBox>("Bench files destination folder", dialog), target);
+            var packageFolder = fixture.Control<TextBox>("Offline package source folder", dialog);
+            Type(dialog, packageFolder, source); RecordOfflineTextFont(typography, packageFolder);
+            var destination = fixture.Control<TextBox>("Bench files destination folder", dialog);
+            Type(dialog, destination, target); RecordOfflineTextFont(typography, destination);
+            // Inspect the realized repository editor without enabling network
+            // access for either missing-package preparation or its local retry.
+            var download = fixture.Control<CheckBox>("Download missing offline bundle packages", dialog);
+            if (download.IsChecked != true)
+            { download.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(download.Focus()); Space(dialog); }
+            var repository = fixture.Control<TextBox>("Offline bundle package repository URL", dialog);
+            repository.BringIntoView(); AuthoringUiFixture.Drain(); RecordOfflineTextFont(typography, repository);
+            download.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(download.Focus()); Space(dialog);
+            Assert.False(download.IsChecked);
             var prepare = fixture.Control<Button>("Prepare offline bundle", dialog);
             var close = fixture.Control<Button>("Close bench file preparation", dialog);
             var status = fixture.Control<TextBlock>("Bench file preparation status", dialog);
@@ -107,6 +122,8 @@ public sealed class OfflineBenchExportWorkflowTests
             Assert.Contains("Offline GUI manual package", status.Text, StringComparison.Ordinal);
             Assert.True(include.IsChecked); Assert.Equal(source, fixture.Control<TextBox>("Offline package source folder", dialog).Text);
             Assert.Equal(target, fixture.Control<TextBox>("Bench files destination folder", dialog).Text);
+            var errorDetails = fixture.Control<TextBox>("Bench file preparation error details", dialog);
+            Assert.True(errorDetails.IsReadOnly); RecordOfflineTextFont(typography, errorDetails);
             ResponsiveShellTests.Inside(status, dialog);
             Assert.DoesNotContain(Directory.EnumerateDirectories(target), path => !Path.GetFileName(path).StartsWith('.'));
             Capture(dialog, "offline-missing-package", dark, width, height, font);
@@ -126,6 +143,7 @@ public sealed class OfflineBenchExportWorkflowTests
             Assert.Contains(manifest.Packages, package => package.Name == "Offline GUI manual package");
             var details = fixture.Control<TextBox>("Prepared offline bundle details", dialog);
             Assert.True(details.IsReadOnly); Assert.Contains("1.0.0", details.Text);
+            RecordOfflineTextFont(typography, details);
             ResponsiveShellTests.Inside(status, dialog);
             details.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(details.Focus());
             dialog.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.None, null);
@@ -145,10 +163,21 @@ public sealed class OfflineBenchExportWorkflowTests
             await Until(() => prepare.IsEnabled);
             Assert.StartsWith("Offline bundle prepared", status.Text, StringComparison.Ordinal);
             Assert.True(details.IsVisible);
+            Assert.True(typography.All(value => Math.Abs(value.Box - font) < 0.01 && Math.Abs(value.Presenter - font) < 0.01),
+                $"Window.FontSize={dialog.FontSize:G17}px; expected all offline text inputs and realized presenters to equal {font}px. "
+                + string.Join("; ", typography.Select(value => $"{value.Name}: TextBox={value.Box:G17}px, PART_TextPresenter={value.Presenter:G17}px")));
             dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
             await Until(() => owner.OwnedWindows.Count == 0 && trigger.IsFocused);
         }
         finally { app.RequestedThemeVariant = priorTheme; }
+    }
+
+    private static void RecordOfflineTextFont(List<(string Name, double Box, double Presenter)> typography, TextBox textBox)
+    {
+        var presenters = textBox.GetVisualDescendants().OfType<TextPresenter>().Where(presenter => presenter.Name == "PART_TextPresenter").ToArray();
+        Assert.True(presenters.Length == 1,
+            $"{AutomationProperties.GetName(textBox)} must have one realized PART_TextPresenter; found {presenters.Length}.");
+        typography.Add((AutomationProperties.GetName(textBox) ?? textBox.Name ?? "TextBox", textBox.FontSize, presenters[0].FontSize));
     }
 
     private static void Entry(ZipArchive archive, string path, string contents)

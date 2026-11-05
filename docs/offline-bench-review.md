@@ -153,7 +153,45 @@ program/export/build/package provenance from the full dialog, exercised fresh-
 folder correction and copied the explicit command without installing. Real source
 mutation then exposed a recovery defect: installation controls disappeared while
 focus/scroll stayed in the removed area, leaving the recheck feedback offscreen.
-That finding must be repaired and verified before final implementation votes.
+The view now captures inspection ownership before hiding those controls, restores
+the path and feedback only for the still-owned flow, and rechecks current focus
+before the deferred move. Six real-watcher GUI cases cover owned null-focus
+recovery, retained unrelated Settings focus and an outer navigation race. Both
+native themes subsequently returned to a visible path and recheck message.
+
+All four final round-9 native feature cases passed their functional journeys;
+separate production startup used explicit mocks, preserved the immutable runtime
+and saved evidence, and performed no navigation or execution. The reviewer then
+challenged the typography claim: surrounding text enlarged to 20 px, while
+operator text fields appeared smaller. Numeric baseline tests confirmed every
+offline TextBox and its realized `PART_TextPresenter` remained at 14 px under a
+20 px window (two compact failures, two normal-size passes). The earlier native
+round therefore establishes window size/font and functional behavior, not full
+20 px input typography.
+
+One shared operator TextBox style now inherits the owning window's font size,
+with the normal 14 px fallback. Numeric tests cover offline paths, full inspection
+and golden-save name/validity fields and their realized presenters. All 15
+affected operator graphical cases pass after the fix. The reference selector and
+its selected label already inherit the expected 14/20 px values and were measured
+without a production change. Authoring independently passes all four numeric
+typography cases for paths, repository and error/completion receipts; it needs no
+corresponding product change. Final post-fix native evidence supersedes the
+earlier partial typography claim.
+
+The current SDK runtime also passed all four fresh golden-reference joined stages
+under `/workspace/offline-cross-app-joined-round9`, including actual measured
+A/pass → B/fail → A/pass, immutable recording import, authored revision change,
+old-reference refusal and fresh requalification. This repeats the earlier
+cross-app oracle after changing the operator's engine variant.
+
+The complete round-9 default authoring graphical suite passed 547 cases with six
+explicit opt-in skips (553 total); the capture-mode handoff/sequence selection
+passed all 15. The full operator VM suite passed all 680. Offline authoring passed
+32 and architecture passed 45. Both disconnected bundle journeys and genuine
+Linux helpers passed against the current build and publication. These results
+precede the final shared text-field typography change; its affected UI checks and
+native rerenders are recorded separately below.
 
 ## Elevated follow-up
 

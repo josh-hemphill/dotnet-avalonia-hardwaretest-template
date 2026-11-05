@@ -187,6 +187,7 @@
       <Setter Property="Padding" Value="10,0" />
     </Style>
     <Style Selector="TextBox">
+      <Setter Property="FontSize" Value="{Binding $parent[Window].FontSize, FallbackValue=14}" />
       <Setter Property="MinHeight" Value="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}" />
       <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Padding" Value="10,8" />
