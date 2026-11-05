@@ -10,21 +10,9 @@
   <Panel>
   <DockPanel IsEnabled="{Binding !LoadingBusy}">
     <ContentControl x:Name="IssuesDrawer" DockPanel.Dock="Bottom" MaxHeight="180" IsVisible="False" Margin="12"/>
-    <Border DockPanel.Dock="Top" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="24,14">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="20">
-        <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
-          <Button x:Name="RouteBackButton" Content="Back" Click="OnNavigateBack" IsEnabled="False"
-              AutomationProperties.Name="Back to previous section" ToolTip.Tip="Previous section (Alt+Left)" Classes="authoringAction"/>
-          <Border Background="#245ECA" CornerRadius="8" Padding="9,6">
-            <TextBlock Text="HT" Foreground="White" FontWeight="Bold" FontSize="16"/>
-          </Border>
-          <StackPanel VerticalAlignment="Center">
-            <TextBlock Text="Authoring" FontSize="18" FontWeight="SemiBold"/>
-            <TextBlock Text="{Binding Workspace.Root, FallbackValue=Test plans &amp; workspaces}" MaxWidth="250" TextTrimming="CharacterEllipsis" FontSize="12" Foreground="{DynamicResource AuthoringMuted}"/>
-          </StackPanel>
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button x:Name="LifecycleFocusTarget" Content="Workspace ▾" AutomationProperties.Name="Workspace actions" Classes="authoringAction">
+    <Border DockPanel.Dock="Top" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,0,0,1" Padding="16,8">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+        <Button x:Name="LifecycleFocusTarget" Content="Workspace ▾" AutomationProperties.Name="Workspace actions" Classes="authoringAction">
             <Button.Flyout>
               <Flyout Placement="BottomEdgeAlignedRight">
                 <ScrollViewer MaxHeight="430" Width="280" HorizontalScrollBarVisibility="Disabled">
@@ -35,7 +23,7 @@
             ToolTip.Tip="Open a folder that contains authoring.json" AutomationProperties.Name="Open workspace"
             Classes="authoringAction"/>
 <Button Content="Prepare authoring environment" Click="OnBootstrap" IsEnabled="{Binding HasWorkspace}"
-            ToolTip.Tip="Install Editor packs into this workspace’s isolated OpenTAP home (offline)"
+            ToolTip.Tip="Prepare required packages in this workspace’s isolated OpenTAP home"
             AutomationProperties.Name="Prepare authoring environment" Classes="authoringAction"/>
 <Button Content="Undo catalog" Click="OnUndoWorkspace" IsEnabled="{Binding CanUndoWorkspace}"
             AutomationProperties.Name="Undo workspace catalog" ToolTip.Tip="{Binding WorkspaceHistoryHint}"
@@ -57,56 +45,43 @@
               </Flyout>
             </Button.Flyout>
           </Button>
-          <Button Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}"
-              AutomationProperties.Name="Save all" Classes="accent authoringAction"/>
-          <Button Content="Check" Click="OnValidate" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}"
-              ToolTip.Tip="Check saved TapPlans in this workspace" AutomationProperties.Name="Validate workspace" Classes="authoringAction"/>
-          <Button x:Name="CommandPaletteButton" Content="Commands" Click="OnOpenCommandPalette"
-              AutomationProperties.Name="Command palette" VerticalContentAlignment="Center" Classes="authoringAction"/>
-        </StackPanel>
+        <ContentControl Grid.Column="1" IsVisible="{Binding HasWorkspace}"><ComboBox x:Name="PlanSelector" MinHeight="40" PlaceholderText="No test plans yet" KeyDown="OnProgramsKeyDown" MinWidth="150" MaxWidth="260" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnPlanSelectionChanged" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
+              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringProgramRow">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6"><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding PlanId}"/><TextBlock Grid.Column="1" Text="●" Foreground="{DynamicResource AuthoringAccent}" IsVisible="{Binding DirtyMarker, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" ToolTip.Tip="{Binding DirtyMarker}"/></Grid>
+              </DataTemplate></ComboBox.ItemTemplate>
+            </ComboBox></ContentControl>
+        <ContentControl Grid.Column="2" IsVisible="{Binding HasWorkspace}"><Button x:Name="PlanActionsButton" Content="Plan ▾" Classes="authoringAction" AutomationProperties.Name="Plan actions">
+              <Button.Flyout><Flyout><ScrollViewer Width="250" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
+
+                  <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Undo selected program" Classes="authoringAction"/>
+                  <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}" AutomationProperties.Name="Redo selected program" Classes="authoringAction"/>
+                  <Button Content="Preview" Tag="5" Click="OnNavigateTask" AutomationProperties.Name="Open full preview" Classes="authoringAction"/>
+                <Button Content="New test plan" Click="OnCreateProgram" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="New test plan"/>
+                <Button Content="Guided voltage test…" ToolTip.Tip="Create a voltage test with guided setup and checks" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="Start guided voltage test"/>
+                <Button Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram" IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}" Classes="authoringAction" AutomationProperties.Name="Remove program"/>
+              </StackPanel></ScrollViewer></Flyout></Button.Flyout>
+            </Button></ContentControl>
+        <Button Grid.Column="3" Content="Save all" Click="OnSaveAll" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}" AutomationProperties.Name="Save all" Classes="accent authoringAction"/>
+        <Button Grid.Column="4" Content="Check" Click="OnValidate" IsEnabled="{Binding HasWorkspace}" IsVisible="{Binding HasWorkspace}" ToolTip.Tip="Check saved TapPlans in this workspace" AutomationProperties.Name="Validate workspace" Classes="authoringAction"/>
+        <Button Grid.Column="5" x:Name="CommandPaletteButton" Content="Commands" Click="OnOpenCommandPalette" AutomationProperties.Name="Command palette" Classes="authoringAction"/>
+        <Button Grid.Column="6" Content="Guidance" Click="OnResumeGuidance" IsVisible="{Binding HasWorkspace}" Classes="authoringAction" AutomationProperties.Name="Resume guidance"/>
       </Grid>
     </Border>
-    <Border DockPanel.Dock="Bottom" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,1,0,0" Padding="24,10">
-      <StackPanel Spacing="6">
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-          <StackPanel Spacing="6">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock x:Name="StatusLabel" Text="{Binding Status}" TextTrimming="CharacterEllipsis"
-              ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Authoring status"/>
-          <TextBlock Grid.Column="1" Text="● Unsaved changes" IsVisible="{Binding HasUnsavedChanges}" Margin="12,0,0,0"
-              Foreground="{DynamicResource AuthoringAccent}" AutomationProperties.Name="Unsaved changes"/>
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource AuthoringSurface}" BorderBrush="{DynamicResource AuthoringLine}" BorderThickness="0,1,0,0" Padding="16,6">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" MinHeight="32">
+          <TextBlock x:Name="StatusLabel" Text="{Binding Status}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding ValidationScope}" AutomationProperties.LiveSetting="Polite" AutomationProperties.Name="Authoring status"/>
+          <TextBlock Grid.Column="1" Text="Unsaved changes" IsVisible="{Binding HasUnsavedChanges}" VerticalAlignment="Center" Foreground="{DynamicResource AuthoringAccent}" AutomationProperties.Name="Unsaved changes"/>
+          <Button Grid.Column="2" Content="Details" Click="OnShowOperationDetails" IsVisible="{Binding HasWorkspace}" Classes="authoringAction" AutomationProperties.Name="View operation details" ToolTip.Tip="Full save results, errors and operation logs"/>
         </Grid>
-        <TextBlock FontSize="12" Foreground="{DynamicResource AuthoringMuted}" Text="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"
-            AutomationProperties.LiveSetting="Polite" IsVisible="{Binding HasWorkspace}" TextTrimming="CharacterEllipsis"/>
-          </StackPanel>
-          <Grid Grid.Column="1" ColumnDefinitions="*,*" Height="40">
-    <ScrollViewer x:Name="SaveAllFeedback" Grid.Column="0" Height="40" HorizontalScrollBarVisibility="Disabled"
-        VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Save all result feedback">
-      <ItemsControl ItemsSource="{Binding SaveAllResults}" AutomationProperties.Name="Save all results">
-        <ItemsControl.ItemTemplate>
-          <DataTemplate>
-            <TextBlock Text="{Binding}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding}"/>
-          </DataTemplate>
-        </ItemsControl.ItemTemplate>
-      </ItemsControl>
-    </ScrollViewer>
-
-    <ScrollViewer Grid.Column="1" Margin="12,0,0,0" Height="40" HorizontalScrollBarVisibility="Disabled"
-        VerticalScrollBarVisibility="Auto"
-        IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-        AutomationProperties.Name="Authoring error feedback">
-      <TextBlock Foreground="{DynamicResource AuthoringError}" TextWrapping="Wrap"
-          IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-          Text="{Binding Error, StringFormat='Error: {0}'}" ToolTip.Tip="{Binding OperationLogText}"
-          AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
-    </ScrollViewer>
-          </Grid>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12" MinHeight="18">
+          <TextBlock Text="{Binding ValidationScope}" FontSize="12" MaxLines="1" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding ValidationScope}" AutomationProperties.Name="Validation scope"/>
+          <TextBlock Grid.Column="1" Text="{Binding Error}" IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" FontSize="12" MaxLines="1" Foreground="{DynamicResource AuthoringError}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" ToolTip.Tip="{Binding Error}" AutomationProperties.LiveSetting="Assertive" AutomationProperties.Name="Authoring error"/>
         </Grid>
         <Grid IsVisible="{Binding OperationBusy}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-          <Button Content="Cancel operation" Click="OnCancelOperation" IsEnabled="{Binding OperationBusy}"
-              AutomationProperties.Name="Cancel authoring operation" Classes="authoringAction"/>
-          <TextBlock Grid.Column="1" Text="{Binding OperationStage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Grid.Column="2" Text="Operation logs" VerticalAlignment="Center" ToolTip.Tip="{Binding OperationLogText}" AutomationProperties.Name="Authoring operation logs"/>
+          <Button Content="Cancel operation" Click="OnCancelOperation" AutomationProperties.Name="Cancel authoring operation" Classes="authoringAction"/>
+          <TextBlock Grid.Column="1" Text="{Binding OperationStage}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" AutomationProperties.LiveSetting="Polite"/>
+          <Button Grid.Column="2" Content="Operation logs" Click="OnShowOperationDetails" Classes="authoringAction" AutomationProperties.Name="Authoring operation logs"/>
         </Grid>
       </StackPanel>
     </Border>
@@ -135,27 +110,19 @@
           </StackPanel>
         </Border>
       </ScrollViewer>
-      <Grid x:Name="WorkspaceLayout" RowDefinitions="Auto,*" Margin="24,12,24,12" IsVisible="{Binding HasWorkspace}">
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Margin="0,0,0,16">
-          <Button Content="Overview" Click="OnNavigateTask" Tag="8" Classes="authoringAction" AutomationProperties.Name="Workspace overview"/>
-          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-            <ComboBox x:Name="PlanSelector" PlaceholderText="No test plans yet" KeyDown="OnProgramsKeyDown" MinWidth="180" MaxWidth="220" ItemsSource="{Binding ProgramRows}" SelectedItem="{Binding SelectedProgramRow, Mode=OneWay}" SelectionChanged="OnPlanSelectionChanged" AutomationProperties.Name="Selected test plan" ToolTip.Tip="Switch plans; each plan retains its draft">
-              <ComboBox.ItemTemplate><DataTemplate x:DataType="vm:AuthoringProgramRow">
-                <StackPanel><TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding PlanId}" Classes="eyebrow"/><TextBlock Text="{Binding DirtyMarker}" FontSize="11"/></StackPanel>
-              </DataTemplate></ComboBox.ItemTemplate>
-            </ComboBox>
-            <Button x:Name="PlanActionsButton" Content="Plan actions ▾" Classes="authoringAction" AutomationProperties.Name="Plan actions">
-              <Button.Flyout><Flyout><ScrollViewer Width="250" MaxHeight="360" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="8" Classes="workspaceMenu">
-                <Button Content="New test plan" Click="OnCreateProgram" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="New test plan"/>
-                <Button Content="First test plan…" Click="OnGuidedStart" IsEnabled="{Binding CanInitializePlan}" Classes="authoringAction" AutomationProperties.Name="Start guided voltage test"/>
-                <Button Content="{Binding RemoveProgramTitle}" Click="OnRemoveProgram" IsEnabled="{Binding CanRemoveSelectedProgram}" ToolTip.Tip="{Binding RemoveProgramPurpose}" Classes="authoringAction" AutomationProperties.Name="Remove program"/>
-              </StackPanel></ScrollViewer></Flyout></Button.Flyout>
-            </Button>
-          </StackPanel>
-          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-            <Button x:Name="TaskMenuButton" Content="Switch task ▾" AutomationProperties.Name="Switch task" Classes="authoringAction">
+      <Grid x:Name="WorkspaceLayout" RowDefinitions="Auto,*" Margin="16,8,16,8" IsVisible="{Binding HasWorkspace}">
+        <Grid x:Name="PlanNavigationBar" ColumnDefinitions="Auto,1.1*,1.35*,1.5*,1*,1.4*,.85*,.75*,Auto" ColumnSpacing="4" Margin="0,0,0,8">
+          <Button x:Name="RouteBackButton" Content="Back" Click="OnNavigateBack" IsEnabled="False" AutomationProperties.Name="Back to previous section" ToolTip.Tip="Previous section (Alt+Left)" Classes="authoringAction"/>
+          <ToggleButton Grid.Column="1" Content="Sequence" Tag="0" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Sequence" ToolTip.Tip="Sequence"/>
+          <ToggleButton Grid.Column="2" Content="Instruments" Tag="1" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Instruments" ToolTip.Tip="Instruments"/>
+          <ToggleButton Grid.Column="3" Content="Operator &amp; reports" Tag="7" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Operator &amp; reports" ToolTip.Tip="Operator &amp; reports"/>
+          <ToggleButton Grid.Column="4" Content="Preview" Tag="5" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Preview" ToolTip.Tip="Preview"/>
+          <ToggleButton Grid.Column="5" Content="Environment" Tag="3" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Environment" ToolTip.Tip="Environment"/>
+          <ToggleButton Grid.Column="6" Content="Issues" Tag="2" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Issues" ToolTip.Tip="Issues"/>
+          <ToggleButton Grid.Column="7" Content="Build" Tag="4" Click="OnNavigateTask" Classes="taskRoute" AutomationProperties.Name="Task Build" ToolTip.Tip="Build"/>
+          <ContentControl Grid.Column="8"><Button x:Name="TaskMenuButton" Content="More ▾" AutomationProperties.Name="Switch task" Classes="authoringAction">
               <Button.Flyout><Flyout Placement="BottomEdgeAlignedRight"><ScrollViewer Width="270" MaxHeight="420" HorizontalScrollBarVisibility="Disabled"><StackPanel Spacing="6" Classes="workspaceMenu">
-                <Button Content="Sequence" Tag="0" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Sequence"/>
+                <Button Content="Overview" Tag="8" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Workspace overview"/><Button Content="Sequence" Tag="0" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Sequence"/>
                 <Button Content="Instruments" Tag="1" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Instruments"/>
                 <Button Content="Operator &amp; reports" Tag="7" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Operator and reports"/>
                 <Button Content="Operator preview" Tag="5" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Operator preview"/>
@@ -164,27 +131,17 @@
                 <Button Content="Issues" Tag="2" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Issues"/>
                 <Button Content="Workspace definitions" Tag="6" Click="OnNavigateTask" Classes="authoringAction" AutomationProperties.Name="Navigate Workspace definitions"/>
               </StackPanel></ScrollViewer></Flyout></Button.Flyout>
-            </Button>
-            <Button Content="Guidance" Click="OnResumeGuidance" Classes="authoringAction" AutomationProperties.Name="Resume guidance"/>
-          </StackPanel>
+            </Button></ContentControl>
         </Grid>
         <!-- TabControl supplies retained logical routes and selection events. The template renders only
-             the active task; navigation lives in the overview and task switcher, with no tab strip. -->
+             the active task; navigation lives in the task bar and overview, with no tab strip. -->
         <vm:TaskPageHost x:Name="WorkspaceTabs" Grid.Row="1" SelectedIndex="8" AutomationProperties.Name="Authoring task workspace">
           <vm:TaskPageHost.Template><ControlTemplate>
             <ContentPresenter Name="ActiveTaskPresenter" Content="{ReflectionBinding SelectedItem.Content, RelativeSource={RelativeSource TemplatedParent}}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
           </ControlTemplate></vm:TaskPageHost.Template>
           <TabItem Header="Sequence">
-            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12">
-              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-                <StackPanel Spacing="4"><TextBlock Text="Sequence" Classes="routeTitle" AutomationProperties.HeadingLevel="1"/><TextBlock Text="Set up the fixture, measure and check, then shut down safely." Classes="purpose" TextWrapping="Wrap"/></StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                  <Button Content="Undo" Click="OnUndo" IsEnabled="{Binding CanUndo}" AutomationProperties.Name="Undo selected program" Classes="authoringAction"/>
-                  <Button Content="Redo" Click="OnRedo" IsEnabled="{Binding CanRedo}" AutomationProperties.Name="Redo selected program" Classes="authoringAction"/>
-                  <Button Content="Preview" Tag="5" Click="OnNavigateTask" AutomationProperties.Name="Open full preview" Classes="authoringAction"/>
-                </StackPanel>
-              </Grid>
-              <Border Grid.Row="1" IsVisible="{Binding HasSelectedPlan}" Classes="surface" Padding="12,8">
+            <Grid RowDefinitions="Auto,*" RowSpacing="8">
+              <Border Grid.Row="0" IsVisible="{Binding HasSelectedPlan}" Classes="surface" Padding="12,8">
                 <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="12" IsEnabled="{Binding CanEditProgramSettings}">
                     <TextBlock x:Name="SequencePlanTitleLabel" Text="Plan title" FontWeight="SemiBold" VerticalAlignment="Center"/>
                     <TextBox Grid.Column="1" Text="{Binding DisplayName}" PlaceholderText="Give this test plan a title" AutomationProperties.Name="Sequence plan title" AutomationProperties.LabeledBy="{Binding #SequencePlanTitleLabel}"/>
@@ -192,15 +149,17 @@
                     <TextBox Grid.Column="3" Text="{Binding DutFamily}" PlaceholderText="e.g. Controller board" AutomationProperties.Name="Sequence device family" AutomationProperties.LabeledBy="{Binding #SequenceDeviceFamilyLabel}"/>
                 </Grid>
               </Border>
-              <Grid x:Name="ProgramLayout" Grid.Row="2" ColumnDefinitions="*,16,400">
+              <Grid x:Name="ProgramLayout" Grid.Row="1" ColumnDefinitions="*,16,400">
                 <vm:SequenceEditorView Grid.Column="0"/>
                 <GridSplitter x:Name="InspectorSplitter" Grid.Column="1" Classes="paneDivider" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" AutomationProperties.Name="Resize sequence and inspector"/>
                 <Border Grid.Column="2" Classes="surface" Padding="16">
-                  <Grid RowDefinitions="Auto,*" RowSpacing="12">
-                    <StackPanel Spacing="4"><TextBlock Text="Step editor" FontSize="18" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2" ToolTip.Tip="{Binding SelectedDependencySummary}" AutomationProperties.HelpText="{Binding SelectedDependencySummary}"/></StackPanel>
-                    <TextBlock Grid.Row="1" IsVisible="{Binding EmptyPlanStepHintVisible}" Text="Add your first step to edit its name, message and settings here." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Empty step editor guidance"/>
-                    <vm:SelectedStepInspectorView Grid.Row="1" IsVisible="{Binding !EmptyPlanStepHintVisible}"/>
-                  </Grid>
+                  <Panel>
+                    <StackPanel Spacing="12" IsVisible="{Binding EmptyPlanStepHintVisible}">
+                      <TextBlock Text="Step editor" FontSize="18" FontWeight="SemiBold" AutomationProperties.HeadingLevel="2"/>
+                      <TextBlock Text="Add your first step to edit its name, message and settings here." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Empty step editor guidance"/>
+                    </StackPanel>
+                    <vm:SelectedStepInspectorView IsVisible="{Binding !EmptyPlanStepHintVisible}"/>
+                  </Panel>
                 </Border>
               </Grid>
             </Grid>

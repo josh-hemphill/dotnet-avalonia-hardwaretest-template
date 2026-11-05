@@ -26,6 +26,12 @@ public sealed class AuthoringHardwareDefinitionTests
         fixture.Type(fixture.Control<TextBox>("Hardware adapter address"), "MOCK::BENCH");
         Click(fixture, "Review binding change");
         var dialog = Assert.Single(window.OwnedWindows);
+        Assert.Equal("MOCK::BENCH", fixture.Control<TextBlock>("Reviewed binding address", dialog).Text);
+        Assert.Equal(AuthoringInstrumentCatalog.All.Single(item => item.TypeId == vm.SelectedInstrument.TypeId).DisplayName,
+            fixture.Control<TextBlock>("Reviewed binding adapter", dialog).Text);
+        var receipt = fixture.Control<Expander>("Reviewed binding details", dialog);
+        Assert.False(receipt.IsExpanded);
+        receipt.IsExpanded = true; AuthoringUiFixture.Drain();
         var details = string.Join("\n", dialog.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
         Assert.Contains("MOCK::BENCH", details); Assert.Contains("Measure[0]", details);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel destructive operation", dialog));

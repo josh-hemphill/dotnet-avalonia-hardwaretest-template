@@ -42,7 +42,7 @@ public sealed class AuthoringChromeA11yTests
             "OperatorReportsView", "WorkspaceOverviewView", "StepPaletteView"];
         var documents = views.ToDictionary(view => view, view => XDocument.Load(Path.Combine(root, view + ".axaml")));
         var lists = documents.Values.SelectMany(document => document.Descendants()).Where(element => element.Name.LocalName == "ListBox").ToArray();
-        string[] sources = ["SequenceItems", "FindingRows", "DatasetItems", "Instruments", "HardwareDefinitions", "Recipes"];
+        string[] sources = ["SequenceItems", "FindingRows", "Instruments", "HardwareDefinitions", "Recipes"];
         Assert.Equal(sources.Length, lists.Length);
         foreach (var source in sources)
         {
@@ -72,7 +72,9 @@ public sealed class AuthoringChromeA11yTests
             Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
         var settingLabel = Assert.Single(inspector.Descendants(), element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
         Assert.Equal("0", (string?)settingLabel.Attribute("Grid.Row"));
-        var settingError = Assert.Single(settingLabel.Parent!.Elements(), element => (string?)element.Attribute("Grid.Row") == "2");
+        var settingError = Assert.Single(settingLabel.Parent!.Elements(), element => (string?)element.Attribute("Text") == "{Binding Error}");
+        Assert.Equal("1", (string?)settingError.Attribute("Grid.Row"));
+        Assert.Equal("2", (string?)settingError.Attribute("Grid.ColumnSpan"));
         Assert.Equal("{Binding Error}", (string?)settingError.Attribute("Text"));
         Assert.Equal("Polite", (string?)settingError.Attribute("AutomationProperties.LiveSetting"));
     }

@@ -30,7 +30,7 @@ internal static class AuthoringFindingNavigation
             "Threshold" => AuthoringCriteria.Requirements(metric)?.RequiresThreshold == true,
             "LimitLow" => AuthoringCriteria.Requirements(metric)?.RequiresBand == true,
             "ChannelKey" => true,
-            _ => false,
+            _ => HasVisibleSetting(metric, target.Field),
         });
         return supported
             ? new(target with
@@ -41,5 +41,32 @@ internal static class AuthoringFindingNavigation
             }, "Go to field",
                 "Explicit field target resolved through the checked compiler source map and supported editor.")
             : Fallback("The structured field has no supported editor control; opens program settings.");
+    }
+
+    private static bool HasVisibleSetting(MetricDraft metric, string field)
+    {
+        var (id, settings, isAlgorithm) = metric.Source switch
+        {
+            MeasureSource measure => (measure.FunctionId, measure.Settings, false),
+            AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.Settings, true),
+            _ => (string.Empty, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(), false)
+        };
+        if (!AuthoringFunctionCatalog.TryGet(id, out var function) || function.IsAlgorithm != isAlgorithm
+            || AuthoringCriteria.IsRuntimeLimit(field) || field.Equals("Channel", StringComparison.OrdinalIgnoreCase)
+            || AuthoringFunctionCatalog.ConsumesInputChannels(id)
+                && new[] { "InputChannel", "ProducerStepId", "Unit" }.Contains(field, StringComparer.OrdinalIgnoreCase))
+            return false;
+        // Match the inspector's settings projection, including not-yet-edited defaults.
+        // A similarly named field in another node or an unavailable plugin is not a destination.
+        var projected = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var (key, value) in PlanCompiler.FunctionSettings(id)) projected.TryAdd(key, value);
+        }
+        catch (AuthoringWorkspaceException)
+        {
+            // The editor can still show explicitly retained settings for a known unavailable adapter.
+        }
+        return projected.Keys.Contains(field, StringComparer.Ordinal);
     }
 }

@@ -83,6 +83,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Assert.Equal(metric.NodeId, Measurement(fixture.ViewModel.SelectedProgram!).NodeId);
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         Assert.True(GuidanceUiActions.Feedback(fixture).Text!.Contains("First voltage test complete", StringComparison.Ordinal), GuidanceUiActions.Feedback(fixture).Text);
+        GuidanceUiActions.ShowPlanDetails(fixture);
         Assert.Contains("Demo — Mock", fixture.Control<TextBlock>("Guidance hardware mode").Text);
     }
 
@@ -158,7 +159,7 @@ public sealed class AuthoringGuidedOnboardingTests
     }
 
     [AvaloniaFact]
-    public void Saved_guidance_preserves_editor_viewport_at_large_text_and_stale_artifacts_do_not_claim_completion()
+    public async Task Saved_guidance_preserves_editor_viewport_at_large_text_and_stale_artifacts_do_not_claim_completion()
     {
         using var fixture = Loaded(); var window = fixture.Window!;
         window.Width = 960; window.Height = 600; window.FontSize = 20; window.SetRenderScaling(1.5);
@@ -170,6 +171,7 @@ public sealed class AuthoringGuidedOnboardingTests
         var guidance = window.FindControl<Border>("GuidanceHost")!;
         Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
         ResponsiveShellTests.Inside(fixture.Control<Button>("Close guidance"), window);
+        ResponsiveShellTests.Inside(fixture.Control<Button>("Guidance next action"), window);
         Assert.True(window.FindControl<TabControl>("WorkspaceTabs")!.Bounds.Height > 150);
         var sequence = fixture.Control<ListBox>("Program sequence");
         var inspector = fixture.Control<ScrollViewer>("Selected step inspector");
@@ -202,17 +204,19 @@ public sealed class AuthoringGuidedOnboardingTests
         var recordingPath = Path.Combine(fixture.WorkspaceRoot, "guided-long-provenance.json");
         File.WriteAllText(recordingPath, JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord));
         fixture.ViewModel.ImportRecording(recordingPath, "guided-long-provenance");
+        await fixture.WaitForReadinessAsync();
         var previewAction = GuidanceUiActions.Action(fixture, "Preview voltage result"); previewAction.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(previewAction);
         var board = fixture.Control<OperatorPreviewPane>("Operator preview chrome");
         ResponsiveShellTests.Inside(board, window); Assert.True(board.Bounds.Height >= 80);
-        var sourceViewport = fixture.Control<ScrollViewer>("Data source details viewport"); Assert.True(sourceViewport.Extent.Height > sourceViewport.Viewport.Height);
-        var recordings = fixture.Control<ListBox>("Recordings"); recordings.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(recordings, window);
+        PreviewDisclosureAssertions.CheckCompactBoard(fixture);
+        PreviewDisclosureAssertions.CheckSourceDetailsDialog(fixture, recording.DutSerial!);
+        PreviewDisclosureAssertions.CheckRecordingPicker(fixture);
         var example = fixture.Control<Button>("Use example data"); example.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(example, window);
         AuthoringUiFixture.Click(example); ResponsiveShellTests.Inside(board, window);
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0; AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(sequence, window); ResponsiveShellTests.Inside(inspector, window);
         var direct = fixture.Control<Button>("New test plan"); direct.BringIntoView(); AuthoringUiFixture.Drain(); Assert.True(direct.Focus()); ResponsiveShellTests.Inside(direct, window);
-        AuthoringUiFixture.Click(direct); var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(window.OwnedWindows));
+        AuthoringUiFixture.Click(direct); var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Assert.Equal("New test plan", dialog.Title); AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         var compiled = fixture.ViewModel.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "viewport-demo");
         File.AppendAllText(compiled, "\n<!-- external change -->\n");

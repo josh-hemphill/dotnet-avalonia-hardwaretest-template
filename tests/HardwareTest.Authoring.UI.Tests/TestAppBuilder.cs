@@ -12,9 +12,12 @@ namespace HardwareTest.Authoring.UI.Tests;
 public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
-        => AppBuilder.Configure<AuthoringTestApplication>()
-            .WithInterFont()
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    {
+        var capture = Environment.GetEnvironmentVariable("HT_CAPTURE_UI") == "1";
+        var builder = AppBuilder.Configure<AuthoringTestApplication>().WithInterFont();
+        if (capture) builder.UseSkia();
+        return builder.UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = !capture });
+    }
 }
 
 public sealed class AuthoringTestApplication : Application

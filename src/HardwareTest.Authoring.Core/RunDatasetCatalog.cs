@@ -12,6 +12,16 @@ public sealed record RunDataset(string Path, TestRunRecord Run)
     // Captured during ingest, before the mutable compatibility Run is exposed. UI
     // preview workers consume this owned immutable source rather than a live DTO.
     internal AuthoringRecordingSnapshot? RecordingSnapshot { get; init; }
+    public RecordingIdentity? Identity { get; init; }
+}
+
+/// Small immutable display metadata captured before the compatibility DTO is exposed.
+public sealed record RecordingIdentity(string RunId, string? DutSerial, DateTimeOffset StartedAt, int SampleCount)
+{
+    public string DisplayDetails => $"Run: {(string.IsNullOrWhiteSpace(RunId) ? "Not recorded" : RunId)}\n"
+        + $"Device: {(string.IsNullOrWhiteSpace(DutSerial) ? "Not recorded" : DutSerial)}\n"
+        + $"Started: {(StartedAt == default ? "Not recorded" : StartedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture))}\n"
+        + $"Samples: {SampleCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 }
 
 internal sealed record AuthoringRecordingSnapshot(string Json, int StoredVersion, bool IsReadOnly)
@@ -100,7 +110,11 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: events must be an array without null entries.");
         run.StoredSchemaVersion = status.StoredVersion;
         run.IsSchemaReadOnly = status.IsReadOnly;
-        return new RunDataset(fullPath, run) { RecordingSnapshot = new(raw, status.StoredVersion, status.IsReadOnly) };
+        return new RunDataset(fullPath, run)
+        {
+            RecordingSnapshot = new(raw, status.StoredVersion, status.IsReadOnly),
+            Identity = new(run.RunId, run.DutSerial, run.StartedAt, run.Samples.Count)
+        };
     }
 
     public static string ResolveRecordingsRoot(AuthoringWorkspace workspace)
