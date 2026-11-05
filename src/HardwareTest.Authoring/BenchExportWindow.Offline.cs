@@ -104,7 +104,7 @@ public sealed partial class BenchExportWindow
     private void ShowPreparationError(string message)
     {
         if (message.Length <= 260) { _status.Text = message; return; }
-        _status.Text = message[..240] + "… Review the full preparation error below.";
+        _status.Text = message[..240] + "… Review the full error details.";
         AutomationProperties.SetName(_receipt, "Bench file preparation error details");
         _receipt.Text = message;
         _receipt.IsVisible = true;
