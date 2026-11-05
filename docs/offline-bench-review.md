@@ -202,3 +202,132 @@ The offline workflow requires a new bound data directory, so it inherits neither
 old station-health approval nor golden references. Ordinary installations that
 reuse data must invalidate/rerun health after those changes. The engine-aware
 golden guard does not claim to solve general station-health qualification.
+
+## Final candidate verification
+
+The frozen product candidate is `6e49ca5d8db9ef77606a39cb82c6fefb9f65e9a0`.
+Subsequent review-record commits change documentation only. The final native
+ledger is `/workspace/cross-app-native-a11y/offline11-native-final-results.json`;
+exact product/host/fixture hashes, logs and 35 local PNGs identify the tested
+candidate. Six native feature cases pass: both applications in Light/Dark at
+actual 900×600/font20, plus both golden-save form typography cases. A separate
+actual installed apphost startup passes with explicit mock flags and the bound
+fresh data, preserving runtime and saved evidence; it performs no navigation or
+execution. AT-SPI does not supply font attributes here: numeric TextBox and
+realized-presenter tests establish 14/20 px scaling, corroborated by native
+pixels, 43 px input bounds and visible 40 px actions.
+
+| Final check | Outcome |
+| --- | --- |
+| Full Release traversal and fresh publication | Passed, zero warnings/errors |
+| Canonical format and dependency audit | Passed |
+| Host full suite, unchanged Host source | 1,091 passed |
+| Operator VM full suite, unchanged VM source after typography | 680 passed |
+| Full ordinary authoring graphical suite, unchanged product source | 547 passed; six opt-in skips (553 total) |
+| Final authoring Skia handoff/sequence and numeric typography | 15/15 passed |
+| Final full operator graphical suite, including typography and watcher races | 95 passed; three opt-in skips (98 total) |
+| Final offline authoring and generated-script protocol suite | 32/32 passed |
+| Final architecture | 45/45 passed |
+| Final disconnected ordinary/published delivery journeys | Both 1/1 passed |
+| Final genuine Linux helper Check/install and legacy refusal | Passed; legacy app never launched |
+| Final actual authoring/reference/execution/edit/requalification chain | Four stages, each 1/1 passed |
+| Final native feature cases / installed startup | Six passed / one passed |
+
+Final TRX files and helper logs are under `/workspace/offline-bench-results`,
+with `round11` suffixes; retained broad Host/VM/default-authoring results are
+explicitly identified in the earlier table. Final renders are under
+`/workspace/offline-bench-captures-round11/{authoring,operator}`. Opt-in skips are
+not execution proof: both offline journeys and all four golden stages are also
+run explicitly.
+
+The final disconnected ordinary and published roots are
+`/workspace/offline-bench-joined-round11` and
+`/workspace/offline-bench-joined-published-round11`. Each executes the unique
+installed plugin and its transitive dependency, records value 1.25 and the
+actual installed engine identity, saves a run/PDF, and preserves the original
+runtime/data and transferred bundle. Generated Linux helpers are exercised
+against the genuine final publication, not only a recording stub.
+
+The complete golden chain was repeated on this exact final candidate under
+`/workspace/offline-cross-app-joined-round11`. For the same `PRODUCTION-UNIT`,
+run `097c7d2f0fb24dfc8c16cace74423d85` passes against Golden A,
+`ec46b4791d2e442abc24082653f66272` fails against Golden B, and
+`8a690127eb6e4735a2345cd258a7108b` passes against A again. The exact recording
+returns to authoring; revised deployment rejects old qualification and succeeds
+with newly acquired data. Earlier round-9 evidence is retained separately.
+
+## Final independent voting
+
+Three reviewers independently inspected the frozen candidate, source closures,
+real native/Skia views, actual offline execution and the golden-reference oracle.
+They did not consult one another's final scores. All **147 persona cells and 42
+separate-app graphical cells pass simultaneously: 189/189 exceed 90, minimum
+91**. There is no average or selected best vote masking a failure. These are
+expert suitability ratings within the declared Linux/mock/fresh-data evidence
+boundary, not measured human success percentages or physical qualification.
+
+C1 completion/correctness; C2 discoverability; C3 efficiency/control;
+C4 recovery; C5 integrity; C6 access/space; C7 feedback/handoff.
+
+### Reviewer A
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 First-day operator | 94 | 93 | 94 | 94 | 95 | 92 | 94 |
+| P2 Repeat operator | 95 | 93 | 94 | 94 | 96 | 92 | 94 |
+| P3 Shift operators | 94 | 93 | 93 | 94 | 95 | 92 | 94 |
+| P4 Quality reviewer | 95 | 93 | 93 | 95 | 96 | 93 | 95 |
+| P5 Commissioning/reference technician | 94 | 92 | 91 | 95 | 96 | 92 | 94 |
+| P6 Test author | 94 | 92 | 92 | 95 | 95 | 91 | 94 |
+| P7 Release/integration engineer | 94 | 92 | 91 | 95 | 96 | 91 | 95 |
+
+### Reviewer B
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 First-day operator | 95 | 93 | 93 | 94 | 96 | 93 | 94 |
+| P2 Repeat operator | 95 | 93 | 94 | 94 | 96 | 93 | 94 |
+| P3 Shift operators | 94 | 92 | 93 | 94 | 95 | 93 | 94 |
+| P4 Quality reviewer | 95 | 93 | 93 | 94 | 96 | 93 | 95 |
+| P5 Commissioning/reference technician | 95 | 92 | 92 | 95 | 96 | 92 | 94 |
+| P6 Test author | 95 | 93 | 93 | 95 | 96 | 92 | 95 |
+| P7 Release/integration engineer | 95 | 92 | 91 | 95 | 96 | 92 | 95 |
+
+### Reviewer C
+
+| Persona | C1 | C2 | C3 | C4 | C5 | C6 | C7 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| P1 First-day operator | 94 | 93 | 92 | 94 | 95 | 92 | 94 |
+| P2 Repeat operator | 95 | 93 | 94 | 94 | 95 | 92 | 94 |
+| P3 Shift operators | 93 | 92 | 92 | 94 | 95 | 92 | 94 |
+| P4 Quality reviewer | 95 | 93 | 92 | 94 | 96 | 92 | 95 |
+| P5 Commissioning/reference technician | 95 | 92 | 91 | 95 | 96 | 91 | 94 |
+| P6 Test author | 95 | 92 | 91 | 95 | 96 | 91 | 95 |
+| P7 Release/integration engineer | 95 | 93 | 92 | 95 | 96 | 92 | 95 |
+
+### Separate graphical votes
+
+| Reviewer | App | Hierarchy | Navigation | Primary task | Setup | Space | Recovery | Keyboard |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | Authoring | 93 | 92 | 94 | 94 | 91 | 94 | 92 |
+| A | Operator | 94 | 93 | 94 | 94 | 92 | 95 | 93 |
+| B | Authoring | 94 | 93 | 95 | 94 | 92 | 95 | 93 |
+| B | Operator | 94 | 93 | 95 | 94 | 91 | 95 | 94 |
+| C | Authoring | 93 | 92 | 94 | 93 | 91 | 95 | 92 |
+| C | Operator | 93 | 93 | 95 | 94 | 91 | 95 | 91 |
+
+The technician/release efficiency and compact-space ratings retain headroom:
+commissioning, long provenance and the explicit external installation command
+require care and scrolling. Required fields, correction paths, keyboard recovery
+and installation state remain explicit. Every concrete review finding, including
+typography and focus races, is closed in the tested product.
+
+Raw independent reports are retained locally as
+`/workspace/offline-bench-final-review-{a,b,c}.md`; the tables above preserve their
+complete votes in the repository. The general existing-data StationHealthGate
+policy remains the elevated larger follow-up described above. Acceptance applies
+to the fresh bound offline workflow and does not authorize a general data
+migration. Windows UIA/PowerShell execution, Linux ARM execution, physical drivers,
+physical qualification, spoken output and newcomer studies remain unverified.
+GitHub CI is separate from these local results and was still running when the
+review record was prepared. The combined PR remains a draft for parallel review.
