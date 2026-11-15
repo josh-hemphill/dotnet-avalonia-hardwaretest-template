@@ -95,6 +95,8 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
         PlanDisplayName = planDisplayName;
         SlotName = slot.Name;
         TypeName = slot.TypeName;
+        ConfigurationIssue = slot.ConfigurationIssue;
+        SupportsIdentityQuery = slot.SupportsIdentityQuery;
         RoleHint = slot.RoleHint;
         PlanDefaultResource = slot.ResourceName;
         UseMockVisa = useMockVisa;
@@ -104,6 +106,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
         {
             if (args.PropertyName == nameof(OverrideResource))
             {
+                LastIdnSummary = string.Empty;
                 this.RaisePropertyChanged(nameof(EffectiveResource));
                 this.RaisePropertyChanged(nameof(StatusText));
                 this.RaisePropertyChanged(nameof(Summary));
@@ -122,6 +125,8 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
     public string PlanDisplayName { get; }
     public string SlotName { get; }
     public string TypeName { get; }
+    public string ConfigurationIssue { get; }
+    public bool? SupportsIdentityQuery { get; }
     public string RoleHint { get; }
     public string PlanDefaultResource { get; }
     public bool UseMockVisa { get; }
@@ -141,6 +146,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
             PlanId = PlanId,
             RoleHint = RoleHint,
             TypeName = TypeName,
+            ConfigurationIssue = ConfigurationIssue,
             EffectiveResource = EffectiveResource,
         },
         UseMockVisa);
@@ -149,6 +155,7 @@ public partial class SlotOverrideItemViewModel : ReactiveObject
     {
         StationSlotReadinessKind.Unbound => "Unbound",
         StationSlotReadinessKind.DemoOnly => "Demo only",
+        StationSlotReadinessKind.ConfigurationError => "Review device configuration",
         _ => IsOverridden ? "Overridden" : "Ready",
     };
 

@@ -20,6 +20,7 @@ public sealed partial class PlanInitializationWindow : Window
     private readonly TextBox _destination = Input("Draft destination");
     private readonly ComboBox _starting = Choice("Starting point", ["Empty plan", "Voltage task", "Demo voltage task — Mock DMM"]);
     private readonly ComboBox _hardware = Choice("Hardware choice", []);
+    private readonly TextBox _commissioning = Input("Device commissioning assertion");
     private readonly TextBox _timeout = Input("Instrument I/O timeout ms", "5000");
     private readonly Button _environment = Action("Open Environment — retain inputs");
     private readonly TextBox _slot = Input("Instrument slot", "DMM");
@@ -89,7 +90,8 @@ public sealed partial class PlanInitializationWindow : Window
             _measurement.IsChecked = _starting.SelectedIndex != 0;
             if (_starting.SelectedIndex == 2) { SelectHardwareType(AuthoringInstrumentCatalog.All.Single(a => a.DisplayName == "Mock DMM").TypeId); _address.Text = "MOCK::INSTR0"; _automaticDemoAddress = true; }
         };
-        _hardware.SelectionChanged += (_, _) => ShowHardware();
+        _hardware.SelectionChanged += (_, _) => { _commissioning.Text = string.Empty; ShowHardware(); };
+        _commissioning.TextChanged += (_, _) => ShowHardware();
         _environment.Click += (_, _) => { try { EnsureSession(); EnvironmentRequested = true; Close(false); } catch (Exception error) { _error.Text = error.Message; } };
         _slot.PropertyChanged += (_, change) =>
         {
@@ -103,7 +105,7 @@ public sealed partial class PlanInitializationWindow : Window
             Stage(Label("Display name", _name), Label("Editable stable plan ID", _id), Label("Device family", _family),
                 new TextBlock { Text = "Workspace: " + _workspace.Root, TextWrapping = TextWrapping.Wrap }, Label("Draft filename", _destination)),
             Stage(_starting, new TextBlock { Text = "Empty plans contain no instruments. Voltage tasks can remain incomplete. Demo tasks explicitly select a Mock DMM.", TextWrapping = TextWrapping.Wrap }),
-            Stage(_hardware, Label("Logical slot", _slot), Label("Address", _address), Label("I/O timeout (ms)", _timeout), _readiness, _environment),
+            Stage(new StackPanel { Spacing = 8, Children = { _hardware, Label("Commissioning assertion (when required)", _commissioning) } }, Label("Logical slot", _slot), Label("Address", _address), Label("I/O timeout (ms)", _timeout), _readiness, _environment),
             Stage(new TextBlock { Text = "Before measurements · DUT/operator requirements and instrument checks", TextWrapping = TextWrapping.Wrap }, _serial, _identity, Label("Required operator fields (comma separated)", _fields), Label("Fixture confirmation (optional)", _confirmation),
                 Label("Fixture input field (optional)", _fixture), new TextBlock { Text = "After measurements · output off, then reset each selected instrument", TextWrapping = TextWrapping.Wrap }, _shutdown, _coverage),
             Stage(_measurement, Label("Output channel", _channel), Label("Unit", _unit), Label("Samples", _samples), Label("Interval (ms)", _interval),

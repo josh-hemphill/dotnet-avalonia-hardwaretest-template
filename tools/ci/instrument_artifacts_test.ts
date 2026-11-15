@@ -18,8 +18,8 @@ test("release verifier accepts a genuine external archive with an absent default
       projectRoot,
       "obj",
       "published-instrument-components",
-      "0.1.1",
-      "InstrumentComponents.OpenTap.0.1.1.TapPackage",
+      "0.3.0-alpha.1",
+      "InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage",
     );
     const archive = join(temporary, "external.TapPackage");
     await fs.copyFile(supplied, archive);
@@ -45,8 +45,8 @@ test("release verifier accepts a genuine external archive with an absent default
             host,
             "obj",
             "published-instrument-components",
-            "0.1.1",
-            "InstrumentComponents.OpenTap.0.1.1.TapPackage",
+            "0.3.0-alpha.1",
+            "InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage",
           ),
         ),
       { code: "ENOENT" },

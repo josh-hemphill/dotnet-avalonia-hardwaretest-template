@@ -16,7 +16,7 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
         workspace.Manifest.SchemaVersion = 2; workspace.Manifest.Package.Name = "Declared TUI requirement";
         var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = Path.Combine(workspace.Root, "selected-home"), Offline = true });
-        workspace.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
+        workspace.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var archive = Path.Combine(workspace.Root, "unrelated.TapPackage");
         using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))

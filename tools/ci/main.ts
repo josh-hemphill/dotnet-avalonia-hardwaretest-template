@@ -492,7 +492,7 @@ async function verify(opts: Options): Promise<void> {
   try {
     for (const output of consumerOutputs(opts)) {
       await fs.stat(
-        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage`,
+        `${output.path}/PublishedArtifacts/InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage`,
       );
     }
     await fs.stat(exe);

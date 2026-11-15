@@ -9,9 +9,9 @@ export type ArtifactOptions = {
   rid: string;
   configuration: string;
 };
-const archiveName = "InstrumentComponents.OpenTap.0.1.1.TapPackage";
+const archiveName = "InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage";
 const releaseHash =
-  "779fc31299fa4624f34b0031ce67a3278ff5f895a54ef3cbcc6f64c3a79ff2ee";
+  "a7891374e1e613eff83dcb6dafd93a3e4b4584f4f2c4b5a942b694188148b9c4";
 const baseNames = new Set([
   "InstrumentComponents",
   "InstrumentComponents.OpenTap",

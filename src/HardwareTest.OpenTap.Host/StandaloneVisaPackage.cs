@@ -5,7 +5,7 @@ public static class StandaloneVisaPackage
 {
     public const string PackageName = "HardwareTest Standalone VISA";
     public const string Version = "0.1.0";
-    public const string BaseVersion = "0.1.1";
+    public const string BaseVersion = PublishedInstrumentComponents.Version;
     public const string OpenTapVersion = "9.35.0";
     public const string WrapperFileName = "HardwareTest.OpenTap.StandaloneVisa.dll";
 

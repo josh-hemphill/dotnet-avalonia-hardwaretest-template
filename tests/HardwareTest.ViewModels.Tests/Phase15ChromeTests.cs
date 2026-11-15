@@ -105,7 +105,7 @@ public sealed class Phase15ChromeTests
     }
 
     [Fact]
-    public void Instruments_ShowDiscoverEmpty_when_idle_with_no_resources()
+    public void Instruments_discovery_prompt_preserves_space_for_already_bound_slots()
     {
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
@@ -116,6 +116,9 @@ public sealed class Phase15ChromeTests
             new MockVisaSessionFactory(new VisaSessionGate()));
 
         Assert.False(vm.IsBusy);
+        vm.FocusProgram("sample", "DMM");
+        Assert.False(vm.ShowDiscoverEmpty);
+        vm.VisibleSlots.Clear();
         Assert.True(vm.ShowDiscoverEmpty);
     }
 

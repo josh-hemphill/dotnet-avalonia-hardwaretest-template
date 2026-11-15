@@ -1,5 +1,7 @@
 # Adapting this template to your product
 
+Current supported package graph and commissioning: [Instrument alpha workflows](instrument-alpha-workflows.md).
+
 Keep the layering (`HardwareTest` UI → focused `IOpenTap*` session surfaces → plugins/plans → `HardwareTest.Core`) and replace the sample product pieces below.
 
 Related: [getting-started.md](getting-started.md) (Authoring walkthrough; TUI is an escape hatch), [authoring-app.md](authoring-app.md) (engineer app architecture), [testing.md](testing.md) (suites), [appliance-linux.md](appliance-linux.md) (sealed publish), [README.md](../README.md) (layering rules).
@@ -109,7 +111,7 @@ tap package install path/to/HardwareTest\ Mixins*.TapPackage
 tap package install path/to/InstrumentComponents.OpenTap*.TapPackage
 ```
 
-HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is bench-only. Default HardwareTest builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`. The bench injects `IVisaBroker` as the library pack's SCPI session (`OpenTapScpiIo.Provider`); the pack does not open a vendor VISA resource manager. See the [OpenTAP pack guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/).
+HardwareTest `package.xml` files list only the plugin DLL (no `HardwareTest.Core`). The VISA adapter is bench-only. Default HardwareTest builds keep `CreateOpenTapPackage=false` so CI does not run `tap package create`. The bench injects `IVisaBroker` as the library pack's SCPI session (`OpenTapDevices.Provider` / `RegisteredDevices.Connector`); the pack does not open a vendor VISA resource manager. See the [OpenTAP pack guide](https://josh-hemphill.github.io/instrument-components/csharp/opentap/).
 
 ## Station bindings (Instruments)
 

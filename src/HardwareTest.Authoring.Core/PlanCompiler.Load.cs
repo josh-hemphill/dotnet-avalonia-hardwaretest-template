@@ -11,6 +11,7 @@ public sealed partial class PlanCompiler
 {
     private static readonly string[] SettingPropertyNames =
     [
+        "Arguments",
         "SampleCount",
         "IntervalMs",
         "DwellLimitMs",
@@ -79,7 +80,7 @@ public sealed partial class PlanCompiler
                 OpaqueResourceXml = resource.ToString(SaveOptions.DisableFormatting),
                 Settings = resource.Elements().Where(e => AuthoringInstrumentCatalog.TryGet(typeId, out var adapter)
                     ? adapter.ConfigurationFields.Contains(e.Name.LocalName, StringComparer.Ordinal)
-                    : AuthoringInstrumentCatalog.IsLibrary(typeId) ? e.Name.LocalName == "IoTimeoutMilliseconds"
+                    : AuthoringInstrumentCatalog.IsLibrary(typeId) ? e.Name.LocalName is "IoTimeoutMilliseconds" or "DriverId"
                     : !e.HasElements && e.Name.LocalName is not ("Name" or "VisaAddress" or "ResourceName" or "Address"))
                     .GroupBy(e => e.Name.LocalName, StringComparer.Ordinal).ToDictionary(group => group.Key, group => group.First().Value, StringComparer.Ordinal)
             };
@@ -145,7 +146,7 @@ public sealed partial class PlanCompiler
             return;
         }
 
-        if (OpenTapStepKinds.IsIdentity(step))
+        if (OpenTapStepKinds.IsIdentity(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "QueryIdentity", Parent: TestGroupStep { Name: SetupGroupName } })
         {
             setup.Add(new IdentitySetup(ImportedInstrumentSlot(step, xmlById)) { NodeId = step.Id });
             return;
@@ -169,7 +170,7 @@ public sealed partial class PlanCompiler
             return;
         }
 
-        if (OpenTapStepKinds.IsSafeShutdown(step))
+        if (OpenTapStepKinds.IsSafeShutdown(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: CleanupGroupName } })
         {
             var slots = cleanup.InstrumentSlots.ToList();
             var slot = ImportedInstrumentSlot(step, xmlById);

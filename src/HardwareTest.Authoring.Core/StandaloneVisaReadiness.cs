@@ -103,7 +103,7 @@ public static class StandaloneVisaReadiness
         }
         if (!Exact(PublishedInstrumentComponents.PackageName, StandaloneVisaPackage.BaseVersion)
             || !Exact("OpenTAP", StandaloneVisaPackage.OpenTapVersion))
-            return "Standalone VISA counterpart requires InstrumentComponents.OpenTap 0.1.1 and OpenTAP 9.35.0. The selected dependency versions are unsupported; prepare or import the current packages.";
+            return "Standalone VISA counterpart requires InstrumentComponents.OpenTap 0.3.0-alpha.1 and OpenTAP 9.35.0. The selected dependency versions are unsupported; prepare or import the current packages.";
         var manifest = new AuthoringManifest { Dependencies = [new() { Package = PublishedInstrumentComponents.PackageName, Version = StandaloneVisaPackage.BaseVersion }, new() { Package = "OpenTAP", Version = StandaloneVisaPackage.OpenTapVersion }] };
         if (OpenTapRuntimeIssue(home) is { } runtimeIssue) return runtimeIssue;
         return BasePayloadValid(home) && AuthoringEnvironmentAssessment.Packages(manifest, home).All(package => package.Satisfied)
@@ -195,7 +195,7 @@ public static class StandaloneVisaReadiness
             foreach (var name in new[] { "InstrumentComponents", "InstrumentComponents.OpenTap" })
             {
                 var identity = AssemblyName.GetAssemblyName(AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, name + ".dll"));
-                if (identity.Name != name || identity.Version != new Version(0, 1, 1, 0)) return false;
+                if (identity.Name != name || identity.Version != new Version(PublishedInstrumentComponents.AssemblyVersion)) return false;
             }
             return true;
         }

@@ -360,6 +360,9 @@ public static class PlanContractValidator
                 path));
         }
 
+        foreach (var deviceStep in OpenTapStepTree.Flatten(plan).OfType<global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>())
+            if (deviceStep.Enabled && deviceStep.ValidationIssue() is { } issue)
+                findings.Add(Error("DEVICE_CONFIGURATION", deviceStep.Name + ": " + issue));
         var roles = new List<string>();
         foreach (var step in OpenTapStepTree.Flatten(plan))
         {

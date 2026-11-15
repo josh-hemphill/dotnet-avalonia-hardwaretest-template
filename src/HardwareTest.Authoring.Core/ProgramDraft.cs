@@ -45,6 +45,8 @@ public sealed record InstrumentRef(
     public string? OpaqueResourceXml { get; init; }
 
     public IReadOnlyDictionary<string, string> Settings { get; init; } = new Dictionary<string, string>();
+    public string DeviceLabel => Settings.TryGetValue("DriverId", out var driver) && driver.Length > 0 ? global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.All.FirstOrDefault(info => info.Id == driver)?.DisplayName ?? driver : TypeId.Split('.').Last();
+
 }
 
 public abstract record SetupAction

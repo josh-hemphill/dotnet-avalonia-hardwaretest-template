@@ -273,7 +273,7 @@ public sealed class WorkspaceTaskLayoutTests
         var slot = fixture.Control<TextBox>("Instrument slot", dialog);
         if (deliberate) slot.Text = "Retained bench name";
         var hardware = fixture.Control<ComboBox>("Hardware choice", dialog);
-        hardware.SelectedItem = hardware.Items.Single(item => item!.ToString()!.StartsWith("Create DC Power Supply", StringComparison.Ordinal));
+        hardware.SelectedItem = hardware.Items.Single(item => item!.ToString()!.StartsWith("Create Rigol Technologies DP832", StringComparison.Ordinal));
         AuthoringUiFixture.Drain();
         Assert.Equal(deliberate ? "Retained bench name" : "INSTR1", slot.Text);
         // An intentional DMM is not mistaken for the automatic legacy suggestion.
@@ -283,7 +283,7 @@ public sealed class WorkspaceTaskLayoutTests
         dialog = new PlanInitializationWindow(fixture.ViewModel, retained: state); dialog.Show(fixture.Window!); AuthoringUiFixture.Drain();
         Assert.Equal("DMM", fixture.Control<TextBox>("Instrument slot", dialog).Text);
         hardware = fixture.Control<ComboBox>("Hardware choice", dialog);
-        hardware.SelectedItem = hardware.Items.Single(item => item!.ToString()!.StartsWith("Create Oscilloscope", StringComparison.Ordinal));
+        hardware.SelectedItem = hardware.Items.Single(item => item!.ToString()!.StartsWith("Create Rigol Technologies DS1054Z", StringComparison.Ordinal));
         AuthoringUiFixture.Drain();
         Assert.Equal("DMM", fixture.Control<TextBox>("Instrument slot", dialog).Text);
         dialog.Close(false);
@@ -320,7 +320,7 @@ public sealed class WorkspaceTaskLayoutTests
         var package = PublishedLibraryFixture.PackageRoot;
         var home = Path.Combine(fixture.WorkspaceRoot, "task-layout-library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage); Directory.CreateDirectory(payload);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;

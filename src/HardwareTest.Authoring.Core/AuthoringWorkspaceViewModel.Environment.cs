@@ -18,7 +18,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!CanDeclareLibraryDependency) throw new AuthoringWorkspaceException("Open a writable workspace without the library declaration and wait for the active operation.");
         RunCatalogEdit("Declare Instrument Components dependency", () =>
         {
-            Workspace!.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
+            Workspace!.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         });
         RefreshPackPreview();
         RaiseEnvironmentProperties();

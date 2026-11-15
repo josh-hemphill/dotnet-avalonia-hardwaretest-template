@@ -143,6 +143,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedMetric?.YUnit ?? string.Empty;
         set
         {
+            value ??= string.Empty;
             if (string.Equals(YUnit, value, StringComparison.Ordinal))
             {
                 return;
@@ -478,6 +479,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(Threshold));
         OnPropertyChanged(nameof(HasStepSettings));
         OnPropertyChanged(nameof(MetricFunctionId));
+        OnPropertyChanged(nameof(SelectedDeviceArgumentHelp));
         OnPropertyChanged(nameof(MetricFunctionIdOptions));
         OnPropertyChanged(nameof(MetricFunctionChoices));
         OnPropertyChanged(nameof(SelectedMetricFunction));

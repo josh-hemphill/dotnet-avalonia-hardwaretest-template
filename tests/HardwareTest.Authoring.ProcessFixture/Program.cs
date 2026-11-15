@@ -40,8 +40,8 @@ if (args.Length == 2 && args[0] == "--owned-library-lifecycle")
         throw new InvalidOperationException("Owned lifecycle fixture must start cold.");
     var home = new OpenTapHome(args[1]);
     var adapters = AuthoringInstrumentCatalog.Discover(home);
-    if (adapters.Count != 8) throw new InvalidOperationException("Cold catalog discovery failed.");
-    foreach (var adapter in adapters)
+    if (adapters.Count != 13) throw new InvalidOperationException("Cold catalog discovery failed.");
+    foreach (var adapter in adapters.Where(adapter => adapter.TypeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal)))
     {
         var binding = new InstrumentRef("Device", adapter.TypeId, "TCPIP0::192.0.2.8::inst0::INSTR");
         var draft = new AuthoringPlanInitializer().Construct(new("lifecycle")

@@ -53,7 +53,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var package = PublishedLibraryFixture.PackageRoot;
         var home = InstallActualPackage(package!);
         var adapters = AuthoringInstrumentCatalog.Discover(home);
-        Assert.Equal(8, adapters.Count);
+        Assert.Equal(13, adapters.Count);
         Assert.Contains(adapters, a => a.DisplayName == "Oscilloscope");
         Assert.Contains(adapters, a => a.DisplayName == "DC Power Supply");
         var second = AuthoringInstrumentCatalog.Discover(home);
@@ -107,7 +107,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var payload = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         var bytes = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(file => file, File.ReadAllBytes);
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
-        { Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" }] }, []);
+        { Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }] }, []);
         new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         foreach (var pair in bytes) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
         var vmRoot = Path.Combine(_root, "workspace");
@@ -146,20 +146,20 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var home = new OpenTapHome(Path.Combine(_root, "archive-home"));
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
         {
-            Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" }],
+            Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }],
             InstrumentComponentsPackage = archivePath
         }, []);
         var bootstrap = new OpenTapHomeBootstrapper();
         bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         using var archive = ZipFile.OpenRead(archivePath!);
         var originals = new Dictionary<string, byte[]>();
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
         {
             using var incoming = archive.GetEntry(file)!.Open(); using var bytes = new MemoryStream(); incoming.CopyTo(bytes);
             originals[file] = bytes.ToArray(); Assert.Equal(originals[file], File.ReadAllBytes(Path.Combine(home.Root, file)));
         }
         var adapters = AuthoringInstrumentCatalog.Discover(home);
-        Assert.Equal(8, adapters.Count);
+        Assert.Equal(13, adapters.Count);
         var supply = adapters.Single(adapter => adapter.DisplayName == "DC Power Supply");
         Assert.True(supply.Availability(home).Available);
         var binding = new InstrumentRef("Rail", supply.TypeId, "TCPIP0::192.0.2.7::inst0::INSTR")
@@ -176,7 +176,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         File.WriteAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), originals["InstrumentComponents.OpenTap.dll"].Concat(new byte[] { 0 }).ToArray());
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
         bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
-        Assert.Equal(8, AuthoringInstrumentCatalog.Discover(home).Count);
+        Assert.Equal(13, AuthoringInstrumentCatalog.Discover(home).Count);
         foreach (var pair in originals) Assert.Equal(pair.Value, File.ReadAllBytes(Path.Combine(home.Root, pair.Key)));
     }
 
@@ -193,7 +193,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.WriteAllBytes(destination, pair.Value);
         }
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
         {
             File.Delete(Path.Combine(original, file));
             Assert.Equal(adapters.Count, AuthoringInstrumentCatalog.Discover(second).Count);
@@ -213,7 +213,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var home = new OpenTapHome(Path.Combine(_root, "actual-home"));
         var target = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(target);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" }) File.Copy(Path.Combine(package, file), Path.Combine(home.Root, file));
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" }) File.Copy(Path.Combine(package, file), Path.Combine(home.Root, file));
         File.Copy(Path.Combine(package, "package.xml"), Path.Combine(target, "package.xml"));
         return home;
     }

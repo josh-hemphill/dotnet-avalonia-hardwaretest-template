@@ -37,7 +37,7 @@ public partial class ResultsViewModel
             var path = string.IsNullOrWhiteSpace(triage.FirstFail.StepPath)
                 ? triage.FirstFail.StepId
                 : triage.FirstFail.StepPath;
-            FirstFailSummary = $"First fail: {path} — {triage.FirstFail.Message}";
+            FirstFailSummary = $"First nonpassing attempt in session: {path} — {triage.FirstFail.Message}";
         }
 
         var rows = triage.Ledgers
@@ -59,10 +59,11 @@ public partial class ResultsViewModel
                 break;
             }
 
-            var marker = IsFirstFailPath(latest, triage.FirstFail) ? "First fail · " : string.Empty;
+            var marker = IsFirstFailPath(latest, triage.FirstFail) ? "First nonpassing session attempt · " : string.Empty;
             var rollup = ledger.AttemptCount > 0 ? $" · {ledger.Display}" : string.Empty;
             StepDetails.Add(
-                $"{marker}{ShortId.Display(latest.StepId)} [{latest.StepType}] {(latest.Passed ? "PASS" : "FAIL")} — {latest.Message}{rollup}");
+                $"{marker}{ShortId.Display(latest.StepId)} [{latest.StepType}] {latest.OutcomeLabel.ToUpperInvariant()} — {latest.Message}{rollup}" +
+                (string.IsNullOrWhiteSpace(latest.OutcomeDetail) ? "" : " — " + latest.OutcomeDetail));
             remaining--;
             pathsShown++;
 
@@ -76,7 +77,8 @@ public partial class ResultsViewModel
                     }
 
                     StepDetails.Add(
-                        $"  #{attempt.AttemptNumber} {(attempt.Passed ? "PASS" : "FAIL")} — {attempt.Message} @ {attempt.CompletedAt:u}");
+                        $"  #{attempt.AttemptNumber} {attempt.OutcomeLabel.ToUpperInvariant()} — {attempt.Message} @ {attempt.CompletedAt:u}" +
+                        (string.IsNullOrWhiteSpace(attempt.OutcomeDetail) ? "" : " — " + attempt.OutcomeDetail));
                     remaining--;
                 }
             }

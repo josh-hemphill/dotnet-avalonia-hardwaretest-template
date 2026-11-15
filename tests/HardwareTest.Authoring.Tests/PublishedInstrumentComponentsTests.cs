@@ -18,7 +18,7 @@ public sealed class PublishedInstrumentComponentsTests
         Assert.Equal(PublishedInstrumentComponents.Sha256, Convert.ToHexStringLower(SHA256.HashData(stream)));
         stream.Position = 0;
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
-        Assert.Equal(new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "Packages/InstrumentComponents.OpenTap/package.xml" },
+        Assert.Equal(new[] { "InstrumentComponents.Abstractions.dll", "InstrumentComponents.OpenTap.dll", "InstrumentComponents.Runtime.dll", "InstrumentComponents.dll", "Packages/InstrumentComponents.OpenTap/package.xml" },
             zip.Entries.Select(entry => entry.FullName).OrderBy(name => name, StringComparer.Ordinal).ToArray());
         using var metadata = zip.GetEntry("Packages/InstrumentComponents.OpenTap/package.xml")!.Open();
         var package = XDocument.Load(metadata).Root!;

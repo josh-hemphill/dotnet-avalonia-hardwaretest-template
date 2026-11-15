@@ -147,7 +147,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         fixture.Control<ComboBox>("Workspace template", creation).SelectedIndex = 1;
         fixture.Control<CheckBox>("Continue to New test plan", creation).IsChecked = true;
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", creation));
-        Assert.Contains("InstrumentComponents.OpenTap ^0.1.0", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
+        Assert.Contains("InstrumentComponents.OpenTap 0.3.0-alpha.1", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         Assert.Contains("Classification: Product", fixture.Control<TextBlock>("Workspace creation review", creation).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", creation));
         var plan = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
@@ -174,7 +174,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.Equal(binding.VisaAddress, reopened.VisaAddress);
         Assert.Equal(binding.OpaqueResourceXml, reopened.OpaqueResourceXml);
         Assert.Equal(binding.Settings.OrderBy(setting => setting.Key), reopened.Settings.OrderBy(setting => setting.Key));
-        Assert.Equal("^0.1.0", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
+        Assert.Equal("0.3.0-alpha.1", Assert.Single(fixture.ViewModel.Workspace!.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
 

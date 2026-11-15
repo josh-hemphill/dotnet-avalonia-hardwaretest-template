@@ -133,7 +133,8 @@ public partial class InstrumentsViewModel : ReactiveObject
     [Reactive] private bool _hasDiscoveredOpenTap;
     [Reactive] private string _planFilter = AllPlanFilter;
 
-    public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy;
+    public bool ShowDiscoverEmpty => !HasDiscoveredVisa && !HasDiscoveredOpenTap && !IsBusy
+        && (VisibleSlots.Count == 0 || VisibleSlots.Any(slot => slot.Readiness.Kind == StationSlotReadinessKind.Unbound));
 
     public event EventHandler? NavigateToRunRequested;
 
@@ -234,6 +235,8 @@ public partial class InstrumentsViewModel : ReactiveObject
     {
         lock (_slotsGate)
         {
+            var selectedPlan = SelectedSlot?.PlanId;
+            var selectedSlot = SelectedSlot?.SlotName;
             SlotOverrides.Clear();
             var saved = _settingsStore.AppSettings.PlanSlotOverrides;
             var useMockVisa = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
@@ -279,6 +282,10 @@ public partial class InstrumentsViewModel : ReactiveObject
 
             RebuildPlanFilters();
             ApplyPlanFilter();
+            SelectedSlot = VisibleSlots.FirstOrDefault(slot =>
+                string.Equals(slot.PlanId, selectedPlan, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(slot.SlotName, selectedSlot, StringComparison.OrdinalIgnoreCase))
+                ?? VisibleSlots.FirstOrDefault();
         }
 
         return Task.CompletedTask;
@@ -296,13 +303,22 @@ public partial class InstrumentsViewModel : ReactiveObject
             var existing = saved.FirstOrDefault(o =>
                 string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(o.SlotName, slot.Name, StringComparison.OrdinalIgnoreCase));
-            SlotOverrides.Add(new SlotOverrideItemViewModel(
+            var identity = _idnStore?.Find(planId, slot.Name);
+            var resource = string.IsNullOrWhiteSpace(existing?.Resource) ? slot.ResourceName : existing.Resource.Trim();
+            var item = new SlotOverrideItemViewModel(
                 planId,
                 displayName,
                 slot,
                 existing?.Resource,
                 useMockVisa,
-                _idnStore?.Find(planId, slot.Name)?.IdnSummary));
+                identity is not null && string.Equals(identity.Resource, resource, StringComparison.OrdinalIgnoreCase)
+                    ? identity.IdnSummary : null);
+            item.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName is nameof(SlotOverrideItemViewModel.OverrideResource) or nameof(SlotOverrideItemViewModel.HasLastIdn))
+                    RefreshCommission();
+            };
+            SlotOverrides.Add(item);
         }
     }
 
@@ -366,6 +382,12 @@ public partial class InstrumentsViewModel : ReactiveObject
         if (!supports)
         {
             Status = $"Skipping *IDN? for '{address}' (interface not typically message-based). Narrow with hints, then pick USB/TCPIP/GPIB/ASRL/MOCK.";
+            return;
+        }
+
+        if (BoundSlotForResource(address)?.SupportsIdentityQuery == false)
+        {
+            Status = "Identity query is not advertised for this configuration; no query was sent. Verify the model/asset label manually.";
             return;
         }
 

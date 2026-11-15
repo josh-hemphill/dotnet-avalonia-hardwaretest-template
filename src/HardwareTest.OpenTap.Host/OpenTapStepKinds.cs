@@ -9,10 +9,12 @@ public static class OpenTapStepKinds
     public static bool IsIdentity(ITestStep step)
         => step is IdentityCheckStep
            || TypeNameIs(step, "IdentityCheckStep")
-           || TypeNameIs(step, "IdentityQueryStep");
+           || TypeNameIs(step, "IdentityQueryStep")
+           || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "QueryIdentity", Parent: TestGroupStep { Name: "Setup" } };
 
     public static bool IsSafeShutdown(ITestStep step)
-        => step is SafeShutdownStep || TypeNameIs(step, "SafeShutdownStep");
+        => step is SafeShutdownStep || TypeNameIs(step, "SafeShutdownStep")
+           || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: "Cleanup" } };
 
     public static bool IsOperatorInteraction(ITestStep step)
         => step is OperatorPromptStep or OperatorInputStep

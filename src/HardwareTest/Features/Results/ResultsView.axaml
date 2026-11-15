@@ -49,8 +49,8 @@
       <TextBlock Text="{Binding Status}" VerticalAlignment="Center" Opacity="0.85" TextWrapping="Wrap" Margin="0,0,8,4" />
     </WrapPanel>
 
-    <DockPanel Grid.Row="1">
-      <StackPanel DockPanel.Dock="Top" Spacing="6" Margin="0,0,0,8">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,*" ClipToBounds="True">
+      <StackPanel Spacing="6" Margin="0,0,0,8">
         <TextBox PlaceholderText="Search plan, DUT, operator, run id…"
                  Text="{Binding SearchText}" />
         <WrapPanel>
@@ -81,18 +81,11 @@
                    TextWrapping="Wrap"
                    Opacity="0.85"
                    FontSize="11" />
-        <Grid ColumnDefinitions="*,100,90,90,70,140" Margin="8,0,8,0" Opacity="0.7">
-          <TextBlock Text="Plan / DUT" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="1" Text="Part" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="2" Text="Session" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="3" Text="Operator" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="4" Text="Result" FontWeight="SemiBold" />
-          <TextBlock Grid.Column="5" Text="Started" FontWeight="SemiBold" />
-        </Grid>
+
       </StackPanel>
 
       <!-- Empty state: no runs yet -->
-      <Border DockPanel.Dock="Top"
+      <Border Grid.Row="1"
               Padding="12,10"
               CornerRadius="6"
               Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
@@ -110,46 +103,32 @@
         </StackPanel>
       </Border>
 
-      <ListBox ItemsSource="{Binding Runs}"
+      <ListBox Grid.Row="2" ClipToBounds="True" Focusable="True" AutomationProperties.Name="Recorded runs" ItemsSource="{Binding Runs}"
                Classes="operator-list"
                SelectedItem="{Binding SelectedRun}"
                DoubleTapped="OnRunsDoubleTapped"
-               MinHeight="240">
+               MinHeight="0">
         <ListBox.ItemTemplate>
           <DataTemplate x:DataType="runs:TestRunSummary">
-            <Grid ColumnDefinitions="*,100,90,90,70,140" ColumnSpacing="4">
-              <StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="6">
-                  <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" />
-                  <TextBlock Text="Read-only"
-                             FontSize="10"
-                             Opacity="0.7"
-                             VerticalAlignment="Center"
-                             IsVisible="{Binding IsSchemaReadOnly}" />
-                </StackPanel>
-                <TextBlock Text="{Binding DutSerial}" Opacity="0.8" FontSize="11" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4">
+              <StackPanel Spacing="4">
+                <TextBlock Text="{Binding PlanName}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                <TextBlock Text="Read-only" IsVisible="{Binding IsSchemaReadOnly}" Opacity="0.7"/>
+                <TextBlock Text="{Binding DutSerial, StringFormat='DUT: {0}'}" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding DutPartNumber, StringFormat='Part: {0}'}" FontSize="11" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding OperatorName, StringFormat='Operator: {0}'}" FontSize="11" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding SessionId, Converter={x:Static conv:ShortIdConverter.Instance}, StringFormat='Session: {0}'}" FontSize="11"/>
+                <TextBlock Text="{Binding StartedAt}" Opacity="0.75" FontSize="11" TextWrapping="Wrap"/>
               </StackPanel>
-              <TextBlock Grid.Column="1" Text="{Binding DutPartNumber}" VerticalAlignment="Center" />
-              <TextBlock Grid.Column="2" Text="{Binding SessionId, Converter={x:Static conv:ShortIdConverter.Instance}}" VerticalAlignment="Center" FontSize="11"
-                         ToolTip.Tip="{Binding SessionId}" />
-              <TextBlock Grid.Column="3" Text="{Binding OperatorName}" VerticalAlignment="Center" />
-              <Border Grid.Column="4"
-                      CornerRadius="4"
-                      Padding="6,2"
-                      HorizontalAlignment="Left"
-                      VerticalAlignment="Center"
+              <Border Grid.Column="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Top"
                       Background="{Binding Result, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
-                <TextBlock Text="{Binding Result}"
-                           Foreground="White"
-                           FontSize="11"
-                           FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Result}" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
               </Border>
-              <TextBlock Grid.Column="5" Text="{Binding StartedAt}" VerticalAlignment="Center" Opacity="0.75" FontSize="11" />
             </Grid>
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
-    </DockPanel>
+    </Grid>
 
     <Border Grid.Row="1" Grid.Column="1"
             IsVisible="{Binding ShowDetail}"
@@ -188,6 +167,12 @@
 
         <ScrollViewer Padding="0,0,4,0">
           <StackPanel Spacing="6">
+            <Border IsVisible="{Binding OpenedRun.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" CornerRadius="4">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Run outcome and recovery" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding OpenedRun.ErrorMessage}" TextWrapping="Wrap" AutomationProperties.Name="Run outcome details"/>
+              </StackPanel>
+            </Border>
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
               <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">
@@ -269,23 +254,17 @@
             <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasComparison}">
               <TextBlock Text="Compare with previous" FontWeight="SemiBold" />
               <TextBlock Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Opacity="0.9" />
-              <Grid ColumnDefinitions="*,80,80,60,*" Margin="0,4,0,0" Opacity="0.7">
-                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="1" Text="This run" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="2" Text="Previous" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="11" />
-                <TextBlock Grid.Column="4" Text="Note" FontWeight="SemiBold" FontSize="11" />
-              </Grid>
+              <TextBlock Text="Measurement comparison" FontWeight="SemiBold"/>
               <ItemsControl ItemsSource="{Binding ComparisonMetrics}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RunComparisonRow">
-                    <Grid ColumnDefinitions="*,80,80,60,*" ColumnSpacing="2" Margin="0,1">
-                      <TextBlock Text="{Binding MetricKey}" TextTrimming="CharacterEllipsis" FontSize="11" />
-                      <TextBlock Grid.Column="1" Text="{Binding CurrentText}" FontSize="11" />
-                      <TextBlock Grid.Column="2" Text="{Binding PreviousText}" FontSize="11" />
-                      <TextBlock Grid.Column="3" Text="{Binding DeltaText}" FontSize="11" />
-                      <TextBlock Grid.Column="4" Text="{Binding Note}" TextTrimming="CharacterEllipsis" FontSize="11" />
-                    </Grid>
+                    <StackPanel Spacing="4" Margin="0,4">
+                      <TextBlock Text="{Binding MetricKey}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                      <TextBlock Text="{Binding CurrentText, StringFormat='This run: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding PreviousText, StringFormat='Previous: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding DeltaText, StringFormat='Delta: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Note}" TextWrapping="Wrap" Opacity="0.75"/>
+                    </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>

@@ -60,7 +60,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => _hardwareEditType;
         set
         {
-            if (SetField(ref _hardwareEditType, value)) OnPropertyChanged(nameof(HardwareEditTypeGuidance));
+            if (SetField(ref _hardwareEditType, value)) { OnPropertyChanged(nameof(HardwareEditTypeGuidance)); OnPropertyChanged(nameof(IsEditingRegisteredDevice)); }
         }
     }
     public string HardwareEditTypeGuidance => HardwareEditType is null && _hardwareEditorSourceType is { } type
@@ -78,7 +78,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             : "Demo instrument. Uses mock data; it does not connect to physical hardware.";
         var compatibility = adapter.CompatibleFunctions.Contains(AuthoringFunctionIds.BasicAcquireVoltage, StringComparer.Ordinal)
             ? "Supports Basic voltage recipes."
-            : "Does not support Basic voltage recipes; choose a DMM adapter for those steps.";
+            : "Choose Device operations for registered vendor hardware. Basic voltage recipes use Mock DMM demo data.";
         string recovery;
         try
         {
@@ -120,6 +120,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = instrument.VisaAddress;
         HardwareEditTimeout = instrument.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        LoadDeviceEditorSettings(instrument.Settings);
         OnPropertyChanged(nameof(HardwareEditType));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         RaiseHardwareEditorContext();
@@ -138,8 +139,21 @@ public sealed partial class AuthoringWorkspaceViewModel
                 throw new AuthoringWorkspaceException("I/O timeout must be a positive integer in milliseconds.");
             settings["IoTimeoutMilliseconds"] = timeout.ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
+        if (IsEditingRegisteredDevice)
+        {
+            settings["DriverId"] = EditDeviceDriver?.Id ?? throw new AuthoringWorkspaceException("Choose the device vendor and model.");
+            settings["Channels"] = EditDeviceChannels.Trim();
+            settings["Outputs"] = EditDeviceOutputs.Trim();
+            settings["Commissioning"] = EditDeviceCommissioning.Trim();
+        }
         var binding = new InstrumentRef(name, adapter.TypeId, HardwareEditAddress.Trim()) { Settings = settings.ToFrozenDictionary(StringComparer.Ordinal) };
-        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
+        var resource = AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
+        if (resource is global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered)
+        {
+            try { _ = registered.AvailableOperations; }
+            catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+            { throw new AuthoringWorkspaceException(error.Message); }
+        }
         return binding;
     }
 
@@ -197,6 +211,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(definition.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = definition.Address;
         HardwareEditTimeout = definition.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
+        LoadDeviceEditorSettings(definition.Settings);
         OnPropertyChanged(nameof(HardwareEditType));
         OnPropertyChanged(nameof(HardwareEditTypeGuidance));
         RaiseHardwareEditorContext();

@@ -156,8 +156,23 @@ public sealed class StepResultRecord
     public int AttemptNumber { get; set; } = 1;
     public bool Passed { get; set; }
     public string? Message { get; set; }
+    public string? OutcomeDetail { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset CompletedAt { get; set; }
+    [JsonIgnore]
+    public string OutcomeLabel => StepOutcome.Label(Passed, Message);
+}
+
+/// Existing records store the terminal verdict in Message. Other freeform messages
+/// retain the persisted pass/fail flag; cancellation and error are not measurements.
+public static class StepOutcome
+{
+    public static string Label(bool passed, string? message) => message?.Trim() switch
+    {
+        "Cancelled" or "Canceled" or "Aborted" => "Cancelled",
+        "Error" => "Error",
+        _ => passed ? "Pass" : "Fail"
+    };
 }
 
 /// Rollup of attempts for one step path within an Operator Session.
@@ -171,10 +186,14 @@ public sealed class StepAttemptSummary
     public bool? LatestPassed { get; set; }
     public string? LatestMessage { get; set; }
     public List<StepResultRecord> Attempts { get; set; } = [];
+    [JsonIgnore] public int MeasurementFailureCount => Attempts.Count > 0 ? Attempts.Count(attempt => attempt.OutcomeLabel == "Fail") : FailedCount;
+    [JsonIgnore] public int ErrorCount => Attempts.Count(attempt => attempt.OutcomeLabel == "Error");
+    [JsonIgnore] public int CancelledCount => Attempts.Count(attempt => attempt.OutcomeLabel == "Cancelled");
+    [JsonIgnore] public string LatestOutcome => StepOutcome.Label(LatestPassed == true, LatestMessage);
 
     public string Display => AttemptCount == 0
         ? string.Empty
-        : $"{AttemptCount} ({FailedCount}F/{PassedCount}P)";
+        : $"{AttemptCount} ({MeasurementFailureCount}F/{PassedCount}P" + (ErrorCount > 0 ? $"/{ErrorCount}E" : "") + (CancelledCount > 0 ? $"/{CancelledCount}C" : "") + ")";
 }
 
 public sealed class StoredSample

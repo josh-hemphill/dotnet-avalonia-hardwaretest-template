@@ -252,6 +252,7 @@
         "dependencies": {
           "HardwareTest.Core": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Basic": "[0.2.0, )",
+          "HardwareTest.OpenTap.Plugins.Instruments": "[0.1.0, )",
           "HardwareTest.OpenTap.Plugins.Mixins": "[0.1.0, )",
           "MessagePack": "[2.5.303, )",
           "OpenTAP": "[9.35.0, )",
@@ -264,10 +265,92 @@
           "OpenTAP": "[9.35.0, )"
         }
       },
+      "hardwaretest.opentap.plugins.instruments": {
+        "type": "Project",
+        "dependencies": {
+          "InstrumentComponents.Drivers.Keithley": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Drivers.Keysight": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Drivers.Rigol": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Drivers.Siglent": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Drivers.Tektronix": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Runtime": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+          "OpenTAP": "[9.35.0, )"
+        }
+      },
       "hardwaretest.opentap.plugins.mixins": {
         "type": "Project",
         "dependencies": {
           "OpenTAP": "[9.35.0, )"
+        }
+      },
+      "InstrumentComponents.Abstractions": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "Q9x013ORIA/jl0HAJSuGxf7Liqna0ZmRHr4DDXfspUOhcpiFp1QotDOVrpETVwdinlU8yKkmf9NQB0KBjGGZBQ=="
+      },
+      "InstrumentComponents.Drivers.Keithley": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "aanMCKJgH2V42/lm3M16VbVgKu4SQNleSzBx1iWdkwEb0OTNR4W9s7eGksvtZ7w3qMe3RzcgO7CP+U/2oHGDrA==",
+        "dependencies": {
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Drivers.Keysight": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "k6QnLLSG4mfIYF+HGv2i8xxmPH5ayfTYMFtvGz9IJzCpXqCk+Jnz9LQmG1LIYeEwFtmBHc/PB7qX642f8hZVQw==",
+        "dependencies": {
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Drivers.Rigol": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "YJJYNWjxptieU7SwQkXs/eNwzWyfdG4/PheBdqJnAEOf8ixRrF0GDyfeobehXtZWKya0MjW6JQkM0sa2Te7eYQ==",
+        "dependencies": {
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Drivers.Siglent": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "Lb+YlHpqvZLEJgC7N0o938IqFKJYRh35KkEUx6Jcij/U3NFVOgYi+mV37ix84FMvF7WX6/7IeP/NGbxGcd7zZg==",
+        "dependencies": {
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Drivers.Tektronix": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "9T3wDF9r0SqLOlMAjNwSshFUbGLG8aEOAljj7kTJZpLq4XdE8Te6zZosVNIar6+I1UJBY6zvDUH/JuhntCAThQ==",
+        "dependencies": {
+          "InstrumentComponents.Scpi": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Runtime": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "605bHKSaSFlDstCRBKOlHp7t/9+Re/Fp7AxIOS7MwmNBz0KxAfME76GWYhui8tujaHDhuRPIMegR6iai8jwzmA==",
+        "dependencies": {
+          "InstrumentComponents.Abstractions": "[0.3.0-alpha.1]"
+        }
+      },
+      "InstrumentComponents.Scpi": {
+        "type": "CentralTransitive",
+        "requested": "[0.3.0-alpha.1, 0.3.0-alpha.1]",
+        "resolved": "0.3.0-alpha.1",
+        "contentHash": "GsdPQ7yffi4moZEHwQyN7n8ho8Su7EVXH0JSPtFgFUkNX1aHxDiuFPdNDCcK5MnXezcobCs32/B3aGmBunCJLg==",
+        "dependencies": {
+          "InstrumentComponents.Abstractions": "[0.3.0-alpha.1]"
         }
       },
       "itext": {

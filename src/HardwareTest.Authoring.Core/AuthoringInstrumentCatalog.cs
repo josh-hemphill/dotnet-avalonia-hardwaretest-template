@@ -105,6 +105,17 @@ public static partial class AuthoringInstrumentCatalog
             };
             if (function is not null && !adapter.CompatibleFunctions.Contains(function, StringComparer.Ordinal)) return false;
         }
+        if (replacement.TypeId == "HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument")
+        {
+            try
+            {
+                if (draft.Setup.OfType<IdentitySetup>().Any(x => Same(x.InstrumentSlot, fromSlot))) EnsureCompatible(replacement, AuthoringFunctionIds.BasicIdentityCheck);
+                if (draft.Cleanup.IncludeSafeShutdown && AuthoringCleanup.ResolveSlots(draft).Any(x => Same(x, fromSlot))) EnsureCompatible(replacement, AuthoringFunctionIds.BasicSafeShutdown);
+                foreach (var metric in AuthoringRecipeCatalog.EnumerateMetrics(draft.Measure))
+                    if (metric.Source is MeasureSource source && Same(source.InstrumentSlot, fromSlot)) EnsureCompatible(replacement, source.FunctionId);
+            }
+            catch (AuthoringWorkspaceException) { return false; }
+        }
         return true;
     }
 

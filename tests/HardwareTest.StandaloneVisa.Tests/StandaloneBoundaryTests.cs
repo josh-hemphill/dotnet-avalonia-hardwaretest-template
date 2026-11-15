@@ -41,7 +41,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var result = await Run(home, StandaloneVisaPackage.WrapperFileName, "visa-boundary");
         Assert.Equal(17, result.Code);
         Assert.Contains("standalone-registered-before-dispatch-existing-provider-preserved", result.Output);
-        Assert.Contains("standalone-published-instrument-opened-with-embedded-registry-and-closed", result.Output);
+        Assert.Contains("standalone-published-instrument-opened-with-explicit-driver-and-closed", result.Output);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         Assert.Equal(0, result.Code);
         Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
         Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", result.Output);
-        Assert.Contains("published-instrument-opened-with-embedded-registry-and-closed", result.Output);
+        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", result.Output);
     }
 
     [Fact]
@@ -223,7 +223,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var home = InstalledHome();
         var custom = Path.Combine(_root, "custom");
         Directory.CreateDirectory(custom);
-        foreach (var name in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+        foreach (var name in new[] { "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
             File.Copy(Path.Combine(AppContext.BaseDirectory, "BoundaryFixture", name), Path.Combine(custom, name));
         CopyTree(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName), Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName));
         var customMetadata = Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
@@ -356,7 +356,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         }
         var alias = Path.Combine(home, "Packages", aliasName);
         Directory.CreateDirectory(alias);
-        File.WriteAllText(Path.Combine(alias, "package.xml"), "<Package Name=\" instrumentcomponents.opentap \" Version=\"0.1.1\"/>");
+        File.WriteAllText(Path.Combine(alias, "package.xml"), "<Package Name=\" instrumentcomponents.opentap \" Version=\"0.3.0-alpha.1\"/>");
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
         Assert.NotEqual(0, result.Code);
         Assert.Contains("noncanonical or duplicate installed package identities", result.Output);
@@ -460,7 +460,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         using var metadata = zip.GetEntry("Packages/HardwareTest Standalone VISA/package.xml")!.Open();
         var document = XDocument.Load(metadata);
         var dependencies = document.Descendants().Where(element => element.Name.LocalName == "PackageDependency").ToArray();
-        Assert.Contains(dependencies, dependency => (string?)dependency.Attribute("Package") == PublishedInstrumentComponents.PackageName && (string?)dependency.Attribute("Version") == "0.1.1");
+        Assert.Contains(dependencies, dependency => (string?)dependency.Attribute("Package") == PublishedInstrumentComponents.PackageName && (string?)dependency.Attribute("Version") == "0.3.0-alpha.1");
         Assert.Contains(dependencies, dependency => (string?)dependency.Attribute("Package") == "OpenTAP" && (string?)dependency.Attribute("Version") == "9.35.0");
     }
 
@@ -482,7 +482,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         Assert.False(StandaloneVisaReadiness.Assess(new(home)).Available);
         File.WriteAllBytes(baseLibrary, genuineBase);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
-        File.WriteAllText(metadata, File.ReadAllText(metadata).Replace("Version=\"0.1.1\"", "Version=\"0.1.0\"", StringComparison.Ordinal));
+        File.WriteAllText(metadata, File.ReadAllText(metadata).Replace("Version=\"0.3.0-alpha.1\"", "Version=\"0.1.0\"", StringComparison.Ordinal));
         Assert.Contains("unsupported", StandaloneVisaReadiness.Assess(new(home)).Reason);
         Assert.Equal(original, File.ReadAllBytes(provider));
     }
@@ -500,8 +500,8 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         using (var pe = new PEReader(stream))
             versionOffset = pe.PEHeaders.MetadataStartOffset + pe.GetMetadataReader().GetTableMetadataOffset(TableIndex.Assembly) + sizeof(uint);
         // Assembly table stores Major, Minor, Build, Revision as little-endian UInt16.
-        bytes[versionOffset + 4] = 0;
-        bytes[versionOffset + 5] = 0;
+        bytes[versionOffset + 2] = 1;
+        bytes[versionOffset + 3] = 0;
         File.WriteAllBytes(path, bytes);
         Assert.Equal(new Version(0, 1, 0, 0), System.Reflection.AssemblyName.GetAssemblyName(path).Version);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
@@ -512,7 +512,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         Assert.False(StandaloneVisaReadiness.Assess(new(home)).Available);
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
         Assert.NotEqual(0, result.Code);
-        Assert.Contains("requires current 0.1.1 library assemblies", result.Output);
+        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", result.Output);
     }
 
     [Theory]

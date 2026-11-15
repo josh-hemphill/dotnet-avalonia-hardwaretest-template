@@ -1,5 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.SelectedStepInspectorView" x:DataType="vm:AuthoringWorkspaceViewModel">
-  <ScrollViewer Margin="0" AutomationProperties.Name="Selected step inspector" HorizontalScrollBarVisibility="Disabled">
+  <Grid RowDefinitions="Auto,*" RowSpacing="8">
+    <ScrollViewer MaxHeight="80" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <TextBlock Text="{Binding SelectedStepErrors}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
+    </ScrollViewer>
+  <ScrollViewer Grid.Row="1" Margin="0" AutomationProperties.Name="Selected step inspector" HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="16">
       <StackPanel Spacing="8">
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -28,7 +32,6 @@
         </Grid>
       </StackPanel>
       <TextBlock Text="{Binding InspectorBreadcrumb}" TextWrapping="Wrap"/>
-      <TextBlock Text="{Binding SelectedStepErrors}" IsVisible="{Binding SelectedStepErrors, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Foreground="{DynamicResource AuthoringError}" AutomationProperties.Name="Selected step errors" AutomationProperties.LiveSetting="Polite"/>
       <Expander x:Name="ConfigureExpander" Header="Configure" IsExpanded="True" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Configure selected step" Classes="inspectorSection">
         <StackPanel Spacing="16">
           <TextBlock IsVisible="{Binding HasRawStep}" Text="Imported step implementation is preserved. Inspect its details in Advanced." TextWrapping="Wrap"/>
@@ -100,6 +103,7 @@
               </StackPanel>
               <TextBlock x:Name="MeasureSettingsLabel" Text="Recipe settings" TextWrapping="Wrap"/>
               <TextBlock Opacity="0.8" TextWrapping="Wrap" Text="{x:Static vm:AuthoringInspectorCopy.MeasureSettingsPurpose}"/>
+              <TextBlock Text="{Binding SelectedDeviceArgumentHelp}" TextWrapping="Wrap" Classes="purpose" AutomationProperties.Name="Device operation argument guidance"/>
               <ItemsControl ItemsSource="{Binding MetricSettingRows}" AutomationProperties.Name="Recipe settings" AutomationProperties.LabeledBy="{Binding #MeasureSettingsLabel}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:AuthoringSettingRow">
@@ -253,4 +257,5 @@
       </Expander>
     </StackPanel>
   </ScrollViewer>
+  </Grid>
 </UserControl>

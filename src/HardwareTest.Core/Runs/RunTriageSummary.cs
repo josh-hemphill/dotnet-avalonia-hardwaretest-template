@@ -26,7 +26,9 @@ public sealed class RunTriageSummary
             .Where(a => a is not null)
             .Cast<StepResultRecord>()
             .ToList();
-        var pathFail = latest.Count(a => !a.Passed);
+        var pathFail = latest.Count(a => a.OutcomeLabel == "Fail");
+        var pathError = latest.Count(a => a.OutcomeLabel == "Error");
+        var pathCancelled = latest.Count(a => a.OutcomeLabel == "Cancelled");
         var pathPass = latest.Count(a => a.Passed);
         var totalAttempts = ledgers.Sum(l => l.AttemptCount > 0 ? l.AttemptCount : l.Attempts.Count);
 
@@ -37,7 +39,7 @@ public sealed class RunTriageSummary
             PathFailCount = pathFail,
             TotalAttempts = totalAttempts,
             Ledgers = ledgers,
-            OperatorSummary = FormatSummary(firstFail, pathFail, pathPass),
+            OperatorSummary = FormatSummary(firstFail, pathFail, pathPass, pathError, pathCancelled),
         };
     }
 
@@ -68,16 +70,19 @@ public sealed class RunTriageSummary
         };
     }
 
-    private static string FormatSummary(StepResultRecord? firstFail, int pathFail, int pathPass)
+    private static string FormatSummary(StepResultRecord? firstFail, int pathFail, int pathPass, int pathError, int pathCancelled)
     {
         if (firstFail is null)
         {
+            if (pathError + pathCancelled > 0)
+                return $"{pathPass} passed / {pathFail} failed / {pathError} error / {pathCancelled} cancelled path(s).";
             return pathFail == 0
                 ? $"No failed steps ({pathPass} passed path(s))."
                 : $"{pathFail} failed path(s).";
         }
 
         var path = string.IsNullOrWhiteSpace(firstFail.StepPath) ? firstFail.StepId : firstFail.StepPath;
-        return $"First fail: {path} — {firstFail.Message} ({pathFail} failed path(s))";
+        var counts = pathError + pathCancelled > 0 ? $"{pathFail} failed / {pathError} error / {pathCancelled} cancelled path(s)" : $"{pathFail} failed path(s)";
+        return $"First nonpassing attempt in session: {path} — {firstFail.Message} ({counts})";
     }
 }

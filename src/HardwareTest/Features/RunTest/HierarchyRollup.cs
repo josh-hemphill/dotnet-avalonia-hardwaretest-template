@@ -105,10 +105,14 @@ public static class HierarchyRollup
         var completed = chips.Count(IsTerminalChip);
         var failed = chips.Count(c => c == "Fail");
 
+        if (chips.Contains("Error")) return ("Error", completed, total, failed);
+
         if (chips.Contains("Fail"))
         {
             return ("Fail", completed, total, failed);
         }
+
+        if (chips.Contains("Cancelled")) return ("Cancelled", completed, total, failed);
 
         if (chips.Contains("Awaiting"))
         {
@@ -129,5 +133,5 @@ public static class HierarchyRollup
     }
 
     private static bool IsTerminalChip(string chip)
-        => chip is "Pass" or "Fail";
+        => StatusChip.IsTerminal(chip);
 }

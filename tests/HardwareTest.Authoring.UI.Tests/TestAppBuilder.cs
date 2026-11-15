@@ -14,7 +14,11 @@ public static class TestAppBuilder
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<AuthoringTestApplication>()
             .WithInterFont()
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+            .UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions
+            {
+                UseHeadlessDrawing = string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY"))
+            });
 }
 
 public sealed class AuthoringTestApplication : Application
