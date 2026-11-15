@@ -49,7 +49,16 @@ public sealed class MockVisaSession : IVisaSession
                 return Task.FromResult(response);
             }
 
-            if (key.StartsWith("MEAS:VOLT", StringComparison.OrdinalIgnoreCase)
+            // Explicit alpha demo replies; these are simulated values, never device qualification.
+            if (key == ":MEAS:VOLT:DC? DEF,DEF") return Task.FromResult(ResourceName switch
+            {
+                "MOCK::AGILENT-OVERLOAD" => "+9.90000000E+37",
+                "MOCK::AGILENT-ZERO" => "+0.00000000E+00",
+                _ => "+1.25000000E+00"
+            });
+            if (key.Equals(":SOUR:FREQ?", StringComparison.OrdinalIgnoreCase) || key.Equals(":MEASure:FREQuency?", StringComparison.OrdinalIgnoreCase)) return Task.FromResult("1000");
+            if (key.StartsWith(":MEASure:VPP? CHAN", StringComparison.OrdinalIgnoreCase)) return Task.FromResult("1.25");
+            if (key.StartsWith(":MEAS:VOLT", StringComparison.OrdinalIgnoreCase) || key.StartsWith("MEAS:VOLT", StringComparison.OrdinalIgnoreCase)
                 || key.StartsWith("READ?", StringComparison.OrdinalIgnoreCase))
             {
                 _phase += 0.2;
@@ -110,11 +119,20 @@ public sealed class IviVisaSessionFactory : IVisaSessionFactory
                     $"Resource '{resourceName}' is not a message-based VISA session.");
             }
 
-            messageSession.TimeoutMilliseconds = _ioTimeoutMilliseconds;
-            IVisaSession session = new TracingVisaSession(
-                new IviMessageVisaSession(messageSession),
-                _gate);
-            return Task.FromResult(session);
+            try
+            {
+                messageSession.TimeoutMilliseconds = _ioTimeoutMilliseconds;
+                messageSession.SendEndEnabled = true;
+                messageSession.TerminationCharacter = (byte)'\n';
+                messageSession.TerminationCharacterEnabled = true;
+                IVisaSession session = new TracingVisaSession(new IviMessageVisaSession(messageSession), _gate);
+                return Task.FromResult(session);
+            }
+            catch
+            {
+                try { messageSession.Dispose(); } catch (Exception) { }
+                throw;
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -150,7 +168,7 @@ internal sealed class IviMessageVisaSession : IVisaSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         var payload = command.EndsWith('\n') ? command : command + "\n";
-        _session.FormattedIO.Write(payload);
+        _session.RawIO.Write(System.Text.Encoding.UTF8.GetBytes(payload));
         cancellationToken.ThrowIfCancellationRequested();
         return Task.CompletedTask;
     }
@@ -159,9 +177,15 @@ internal sealed class IviMessageVisaSession : IVisaSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         var payload = command.EndsWith('\n') ? command : command + "\n";
-        _session.FormattedIO.Write(payload);
+        _session.RawIO.Write(System.Text.Encoding.UTF8.GetBytes(payload));
         cancellationToken.ThrowIfCancellationRequested();
-        var response = _session.FormattedIO.ReadString().TrimEnd('\r', '\n');
+        // One bounded complete message, preserving spaces in identities and CSV bodies.
+        // A count-limited formatted ReadString stops at whitespace and can split an IDN.
+        const int maximumResponseBytes = 1_048_576;
+        var bytes = _session.RawIO.Read(maximumResponseBytes + 1L, out var status);
+        if (bytes.Length > maximumResponseBytes || status is not (global::Ivi.Visa.ReadStatus.EndReceived or global::Ivi.Visa.ReadStatus.TerminationCharacterEncountered))
+            throw new IOException("VISA response exceeded the complete-message bound. Close the connection and resynchronize before retrying.");
+        var response = new System.Text.UTF8Encoding(false, true).GetString(bytes).TrimEnd('\r', '\n');
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(response);
     }

@@ -19,6 +19,8 @@ public sealed class OpenTapInstrumentSlot
     public required string TypeName { get; init; }
     public required string RoleHint { get; init; }
     public string ResourceName { get; set; } = string.Empty;
+    public string ConfigurationIssue { get; init; } = string.Empty;
+    public bool? SupportsIdentityQuery { get; init; }
 }
 
 public sealed class OpenTapProgress

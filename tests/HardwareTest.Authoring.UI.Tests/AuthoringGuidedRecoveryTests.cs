@@ -387,7 +387,7 @@ public sealed class AuthoringGuidedRecoveryTests
         if (library)
         {
             var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-            workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
+            workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
             AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         }
         fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;

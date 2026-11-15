@@ -1,5 +1,7 @@
 # Testing
 
+Current split-library setup and migration: [Instrument alpha workflows](instrument-alpha-workflows.md).
+
 UI/board tests stay separate from OpenTAP plan-behavior tests. Both share the OpenTAP session contract (aggregating `IOpenTapSession` and focused surfaces); Avalonia Feature ViewModels inject the narrow `IOpenTap*` surfaces.
 
 | Suite | Purpose | OpenTAP | Emulation |
@@ -115,4 +117,4 @@ deno run -A tools/ci/main.ts audit
 dotnet test dirs.proj -r win-x64 -m:1
 ```
 
-Instrument Components catalog, editor, lifecycle serialization, cold-import and wrapped recovery tests run against the bundled published 0.1.1 archive by default, without an upstream build. `HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT` and `HARDWARETEST_LIBRARY_TEST_ARCHIVE` remain optional fixture overrides for compatibility investigations.
+Instrument Components catalog, editor, lifecycle serialization, cold-import and wrapped recovery tests run against the bundled published 0.3.0-alpha.1 archive by default, without an upstream build. `HARDWARETEST_LIBRARY_TEST_PACKAGE_ROOT` and `HARDWARETEST_LIBRARY_TEST_ARCHIVE` remain optional fixture overrides for compatibility investigations.

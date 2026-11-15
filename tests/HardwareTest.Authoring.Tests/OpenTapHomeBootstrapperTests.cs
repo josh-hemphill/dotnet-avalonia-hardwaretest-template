@@ -71,7 +71,7 @@ public sealed class OpenTapHomeBootstrapperTests
                     { "package": "OpenTAP", "version": "^9.32.2" },
                     { "package": "HardwareTest Basic", "version": "^0.1.0" },
                     { "package": "HardwareTest Mixins", "version": "^0.1.0" },
-                    { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+                    { "package": "InstrumentComponents.OpenTap", "version": "0.3.0-alpha.1" }
                   ],
                   "includeTui": false
                 }
@@ -81,7 +81,7 @@ public sealed class OpenTapHomeBootstrapperTests
             var home = new OpenTapHomeBootstrapper().Bootstrap(workspace,
                 new BootstrapOptions { HomeDirectory = NewTempDir(), Offline = true });
             Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home),
-                package => package.Name == HardwareTest.OpenTap.Host.PublishedInstrumentComponents.PackageName && package.Version == "0.1.1");
+                package => package.Name == HardwareTest.OpenTap.Host.PublishedInstrumentComponents.PackageName && package.Version == "0.3.0-alpha.1");
             Assert.True(File.Exists(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")));
             var provenance = File.ReadAllText(Path.Combine(home.Root, "Packages", "InstrumentComponents.OpenTap", "hardwaretest-provenance.json"));
             Assert.Contains(HardwareTest.OpenTap.Host.PublishedInstrumentComponents.Origin, provenance);
@@ -111,7 +111,7 @@ public sealed class OpenTapHomeBootstrapperTests
               "instrumentComponentsPackage": "packs/ic",
               "dependencies": [
                 { "package": "OpenTAP", "version": "^9.32.2" },
-                { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+                { "package": "InstrumentComponents.OpenTap", "version": "0.3.0-alpha.1" }
               ]
             }
             """);
@@ -141,7 +141,7 @@ public sealed class OpenTapHomeBootstrapperTests
               "package": { "name": "With IC", "version": "0.1.0" },
               "dependencies": [
                 { "package": "OpenTAP", "version": "^9.32.2" },
-                { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+                { "package": "InstrumentComponents.OpenTap", "version": "0.3.0-alpha.1" }
               ]
             }
             """);
@@ -166,7 +166,7 @@ public sealed class OpenTapHomeBootstrapperTests
 
     private static void CopyLibraryInput(string destination)
     {
-        foreach (var file in new[] { "package.xml", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
+        foreach (var file in new[] { "package.xml", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(destination, file));
     }
 

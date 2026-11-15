@@ -19,6 +19,11 @@
 == Notes
 #sys.inputs.notes
 
+#if sys.inputs.measurementOutcomes != "" [
+  == Measurement validity
+  #sys.inputs.measurementOutcomes
+]
+
 #if sys.inputs.result == "Passed" [
   #text(fill: green)[*PASS*]
 ] else [

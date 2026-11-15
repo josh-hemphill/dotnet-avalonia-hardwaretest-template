@@ -129,7 +129,7 @@ public sealed class EnvironmentPresentationTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-        workspace.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
+        workspace.Manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         var home = new OpenTapHomeBootstrapper().Bootstrap(workspace, new()
         {
             HomeDirectory = Path.Combine(workspace.Root, "prepared-home"),

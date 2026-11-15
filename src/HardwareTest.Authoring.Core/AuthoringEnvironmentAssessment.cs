@@ -133,7 +133,7 @@ public static class AuthoringEnvironmentAssessment
 
     private static readonly string[] RuntimeFileNames = ["OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json"];
 
-    private static string? ExistingContainedFile(string root, string path)
+    internal static string? ExistingContainedFile(string root, string path)
     {
         AuthoringBuildService.EnsureContained(root, path);
         var target = AuthoringBuildService.ResolvedPath(path, directory: false);

@@ -159,7 +159,12 @@ internal sealed class AuthoringUiFixture : IDisposable
         Drain();
         Assert.True(box.Focus());
         box.SelectAll();
-        TopLevel.GetTopLevel(box)!.KeyTextInput(text);
+        if (text.Length == 0)
+        {
+            TopLevel.GetTopLevel(box)!.KeyPress(Avalonia.Input.Key.Back, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Backspace, null);
+            TopLevel.GetTopLevel(box)!.KeyRelease(Avalonia.Input.Key.Back, Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PhysicalKey.Backspace, null);
+        }
+        else TopLevel.GetTopLevel(box)!.KeyTextInput(text);
         Drain();
         // Moving focus also commits bindings whose source trigger is LostFocus.
         var focusTarget = TopLevel.GetTopLevel(box) is Window { Title: "Add a step" } palette

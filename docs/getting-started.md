@@ -214,7 +214,7 @@ tap package install path/to/HardwareTest\ Basic*.TapPackage
 tap package install path/to/HardwareTest\ Mixins*.TapPackage
 ```
 
-For product plans, also install **InstrumentComponents.OpenTap** (typed SCPI instruments and function steps). Build that pack from the [instrument-components](https://josh-hemphill.github.io/instrument-components/csharp/opentap/) repo — this template does not ship it. Then:
+For product plans, declare **InstrumentComponents.OpenTap 0.3.0-alpha.1** in Environment, Save all, then **Prepare authoring environment**. The tools bundle the verified alpha archive and the five independent vendor packages; no upstream build is required. Use **Registered vendor device**, select the exact vendor/model and review its advertised operations and inventory. See [the alpha workflow and migration guide](instrument-alpha-workflows.md). Then:
 
 ```bash
 tap package install path/to/InstrumentComponents.OpenTap*.TapPackage
@@ -224,7 +224,7 @@ Optional: **Expressions** when the plan uses expression steps (`^1.5.0` is OpenT
 
 Restart TUI after installing packs so the step list refreshes. On the bench, confirm **Settings → OpenTAP packages & plugins**. Pack build details: [adapting.md](adapting.md#authoring-packs).
 
-In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/opentap/sample.TapPlan) and Save As). Add three **Test Group** steps (`HardwareTest` group): `Setup`, a measure group, and `Cleanup`. Add **one instrument resource per box**. Product plans: pick a typed *Instrument Components* instrument. In-repo demos use **Mock DMM**. Keep **`VisaAddress`** writable. Save as `{planId}.TapPlan` under `plans/opentap/` (copied to `Programs/` on build). Attach Presentation by hand (**Add Mixin** → **Presentation**). Then `--compat` / `--pack` as in [§6](#6-validate-pack-then-run-in-the-operator-shell).
+In TUI: **New** test plan (or open [`plans/opentap/sample.TapPlan`](../plans/opentap/sample.TapPlan) and Save As). Add three **Test Group** steps (`HardwareTest` group): `Setup`, a measure group, and `Cleanup`. Add **one instrument resource per box**. Product plans: pick a *Registered vendor device* and configure its exact model. In-repo demos use **Mock DMM**. Keep **`VisaAddress`** writable. Save as `{planId}.TapPlan` under `plans/opentap/` (copied to `Programs/` on build). Attach Presentation by hand (**Add Mixin** → **Presentation**). Then `--compat` / `--pack` as in [§6](#6-validate-pack-then-run-in-the-operator-shell).
 
 `--compat` compares the authoring catalog and a Load/Save round-trip against a TUI-equipped home. CI: `deno run -A tools/ci/main.ts test:authoring-compat`.
 

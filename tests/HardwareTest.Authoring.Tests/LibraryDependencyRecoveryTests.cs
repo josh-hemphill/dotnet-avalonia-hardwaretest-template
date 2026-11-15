@@ -27,7 +27,7 @@ public sealed class LibraryDependencyRecoveryTests : IDisposable
         Assert.True(vm.SaveAll().Succeeded);
         Assert.False(vm.HasUnsavedChanges);
         vm.Open(_root);
-        Assert.Contains(vm.Workspace!.Manifest.Dependencies, d => d.Package == AuthoringInstrumentCatalog.LibraryPackage && d.Version == "^0.1.0");
+        Assert.Contains(vm.Workspace!.Manifest.Dependencies, d => d.Package == AuthoringInstrumentCatalog.LibraryPackage && d.Version == "0.3.0-alpha.1");
         Assert.Contains(new AuthoringDocumentStore(_root).LoadWorkspace().Document!.Manifest.Dependencies, d => d.Package == AuthoringInstrumentCatalog.LibraryPackage);
     }
 

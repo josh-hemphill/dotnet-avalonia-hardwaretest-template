@@ -30,12 +30,14 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
 
-    [Fact]
-    public void Unsupported_selected_dependency_versions_fail_preparation_and_preserve_home()
+    [Theory]
+    [InlineData("0.1.0")]
+    [InlineData("0.1.1")]
+    public void Unsupported_selected_dependency_versions_fail_preparation_and_preserve_home(string legacyVersion)
     {
         var home = Prepare(Workspace());
         var metadata = Path.Combine(home.Root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
-        File.WriteAllText(metadata, File.ReadAllText(metadata).Replace("Version=\"0.1.1\"", "Version=\"0.1.0\"", StringComparison.Ordinal));
+        File.WriteAllText(metadata, File.ReadAllText(metadata).Replace("Version=\"0.3.0-alpha.1\"", $"Version=\"{legacyVersion}\"", StringComparison.Ordinal));
         var before = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace(), "missing-override.TapPackage"));
         Assert.Contains("unsupported", error.Message);
@@ -339,7 +341,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
     public void Genuine_catalog_owned_library_is_reused_by_broker_execution_without_a_selected_root()
     {
         var home = Prepare(Workspace());
-        Assert.Equal(8, AuthoringInstrumentCatalog.Discover(home).Count);
+        Assert.Equal(13, AuthoringInstrumentCatalog.Discover(home).Count);
         var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
         new OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker(), enablePhysicalExecution: true).EnsurePlugins();
         Assert.Same(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName));

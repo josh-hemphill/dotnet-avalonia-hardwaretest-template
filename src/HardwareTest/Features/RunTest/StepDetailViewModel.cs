@@ -126,7 +126,8 @@ public partial class StepDetailViewModel : ReactiveObject
             foreach (var attempt in ledger.Attempts)
             {
                 AttemptHistoryLines.Add(
-                    $"#{attempt.AttemptNumber} {(attempt.Passed ? "PASS" : "FAIL")} — {attempt.Message} @ {attempt.CompletedAt:u}");
+                    $"#{attempt.AttemptNumber} {attempt.OutcomeLabel.ToUpperInvariant()} — {attempt.Message} @ {attempt.CompletedAt:u}" +
+                    (string.IsNullOrWhiteSpace(attempt.OutcomeDetail) ? "" : " — " + attempt.OutcomeDetail));
             }
         }
         else if (!string.IsNullOrWhiteSpace(step.AttemptsText))

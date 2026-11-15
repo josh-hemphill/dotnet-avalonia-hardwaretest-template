@@ -89,6 +89,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var operationHomeSetting = Prefs.OpenTapHomeOverride;
         var checkedBuildIdentity = kind == AuthoringOperationKind.Pack ? CurrentBuildIdentity() : null;
         OperationBusy = true;
+        Status = "Authoring operation in progress.";
         Error = null;
         try
         {

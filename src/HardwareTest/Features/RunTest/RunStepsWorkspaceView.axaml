@@ -71,9 +71,9 @@
                     CommandParameter="{x:Static vm:StepStatusFilter.All}" />
       <ToggleButton Classes="filter-chip" Content="Needs attention"
                     Margin="0,0,4,4"
-                    IsChecked="{Binding StepTree.IsFilterFail, Mode=OneWay}"
+                    IsChecked="{Binding StepTree.IsFilterAttention, Mode=OneWay}"
                     Command="{Binding StepTree.SetStepFilterCommand}"
-                    CommandParameter="{x:Static vm:StepStatusFilter.Fail}" />
+                    CommandParameter="{x:Static vm:StepStatusFilter.Attention}" />
       <Border CornerRadius="4"
               Padding="8,2"
               Background="{Binding StepTree.StepStatusFilter, Converter={x:Static vm:ChipBrushConverter.BannerFill}}"
@@ -111,6 +111,8 @@
             <MenuItem Header="Show pending"
                       Command="{Binding StepTree.SetStepFilterCommand}"
                       CommandParameter="{x:Static vm:StepStatusFilter.Pending}" />
+            <MenuItem Header="Show errors" Command="{Binding StepTree.SetStepFilterCommand}" CommandParameter="{x:Static vm:StepStatusFilter.Error}" />
+            <MenuItem Header="Show cancelled steps" Command="{Binding StepTree.SetStepFilterCommand}" CommandParameter="{x:Static vm:StepStatusFilter.Cancelled}" />
             <MenuItem Header="Search steps" Command="{Binding StepTree.FocusStepSearchCommand}" />
           </MenuFlyout>
         </Button.Flyout>

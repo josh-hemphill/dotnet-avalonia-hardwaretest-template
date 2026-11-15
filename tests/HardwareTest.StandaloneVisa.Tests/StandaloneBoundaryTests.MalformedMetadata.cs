@@ -25,7 +25,7 @@ public sealed partial class StandaloneBoundaryTests
         {
             "dtd" => "<!DOCTYPE Package [<!ENTITY name 'InstrumentComponents.OpenTap'>]><Package Name=\"&name;\"/>",
             "oversized" => "<Package Name=\"InstrumentComponents.OpenTap\"><Description>" + new string('x', 1_048_577) + "</Description></Package>",
-            _ => "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.1.1\"><Files>",
+            _ => "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"><Files>",
         };
         File.WriteAllText(Path.Combine(plugins, "package.xml"), content);
         var before = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)

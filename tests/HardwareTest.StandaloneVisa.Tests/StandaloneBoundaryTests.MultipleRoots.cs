@@ -59,8 +59,8 @@ public sealed partial class StandaloneBoundaryTests
                     using (var stream = new MemoryStream(bytes, writable: false))
                     using (var pe = new PEReader(stream))
                         versionOffset = pe.PEHeaders.MetadataStartOffset + pe.GetMetadataReader().GetTableMetadataOffset(TableIndex.Assembly) + sizeof(uint);
-                    bytes[versionOffset + 4] = 0;
-                    bytes[versionOffset + 5] = 0;
+                    bytes[versionOffset + 2] = 1;
+                    bytes[versionOffset + 3] = 0;
                 }
                 else
                     bytes = [.. bytes, 1];
@@ -86,7 +86,7 @@ public sealed partial class StandaloneBoundaryTests
             "duplicate-metadata" => "noncanonical or duplicate installed package identities",
             "stale-hash" => "does not match its package metadata hash",
             "malformed-hash" => "Malformed library payload hash",
-            "wrong-version" => "requires current 0.1.1 library assemblies",
+            "wrong-version" => "requires current 0.3.0-alpha.1 library assemblies",
             _ => "Configured execution roots contain different Instrument Components payloads"
         }, result.Output);
         var after = new[] { first, second }.SelectMany(home => Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories))
@@ -112,7 +112,7 @@ public sealed partial class StandaloneBoundaryTests
         Directory.CreateDirectory(Path.Combine(second, "Plugins", "Alias"));
         File.WriteAllText(Path.Combine(first, "notes.txt"), "contained-plugin-data");
         var metadata = Path.Combine(second, "Plugins", "Alias", "package.xml");
-        File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.1.1\"/>");
+        File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"/>");
         var original = File.ReadAllBytes(metadata);
         var roots = reverseOrder ? new[] { second, first } : new[] { first, second };
         var result = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);

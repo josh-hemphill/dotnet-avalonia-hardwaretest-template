@@ -1345,7 +1345,7 @@ public sealed class ResultsViewModelTests
         Assert.True(vm.ShowFailedStepsOnly);
         Assert.True(vm.HasFirstFail);
         Assert.Contains("Bad", vm.FirstFailSummary, StringComparison.Ordinal);
-        Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("First nonpassing session attempt", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("2 (1F/1P)", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
         Assert.DoesNotContain(vm.StepDetails, line => line.Contains("[Id]", StringComparison.Ordinal) && line.Contains("PASS"));
@@ -1407,7 +1407,7 @@ public sealed class ResultsViewModelTests
         await vm.OpenRunByIdAsync("retry-fail");
 
         Assert.True(vm.HasFirstFail);
-        Assert.Contains(vm.StepDetails, line => line.Contains("First fail", StringComparison.Ordinal));
+        Assert.Contains(vm.StepDetails, line => line.Contains("First nonpassing session attempt", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("#1 FAIL", StringComparison.Ordinal));
         Assert.Contains(vm.StepDetails, line => line.Contains("#2 FAIL", StringComparison.Ordinal));
     }

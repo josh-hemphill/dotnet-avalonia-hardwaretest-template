@@ -93,13 +93,13 @@ public sealed class ExplicitSlotBindingTests
     }
 
     [Fact]
-    public async Task Worker_opens_genuine_current_library_using_mock_broker_and_embedded_registry()
+    public async Task Worker_opens_genuine_current_library_using_mock_broker_and_explicit_driver()
     {
         using var temporary = new TempDataDirectory();
         var assembly = PublishedLibraryFixture.Assembly;
         var instrument = PublishedLibraryFixture.CreateDmm();
         var plan = new TestPlan();
-        foreach (var name in new[] { "IdentityQueryStep", "SafeShutdownStep" })
+        foreach (var name in new[] { "IdentityQueryStep", "DmmMeasureScalarStep" })
         {
             var step = (TestStep)Activator.CreateInstance(assembly.GetType("InstrumentComponents.OpenTap." + name, true)!)!;
             step.GetType().GetProperty("Instrument")!.SetValue(step, instrument);

@@ -4,10 +4,10 @@ using HardwareTest.Core.Hardware;
 namespace HardwareTest.OpenTap.Host;
 
 /// Binds HardwareTest <see cref="IVisaBroker"/> onto InstrumentComponents.OpenTap without a compile-time package reference.
-/// When the library pack is loaded, <c>OpenTapScpiIo.Provider</c> opens sessions through the process broker.
+/// When the library pack is loaded, <c>OpenTapDevices.Provider</c> opens sessions through the process broker.
 internal static class InstrumentComponentsScpiIo
 {
-    internal const string OpenTapScpiIoTypeName = "InstrumentComponents.OpenTap.OpenTapScpiIo";
+    internal const string OpenTapScpiIoTypeName = "InstrumentComponents.OpenTap.OpenTapDevices";
 
     public static bool TryRegisterProvider(IVisaBroker broker)
     {
@@ -27,6 +27,7 @@ internal static class InstrumentComponentsScpiIo
         var providerType = Nullable.GetUnderlyingType(providerProperty.PropertyType) ?? providerProperty.PropertyType;
         var provider = ScpiIoProviderProxy.Create(providerType, broker);
         providerProperty.SetValue(null, provider);
+        BrokerDeviceConnector.Register(broker);
         return true;
     }
 
@@ -74,6 +75,14 @@ internal static class InstrumentComponentsScpiIo
                 return null;
             }
 
+            if (targetMethod.Name == "Open" && args is { Length: 3 })
+            {
+                var selection = (global::InstrumentComponents.Runtime.DriverSelection)args[2]!;
+                var timeout = (TimeSpan)args[1]!;
+                return global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.Open(
+                    new(selection.DriverId ?? string.Empty, (string)args[0]!, TimeoutMilliseconds: ClampTimeout(timeout)),
+                    new BrokerDeviceConnector(_broker, timeout));
+            }
             if (targetMethod.Name == "Open" && args is { Length: 2 })
             {
                 var address = args[0] as string

@@ -56,7 +56,7 @@ public static partial class AuthoringSequenceOperations
             {
                 var instrument = draft.Instruments.FirstOrDefault(i => string.Equals(i.SlotName, identity.InstrumentSlot, StringComparison.OrdinalIgnoreCase))
                     ?? throw Fail("Select a configured instrument slot for Identity Check.");
-                AuthoringInstrumentCatalog.EnsureCompatible(instrument.TypeId, AuthoringFunctionIds.BasicIdentityCheck);
+                AuthoringInstrumentCatalog.EnsureCompatible(instrument, AuthoringFunctionIds.BasicIdentityCheck);
             }
             var at = target is null ? draft.Setup.Count : target.IndexPath[0] + (before ? 0 : 1);
             return draft with { Setup = [.. draft.Setup.Take(at), appended.Setup[^1], .. draft.Setup.Skip(at)] };
@@ -78,7 +78,7 @@ public static partial class AuthoringSequenceOperations
             {
                 var instrument = draft.Instruments.FirstOrDefault(i => string.Equals(i.SlotName, binding.Item2, StringComparison.OrdinalIgnoreCase))
                     ?? throw Fail("Select a configured instrument slot for this recipe.");
-                AuthoringInstrumentCatalog.EnsureCompatible(instrument.TypeId, binding.Item1);
+                AuthoringInstrumentCatalog.EnsureCompatible(instrument, binding.Item1);
             }
         }
         var updated = draft with

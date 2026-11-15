@@ -45,6 +45,17 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (metric.Source is AlgorithmSource algorithm
                     && AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
                     errors.Add(inputIssue);
+                if (metric.Source is MeasureSource { FunctionId: var function } device && function.StartsWith("Device.", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var request = global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationRequests.Create(function[7..], device.Settings.GetValueOrDefault("Arguments") ?? string.Empty);
+                        var instrument = Instruments.FirstOrDefault(item => item.SlotName == device.InstrumentSlot);
+                        if (instrument?.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId)
+                            global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.ValidateRequest(AuthoringInstrumentCatalog.DeviceBindingFor(instrument), request);
+                    }
+                    catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException) { errors.Add(error.Message); }
+                }
                 if (NeedsMetricInstrument && InstrumentBindingIssue(MetricInstrumentSlot, MetricFunctionId) is { } issue)
                     errors.Add(issue);
             }
@@ -58,7 +69,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var instrument = Instruments.FirstOrDefault(item => string.Equals(item.SlotName, slot, StringComparison.OrdinalIgnoreCase));
         if (instrument is null) return "Choose an existing instrument slot for this recipe.";
-        try { AuthoringInstrumentCatalog.EnsureCompatible(instrument.TypeId, functionId); }
+        try { AuthoringInstrumentCatalog.EnsureCompatible(instrument, functionId); }
         catch (AuthoringWorkspaceException ex) { return ex.Message; }
         return null;
     }

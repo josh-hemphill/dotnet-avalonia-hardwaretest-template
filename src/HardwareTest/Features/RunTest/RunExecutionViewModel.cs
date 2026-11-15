@@ -21,7 +21,7 @@ using StepFilter = HardwareTest.Features.RunTest.StepStatusFilter;
 namespace HardwareTest.Features.RunTest;
 
 /// Run / Run Selected / Cancel pipeline: station binding, execution, attempt ledger, persistence and reports.
-public sealed class RunExecutionViewModel
+public sealed partial class RunExecutionViewModel
 {
     private readonly IRunBoardHost _host;
     private readonly IOpenTapRunSession _runSession;
@@ -317,6 +317,7 @@ public sealed class RunExecutionViewModel
                 PlanId = program.Id,
                 RoleHint = s.RoleHint,
                 TypeName = s.TypeName,
+                ConfigurationIssue = s.ConfigurationIssue,
                 EffectiveResource = resource,
             };
         }).ToList();
@@ -525,23 +526,6 @@ public sealed class RunExecutionViewModel
         }
     }
 
-    private string BuildCompletionStatus(
-        bool selectionOnly,
-        string? selectionPath,
-        string? selectionName,
-        OpenTapRunSummary summary)
-    {
-        if (selectionOnly && !string.IsNullOrWhiteSpace(selectionPath))
-        {
-            _attemptLedger.TryGetValue(selectionPath, out var ledger);
-            var attemptNo = ledger?.AttemptCount ?? 1;
-            var badge = ledger?.Display ?? $"{attemptNo}";
-            return $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
-        }
-
-        return $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {ShortId.Display(summary.RunId)}.";
-    }
-
     private void RecordAttempts(OpenTapRunSummary summary)
     {
         foreach (var step in summary.Steps)
@@ -570,6 +554,7 @@ public sealed class RunExecutionViewModel
                 AttemptNumber = ledger.AttemptCount + 1,
                 Passed = step.Passed,
                 Message = step.Message,
+                OutcomeDetail = step.OutcomeDetail,
                 StartedAt = step.StartedAt,
                 CompletedAt = step.CompletedAt,
             });
@@ -578,7 +563,7 @@ public sealed class RunExecutionViewModel
             {
                 ledger.PassedCount++;
             }
-            else
+            else if (step.OutcomeLabel == "Fail")
             {
                 ledger.FailedCount++;
             }

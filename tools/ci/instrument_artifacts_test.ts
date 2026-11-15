@@ -15,8 +15,8 @@ Deno.test("release verifier accepts a genuine external archive with an absent de
       projectRoot,
       "obj",
       "published-instrument-components",
-      "0.1.1",
-      "InstrumentComponents.OpenTap.0.1.1.TapPackage",
+      "0.3.0-alpha.1",
+      "InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage",
     );
     const archive = join(temporary, "external.TapPackage");
     await Deno.copyFile(supplied, archive);
@@ -42,8 +42,8 @@ Deno.test("release verifier accepts a genuine external archive with an absent de
             host,
             "obj",
             "published-instrument-components",
-            "0.1.1",
-            "InstrumentComponents.OpenTap.0.1.1.TapPackage",
+            "0.3.0-alpha.1",
+            "InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage",
           ),
         ),
       Deno.errors.NotFound,

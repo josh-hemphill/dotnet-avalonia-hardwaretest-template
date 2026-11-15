@@ -5,10 +5,13 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using HardwareTest;
+using HardwareTest.Core.Engine;
+using HardwareTest.Core.Settings;
 using HardwareTest.Features;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
+using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using Xunit;
@@ -45,6 +48,33 @@ internal static class E2EHarness
         window.Show();
         WaitForStartup(MainVm(window));
         return new ShownMainWindow(window);
+    }
+
+    /// Production shell and run board with the real in-process host, allowing a
+    /// test-owned broker to hold an instrument reply without modifying the worker.
+    public static ShownMainWindow ShowMainWindowWithSession(IOpenTapSession session)
+    {
+        var app = RequireApp();
+        var services = new SessionServices(app.Services, session);
+        services.Run = ActivatorUtilities.CreateInstance<RunTestViewModel>(services);
+        var main = ActivatorUtilities.CreateInstance<MainWindowViewModel>(services);
+        var window = new MainWindow(main, app.Services.GetRequiredService<ISettingsStore>());
+        window.Show();
+        WaitForStartup(main);
+        return new ShownMainWindow(window);
+    }
+
+    private sealed class SessionServices(IServiceProvider application, IOpenTapSession session) : IServiceProvider
+    {
+        public RunTestViewModel? Run;
+        private readonly OperatorSession _operator = new();
+        public object? GetService(Type type)
+            => type == typeof(IOpenTapSession) || type == typeof(IOpenTapPlanSession)
+                || type == typeof(IOpenTapRunSession) || type == typeof(IOpenTapStationSession)
+                || type == typeof(IOpenTapHostCatalog) ? session
+                : type == typeof(RunTestViewModel) ? Run
+                : type == typeof(OperatorSession) ? _operator
+                : application.GetService(type);
     }
 
     public static void Close(Window window)

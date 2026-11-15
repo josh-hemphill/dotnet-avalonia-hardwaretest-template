@@ -19,13 +19,14 @@ internal static class ExecutionInstrumentLibrary
         var loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
         if (loaded is not null && selected is null)
         {
-            var contract = VerifyContract(loaded);
-            var assemblies = new[] { contract, loaded };
+            _ = VerifyContract(loaded);
+            var loadedDirectory = OwnedInstrumentLibrary.Directory(loaded);
+            var assemblies = Files.Where(IsOwnedPlugin).Select(file => AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == Path.GetFileNameWithoutExtension(file))).ToArray();
             var bundled = BundledPayload();
             for (var i = 0; i < assemblies.Length; i++)
-                if (!OwnedInstrumentLibrary.Fingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[i])))
-                    throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.1.1 payload. Configure a trusted installed home to use a custom library.");
-            return OwnedInstrumentLibrary.Directory(loaded);
+                if (!OwnedInstrumentLibrary.Fingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[Array.IndexOf(Files, assemblies[i].GetName().Name + ".dll")])))
+                    throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.3.0-alpha.1 payload. Configure a trusted installed home to use a custom library.");
+            return loadedDirectory;
         }
 
         var bytes = selected is null ? BundledPayload() : selected;
@@ -50,13 +51,16 @@ internal static class ExecutionInstrumentLibrary
             var path = Path.Combine(directory, Files[i]);
             if (!SHA256.HashData(File.ReadAllBytes(path)).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new IOException("The staged execution library changed.");
+            if (!IsOwnedPlugin(Files[i])) continue; // SDK dependencies use the locked application graph; TAP copies remain validated for standalone homes.
             var assembly = OwnedInstrumentLibrary.Load(bytes[i], path);
             if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
-            if (i == 1) VerifyContract(assembly);
+            if (i == Files.Length - 1) VerifyContract(assembly);
         }
         return directory;
     }
+
+    private static bool IsOwnedPlugin(string file) => file is "InstrumentComponents.dll" or "InstrumentComponents.OpenTap.dll";
 
     private static void ValidateAssemblyIdentities(byte[][] payloads)
     {
@@ -74,12 +78,12 @@ internal static class ExecutionInstrumentLibrary
                     throw new BadImageFormatException("Payload is not a managed assembly.");
                 var identity = metadata.GetAssemblyDefinition();
                 if (metadata.GetString(identity.Name) != Path.GetFileNameWithoutExtension(Files[i])
-                    || identity.Version != new Version(0, 1, 1, 0))
-                    throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies.");
+                    || identity.Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+                    throw new InvalidOperationException("Instrument Components execution requires current 0.3.0-alpha.1 library assemblies.");
             }
             catch (BadImageFormatException error)
             {
-                throw new InvalidOperationException("Instrument Components execution requires current 0.1.1 library assemblies; malformed payload: " + Files[i], error);
+                throw new InvalidOperationException("Instrument Components execution requires current 0.3.0-alpha.1 library assemblies; malformed payload: " + Files[i], error);
             }
         }
     }
@@ -117,15 +121,15 @@ internal static class ExecutionInstrumentLibrary
     {
         var identity = assembly.GetName();
         var provider = assembly.GetType(InstrumentComponentsScpiIo.OpenTapScpiIoTypeName)?.GetProperty("Provider", BindingFlags.Public | BindingFlags.Static);
-        var open = provider?.PropertyType.GetMethod("Open", [typeof(string), typeof(TimeSpan)]);
-        if (identity.Name != PublishedInstrumentComponents.PackageName || identity.Version != new Version(0, 1, 1, 0)
+        var open = provider?.PropertyType.GetMethods().SingleOrDefault(method => method.Name == "Open" && method.GetParameters().Length == 3);
+        if (identity.Name != PublishedInstrumentComponents.PackageName || identity.Version != new Version(PublishedInstrumentComponents.AssemblyVersion)
             || provider is null || !provider.CanWrite || !provider.PropertyType.IsInterface
-            || provider.PropertyType.FullName != "InstrumentComponents.OpenTap.IOpenTapScpiIoProvider"
+            || provider.PropertyType.FullName != "InstrumentComponents.OpenTap.IOpenTapDeviceProvider"
             || provider.PropertyType.Assembly != assembly
-            || open is null || open.ReturnType.FullName != "InstrumentComponents.Scpi.IScpiIo" || !open.ReturnType.IsInterface
-            || open.ReturnType.Assembly.GetName().Name != "InstrumentComponents"
-            || open.ReturnType.Assembly.GetName().Version != new Version(0, 1, 1, 0))
-            throw new InvalidOperationException("The selected Instrument Components library does not support the current 0.1.1 broker-managed execution contract.");
+            || open is null || open.ReturnType.FullName != "InstrumentComponents.Runtime.DeviceHandle" || !open.ReturnType.IsClass
+            || open.ReturnType.Assembly.GetName().Name != "InstrumentComponents.Runtime"
+            || open.ReturnType.Assembly.GetName().Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+            throw new InvalidOperationException("The selected Instrument Components library does not support the current 0.3.0-alpha.1 broker-managed execution contract.");
         return open.ReturnType.Assembly;
     }
 

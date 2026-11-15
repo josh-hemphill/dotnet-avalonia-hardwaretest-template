@@ -1,5 +1,6 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.OpenTap.Host;
+using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.Instruments;
@@ -12,6 +13,7 @@ public partial class InstrumentsViewModel
     [Reactive] private string _readinessSummary = string.Empty;
     [Reactive] private bool _showCommissionStrip = true;
     [Reactive] private int _commissionStepIndex;
+    private bool _hasBuiltPlanFilters;
 
     /// Applies a Run-board deep link (plan + first blocking slot).
     public void FocusProgram(string planId, string? slotName = null)
@@ -49,6 +51,7 @@ public partial class InstrumentsViewModel
 
     private void RebuildPlanFilters()
     {
+        var currentFilter = PlanFilter;
         var names = SlotOverrides
             .Select(s => s.PlanDisplayName)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -59,6 +62,16 @@ public partial class InstrumentsViewModel
         foreach (var name in names)
         {
             PlanFilterOptions.Add(name);
+        }
+
+        // A refresh repairs the program being commissioned, even when the Run
+        // session is still associated with a different program.
+        var preserveFilter = _hasBuiltPlanFilters && PlanFilterOptions.Contains(currentFilter);
+        _hasBuiltPlanFilters = true;
+        if (preserveFilter)
+        {
+            PlanFilter = currentFilter;
+            return;
         }
 
         var sessionPlan = _operatorSession?.ProgramId;
@@ -99,46 +112,55 @@ public partial class InstrumentsViewModel
 
     private void PersistIdn(string resource, string raw, string summary)
     {
-        if (_idnStore is null || string.IsNullOrWhiteSpace(summary))
+        if (string.IsNullOrWhiteSpace(summary))
         {
             return;
         }
 
-        var slot = SlotOverrides.FirstOrDefault(s =>
-            !string.IsNullOrWhiteSpace(s.EffectiveResource)
-            && string.Equals(s.EffectiveResource, resource, StringComparison.OrdinalIgnoreCase));
-        if (slot is null)
+        if (BoundSlotForResource(resource) is { } slot)
         {
-            return;
+            slot.LastIdnSummary = summary;
+            _idnStore?.Upsert(new StationIdnRecord
+            {
+                PlanId = slot.PlanId,
+                SlotName = slot.SlotName,
+                Resource = resource,
+                IdnRaw = raw,
+                IdnSummary = summary,
+                QueriedAt = DateTimeOffset.UtcNow,
+            });
         }
-
-        slot.LastIdnSummary = summary;
-        _idnStore.Upsert(new StationIdnRecord
-        {
-            PlanId = slot.PlanId,
-            SlotName = slot.SlotName,
-            Resource = resource,
-            IdnRaw = raw,
-            IdnSummary = summary,
-            QueriedAt = DateTimeOffset.UtcNow,
-        });
     }
+
+    private SlotOverrideItemViewModel? BoundSlotForResource(string resource)
+        => SelectedSlot is { } selected && string.Equals(selected.EffectiveResource, resource, StringComparison.OrdinalIgnoreCase)
+            ? selected
+            : VisibleSlots.FirstOrDefault(slot => string.Equals(slot.EffectiveResource, resource, StringComparison.OrdinalIgnoreCase));
 
     private void RefreshCommission()
     {
+        this.RaisePropertyChanged(nameof(ShowDiscoverEmpty));
         var snapshots = VisibleSlots.Select(s => new StationSlotSnapshot
         {
             SlotName = s.SlotName,
             PlanId = s.PlanId,
             RoleHint = s.RoleHint,
             TypeName = s.TypeName,
+            ConfigurationIssue = s.ConfigurationIssue,
             EffectiveResource = s.EffectiveResource,
         }).ToList();
         var useMock = _visaModeController?.EffectiveUseMockVisa ?? _settingsStore.AppSettings.UseMockVisa;
         var report = StationReadinessEvaluator.Evaluate(snapshots, useMock);
         ReadinessSummary = report.OperatorSummary;
 
-        if (!HasDiscoveredVisa && !HasDiscoveredOpenTap)
+        var configuration = VisibleSlots.FirstOrDefault(slot => !string.IsNullOrWhiteSpace(slot.ConfigurationIssue));
+        if (configuration is not null)
+        {
+            CommissionStepIndex = 1; CommissionTitle = "Review device configuration";
+            CommissionHint = configuration.SlotName + ": " + configuration.ConfigurationIssue + " Correct the saved binding in Authoring, then refresh plan slots.";
+            ShowCommissionStrip = true; return;
+        }
+        if (!HasDiscoveredVisa && !HasDiscoveredOpenTap && VisibleSlots.Any(slot => slot.Readiness.Kind == StationSlotReadinessKind.Unbound))
         {
             CommissionStepIndex = 0;
             CommissionTitle = "1 · Discover";
@@ -158,12 +180,12 @@ public partial class InstrumentsViewModel
             return;
         }
 
-        var needsIdn = VisibleSlots.FirstOrDefault(s => !s.HasLastIdn);
+        var needsIdn = VisibleSlots.FirstOrDefault(s => s.SupportsIdentityQuery != false && !s.HasLastIdn);
         if (needsIdn is not null)
         {
             CommissionStepIndex = 2;
             CommissionTitle = "3 · Query *IDN?";
-            CommissionHint = $"{needsIdn.SlotName} is bound — Query *IDN? to record identity on this station (saved beside settings, not in AppSettings).";
+            CommissionHint = $"{needsIdn.SlotName} is bound — Query *IDN? to record identity for this address. Rebinding requires a new query.";
             ShowCommissionStrip = true;
             return;
         }
@@ -171,7 +193,9 @@ public partial class InstrumentsViewModel
         CommissionStepIndex = 3;
         CommissionTitle = report.CanRun ? "4 · Save & ready" : "4 · Save overrides";
         CommissionHint = report.CanRun
-            ? "Slots are ready. Save overrides if you changed any, then Go to Run."
+            ? VisibleSlots.Any(slot => slot.SupportsIdentityQuery == false)
+                ? "Identity query is not advertised for some devices. Verify model/asset labels using the device procedure; save overrides, then Go to Run."
+                : "Slots are ready. Save overrides if you changed any, then Go to Run."
             : report.OperatorSummary;
         ShowCommissionStrip = true;
     }

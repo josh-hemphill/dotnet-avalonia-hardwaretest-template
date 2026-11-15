@@ -7,7 +7,7 @@ namespace HardwareTest.OpenTap.Host;
 /// Shared installed-library declarations; readers enforce their own physical boundary.
 internal static class InstrumentLibraryMetadata
 {
-    internal static readonly string[] Files = ["InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
+    internal static readonly string[] Files = ["InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll"];
 
     internal static XElement[] Validate(XElement package, Func<string, byte[]> readPayload)
     {

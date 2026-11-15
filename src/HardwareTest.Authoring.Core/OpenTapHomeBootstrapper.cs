@@ -272,7 +272,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         var selectedLibrary = ListInstalledPackages(new(homeRoot)).FirstOrDefault(package =>
             package.Name.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));
         if (selectedLibrary is not null && selectedLibrary.Version.Split('+')[0] != PublishedInstrumentComponents.Version)
-            throw new AuthoringWorkspaceException("The selected Instrument Components dependency version is unsupported. Preparation requires InstrumentComponents.OpenTap 0.1.1.");
+            throw new AuthoringWorkspaceException("The selected Instrument Components dependency version is unsupported. Preparation requires InstrumentComponents.OpenTap 0.3.0-alpha.1.");
 
         var requirement = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, new(homeRoot))
             .First(package => package.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase));

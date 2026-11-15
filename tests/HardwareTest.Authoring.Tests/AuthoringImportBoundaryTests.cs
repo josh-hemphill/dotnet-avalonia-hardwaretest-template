@@ -15,7 +15,7 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
         var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "First", Version = "^1.0.0" });
-        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^0.1.0" });
+        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "0.3.0-alpha.1" });
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         using var coordinator = Coordinator();
         foreach (var name in new[] { "First", OpenTapHomeBootstrapper.InstrumentComponentsPackageName })
@@ -40,7 +40,8 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
             }
         }
         Assert.All(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Where(p => !p.Optional), p => Assert.True(p.Satisfied));
-        Assert.True(StandaloneVisaReadiness.Assess(home).Available);
+        var readiness = StandaloneVisaReadiness.Assess(home);
+        Assert.True(readiness.Available, readiness.ToString());
     }
 
     [Theory]
@@ -212,7 +213,7 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "Unpacked", Version = "^1.0.0" });
-        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^0.1.0" });
+        workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "0.3.0-alpha.1" });
         var folder = Path.Combine(root, "unpacked"); Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "package.xml"), "<Package Name=\"Unpacked\" Version=\"1.2.0\"><Files><File Path=\"payload.txt\"/></Files></Package>");
         File.WriteAllText(Path.Combine(folder, "payload.txt"), "complete owned package");

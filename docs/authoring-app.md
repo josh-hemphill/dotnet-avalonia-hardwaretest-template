@@ -1,5 +1,7 @@
 # Engineer authoring application
 
+Current split-library setup and migration: [Instrument alpha workflows](instrument-alpha-workflows.md).
+
 Status: **shipped**. The operator shell still does not edit plans. Primary path: [getting-started.md](getting-started.md). OpenTAP TUI / Editor is an optional escape hatch. This document is the architecture and stack record for `HardwareTest.Authoring` (not an `IShellApplication` on the appliance).
 
 This document records the architecture and stacked implementation for that **separate workstation app**. Walkthrough and commands live in [getting-started.md](getting-started.md).
@@ -126,7 +128,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
     { "package": "OpenTAP", "version": "^9.32.2" },
     { "package": "HardwareTest Basic", "version": "^0.2.0" },
     { "package": "HardwareTest Mixins", "version": "^0.1.0" },
-    { "package": "InstrumentComponents.OpenTap", "version": "^0.1.0" }
+    { "package": "InstrumentComponents.OpenTap", "version": "0.3.0-alpha.1" }
   ],
   "optionalDependencies": [
     { "package": "Expressions", "version": "^1.5.0", "when": "planUsesExpressions" }
@@ -138,7 +140,7 @@ Product-workspace example (this template’s golden `authoring.json` **omits** I
 }
 ```
 
-`instrumentComponentsPackage` optionally overrides the bundled release with a trusted package path. Preparation prefers BootstrapOptions, then this manifest path, then `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`; otherwise it installs the bundled 0.1.1 release offline or reuses a compatible selected home. Invalid explicit paths fail without fallback. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
+`instrumentComponentsPackage` optionally overrides the bundled release with a trusted package path. Preparation prefers BootstrapOptions, then this manifest path, then `HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE`; otherwise it installs the bundled 0.3.0-alpha.1 release offline or reuses a compatible selected home. Invalid explicit paths fail without fallback. This template workspace omits that dependency so sample/board-demo still validate without the library pack.
 
 Directory rules (same as today, plus the manifest):
 
