@@ -1,15 +1,19 @@
-import { assert, assertEquals } from "@std/assert";
-import * as path from "@std/path";
+import { fileURLToPath } from "node:url";
+import { test } from "node:test";
+import { readTextFile, writeTextFile, makeTempDir } from "./lib/fs.ts";
+import * as fs from "node:fs/promises";
+import { assert, assertEquals } from "./lib/assert.ts";
+import * as path from "node:path";
 import { evaluateCobertura, findCobertura } from "./lib/coverage.ts";
 import { CORE_COVERAGE_FILTER, e2eIsAdvisory, TASKS } from "./main.ts";
 
-Deno.test("coverage floors match Python port on pass fixture", async () => {
+test("coverage floors match Python port on pass fixture", async () => {
   const fixture = path.join(
-    path.dirname(path.fromFileUrl(import.meta.url)),
+    path.dirname(fileURLToPath(import.meta.url)),
     "fixtures",
     "coverage-pass.cobertura.xml",
   );
-  const xml = await Deno.readTextFile(fixture);
+  const xml = await readTextFile(fixture);
   const report = evaluateCobertura(xml);
 
   // Core: 14 lines, 10 covered → 71.4%
@@ -27,7 +31,7 @@ Deno.test("coverage floors match Python port on pass fixture", async () => {
   assert(report.ok);
 });
 
-Deno.test("coverage fails when Core floor is missed", () => {
+test("coverage fails when Core floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
@@ -50,7 +54,7 @@ Deno.test("coverage fails when Core floor is missed", () => {
   assert(report.failures.some((f) => f.includes("Core")));
 });
 
-Deno.test("coverage fails when Engine floor is missed", () => {
+test("coverage fails when Engine floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
@@ -90,7 +94,7 @@ Deno.test("coverage fails when Engine floor is missed", () => {
   assert(report.failures.some((f) => f.includes("Engine")));
 });
 
-Deno.test("coverage skips Hardware floor when no Hardware lines exist", () => {
+test("coverage skips Hardware floor when no Hardware lines exist", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
@@ -113,7 +117,7 @@ Deno.test("coverage skips Hardware floor when no Hardware lines exist", () => {
   assertEquals(report.failures.some((f) => f.includes("Hardware")), false);
 });
 
-Deno.test("coverage does not treat FooEngine as Engine", () => {
+test("coverage does not treat FooEngine as Engine", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
@@ -132,36 +136,36 @@ Deno.test("coverage does not treat FooEngine as Engine", () => {
   assertEquals(report.engineLines, 0);
 });
 
-Deno.test("findCobertura returns the sorted first match", async () => {
-  const root = await Deno.makeTempDir({ prefix: "ht-cobertura-" });
+test("findCobertura returns the sorted first match", async () => {
+  const root = await makeTempDir({ prefix: "ht-cobertura-" });
   try {
     const late = path.join(root, "z-guid");
     const early = path.join(root, "a-guid");
-    await Deno.mkdir(late, { recursive: true });
-    await Deno.mkdir(early, { recursive: true });
-    await Deno.writeTextFile(
+    await fs.mkdir(late, { recursive: true });
+    await fs.mkdir(early, { recursive: true });
+    await writeTextFile(
       path.join(late, "coverage.cobertura.xml"),
       "<late/>",
     );
-    await Deno.writeTextFile(
+    await writeTextFile(
       path.join(early, "coverage.cobertura.xml"),
       "<early/>",
     );
     const found = await findCobertura(root);
     assertEquals(found, path.join(early, "coverage.cobertura.xml"));
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await fs.rm(root, { recursive: true });
   }
 });
 
-Deno.test("findCobertura returns null when the directory is missing", async () => {
+test("findCobertura returns null when the directory is missing", async () => {
   const found = await findCobertura(
-    path.join(Deno.cwd(), "no-such-coverage-dir"),
+    path.join(process.cwd(), "no-such-coverage-dir"),
   );
   assertEquals(found, null);
 });
 
-Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
+test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
   assertEquals(
     CORE_COVERAGE_FILTER.includes("HardwareTest.Tests.OpenTap"),
     true,
@@ -169,23 +173,23 @@ Deno.test("CORE_COVERAGE_FILTER excludes OpenTAP host tests", () => {
   assertEquals(CORE_COVERAGE_FILTER.startsWith("FullyQualifiedName!~"), true);
 });
 
-Deno.test("e2eIsAdvisory is true for linux RIDs or the flag", () => {
+test("e2eIsAdvisory is true for linux RIDs or the flag", () => {
   assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "win-x64" }), false);
   assertEquals(e2eIsAdvisory({ advisoryE2e: true, rid: "win-x64" }), true);
   assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-x64" }), true);
   assertEquals(e2eIsAdvisory({ advisoryE2e: false, rid: "linux-arm64" }), true);
 });
 
-Deno.test("test:host does not attach a Coverlet collector", async () => {
-  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+test("test:host does not attach a Coverlet collector", async () => {
+  const src = await readTextFile(new URL("./main.ts", import.meta.url));
   const hostFn = src.match(/async function testHost[\s\S]*?\n\}/);
   assert(hostFn, "testHost function must exist");
   assertEquals(hostFn[0].includes("collect"), false);
   assertEquals(hostFn[0].includes("Coverlet"), false);
 });
 
-Deno.test("formatCheck verifies traversal projects and all() runs it after build", async () => {
-  const src = await Deno.readTextFile(new URL("./main.ts", import.meta.url));
+test("formatCheck verifies traversal projects and all() runs it after build", async () => {
+  const src = await readTextFile(new URL("./main.ts", import.meta.url));
   const formatFn = src.match(/async function formatCheck[\s\S]*?\n\}/);
   assert(formatFn, "formatCheck function must exist");
   assert(formatFn[0].includes("await projectPaths(opts)"));
@@ -198,7 +202,7 @@ Deno.test("formatCheck verifies traversal projects and all() runs it after build
   assert(buildAt >= 0 && formatAt > buildAt, "all() must format after build");
 });
 
-Deno.test("coverage fails when Hardware floor is missed", () => {
+test("coverage fails when Hardware floor is missed", () => {
   const xml = `<?xml version="1.0"?>
 <coverage>
   <packages>
@@ -238,7 +242,7 @@ Deno.test("coverage fails when Hardware floor is missed", () => {
   assert(report.failures.some((f) => f.includes("Hardware")));
 });
 
-Deno.test("TASKS catalog is sorted and complete", () => {
+test("TASKS catalog is sorted and complete", () => {
   const expected = [
     "all",
     "audit",

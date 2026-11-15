@@ -1,0 +1,6 @@
+packages:
+  - tools/ci
+
+# New registry dependencies are saved centrally and referenced as catalog:.
+catalogMode: strict
+catalog: {}

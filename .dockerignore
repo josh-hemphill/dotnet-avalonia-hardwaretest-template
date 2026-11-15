@@ -17,3 +17,6 @@ coverage/
 *.log
 crash-dossiers/
 dossiers/
+
+node_modules/
+**/node_modules/
