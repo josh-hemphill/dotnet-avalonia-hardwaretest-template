@@ -78,6 +78,12 @@ jobs:
       - name: Build and verify real package provisioning
         run: pnpm exec node tools/ci/main.ts build --rid ${{ inputs.rid }}
 
+      # Report VM regressions before the long authoring suites, on every profile.
+      - name: Run Windows ViewModel suite
+        if: inputs.suite == 'windows'
+        shell: bash
+        run: pnpm exec node tools/ci/main.ts test:vm --rid "$CI_RID"
+
       - name: Run selected suite
         shell: bash
         run: |
@@ -101,8 +107,6 @@ jobs:
               pnpm --dir tools/ci test
               ;;
             windows)
-              # Run VM regressions first, including fast operator-only changes.
-              pnpm exec node tools/ci/main.ts test:vm --rid "$CI_RID"
               profile=windows-smoke
               if [[ "$CI_PROFILE" == full ]]; then profile=full; fi
               pnpm exec node tools/ci/main.ts test:host --rid "$CI_RID" --profile "$profile"
