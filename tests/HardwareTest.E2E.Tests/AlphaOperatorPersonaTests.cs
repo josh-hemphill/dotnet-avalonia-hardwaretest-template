@@ -201,8 +201,8 @@ public sealed class AlphaOperatorPersonaTests
             await E2EHarness.WaitUntilAsync(() => !instruments.IsBusy && instruments.DiscoveredVisa.Count > 0);
             var resources = window.GetVisualDescendants().OfType<ComboBox>().Single(list => ReferenceEquals(list.ItemsSource, instruments.DiscoveredVisa));
             Assert.True(resources.Focus());
-            window.KeyPress(Key.Home, RawInputModifiers.None, PhysicalKey.Home, null);
-            window.KeyRelease(Key.Home, RawInputModifiers.None, PhysicalKey.Home, null);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             await E2EHarness.PumpUiAsync();
             Assert.NotNull(instruments.SelectedVisa);
             Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => Equals(button.Content, "Apply selected resource")));
@@ -320,7 +320,7 @@ public sealed class AlphaOperatorPersonaTests
             Capture(window, "operator-instruments-configuration-error-900");
             // A service technician obtains the repaired plan from Authoring; operator cannot silently assert commissioning.
             Save(true);
-            Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => Equals(button.Content, "Refresh plan slots")));
+            Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => AutomationProperties.GetName(button) == "Refresh plan slots"));
             await E2EHarness.WaitUntilAsync(() => !instruments.IsBusy && instruments.VisibleSlots.Count == 1 && string.IsNullOrWhiteSpace(instruments.VisibleSlots[0].ConfigurationIssue));
             Assert.Equal("Alpha service (simulated)", instruments.PlanFilter);
             var repaired = Assert.Single(instruments.VisibleSlots);

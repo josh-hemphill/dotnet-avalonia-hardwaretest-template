@@ -11,6 +11,7 @@
         <StackPanel Spacing="8">
           <TextBlock Text="Applied to this plan" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3"/>
           <ListBox x:Name="InstrumentSlotsList" ItemsSource="{Binding Instruments}" SelectedItem="{Binding SelectedInstrument}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Instruments" Classes="authoringList" MaxHeight="160" MinHeight="64">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel/></ItemsPanelTemplate></ListBox.ItemsPanel>
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:InstrumentRef">
                 <StackPanel Spacing="3" Margin="0,4">

@@ -99,6 +99,18 @@ public sealed class AlphaDevicePersonaUiTests
         await fixture.WaitForReadinessAsync();
         fixture.Control<Button>("Open add instrument").BringIntoView();
         AuthoringUiFixture.Drain();
+        var instrumentList = fixture.Control<ListBox>("Instruments");
+        instrumentList.ScrollIntoView(fixture.ViewModel.Instruments.First());
+        AuthoringUiFixture.Drain();
+        var instrumentRows = instrumentList.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+        Assert.Equal(fixture.ViewModel.Instruments.Count, instrumentRows.Length);
+        for (var index = 1; index < instrumentRows.Length; index++)
+        {
+            var previous = instrumentRows[index - 1];
+            var current = instrumentRows[index];
+            Assert.True(previous.Bounds.Bottom <= current.Bounds.Top + 0.5,
+                $"Instrument rows overlap: {previous.Bounds} and {current.Bounds}.");
+        }
         Capture(window, $"authoring-hardware-mixed-{width}");
         fixture.ViewModel.SelectedInstrumentSlot = "2602B";
         AuthoringUiFixture.Click(fixture.Control<Button>("Load selected binding"));
