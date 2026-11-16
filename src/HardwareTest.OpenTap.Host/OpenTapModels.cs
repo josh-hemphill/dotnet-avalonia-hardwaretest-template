@@ -11,6 +11,9 @@ public sealed record StationProfile
         => SlotToResource = new Dictionary<string, string>(slotToResource, StringComparer.OrdinalIgnoreCase);
 
     public IReadOnlyDictionary<string, string> SlotToResource { get; }
+    /// Per-application/run preparation, never an authored plan parameter.
+    public bool ReferenceAcceptancePrepared { get; init; }
+    public bool ReferenceAcquisition { get; init; }
 }
 
 public sealed class OpenTapInstrumentSlot

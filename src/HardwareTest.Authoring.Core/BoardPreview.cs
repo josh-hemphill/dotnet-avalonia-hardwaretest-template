@@ -44,7 +44,7 @@ public static partial class BoardPreviewBuilder
                 var groups = new List<IReadOnlyList<StoredSample>>();
                 try
                 {
-                    if (recording is { IsSchemaReadOnly: true }) throw new AuthoringWorkspaceException($"Unsupported recording schema {recording.StoredSchemaVersion}.");
+                    if (recording is not null && !RunDatasetCatalog.CanPreviewSamples(recording)) throw new AuthoringWorkspaceException($"Unsupported recording schema {recording.StoredSchemaVersion}.");
                     if (recording is not null && !string.IsNullOrWhiteSpace(recording.PlanId) && !string.Equals(recording.PlanId, program.PlanId, StringComparison.OrdinalIgnoreCase))
                         throw new AuthoringWorkspaceException("Recording belongs to another program.");
                     if (recording is null) PlanCompiler.RequireCompleteInput(node.NodeId, program.AuthoringState.IncompleteNumericText);

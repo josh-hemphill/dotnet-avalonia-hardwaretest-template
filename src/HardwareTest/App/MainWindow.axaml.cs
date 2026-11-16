@@ -28,7 +28,16 @@ public partial class MainWindow : Window
             NavView.SelectionChanged += OnNavigationSelectionChanged;
         }
 
+        ActualThemeVariantChanged += (_, _) => _viewModel.ShellNotification.RefreshTheme();
+        Opened += (_, _) => { UpdateCompactPane(); _viewModel.ShellNotification.RefreshTheme(); };
+        PropertyChanged += (_, e) => { if (e.Property == FontSizeProperty) UpdateCompactPane(); };
         Closing += OnClosing;
+    }
+
+    private void UpdateCompactPane()
+    {
+        // Icon targets remain 48px; captions retain the user's text size without splitting words.
+        NavView.CompactPaneLength = FontSize > 16 ? 104 : 76;
     }
 
     private void ApplyTitle(BuildInfo? buildInfo)

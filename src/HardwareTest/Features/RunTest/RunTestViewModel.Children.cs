@@ -48,7 +48,9 @@ public partial class RunTestViewModel
             status => Status = status,
             () => IsEngineerDebugMode,
             token => LoadSelectedProgramAsync(cancellationToken: token),
-            () => SessionPanel!.RefreshSessionSummary());
+            () => SessionPanel!.RefreshSessionSummary(),
+            () => IsSelectedProgramReady,
+            () => IsRunning || _runControl.IsRunning);
         SessionPanel = new OperatorSessionPanelViewModel(
             session,
             settings,

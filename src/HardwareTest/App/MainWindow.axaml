@@ -10,12 +10,12 @@
         Height="800"
         MinWidth="900"
         MinHeight="600">
-  <ui:FANavigationView x:Name="NavView"
+  <shell:OperatorNavigationView x:Name="NavView"
                        PaneDisplayMode="Left"
                        IsSettingsVisible="False"
                        IsBackButtonVisible="False"
                        OpenPaneLength="220"
-                       CompactPaneLength="48"
+                       CompactPaneLength="76"
                        IsPaneOpen="{Binding IsNavPaneOpen, Mode=TwoWay}"
                        MenuItemsSource="{Binding NavigationItems}"
                        SelectedItem="{Binding SelectedItem, Mode=TwoWay}">
@@ -30,7 +30,7 @@
     </ui:FANavigationView.MenuItemTemplate>
 
     <ui:FANavigationView.PaneFooter>
-      <!-- Compact buttons are full CompactPaneLength wide so glyphs share the same center as menu icons. -->
+      <!-- Keep 48px icon targets; the compact pane also leaves room for intact action captions. -->
       <StackPanel Margin="0,8,0,12" Spacing="6" HorizontalAlignment="Stretch">
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
@@ -40,12 +40,10 @@
                    AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
                    IsVisible="{Binding IsNavPaneOpen}" />
         <TextBlock Text="{Binding CompactControlStatus}"
-                   FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                    Margin="4,0"
-                   MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
-                   MaxLines="1"
-                   TextWrapping="NoWrap"
-                   TextTrimming="CharacterEllipsis"
+                   MaxLines="2"
+                   TextWrapping="Wrap"
+                   ToolTip.Tip="{Binding ControlStatus}"
                    TextAlignment="Center"
                    Opacity="0.85"
                    AutomationProperties.LiveSetting="{Binding ControlStatusLiveSetting}"
@@ -72,11 +70,9 @@
                              VerticalAlignment="Center" />
           </Button>
           <TextBlock Text="{Binding PauseResumeLabel}"
-                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      TextAlignment="Center"
                      TextWrapping="Wrap"
-                     Margin="2,0"
-                     MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                     Margin="4,0"
                      IsHitTestVisible="False" />
         </StackPanel>
         <Button Command="{Binding PauseResumeCommand}"
@@ -124,11 +120,9 @@
                              VerticalAlignment="Center" />
           </Button>
           <TextBlock Text="{Binding SafetyStopLabel}"
-                     FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                      TextAlignment="Center"
                      TextWrapping="Wrap"
-                     Margin="2,0"
-                     MaxWidth="{x:Static shell:OperatorTouchDensity.CompactNavTargetSize}"
+                     Margin="4,0"
                      IsHitTestVisible="False" />
         </StackPanel>
         <Button Command="{Binding SafetyStopCommand}"
@@ -173,7 +167,7 @@
           </Style>
         </Border.Styles>
         <Panel>
-          <Border IsVisible="{Binding ShellNotification.HasContent}"
+          <Border x:Name="NotificationCard" IsVisible="{Binding ShellNotification.HasContent}"
                   Background="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Background}}"
                   BorderBrush="{Binding ShellNotification.Severity, Converter={x:Static shell:ShellNotificationBrushConverter.Border}}"
                   BorderThickness="0,0,0,1"
@@ -187,6 +181,7 @@
                          VerticalAlignment="Center" />
               <TextBlock Grid.Column="1"
                          Text="{Binding ShellNotification.Message}"
+                         AutomationProperties.Name="Station notification message"
                          TextWrapping="Wrap"
                          VerticalAlignment="Center"
                          FontWeight="SemiBold"
@@ -223,7 +218,7 @@
           <TextBlock Text="{Binding ShellNotification.IdleHint}"
                      Opacity="0.55"
                      VerticalAlignment="Center"
-                     IsVisible="{Binding !ShellNotification.HasContent}" />
+                     IsVisible="{Binding !ShellNotification.HasContent}" AutomationProperties.Name="Station notification status" />
         </Panel>
       </Border>
 
@@ -261,5 +256,5 @@
         </Border>
       </Panel>
     </Grid>
-  </ui:FANavigationView>
+  </shell:OperatorNavigationView>
 </Window>

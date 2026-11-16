@@ -18,9 +18,11 @@
     <DockPanel LastChildFill="True">
       <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,8,0,0">
         <TextBlock Text="{Binding Interaction.InteractionValidationError}"
-                   Foreground="#E65100"
+                   Foreground="{DynamicResource OperatorErrorText}"
                    TextWrapping="Wrap"
-                   FontSize="12"
+
+                   AutomationProperties.LiveSetting="Assertive"
+                   AutomationProperties.Name="Operator prompt validation"
                    IsVisible="{Binding Interaction.InteractionValidationError, Converter={x:Static ObjectConverters.IsNotNull}}" />
         <Button x:Name="ContinueButton"
                 Content="Continue"
@@ -84,12 +86,16 @@
                            IsVisible="{Binding IsTextOrNumber}"
                            MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
                            AutomationProperties.Name="{Binding AutomationName}"
+                           AutomationProperties.HelpText="{Binding ValidationError}"
+                           AutomationProperties.IsRequiredForForm="{Binding Required}"
                            KeyDown="OnInteractionFieldKeyDown" />
                   <CheckBox Content="{Binding DisplayLabel}"
                             IsChecked="{Binding BoolValue}"
                             IsVisible="{Binding IsBoolean}"
                             MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
-                            AutomationProperties.Name="{Binding AutomationName}" />
+                            AutomationProperties.Name="{Binding AutomationName}"
+                            AutomationProperties.HelpText="{Binding ValidationError}"
+                           AutomationProperties.IsRequiredForForm="{Binding Required}" />
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

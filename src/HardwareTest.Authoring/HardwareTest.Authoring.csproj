@@ -41,4 +41,9 @@
     <Copy SourceFiles="@(AuthoringOpenTapRuntime)"
           DestinationFiles="@(AuthoringOpenTapRuntime->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>HardwareTest.Authoring.UI.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
 </Project>

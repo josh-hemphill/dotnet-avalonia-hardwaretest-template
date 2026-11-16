@@ -110,7 +110,8 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         foreach (var child in suite.PlanRuns)
         {
             child.StoredSchemaVersion = child.SchemaVersion;
-            child.IsSchemaReadOnly = child.SchemaVersion > SchemaVersions.TestRunRecord;
+            child.IsSchemaReadOnly = DocumentSchemaGate.Evaluate(
+                SchemaDocumentTypes.TestRunRecord, child.SchemaVersion, SchemaVersions.TestRunRecord, child.AppVersion).IsReadOnly;
             suite.IsSchemaReadOnly |= child.IsSchemaReadOnly;
         }
 

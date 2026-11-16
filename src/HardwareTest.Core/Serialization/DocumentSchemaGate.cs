@@ -7,6 +7,7 @@ public enum DocumentSchemaKind
     Current = 0,
     Unsupported = 1,
     FutureReadOnly = 2,
+    PreviousReadOnly = 3,
 }
 
 public sealed class DocumentSchemaStatus
@@ -16,7 +17,7 @@ public sealed class DocumentSchemaStatus
     public required int CurrentVersion { get; init; }
     public required DocumentSchemaKind Kind { get; init; }
     public string? WriterAppVersion { get; init; }
-    public bool IsReadOnly => Kind == DocumentSchemaKind.FutureReadOnly;
+    public bool IsReadOnly => Kind is DocumentSchemaKind.FutureReadOnly or DocumentSchemaKind.PreviousReadOnly;
 
     public string FormatOperatorWarning()
     {
@@ -26,6 +27,9 @@ public sealed class DocumentSchemaStatus
                    + "Use a current document. The original file has been preserved.";
         }
 
+        if (Kind == DocumentSchemaKind.PreviousReadOnly)
+            return $"Read-only: {DocumentType} schema {StoredVersion} predates this app ({CurrentVersion}). "
+                + "Historical evidence remains readable; preserve the original bytes instead of rewriting it.";
         if (!IsReadOnly) return string.Empty;
         var writer = string.IsNullOrWhiteSpace(WriterAppVersion) ? "unknown" : WriterAppVersion;
         return $"Read-only: {DocumentType} schema {StoredVersion} is newer than this app ({CurrentVersion}). "
@@ -43,7 +47,12 @@ public static class DocumentSchemaGate
             StoredVersion = storedVersion,
             CurrentVersion = currentVersion,
             Kind = storedVersion == currentVersion ? DocumentSchemaKind.Current
-                : storedVersion > currentVersion ? DocumentSchemaKind.FutureReadOnly : DocumentSchemaKind.Unsupported,
+                : storedVersion > currentVersion ? DocumentSchemaKind.FutureReadOnly
+                // Version 5 adds reference-dependent acceptance provenance. Preserve
+                // immediately previous operator records for inspection, but never
+                // rewrite them as though references had been recorded at execution.
+                : documentType == SchemaDocumentTypes.TestRunRecord && storedVersion == 4 && currentVersion == 5
+                    ? DocumentSchemaKind.PreviousReadOnly : DocumentSchemaKind.Unsupported,
             WriterAppVersion = writerAppVersion,
         };
 

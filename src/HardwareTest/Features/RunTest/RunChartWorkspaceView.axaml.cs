@@ -18,6 +18,8 @@ public partial class RunChartWorkspaceView : UserControl
     public RunChartWorkspaceView()
     {
         InitializeComponent();
+        if (ChartOptionsButton.Flyout is Flyout { Content: ScrollViewer options } flyout)
+            flyout.Opened += (_, _) => options.FontSize = FontSize;
         DataContextChanged += OnDataContextChanged;
         DetachedFromVisualTree += (_, _) => Unsubscribe();
     }

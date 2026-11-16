@@ -5,12 +5,43 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Fixtures;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
 using Xunit;
 
 namespace HardwareTest.Tests.Reporting;
 
 public sealed class TypstReportServiceTests
 {
+    [Theory]
+    [InlineData(ReportKinds.Status, RunExecutionScopes.FullSuite, "Full suite")]
+    [InlineData(ReportKinds.Status, RunExecutionScopes.SelectedStep, "Selected step only: Power/Acquire")]
+    [InlineData(ReportKinds.Status, null, "Scope not recorded")]
+    [InlineData(ReportKinds.Certification, RunExecutionScopes.FullSuite, "Full suite")]
+    [InlineData(ReportKinds.Certification, RunExecutionScopes.SelectedStep, "Selected step only: Power/Acquire")]
+    [InlineData(ReportKinds.Certification, null, "Scope not recorded")]
+    public async Task Generated_report_preserves_execution_scope_in_actual_pdf(
+        string kind, string? scope, string expected)
+    {
+        using var temp = new TempDataDirectory();
+        var store = new FileRunStore(temp.RunsDirectory);
+        var run = CreateRun();
+        run.ExecutionScope = scope;
+        run.SelectedStepPath = scope == RunExecutionScopes.SelectedStep ? "Power/Acquire" : null;
+        using var reports = new TypstReportService(store, new AppSettings { EmbedPlotsInReport = false });
+
+        var bytes = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, kind));
+
+        using var pdf = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
+        var text = string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages())
+            .Select(page => PdfTextExtractor.GetTextFromPage(pdf.GetPage(page))));
+        Assert.Contains(expected, text, StringComparison.Ordinal);
+        if (kind == ReportKinds.Certification && scope != RunExecutionScopes.FullSuite)
+            Assert.DoesNotContain("CERTIFIED PASS", text, StringComparison.Ordinal);
+        if (kind == ReportKinds.Certification && scope == RunExecutionScopes.SelectedStep)
+            Assert.Contains("SELECTED SCOPE PASSED", text, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task GeneratePdfAsync_writes_pdf_and_updates_run()
     {
@@ -427,7 +458,7 @@ public sealed class TypstReportServiceTests
     [Theory]
     [InlineData(0, false)]
     [InlineData(3, false)]
-    [InlineData(5, false)]
+    [InlineData(6, false)]
     [InlineData(4, true)]
     public async Task GenerateReportsAsync_rejected_run_preserves_pdf_and_attestation(int version, bool readOnly)
     {
@@ -458,7 +489,7 @@ public sealed class TypstReportServiceTests
     [Theory]
     [InlineData(0)]
     [InlineData(3)]
-    [InlineData(5)]
+    [InlineData(6)]
     public async Task GenerateReportsAsync_current_candidate_cannot_mutate_blocked_destination(int storedVersion)
     {
         using var temp = new TempDataDirectory();
@@ -484,7 +515,7 @@ public sealed class TypstReportServiceTests
     [InlineData("{\"schemaVersion\":3}", "unsupported")]
     [InlineData("{\"schemaVersion\":999}", "future")]
     [InlineData("{invalid", "corrupt")]
-    [InlineData("{\"schemaVersion\":4,\"samples\":{}}", "corrupt")]
+    [InlineData("{\"schemaVersion\":5,\"samples\":{}}", "corrupt")]
     public async Task Sole_blocked_backup_prevents_report_and_attestation_mutation(string backup, string failure)
     {
         using var temp = new TempDataDirectory();

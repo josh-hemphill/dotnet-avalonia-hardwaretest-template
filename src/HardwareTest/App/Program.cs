@@ -15,6 +15,14 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (OfflineBenchCli.TryRun(args, AppContext.BaseDirectory, Console.Out, out var offlineExitCode)) return offlineExitCode;
+        try { args = OfflineBenchStartup.PrepareArguments(args, AppContext.BaseDirectory); }
+        catch (Exception error)
+        {
+            Console.Error.WriteLine(error.Message);
+            return 1;
+        }
+
         // Stage 1: resolve DataDirectory + LogMinimumLevel from env + command line only
         // (before logging / settings.json). Stage 2 re-applies overlays after the file load.
         var parsed = ConfigurationArgs.Parse(args);

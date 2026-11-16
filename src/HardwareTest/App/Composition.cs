@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using HardwareTest.Core;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
@@ -37,6 +38,7 @@ public static class Composition
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
         services.AddSingleton(buildInfo);
         services.AddHardwareTestCore(settingsStore);
+        services.AddSingleton<IBenchReferenceStore>(sp => new FileBenchReferenceStore(settingsStore.RootDirectory, sp.GetRequiredService<IClock>()));
         services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
         services.AddShellApplications(new NotesApplication());
         services.AddSingleton(sp =>

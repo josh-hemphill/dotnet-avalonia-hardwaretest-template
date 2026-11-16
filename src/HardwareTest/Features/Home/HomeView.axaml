@@ -23,7 +23,7 @@
                    FontSize="36"
                    FontWeight="SemiBold"
                    HorizontalAlignment="Center"
-                   TextAlignment="Center" />
+                   TextAlignment="Center" TextWrapping="Wrap" AutomationProperties.HeadingLevel="1"/>
         <TextBlock Text="{Binding Summary}"
                    TextWrapping="Wrap"
                    Opacity="0.85"
@@ -54,7 +54,7 @@
                 <TextBlock Text="{Binding Body}" TextWrapping="Wrap" />
                 <Button Content="{Binding ActionLabel}"
                         Command="{Binding NavigateCommand}"
-                        HorizontalAlignment="Left" />
+                        HorizontalAlignment="Left" Classes="operator" AutomationProperties.Name="{Binding ActionLabel}" />
               </StackPanel>
             </Border>
           </DataTemplate>

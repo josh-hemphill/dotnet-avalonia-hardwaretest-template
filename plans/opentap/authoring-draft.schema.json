@@ -4,13 +4,35 @@
   "type": "object",
   "required": ["schemaVersion", "planId", "revision", "sidecar", "instruments", "setup", "measure", "cleanup"],
   "properties": {
-    "schemaVersion": { "enum": [1, 2, 3] },
+    "schemaVersion": { "enum": [1, 2, 3, 4] },
     "planId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$" },
     "revision": { "type": "integer", "minimum": 0 },
     "hasConfigurableMeasureSections": { "type": "boolean", "description": "True after explicit section layout initialization. Missing or false legacy layouts are migrated once on editor open; true preserves intentionally empty or ungrouped test steps." },
     "requiresCompilation": { "type": "boolean" },
     "compiledPlanHash": { "type": ["string", "null"] },
     "compiledSidecarHash": { "type": ["string", "null"] },
+    "sidecar": {
+      "type": "object",
+      "properties": {
+        "referenceRules": {
+          "type": ["array", "null"],
+          "description": "Editable golden-reference criteria. Blank or null draft values remain saved but block compilation.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ruleId": { "type": "string" },
+              "metricKey": { "type": "string" },
+              "producerStepId": { "type": "string", "format": "uuid" },
+              "referenceKey": { "type": "string" },
+              "unit": { "type": "string" },
+              "comparison": { "type": "string" },
+              "tolerance": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
     "setup": { "type": "array", "items": { "type": "object", "required": ["kind", "nodeId"] } },
     "measure": { "type": "array", "items": { "type": "object", "required": ["kind", "nodeId"] } },
     "state": {

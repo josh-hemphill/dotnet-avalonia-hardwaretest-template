@@ -55,7 +55,10 @@ public partial class ShellNotificationViewModel : ReactiveObject
     public ICommand? SecondaryCommand { get; private set; }
 
     /// Idle caption when no notification is active (keeps strip height stable).
-    public string IdleHint { get; } = "Ready";
+    public string IdleHint { get; } = "No station alerts";
+
+    /// Re-evaluate theme-dependent brushes even when the active severity is unchanged.
+    public void RefreshTheme() => this.RaisePropertyChanged(nameof(Severity));
 
     /// Critical storage/crash banners interrupt; other severities stay polite.
     public AutomationLiveSetting LiveSetting
@@ -98,7 +101,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
     }
 
     /// Clears the current notification when it matches <paramref name="sourceKey"/> (or any when null).
-    public void Clear(string? sourceKey = null)
+    public void Clear(string? sourceKey = null, string? expectedMessage = null)
     {
         if (!HasContent)
         {
@@ -111,6 +114,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
             return;
         }
 
+        if (expectedMessage is not null && !string.Equals(Message, expectedMessage, StringComparison.Ordinal)) return;
         ResetContent();
     }
 

@@ -7,13 +7,16 @@ namespace HardwareTest.Features.RunTest;
 public partial class RunTestViewModel
 {
     /// True when neither a run, session block, nor a station-health Block is holding start.
-    public bool CanStartRun
+    private bool CanStartRunBase
         => !IsRunning
+           && IsSelectedProgramReady
+           && !ProgramSelection.IsBusy
            && !SessionPanel.SessionBlocked
            && !string.Equals(
                _stationHealthDecision?.Level,
                StationHealthGateLevels.Block,
                StringComparison.OrdinalIgnoreCase);
+    public bool CanStartRun => CanStartRunBase && References.IsReady;
 
     /// Tooltip for Run / Run Selected reflecting why start is blocked when disabled.
     public string CanStartRunTip
@@ -25,6 +28,9 @@ public partial class RunTestViewModel
                 return StopRunCopy.InProgressTip;
             }
 
+            if (!IsSelectedProgramReady || ProgramSelection.IsBusy)
+                return ProgramAvailabilityMessage;
+
             if (SessionPanel.SessionBlocked)
             {
                 if (SessionPanel.IsStalePrompt || SessionPanel.IsIdleWarningPrompt)
@@ -34,6 +40,8 @@ public partial class RunTestViewModel
 
                 return "Confirm DUT first.";
             }
+
+            if (!References.IsReady) return References.ReadinessText;
 
             if (_stationHealthDecision is { } blocked
                 && string.Equals(blocked.Level, StationHealthGateLevels.Block, StringComparison.OrdinalIgnoreCase)
@@ -58,10 +66,13 @@ public partial class RunTestViewModel
     {
         get
         {
-            if (!CanStartRun)
+            if (!CanStartRunBase)
             {
                 return CanStartRunTip;
             }
+            if (!References.IsReadyForRules(SelectedReferenceRules())) return "Choose compatible references for the selected tests before Run Selected.";
+
+            if (StepTree.IsReadOnlyEvidenceSelection) return "Reference acceptance is saved evidence. Select the measured test or use Run to evaluate it again.";
 
             if (StepTree.SelectedStep is { } step && StepTree.IsWholePlanSelection(step.Path))
             {
@@ -79,10 +90,10 @@ public partial class RunTestViewModel
 
     /// True when Run Selected can start the current on-screen selection.
     public bool CanStartRunSelected
-        => CanStartRun
+        => CanStartRunBase && References.IsReadyForRules(SelectedReferenceRules())
            && StepTree.IsSelectedStepVisible()
            && StepTree.SelectedStep is { } selected
-           && !StepTree.IsWholePlanSelection(selected.Path);
+           && !selected.IsReadOnlyEvidence && !StepTree.IsWholePlanSelection(selected.Path);
 
     /// Re-evaluates sidecar freshness for the selected program.
     public void RefreshStationHealthGate()

@@ -11,6 +11,7 @@ using HardwareTest.Features;
 using HardwareTest.Features.ReportPreview;
 using HardwareTest.Features.Results;
 using HardwareTest.Features.RunTest;
+using HardwareTest.Features.Settings;
 using HardwareTest.OpenTap.Host;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
@@ -26,13 +27,39 @@ public sealed class E2ECollection;
 /// OpenTAP worker + Avalonia dispatcher are process-global; close on the UI thread.
 internal sealed class ShownMainWindow : IDisposable
 {
-    public ShownMainWindow(MainWindow window) => Window = window;
+    private readonly Dispatcher _dispatcher;
+    private readonly ServiceProvider _services;
+    private int _disposed;
+
+    public ShownMainWindow(MainWindow window, ServiceProvider services)
+    {
+        Window = window;
+        _dispatcher = window.Dispatcher;
+        _services = services;
+        // PerTest isolation resets Avalonia's global dispatcher between cases. A
+        // System.Timers callback from the outgoing session must use its own UI
+        // dispatcher, not become the first owner of the next global UIThread.
+        Main.RunTest.SessionPanel.UiScheduler = ScheduleSessionUpdate;
+    }
 
     public MainWindow Window { get; }
 
     public MainWindowViewModel Main => E2EHarness.MainVm(Window);
 
-    public void Dispose() => E2EHarness.Close(Window);
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0) E2EHarness.Close(Window, _services, _dispatcher);
+    }
+
+    private void ScheduleSessionUpdate(Action action)
+    {
+        if (Volatile.Read(ref _disposed) != 0) return;
+        if (_dispatcher.CheckAccess()) action();
+        else _dispatcher.Post(() =>
+        {
+            if (Volatile.Read(ref _disposed) == 0) action();
+        });
+    }
 }
 
 internal static class E2EHarness
@@ -47,11 +74,10 @@ internal static class E2EHarness
         var window = app.Services.GetRequiredService<MainWindow>();
         window.Show();
         WaitForStartup(MainVm(window));
-        return new ShownMainWindow(window);
+        return new ShownMainWindow(window, app.Services);
     }
 
-    /// Production shell and run board with the real in-process host, allowing a
-    /// test-owned broker to hold an instrument reply without modifying the worker.
+    /// Production shell with the real host and a test-owned held-reply broker.
     public static ShownMainWindow ShowMainWindowWithSession(IOpenTapSession session)
     {
         var app = RequireApp();
@@ -61,7 +87,7 @@ internal static class E2EHarness
         var window = new MainWindow(main, app.Services.GetRequiredService<ISettingsStore>());
         window.Show();
         WaitForStartup(main);
-        return new ShownMainWindow(window);
+        return new ShownMainWindow(window, app.Services);
     }
 
     private sealed class SessionServices(IServiceProvider application, IOpenTapSession session) : IServiceProvider
@@ -77,21 +103,45 @@ internal static class E2EHarness
                 : application.GetService(type);
     }
 
-    public static void Close(Window window)
+    public static void Close(Window window, ServiceProvider services, Dispatcher dispatcher)
     {
         void CloseCore()
         {
-            window.Close();
-            Dispatcher.UIThread.RunJobs();
+            try
+            {
+                if (window.DataContext is MainWindowViewModel main)
+                {
+                    // Prevent an outgoing debounce from starting a save after its app
+                    // scope is gone. Live Settings tests keep the production dispatcher.
+                    services.GetRequiredService<SettingsViewModel>().UiScheduler = _ => { };
+                    if (!main.RunTest.IsRunning && !main.RunControl.IsRunning)
+                    {
+                        // State changes synchronously stop the idle timer and invalidate
+                        // pending badge capture. Saved evidence is already asserted by
+                        // the test before this teardown-only reset.
+                        main.RunTest.Session.ChangeSession();
+                    }
+                }
+
+                window.Close();
+                dispatcher.RunJobs();
+            }
+            finally
+            {
+                // Every isolated headless app owns a fresh provider and OpenTAP
+                // worker. Closing a Window does not dispose that application scope.
+                // Release its exact provider before the next PerTest app starts.
+                services.Dispose();
+            }
         }
 
-        if (Dispatcher.UIThread.CheckAccess())
+        if (dispatcher.CheckAccess())
         {
             CloseCore();
             return;
         }
 
-        Dispatcher.UIThread.Invoke(CloseCore);
+        dispatcher.Invoke(CloseCore);
     }
 
     /// Pumps the dispatcher until deferred OpenTAP warm-up finishes (or warms explicitly if needed).

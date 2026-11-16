@@ -181,9 +181,7 @@ public sealed class AuthoringWindowTests
         Assert.True(displayName.IsFocused);
         fixture.Type(displayName, "Size check saved edit");
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
-        var results = fixture.Control<ItemsControl>("Save all results");
-        AssertInsideWindow(results, window);
-        AssertInsideWindow(Assert.Single(results.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == "Saved sample"), window);
+        Assert.Contains("Saved sample", OperationDetailsUiActions.ReadAndClose(fixture));
         Assert.Null(fixture.ViewModel.Error);
     }
 

@@ -20,6 +20,17 @@ public sealed partial class PlanCompiler
         };
 
         var setupGroup = new TestGroupStep { Name = SetupGroupName };
+        if (draft.Sidecar.ReferenceRules is { Count: > 0 })
+        {
+            var guardId = ReferenceGuardId(draft.PlanId);
+            if (AuthoringDependencyIndex.Build(draft).Nodes.Any(node => node.NodeId == guardId))
+                throw new AuthoringWorkspaceException("A source node conflicts with the generated reference capability guard. Give that node a new identity before compiling.");
+            setupGroup.ChildTestSteps.Add(new RequireOperatorReferenceAcceptanceStep
+            {
+                Id = guardId,
+                Name = "Check reference inputs",
+            });
+        }
         foreach (var action in draft.Setup)
         {
             setupGroup.ChildTestSteps.Add(CreateSetupStep(action, instruments, dut));

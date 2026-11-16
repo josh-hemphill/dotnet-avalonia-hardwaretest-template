@@ -114,6 +114,8 @@ public sealed class SettingsStore : ISettingsStore
                 SchemaDocumentTypes.AppSettings, SchemaVersions.AppSettings, cancellationToken).ConfigureAwait(false);
             if (loaded is not null)
             {
+                if (!HasReadableReferenceSelections(loaded))
+                    throw new JsonException("Saved golden-reference choices are malformed. Preserve settings.json, correct its benchReferenceSelections and reload settings. No saved choices were restored.");
                 _settingsWriteBlocked = status.IsReadOnly;
                 _settingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
                 if (status.IsReadOnly)
@@ -193,6 +195,13 @@ public sealed class SettingsStore : ISettingsStore
             return;
         }
 
+        if (!HasReadableReferenceSelections(AppSettings))
+        {
+            IsSettingsWritable = false;
+            LastPersistenceError = "Golden-reference choices are malformed. Correct the choices before saving; the saved settings were preserved.";
+            return;
+        }
+
         // Write-back: persist only keys not overridden by env/CLI.
         OperatorSessionIdle.Normalize(AppSettings);
         var toWrite = CloneSettings(_fileBaseline);
@@ -229,6 +238,9 @@ public sealed class SettingsStore : ISettingsStore
             LastPersistenceError = ex.Message;
         }
     }
+
+    private static bool HasReadableReferenceSelections(AppSettings settings)
+        => settings.BenchReferenceSelections is not null && settings.BenchReferenceSelections.All(choice => choice is not null);
 
     public async Task SaveUiStateAsync(CancellationToken cancellationToken = default)
     {
@@ -278,6 +290,12 @@ public sealed class SettingsStore : ISettingsStore
 
     private void CopyNonOverridden(AppSettings from, AppSettings to)
     {
+        to.BenchReferenceSelections = CloneList(from.BenchReferenceSelections, static choice => new BenchReferenceSelectionSetting
+        {
+            PlanId = choice.PlanId,
+            RuleId = choice.RuleId,
+            ReferenceId = choice.ReferenceId,
+        });
         foreach (var binding in AppSettingsEnvironmentBinder.Bindings)
         {
             if (IsOverridden(binding.Key))
@@ -395,6 +413,12 @@ public sealed class SettingsStore : ISettingsStore
     private static void CopyOnto(AppSettings source, AppSettings target)
     {
         target.SchemaVersion = source.SchemaVersion;
+        target.BenchReferenceSelections = CloneList(source.BenchReferenceSelections, static choice => new BenchReferenceSelectionSetting
+        {
+            PlanId = choice.PlanId,
+            RuleId = choice.RuleId,
+            ReferenceId = choice.ReferenceId,
+        });
         target.DataDirectory = source.DataDirectory;
         target.UseMockVisa = source.UseMockVisa;
         target.LogMinimumLevel = source.LogMinimumLevel;

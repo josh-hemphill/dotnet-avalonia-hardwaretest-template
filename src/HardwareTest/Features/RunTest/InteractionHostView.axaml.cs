@@ -14,7 +14,31 @@ public partial class InteractionHostView : UserControl
     {
         InitializeComponent();
         DataContextChanged += OnDataContextChanged;
+        AttachedToVisualTree += (_, _) => OnDataContextChanged(this, EventArgs.Empty);
         DetachedFromVisualTree += (_, _) => Unsubscribe();
+        SizeChanged += (_, _) => KeepFocusedFieldVisible();
+        PromptBodyScroller.SizeChanged += (_, _) => KeepFocusedFieldVisible();
+        PropertyChanged += (_, change) =>
+        {
+            if (change.Property == FontSizeProperty) KeepFocusedFieldVisible();
+        };
+    }
+
+    private bool _focusLayoutQueued;
+
+    private void KeepFocusedFieldVisible()
+    {
+        if (_focusLayoutQueued) return;
+        _focusLayoutQueued = true;
+        var owner = _subscribed;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _focusLayoutQueued = false;
+            if (owner is null || !ReferenceEquals(owner, _subscribed) || !IsEffectivelyVisible) return;
+            var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
+            if (focused?.DataContext is InteractionFieldViewModel
+                && focused.GetVisualAncestors().Contains(this)) focused.BringIntoView();
+        }, DispatcherPriority.Loaded);
     }
 
     private void OnDataContextChanged(object? sender, EventArgs e)
@@ -27,6 +51,7 @@ public partial class InteractionHostView : UserControl
 
         _subscribed = vm;
         vm.Interaction.RequestFocusFirstField += OnRequestFocusFirstField;
+        vm.Interaction.RequestFocusField += OnRequestFocusField;
         if (vm.Interaction.IsAwaitingOperator)
         {
             ScheduleFocusFirstField();
@@ -41,10 +66,26 @@ public partial class InteractionHostView : UserControl
         }
 
         _subscribed.Interaction.RequestFocusFirstField -= OnRequestFocusFirstField;
+        _subscribed.Interaction.RequestFocusField -= OnRequestFocusField;
         _subscribed = null;
     }
 
     private void OnRequestFocusFirstField(object? sender, EventArgs e) => ScheduleFocusFirstField();
+
+    private void OnRequestFocusField(string id)
+    {
+        var owner = _subscribed;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (owner is null || !ReferenceEquals(owner, _subscribed)) return;
+            var field = this.GetVisualDescendants().OfType<Control>().FirstOrDefault(control =>
+                control.IsEffectivelyVisible && control.IsEffectivelyEnabled
+                && control.DataContext is InteractionFieldViewModel model && model.Id == id
+                && control is TextBox or CheckBox);
+            field?.BringIntoView();
+            field?.Focus();
+        }, DispatcherPriority.Loaded);
+    }
 
     private void ScheduleFocusFirstField()
     {
@@ -55,6 +96,7 @@ public partial class InteractionHostView : UserControl
                 .FirstOrDefault(t => t.IsVisible && t.IsEnabled);
             if (box is not null)
             {
+                box.BringIntoView();
                 box.Focus();
                 return;
             }

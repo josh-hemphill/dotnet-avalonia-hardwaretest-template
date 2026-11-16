@@ -56,7 +56,7 @@ public partial class ResultsViewModel
         }
         if (run.IsSchemaReadOnly)
         {
-            Status = "This run uses a newer schema and cannot be signed.";
+            Status = "This run uses a read-only schema and cannot be signed.";
             return false;
         }
         _pendingAttestationCancellation?.Cancel();

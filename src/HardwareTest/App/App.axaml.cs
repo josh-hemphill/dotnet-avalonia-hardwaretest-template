@@ -37,6 +37,7 @@ public partial class App : Application
 
     public App(ISettingsStore settingsStore)
     {
+        Name = "HardwareTest Operator";
         _settingsStore = settingsStore;
     }
 

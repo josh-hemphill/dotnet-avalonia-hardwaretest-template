@@ -27,7 +27,7 @@ public partial class StepListItemViewModel : ReactiveObject
     public string DisplayName { get; init; } = string.Empty;
 
     /// True when this row can be Run Selected (leaf or section/group scope).
-    public bool IsRunnable => Step is not null;
+    public bool IsRunnable => Step is { IsReadOnlyEvidence: false };
 
     public string ChipText => Step?.ChipText ?? string.Empty;
     public string? KeyValue => Step?.KeyValue;

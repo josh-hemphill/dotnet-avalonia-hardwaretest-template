@@ -69,7 +69,12 @@ internal sealed class AuthoringUiFixture : IDisposable
 
     public void NavigateTask(int route)
     {
-        if (route == 8) { Click(Control<Button>("Workspace overview")); return; }
+        WaitForLoading();
+        Drain();
+        if (Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex == route) return;
+        var task = Window!.FindControl<Grid>("PlanNavigationBar")!.GetVisualDescendants().OfType<Button>()
+            .FirstOrDefault(button => button.IsEffectivelyVisible && Equals(button.Tag, route.ToString()));
+        if (task is not null) { Click(task); return; }
         var trigger = Window!.FindControl<Button>("TaskMenuButton")!;
         var menu = (Flyout)trigger.Flyout!;
         menu.ShowAt(trigger); Drain();

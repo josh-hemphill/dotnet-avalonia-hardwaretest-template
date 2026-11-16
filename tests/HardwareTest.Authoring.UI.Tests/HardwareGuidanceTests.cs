@@ -228,10 +228,12 @@ public sealed class HardwareGuidanceTests
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(environment);
         Assert.Equal(3, tabs.SelectedIndex);
+        fixture.Control<Expander>("Manual package download help").IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var sourcing = fixture.Control<StackPanel>("Package sourcing guidance");
         var packageHelp = string.Join(" ", sourcing.GetVisualDescendants().OfType<TextBlock>().Select(block => block.Text));
         Assert.Contains(".TapPackage or .zip", packageHelp);
-        Assert.Contains("match the required version", packageHelp);
+        Assert.Contains("matching the required version", packageHelp);
         Assert.NotNull(fixture.Control<Button>("Open Instrument Components releases"));
         Assert.Contains("github.com/josh-hemphill/instrument-components", fixture.ViewModel.PackageRequirementsText);
         Assert.NotNull(fixture.Control<ItemsControl>("Environment package requirements"));

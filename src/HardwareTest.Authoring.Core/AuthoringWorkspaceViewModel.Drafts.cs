@@ -1,8 +1,11 @@
 namespace HardwareTest.Authoring;
 
+public sealed record AuthoringFirstSaveBaseline(string? PlanHash, string? SidecarHash);
+
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private readonly Dictionary<string, AuthoringDocumentDto> _compiledOnlyBaselines = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _expectedAuthoringSources = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _sourceDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AuthoringDocumentDto> _recoverableDocuments = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _compiledConflicts = new(StringComparer.OrdinalIgnoreCase);
@@ -22,6 +25,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         .Concat(_recoverableDocuments.Count > 0 ? new[] { $"Recovery available: {string.Join(", ", RecoverableProgramIds)}" } : [])
         .Concat(_compiledConflicts.Count > 0 ? [$"External compiled changes: {string.Join(", ", CompiledConflictProgramIds)}"] : [])
         .Concat(HasUncompiledSources ? ["Saved drafts require compilation before validation or packing."] : []));
+
+    public AuthoringFirstSaveBaseline? SelectedFirstAuthoringSaveBaseline => SelectedProgram is { } draft
+        && !_expectedAuthoringSources.Contains(draft.PlanId) && !_sourceDocuments.ContainsKey(draft.PlanId)
+        && _compiledOnlyBaselines.TryGetValue(draft.PlanId, out var baseline)
+            ? new(baseline.CompiledPlanHash, baseline.CompiledSidecarHash) : null;
 
     public void ConfigureRecoveryDispatch(Action<Action> dispatch) => _recoveryDispatch = dispatch;
     public void StopRecovery()
@@ -106,6 +114,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 continue;
             }
             documents[id] = document;
+            _expectedAuthoringSources.Add(id);
             if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(id);
             if (CompiledChanged(document)) conflicts.Add(id);
         }
@@ -199,6 +208,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void InitializeSourceState(PreparedSourceState state)
     {
         StopRecovery();
+        _expectedAuthoringSources.Clear(); _expectedAuthoringSources.UnionWith(state.Sources.Keys);
         _compiledOnlyBaselines.Clear(); _sourceDocuments.Clear(); _recoverableDocuments.Clear();
         foreach (var pair in state.Baselines) _compiledOnlyBaselines.Add(pair.Key, pair.Value);
         foreach (var pair in state.Sources) _sourceDocuments.Add(pair.Key, pair.Value);

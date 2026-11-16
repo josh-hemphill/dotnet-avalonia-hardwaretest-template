@@ -22,6 +22,7 @@ public sealed class AuthoringActionableFindingsTests
         vm.Threshold = "";
         await fixture.WaitForReadinessAsync();
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
+        Assert.Equal("Edit pass criterion", issue.RecoveryLabel);
         var program = vm.SelectedProgram.PlanId;
         vm.InitializePlan(new("other") { Instruments = [] });
         await fixture.WaitForReadinessAsync();
@@ -31,7 +32,7 @@ public sealed class AuthoringActionableFindingsTests
         fixture.Control<Expander>("Editing findings").IsExpanded = true;
         AuthoringUiFixture.Drain();
         var button = Assert.Single(fixture.Window!.GetVisualDescendants().OfType<Button>(),
-            button => Equals(button.DataContext, issue) && Equals(button.Content, "Go to field"));
+            button => Equals(button.DataContext, issue) && Equals(button.Content, issue.RecoveryLabel));
         AuthoringUiFixture.Click(button);
         Assert.Equal(program, vm.SelectedProgram!.PlanId);
         Assert.Equal(issue.NodeId, vm.SelectedSequence!.NodeId);

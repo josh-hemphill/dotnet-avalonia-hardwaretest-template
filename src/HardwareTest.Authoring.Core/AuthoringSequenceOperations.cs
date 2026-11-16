@@ -254,6 +254,28 @@ public static partial class AuthoringSequenceOperations
             Measure = EditSiblings(draft.Measure, target.IndexPath,
             siblings => [.. siblings.Take(target.IndexPath[^1] + 1), duplicate, .. siblings.Skip(target.IndexPath[^1] + 1)])
         };
+        if (draft.Sidecar.ReferenceRules is { Count: > 0 } referenceRules)
+        {
+            var sidecar = PlanCompiler.CloneSidecar(draft.Sidecar);
+            foreach (var pair in originals)
+            {
+                foreach (var rule in referenceRules.Where(rule => rule.ProducerStepId == pair.Value))
+                {
+                    var cloned = rule with
+                    {
+                        RuleId = Guid.NewGuid().ToString("N"),
+                        ProducerStepId = pair.Key,
+                        MetricKey = channels.GetValueOrDefault(rule.MetricKey, rule.MetricKey),
+                    };
+                    sidecar.ReferenceRules!.Add(cloned);
+                    authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, AuthoringReferenceRules.ToleranceField(rule)));
+                    if (AuthoringReferenceRules.TryIncompleteTolerance(draft, rule, out var unfinished))
+                        authoring.IncompleteNumericText[AuthoringDocumentState.FieldKey(pair.Key, AuthoringReferenceRules.ToleranceField(cloned))] = unfinished;
+                }
+                authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, "ReferenceTolerance"));
+            }
+            updated = updated with { Sidecar = sidecar };
+        }
         PlanCompiler.RequireUniqueNewOutputs(draft, updated);
         ValidateOrder(draft, updated, originals);
         return updated;

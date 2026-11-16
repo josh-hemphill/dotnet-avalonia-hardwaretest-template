@@ -836,7 +836,7 @@ public sealed class ReportAttestationServiceTests
 
     [Theory]
     [InlineData(3, false)]
-    [InlineData(5, false)]
+    [InlineData(6, false)]
     [InlineData(4, true)]
     public async Task AttestAsync_rejected_run_preserves_working_pdf_and_stamps(int version, bool readOnly)
     {

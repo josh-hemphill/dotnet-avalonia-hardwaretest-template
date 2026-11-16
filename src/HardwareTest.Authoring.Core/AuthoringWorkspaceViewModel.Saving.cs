@@ -269,6 +269,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             compiledSidecarHash: baseline?.CompiledSidecarHash ?? AuthoringDocumentStore.ComputeHash(existing is null ? null : PlanCompiler.SidecarPath(existing)));
         document.RequiresCompilation = savePlan || sidecarOnly || actualDirty.PlanDirty || actualDirty.SidecarDirty || baseline?.RequiresCompilation == true;
         store.Save(document);
+        _expectedAuthoringSources.Add(planId);
         _measureSectionMigrations.Remove(planId);
         if (document.RequiresCompilation) _uncompiledDocuments.Add(planId);
         _sourceDocuments[planId] = document;

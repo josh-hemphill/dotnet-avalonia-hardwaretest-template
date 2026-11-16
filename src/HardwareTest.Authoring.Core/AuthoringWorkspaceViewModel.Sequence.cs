@@ -182,7 +182,13 @@ public sealed partial class AuthoringWorkspaceViewModel
                 state.IncompleteNumericText.Remove(key);
         }
         foreach (var id in before) state.FormulaIntent.Remove(id);
-        return updated with { AuthoringState = state };
+        var sidecar = PlanCompiler.CloneSidecar(updated.Sidecar);
+        if (sidecar.ReferenceRules is { } rules)
+        {
+            rules.RemoveAll(rule => before.Contains(rule.ProducerStepId));
+            if (rules.Count == 0) sidecar.ReferenceRules = null;
+        }
+        return updated with { AuthoringState = state, Sidecar = sidecar };
     }
 
     public void SelectSequence(int index)

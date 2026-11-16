@@ -263,16 +263,21 @@ public partial class StepTreeViewModel
     /// Projects the finished run's per-step verdicts onto the tree.
     public void ApplyStepResults(IEnumerable<StepResultRecord> steps)
     {
+        var finished = steps.ToArray();
+        ReplaceReferenceAcceptanceResults(finished.Where(step => step.StepType == "Bench reference acceptance"
+            && step.StepId.StartsWith("reference:", StringComparison.Ordinal)).ToArray());
         var flat = StepHierarchy.Flatten(_fullHierarchy).ToList();
-        foreach (var step in steps)
+        foreach (var step in finished)
         {
-            var vm = StepHierarchy.Find(flat, step.StepId, step.StepPath, step.StepType);
+            var vm = step.StepId.StartsWith("reference:", StringComparison.Ordinal)
+                ? flat.FirstOrDefault(item => item.Id == step.StepId)
+                : StepHierarchy.Find(flat, step.StepId, step.StepPath, step.StepType);
             if (vm is null)
             {
                 continue;
             }
 
-            var status = ResolveStatusText(step);
+            var status = vm.IsReadOnlyEvidence ? step.Passed ? "Pass" : "Fail" : ResolveStatusText(step);
             vm.StatusText = status;
             vm.Verdict = status;
             vm.Node.StatusText = status;
@@ -346,6 +351,7 @@ public partial class StepTreeViewModel
     /// Clears execution state in the existing tree while preserving selection and plan settings.
     public void ClearRunState()
     {
+        ReplaceReferenceAcceptanceResults([]);
         foreach (var step in StepHierarchy.Flatten(_fullHierarchy))
         {
             step.Node.StatusText = "Pending";
@@ -355,6 +361,7 @@ public partial class StepTreeViewModel
 
         StepStatusFilter = global::HardwareTest.Features.RunTest.StepStatusFilter.All;
         SyncFromNodes();
+        ResolveSelectedStep();
         _refreshHero();
     }
 

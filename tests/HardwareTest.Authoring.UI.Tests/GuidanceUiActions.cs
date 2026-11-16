@@ -5,6 +5,12 @@ namespace HardwareTest.Authoring.UI.Tests;
 
 internal static class GuidanceUiActions
 {
+    internal static void ShowPlanDetails(AuthoringUiFixture fixture)
+    {
+        fixture.Control<Expander>("Plan details").IsExpanded = true;
+        AuthoringUiFixture.Drain();
+    }
+
     internal static TextBlock Feedback(AuthoringUiFixture fixture)
     {
         WaitForAssessment(fixture);

@@ -18,17 +18,34 @@ public sealed class BoardPreviewTileView : UserControl
         var chartInput = new CheckBox { Content = "Interact with chart", IsVisible = tile.Chrome.IsChart };
         Avalonia.Automation.AutomationProperties.SetName(chartInput, $"Interact with chart {tile.Preview.ChannelKey}");
         chartInput.IsCheckedChanged += (_, _) => _plot.IsHitTestVisible = chartInput.IsChecked == true;
-        var panel = new StackPanel { Spacing = 8 };
+        var panel = new StackPanel { Spacing = 6 };
         panel.Children.Add(new TextBlock { Text = $"{tile.Title} · {tile.Preview.ChannelKey}", FontWeight = Avalonia.Media.FontWeight.SemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = tile.Scope, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-        panel.Children.Add(new TextBlock { Text = tile.Preview.Note, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         panel.Children.Add(new TextBlock { Text = tile.Preview.CannedSamples.Count == 0 ? "Unavailable" : $"{tile.Chrome.ValueText} · {tile.Preview.CannedSamples.Count} samples · {(tile.Chrome.UsesTimeAxis ? "elapsed time" : "sample index")} · {(tile.Preview.Passed is true ? "Pass" : tile.Preview.Passed is false ? "Fail" : "no criterion verdict")}", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+        if (tile.Preview.CannedSamples.Count == 0 && !string.IsNullOrWhiteSpace(tile.Preview.Note))
+            panel.Children.Add(new TextBlock { Text = tile.Preview.Note, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         if (tile.Preview.Threshold is { } threshold)
             panel.Children.Add(new TextBlock { Text = $"Criterion: ≥ {threshold.ToString("G6", System.Globalization.CultureInfo.InvariantCulture)} {tile.Preview.YUnit}", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         panel.Children.Add(_gauge);
-        panel.Children.Add(chartInput);
         panel.Children.Add(_plot);
         panel.Children.Add(_strip);
+        panel.Children.Add(chartInput);
+        var metadata = new Expander
+        {
+            Header = "Data and calculation details",
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            Content = new StackPanel
+            {
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = tile.Scope, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
+                    new TextBlock { Text = tile.Preview.Note, TextWrapping = Avalonia.Media.TextWrapping.Wrap }
+                }
+            },
+            Classes = { "inspectorSection" }
+        };
+        Avalonia.Automation.AutomationProperties.SetName(metadata, $"Preview details {tile.Preview.ChannelKey}");
+        panel.Children.Add(metadata);
         Content = new Border { Padding = new Avalonia.Thickness(8), Child = panel };
         Avalonia.Automation.AutomationProperties.SetName(this, $"Board tile {tile.Preview.ChannelKey}");
         Apply(tile.Chrome);
@@ -85,11 +102,10 @@ public sealed class BoardPreviewTileView : UserControl
     internal void SetChartViewportHeight(double viewportHeight)
     {
         if (viewportHeight <= 0 || !double.IsFinite(viewportHeight)) return;
-        // Reserve the measured title, provenance, criterion and chart-input controls too.
-        // A tile revealed as a whole should not clip the bottom of its chart.
-        var chrome = Bounds.Height > 0 && _plot.Bounds.Height > 0
-            ? Math.Max(0, Bounds.Height - _plot.Bounds.Height) : 160;
-        var height = Math.Clamp(viewportHeight - chrome - 16, 64, 180);
+        // Keep the data legible. Secondary details follow the chart and must not
+        // shrink it when they are expanded; the board owns that extra scrolling.
+        var leading = Math.Max(48, _plot.Bounds.Y);
+        var height = Math.Clamp(viewportHeight - leading - 16, 120, 180);
         if (Math.Abs(_plot.Height - height) <= 0.5) return;
         _plot.MinHeight = height;
         _plot.Height = height;

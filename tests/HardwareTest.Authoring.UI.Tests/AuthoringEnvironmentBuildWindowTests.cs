@@ -56,6 +56,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         await fixture.WaitForReadinessAsync();
         Assert.Equal(excludedBytes, File.ReadAllBytes(blockedPath));
         SelectTab(window, 3);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
         Assert.Equal(selectedHome, fixture.Control<TextBlock>("Selected authoring home").Text);
         Assert.Contains(fixture.ViewModel.EnvironmentPackages, p => p.Package == "Offline Fixture" && !p.Satisfied);
         Assert.Equal("Not checked", fixture.ViewModel.CompatibilityState);
@@ -117,6 +118,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         fixture.ViewModel.OpenTapHomeOverride = "invalid\0home";
         await fixture.WaitForReadinessAsync();
         SelectTab(window, 3);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
         Assert.Contains("Invalid OpenTAP home setting", fixture.Control<TextBlock>("Selected authoring home").Text);
         Assert.All(fixture.ViewModel.EnvironmentPackages, package => Assert.False(package.Satisfied));
         Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.False(fixture.ViewModel.CanPack);
@@ -242,6 +244,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         var picker = new TestWorkspacePicker { Pending = new(TaskCreationOptions.RunContinuationsAsynchronously) };
         var window = fixture.Show(packOutputPicker: import ? null : picker, offlinePackagePicker: import ? picker : null); fixture.OpenRememberedWorkspace();
         SelectTab(window, import ? 3 : 4);
+        if (import) AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
         var button = fixture.Control<Button>(import ? "Import offline authoring package" : "Pack workspace");
         AuthoringUiFixture.Click(button);
         if (change == "session") fixture.ViewModel.Open(fixture.WorkspaceRoot);
@@ -264,6 +267,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
             Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
         SelectTab(window, 3);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
         var archive = Path.Combine(fixture.WorkspaceRoot, "settling-home.TapPackage");
         WriteArchive(archive, "Settling Home Fixture", "1.0.0");
         var importButton = fixture.Control<Button>("Import offline authoring package");

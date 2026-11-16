@@ -26,7 +26,7 @@ public sealed class AuthoringPlanInitializationTests
     {
         using var fixture = Loaded(); var owner = fixture.Window!;
         AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(owner.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
         if (!skip) for (var stage = 0; stage < 5; stage++)
         {
@@ -75,7 +75,7 @@ public sealed class AuthoringPlanInitializationTests
         if (!OperatingSystem.IsWindows()) return; // Actual Windows filesystem semantics run in Windows CI.
         using var fixture = Loaded();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "case-alias");
         var path = fixture.Control<TextBox>("Draft destination", dialog).Text!;
         var alias = (char.IsUpper(path[0]) ? char.ToLowerInvariant(path[0]) : char.ToUpperInvariant(path[0])) + path[1..];
@@ -83,7 +83,7 @@ public sealed class AuthoringPlanInitializationTests
         Next(fixture, dialog, "Starting point"); Next(fixture, dialog, "Hardware"); Next(fixture, dialog, "Setup and cleanup");
         Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal("case-alias", fixture.ViewModel.SelectedProgram!.PlanId);
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal("case-alias", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.True(File.Exists(path)); Assert.False(fixture.ViewModel.HasUnsavedChanges);
         fixture.ViewModel.SaveProgram("case-alias"); fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.ViewModel.SelectProgram("case-alias"); AuthoringUiFixture.Drain();
         Assert.Equal("case-alias", fixture.ViewModel.SelectedProgram!.PlanId); Assert.False(fixture.ViewModel.HasUnsavedChanges);
@@ -94,12 +94,13 @@ public sealed class AuthoringPlanInitializationTests
     {
         using var fixture = Loaded();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Plan display name", "Rail checks");
         Type(fixture, dialog, "Stable plan ID", "rail-checks");
         Type(fixture, dialog, "Device family", "board-x");
         Assert.Contains("rail-checks.authoring.json", fixture.Control<TextBox>("Draft destination", dialog).Text);
         Next(fixture, dialog, "Starting point");
+        Assert.True(fixture.Control<ComboBox>("Starting point", dialog).IsFocused);
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
         Next(fixture, dialog, "Hardware");
         Assert.Equal(0, fixture.Control<ComboBox>("Hardware choice", dialog).SelectedIndex);
@@ -115,7 +116,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains("board-x", review); Assert.Contains("fixtureId", review); Assert.Contains("pending", review);
         Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("rail-checks").Exists);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal("rail-checks", fixture.ViewModel.SelectedProgram!.PlanId);
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal("rail-checks", fixture.ViewModel.SelectedProgram!.PlanId);
         Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.NotNull(fixture.ViewModel.SelectedSequence?.NodeId);
         Assert.False(fixture.ViewModel.HasUnsavedChanges, $"Dirty: {string.Join(", ", fixture.ViewModel.DirtyPrograms)}; catalog: {fixture.ViewModel.WorkspaceCatalogDirty}"); Assert.True(fixture.ViewModel.HasUncompiledSources);
         await fixture.WaitForReadinessAsync(); Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "MISSING_INSTRUMENT_BINDING");
@@ -136,10 +137,10 @@ public sealed class AuthoringPlanInitializationTests
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
         fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         if (reviewFirst) for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
-        Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal(before, fixture.ViewModel.Programs);
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal(before, fixture.ViewModel.Programs);
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
     }
 
@@ -149,7 +150,7 @@ public sealed class AuthoringPlanInitializationTests
     public void Shutdown_checkbox_review_and_created_compiled_plan_keep_the_same_policy(bool enabled)
     {
         using var fixture = Loaded(); AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "shutdown-choice"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2; Next(fixture, dialog, "Hardware");
         Next(fixture, dialog, "Setup and cleanup"); fixture.Control<CheckBox>("Check instrument identity", dialog).IsChecked = true;
@@ -172,7 +173,7 @@ public sealed class AuthoringPlanInitializationTests
     public void Explicit_demo_and_criterion_review_shows_mock_shutdown_and_valid_criterion_choices()
     {
         using var fixture = Loaded(); AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "demo-task");
         Next(fixture, dialog, "Starting point"); fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 2;
         Next(fixture, dialog, "Hardware"); Assert.Contains("Mock DMM", fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem!.ToString());
@@ -201,7 +202,7 @@ public sealed class AuthoringPlanInitializationTests
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
         fixture.Control<TextBox>("Search commands", palette).Text = "New test plan"; AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command")));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "optional-task"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
         Next(fixture, dialog, "Hardware"); Next(fixture, dialog, "Setup and cleanup"); Next(fixture, dialog, "First measurement and criterion");
@@ -211,9 +212,9 @@ public sealed class AuthoringPlanInitializationTests
         var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
         Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
         Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.False(fixture.ViewModel.HasUnsavedChanges);
-        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan")); dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        AuthoringUiFixture.Click(fixture.Control<Button>("New test plan")); dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null); AuthoringUiFixture.Drain();
-        Assert.Empty(fixture.Window.OwnedWindows); Assert.Equal(["optional-task"], new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal(["optional-task"], new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
     }
 
     [AvaloniaFact]
@@ -222,7 +223,7 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-home");
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "mock-voltage"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
         Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
@@ -250,14 +251,14 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = Loaded(); var vm = fixture.ViewModel;
         vm.OpenTapHomeOverride = "invalid\0home"; await fixture.WaitForReadinessAsync(); AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "invalid-home-empty");
         Next(fixture, dialog, "Starting point"); Next(fixture, dialog, "Hardware");
         Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Hardware readiness", dialog).Text);
         Next(fixture, dialog, "Setup and cleanup"); Next(fixture, dialog, "First measurement and criterion"); Next(fixture, dialog, "Review and create");
         Assert.Contains(vm.EnvironmentPathError!, fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Empty(fixture.Window.OwnedWindows); Assert.False(vm.HasUnsavedChanges);
+        Assert.Empty(fixture.Window!.OwnedWindows); Assert.False(vm.HasUnsavedChanges);
         Assert.Empty(vm.SelectedProgram!.Instruments);
         var section = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure));
         Assert.Equal("Measure", section.Name); Assert.Empty(section.Children);
@@ -283,7 +284,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(vm.OpenTapHomeOverride);
         var home = Path.GetFullPath(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "default-mock"); Next(fixture, dialog, "Starting point");
         fixture.Control<ComboBox>("Starting point", dialog).SelectedIndex = 1;
         Next(fixture, dialog, "Hardware"); fixture.Control<ComboBox>("Hardware choice", dialog).SelectedItem = fixture.Control<ComboBox>("Hardware choice", dialog).Items.Single(item => item!.ToString()!.Contains("Create Mock DMM", StringComparison.Ordinal));
@@ -297,7 +298,7 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
-        Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window.OwnedWindows);
+        Assert.False(vm.HasUnsavedChanges); Assert.Empty(fixture.Window!.OwnedWindows);
         vm.SaveProgram("default-mock"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("default-mock"); AuthoringUiFixture.Drain();
         await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "default-mock" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Equal("MOCK::BENCH", Assert.Single(vm.SelectedProgram!.Instruments).VisaAddress);
@@ -334,12 +335,12 @@ public sealed class AuthoringPlanInitializationTests
     public void External_collision_at_Create_retains_dialog_and_existing_bytes()
     {
         using var fixture = Loaded(); AuthoringUiFixture.Click(fixture.Control<Button>("New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "collision");
         for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
         var path = new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("collision"); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "external");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
-        Assert.Same(dialog, Assert.Single(fixture.Window.OwnedWindows)); Assert.Equal("external", File.ReadAllText(path));
+        Assert.Same(dialog, Assert.Single(fixture.Window!.OwnedWindows)); Assert.Equal("external", File.ReadAllText(path));
         Assert.Contains("already exists", fixture.Control<TextBlock>("Initialization error", dialog).Text);
         Assert.DoesNotContain(fixture.ViewModel.Programs, draft => draft.PlanId == "collision");
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));

@@ -70,6 +70,9 @@ public partial class StationOverridesViewModel : ReactiveObject
     [Reactive] private string _stationSlotSummary = "Station: (load program)";
 
     public ObservableCollection<string> DebugSlotNames { get; } = [];
+    public bool AllowsTemporaryDebugOverlay => _getSelectedProgram()?.ReferenceRules.Count is not > 0;
+    public string TemporaryDebugOverlayHint => AllowsTemporaryDebugOverlay ? string.Empty
+        : "Reference tests use saved authored settings; edit and recompile to change acquisition settings.";
 
     public void RefreshStationSlotSummary()
     {
@@ -87,9 +90,11 @@ public partial class StationOverridesViewModel : ReactiveObject
 
     public void RefreshParameterFields()
     {
+        this.RaisePropertyChanged(nameof(AllowsTemporaryDebugOverlay));
+        this.RaisePropertyChanged(nameof(TemporaryDebugOverlayHint));
         ParameterFields.Clear();
         var step = _getSelectedStep();
-        if (!_isEngineerDebugMode() || step is null)
+        if (!_isEngineerDebugMode() || step is null || step.IsReadOnlyEvidence)
         {
             HasParameterFields = false;
             return;
@@ -169,6 +174,11 @@ public partial class StationOverridesViewModel : ReactiveObject
 
     private bool ApplyDebugPatchCore(bool preparingRun)
     {
+        if (!AllowsTemporaryDebugOverlay)
+        {
+            _setStatus(TemporaryDebugOverlayHint);
+            return false;
+        }
         var step = _getSelectedStep();
         if (!_isEngineerDebugMode() || step is null)
         {

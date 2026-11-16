@@ -29,9 +29,12 @@ public sealed class AlphaDevicePersonaUiTests
         fixture.NavigateTask(3);
         Capture(window, $"authoring-environment-missing-{width}");
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
+        fixture.Control<Expander>("Environment dependency setup").IsExpanded = true;
+        AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Declare Instrument Components dependency"));
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         await fixture.WaitForReadinessAsync();
+        AuthoringUiFixture.Click(fixture.Control<Button>("Show package sources and manual import"));
         var repository = fixture.Control<TextBox>("Environment package repository URL");
         var originalRepository = repository.Text!;
         fixture.Type(repository, "http://invalid-package-source");
@@ -96,10 +99,37 @@ public sealed class AlphaDevicePersonaUiTests
         await fixture.WaitForReadinessAsync();
         fixture.Control<Button>("Open add instrument").BringIntoView();
         AuthoringUiFixture.Drain();
+        var instrumentList = fixture.Control<ListBox>("Instruments");
+        instrumentList.ScrollIntoView(fixture.ViewModel.Instruments.First());
+        AuthoringUiFixture.Drain();
+        var instrumentRows = instrumentList.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+        Assert.Equal(fixture.ViewModel.Instruments.Count, instrumentRows.Length);
+        for (var index = 1; index < instrumentRows.Length; index++)
+        {
+            var previous = instrumentRows[index - 1];
+            var current = instrumentRows[index];
+            Assert.True(previous.Bounds.Bottom <= current.Bounds.Top + 0.5,
+                $"Instrument rows overlap: {previous.Bounds} and {current.Bounds}.");
+        }
         Capture(window, $"authoring-hardware-mixed-{width}");
         fixture.ViewModel.SelectedInstrumentSlot = "2602B";
         AuthoringUiFixture.Click(fixture.Control<Button>("Load selected binding"));
         Assert.Equal("keithley.2602b", fixture.ViewModel.EditDeviceDriver!.Id);
+        Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
+        var editedModel = fixture.Control<ComboBox>("Edit device model");
+        var appliedModelIndex = editedModel.SelectedIndex;
+        Select(window, editedModel, (appliedModelIndex + 1) % editedModel.ItemCount);
+        Assert.Contains("Unapplied edits", fixture.Control<TextBlock>("Binding draft state").Text);
+        Assert.Equal("keithley.2602b", fixture.ViewModel.SelectedInstrument!.Settings["DriverId"]);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Reload applied binding values"));
+        foreach (var (field, value) in new[] { ("Confirmed device channels", "1,2"), ("Confirmed device outputs", "psu:1,psu:2"), ("Edit device commissioning", "pending technician confirmation") })
+        {
+            Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
+            fixture.Type(fixture.Control<TextBox>(field), value);
+            Assert.Contains("Unapplied edits", fixture.Control<TextBlock>("Binding draft state").Text);
+            AuthoringUiFixture.Click(fixture.Control<Button>("Reload applied binding values"));
+        }
+        Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
         fixture.Type(fixture.Control<TextBox>("Confirmed device channels"), "1,2");
         fixture.Type(fixture.Control<TextBox>("Confirmed device outputs"), "psu:1,psu:2");
         Capture(window, $"authoring-hardware-edit-{width}");

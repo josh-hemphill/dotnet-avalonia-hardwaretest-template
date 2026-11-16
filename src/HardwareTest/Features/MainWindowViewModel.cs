@@ -15,6 +15,7 @@ using HardwareTest.Features.Settings;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.Shell;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -77,7 +78,7 @@ public partial class MainWindowViewModel : ReactiveObject
         ApplyNavigationPolicy();
         NavigateTo(ResolveStartupPage());
 
-        settingsStore.AppSettingsSaved += (_, _) => ApplyNavigationPolicy();
+        settingsStore.AppSettingsSaved += (_, _) => UiDispatch.Post(ApplyNavigationPolicy);
 
         PauseResumeCommand = ReactiveCommand.Create(PauseResume);
         PauseCommand = ReactiveCommand.Create(Pause);

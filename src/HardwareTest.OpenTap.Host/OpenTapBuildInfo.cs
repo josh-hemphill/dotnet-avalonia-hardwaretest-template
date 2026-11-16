@@ -18,6 +18,16 @@ public static class OpenTapBuildInfo
         }
     }
 
+    /// Identifies the engine actually loaded in this process, including same-version binary variants.
+    public static string ExecutionEngineIdentity
+    {
+        get
+        {
+            var assembly = typeof(TestPlan).Assembly;
+            return $"{assembly.GetName().Version}/{assembly.ManifestModule.ModuleVersionId:D}";
+        }
+    }
+
     public static BuildInfo Attach(BuildInfo buildInfo)
         => buildInfo.WithOpenTapEngineVersion(EngineVersion);
 }

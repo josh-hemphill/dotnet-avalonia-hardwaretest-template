@@ -103,7 +103,7 @@ public sealed class WorkspaceCreationWindow : Window
         foreach (var button in new[] { cancel, _create }) { button.Margin = new Thickness(4); decisions.Children.Add(button); }
         var footer = new StackPanel { Spacing = 8, Children = { new ScrollViewer { Content = _error, MaxHeight = 80 }, decisions } };
         Content = AuthoringFormLayout.Frame("Create workspace", "Choose a destination and template, then review exactly what will be created.", form, footer);
-
+        Opened += (_, _) => _destination.Focus();
     }
 
     private WorkspaceCreationRequest Request() => new(_destination.Text ?? "", _name.Text ?? "", _package.Text ?? "")

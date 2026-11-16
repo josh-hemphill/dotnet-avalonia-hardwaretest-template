@@ -18,42 +18,43 @@ public partial class InstrumentsViewModel
     /// Applies a Run-board deep link (plan + first blocking slot).
     public void FocusProgram(string planId, string? slotName = null)
     {
-        var match = PlanFilterOptions.FirstOrDefault(p =>
-            !string.Equals(p, AllPlanFilter, StringComparison.Ordinal)
-            && SlotOverrides.Any(s =>
-                string.Equals(s.PlanId, planId, StringComparison.OrdinalIgnoreCase)
-                && string.Equals(s.PlanDisplayName, p, StringComparison.OrdinalIgnoreCase)));
-        if (match is null)
-        {
-            var byId = SlotOverrides.FirstOrDefault(s =>
-                string.Equals(s.PlanId, planId, StringComparison.OrdinalIgnoreCase));
-            match = byId?.PlanDisplayName;
-        }
-
-        if (!string.IsNullOrWhiteSpace(match))
-        {
-            PlanFilter = match;
-        }
-
+        var programSlots = SlotOverrides.Where(slot =>
+            string.Equals(slot.PlanId, planId, StringComparison.OrdinalIgnoreCase)).ToList();
+        PlanFilter = programSlots.Count == 0 ? AllPlanFilter : PlanFilterLabel(programSlots[0]);
         ApplyPlanFilter();
-        if (!string.IsNullOrWhiteSpace(slotName))
+        SelectedSlot = string.IsNullOrWhiteSpace(slotName)
+            ? programSlots.FirstOrDefault()
+            : programSlots.FirstOrDefault(slot => string.Equals(slot.SlotName, slotName, StringComparison.OrdinalIgnoreCase));
+        if (programSlots.Count == 0)
         {
-            SelectedSlot = VisibleSlots.FirstOrDefault(s =>
-                string.Equals(s.SlotName, slotName, StringComparison.OrdinalIgnoreCase))
-                ?? SelectedSlot;
+            Status = $"Program {planId} was not found. Refresh slots or choose another program; no binding target is selected.";
         }
-
-        Status = string.IsNullOrWhiteSpace(slotName)
-            ? $"Commission program {planId}."
-            : $"Bind slot {slotName} for {planId}.";
+        else if (SelectedSlot is null)
+        {
+            Status = $"Slot {slotName} was not found in program {planId}. Refresh slots or choose a slot in this program; no binding target is selected.";
+        }
+        else
+        {
+            Status = string.IsNullOrWhiteSpace(slotName)
+                ? $"Commission program {planId}."
+                : $"Bind slot {slotName} for {planId}.";
+        }
         RefreshCommission();
     }
+
+    private string PlanFilterLabel(SlotOverrideItemViewModel slot)
+        => SlotOverrides.Any(other =>
+            !string.Equals(other.PlanId, slot.PlanId, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(other.PlanDisplayName, slot.PlanDisplayName, StringComparison.OrdinalIgnoreCase))
+                ? $"{slot.PlanDisplayName} (Plan ID: {slot.PlanId})"
+                : slot.PlanDisplayName;
 
     private void RebuildPlanFilters()
     {
         var currentFilter = PlanFilter;
         var names = SlotOverrides
-            .Select(s => s.PlanDisplayName)
+            .DistinctBy(s => s.PlanId, StringComparer.OrdinalIgnoreCase)
+            .Select(PlanFilterLabel)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -81,7 +82,7 @@ public partial class InstrumentsViewModel
                 string.Equals(s.PlanId, sessionPlan, StringComparison.OrdinalIgnoreCase));
             if (preferred is not null)
             {
-                PlanFilter = preferred.PlanDisplayName;
+                PlanFilter = PlanFilterLabel(preferred);
                 return;
             }
         }
@@ -97,7 +98,7 @@ public partial class InstrumentsViewModel
         VisibleSlots.Clear();
         foreach (var slot in SlotOverrides.Where(s =>
             string.Equals(PlanFilter, AllPlanFilter, StringComparison.Ordinal)
-            || string.Equals(s.PlanDisplayName, PlanFilter, StringComparison.OrdinalIgnoreCase)))
+            || string.Equals(PlanFilterLabel(s), PlanFilter, StringComparison.OrdinalIgnoreCase)))
         {
             VisibleSlots.Add(slot);
         }
@@ -110,26 +111,28 @@ public partial class InstrumentsViewModel
         RefreshCommission();
     }
 
-    private void PersistIdn(string resource, string raw, string summary)
+    private bool PersistIdn(SlotOverrideItemViewModel? slot, string resource, string raw, string summary)
     {
-        if (string.IsNullOrWhiteSpace(summary))
+        // A shared address is not a plan/slot identity. Only stamp the target captured
+        // when the query started, and only while that exact binding still exists.
+        if (_idnStore is null || slot is null || string.IsNullOrWhiteSpace(summary)
+            || !SlotOverrides.Contains(slot)
+            || !string.Equals(slot.EffectiveResource, resource, StringComparison.OrdinalIgnoreCase))
         {
-            return;
+            return false;
         }
 
-        if (BoundSlotForResource(resource) is { } slot)
+        _idnStore.Upsert(new StationIdnRecord
         {
-            slot.LastIdnSummary = summary;
-            _idnStore?.Upsert(new StationIdnRecord
-            {
-                PlanId = slot.PlanId,
-                SlotName = slot.SlotName,
-                Resource = resource,
-                IdnRaw = raw,
-                IdnSummary = summary,
-                QueriedAt = DateTimeOffset.UtcNow,
-            });
-        }
+            PlanId = slot.PlanId,
+            SlotName = slot.SlotName,
+            Resource = resource,
+            IdnRaw = raw,
+            IdnSummary = summary,
+            QueriedAt = DateTimeOffset.UtcNow,
+        });
+        slot.LastIdnSummary = summary;
+        return true;
     }
 
     private SlotOverrideItemViewModel? BoundSlotForResource(string resource)
@@ -159,6 +162,16 @@ public partial class InstrumentsViewModel
             CommissionStepIndex = 1; CommissionTitle = "Review device configuration";
             CommissionHint = configuration.SlotName + ": " + configuration.ConfigurationIssue + " Correct the saved binding in Authoring, then refresh plan slots.";
             ShowCommissionStrip = true; return;
+        }
+        if (BindingsReadOnly)
+        {
+            CommissionStepIndex = report.CanRun ? 3 : 1;
+            CommissionTitle = report.CanRun ? "Deployment bindings" : "Deployment bindings need attention";
+            CommissionHint = report.CanRun
+                ? "Inspect the configured slots or query their identities. Go to Run when ready."
+                : BindingOwnershipHint;
+            ShowCommissionStrip = true;
+            return;
         }
         if (!HasDiscoveredVisa && !HasDiscoveredOpenTap && VisibleSlots.Any(slot => slot.Readiness.Kind == StationSlotReadinessKind.Unbound))
         {

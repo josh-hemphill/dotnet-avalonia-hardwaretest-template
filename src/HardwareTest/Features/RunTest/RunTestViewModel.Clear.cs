@@ -60,6 +60,7 @@ public partial class RunTestViewModel
         }
 
         ResetPumpForRun();
+        SetReferenceOutcome(null, [], HardwareTest.Core.Runs.RunResult.Unknown);
         ClearSessionAttempts();
         StepTree.ClearRunState();
         Live.ResetForRun();

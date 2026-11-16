@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.StationHealth;
 
@@ -37,6 +38,10 @@ public sealed class ProgramCatalogEntry
     public bool RequireStationHealth { get; init; }
     public double? StationHealthMaxAgeHours { get; init; }
     public string? StationHealthGate { get; init; }
+    public IReadOnlyList<BenchReferenceRule> ReferenceRules { get; init; } = [];
+    public string? ReferenceDeclarationError { get; init; }
+    public string? PlanSha256 { get; init; }
+    public string? SidecarSha256 { get; init; }
 }
 
 /// Optional sidecar beside a .TapPlan: `{planId}.program.json`.
@@ -64,6 +69,8 @@ public sealed class ProgramSidecar
     public double? StationHealthMaxAgeHours { get; set; }
     public string? StationHealthGate { get; set; }
     public string? StationHealthProfileId { get; set; }
+    /// Additional operator acceptance criteria evaluated against explicitly selected bench references.
+    public List<BenchReferenceRule>? ReferenceRules { get; set; }
 }
 
 [JsonSourceGenerationOptions(
@@ -92,7 +99,7 @@ public static class ProgramCatalog
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
+            foreach (var file in BenchProgramHandoff.EnumeratePlanFiles(dir))
             {
                 var id = Path.GetFileNameWithoutExtension(file);
                 if (byId.ContainsKey(id))
@@ -122,7 +129,7 @@ public static class ProgramCatalog
                 continue;
             }
 
-            foreach (var file in Directory.EnumerateFiles(dir, "*.TapPlan"))
+            foreach (var file in BenchProgramHandoff.EnumeratePlanFiles(dir))
             {
                 var id = Path.GetFileNameWithoutExtension(file);
                 var sidecarPath = Path.Combine(Path.GetDirectoryName(file) ?? string.Empty, $"{id}.program.json");
@@ -306,9 +313,13 @@ public static class ProgramCatalog
         };
     }
 
+    public static ProgramCatalogEntry FromFile(string file)
+        => FromTapPlanFile(Path.GetFullPath(file), Path.GetFileNameWithoutExtension(file));
+
     private static ProgramCatalogEntry FromTapPlanFile(string file, string id)
     {
-        var sidecar = TryLoadSidecar(file, id);
+        var planHash = BenchProgramHandoff.Hash(File.ReadAllBytes(file));
+        var sidecar = TryLoadSidecar(file, id, out var declarationError, out var sidecarHash);
         var family = string.IsNullOrWhiteSpace(sidecar?.DutFamily) ? "generic" : sidecar!.DutFamily!.Trim();
         var requirements = BuildRequirements(sidecar, family);
         var kinds = sidecar?.ReportKinds is { Length: > 0 }
@@ -336,6 +347,10 @@ public static class ProgramCatalog
             RequireStationHealth = sidecar?.RequireStationHealth ?? false,
             StationHealthMaxAgeHours = sidecar?.StationHealthMaxAgeHours,
             StationHealthGate = sidecar?.StationHealthGate,
+            ReferenceRules = sidecar?.ReferenceRules?.ToArray() ?? [],
+            ReferenceDeclarationError = declarationError,
+            PlanSha256 = planHash,
+            SidecarSha256 = sidecarHash,
         };
     }
 
@@ -379,8 +394,10 @@ public static class ProgramCatalog
             ? ProgramKinds.Dut
             : sidecar!.ProgramKind!.Trim();
 
-    private static ProgramSidecar? TryLoadSidecar(string tapPlanPath, string id)
+    private static ProgramSidecar? TryLoadSidecar(string tapPlanPath, string id, out string? declarationError, out string? sidecarHash)
     {
+        declarationError = null;
+        sidecarHash = null;
         var sidecarPath = Path.Combine(Path.GetDirectoryName(tapPlanPath) ?? string.Empty, $"{id}.program.json");
         if (!File.Exists(sidecarPath))
         {
@@ -389,12 +406,22 @@ public static class ProgramCatalog
 
         try
         {
-            return JsonSerializer.Deserialize(
-                File.ReadAllText(sidecarPath),
-                ProgramCatalogJsonContext.Default.ProgramSidecar);
+            var bytes = File.ReadAllBytes(sidecarPath);
+            sidecarHash = BenchProgramHandoff.Hash(bytes);
+            using var stream = new MemoryStream(bytes, writable: false);
+            using var reader = new StreamReader(stream, new System.Text.UTF8Encoding(false, true), detectEncodingFromByteOrderMarks: true);
+            var raw = reader.ReadToEnd();
+            ProgramReferenceDeclarations.RequireSupportedJson(raw);
+            var sidecar = JsonSerializer.Deserialize(raw, ProgramCatalogJsonContext.Default.ProgramSidecar)
+                ?? throw new InvalidDataException("The program sidecar is empty.");
+            var errors = BenchReferenceEvaluator.ValidateRules(sidecar.ReferenceRules ?? []);
+            if (errors.Count > 0)
+                declarationError = "This program has invalid reference requirements: " + string.Join(" ", errors);
+            return sidecar;
         }
-        catch
+        catch (Exception error) when (error is JsonException or IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
         {
+            declarationError = $"Cannot read this program's reference requirements: {error.Message} Restore its supported compiled sidecar and reload programs.";
             return null;
         }
     }

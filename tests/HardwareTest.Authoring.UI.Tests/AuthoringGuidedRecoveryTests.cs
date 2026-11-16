@@ -241,6 +241,7 @@ public sealed class AuthoringGuidedRecoveryTests
         File.Delete(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("missing-source-guide"));
         AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
+        GuidanceUiActions.ShowPlanDetails(fixture);
         Assert.Equal(vm.SelectedProgram!.Sidecar.DisplayName, fixture.Control<TextBlock>("Guidance plan name").Text);
         var status = GuidanceUiActions.Feedback(fixture);
         Assert.Equal("Saved input is unavailable or unsafe", status.Text);
@@ -319,6 +320,7 @@ public sealed class AuthoringGuidedRecoveryTests
             release[1].TrySetResult();
             var feedback = GuidanceUiActions.Feedback(fixture).Text;
             Assert.True(allOffDispatcher);
+            GuidanceUiActions.ShowPlanDetails(fixture);
             Assert.Equal(vm.SelectedProgram!.Sidecar.DisplayName, fixture.Control<TextBlock>("Guidance plan name").Text);
             if (mutation == "edit") Assert.Equal("Unsaved draft changes", feedback);
             if (mutation == "save") Assert.Equal("First voltage test complete", feedback);

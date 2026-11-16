@@ -121,6 +121,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
                 PartNumber = dut.PartNumber,
                 Revision = dut.Revision,
                 Family = dut.Family,
+                ReferenceAcceptancePrepared = station.ReferenceAcceptancePrepared,
+                ReferenceAcquisition = station.ReferenceAcquisition,
             },
             WorkerJsonContext.Default.WorkerStationDutRequest,
             cancellationToken);

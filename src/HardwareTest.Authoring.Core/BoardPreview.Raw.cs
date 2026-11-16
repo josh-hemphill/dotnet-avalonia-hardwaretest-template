@@ -12,7 +12,7 @@ public static partial class BoardPreviewBuilder
         string? publisherKey = null;
         try
         {
-            if (recording is { IsSchemaReadOnly: true }) throw new AuthoringWorkspaceException($"Unsupported recording schema {recording.StoredSchemaVersion}.");
+            if (recording is not null && !RunDatasetCatalog.CanPreviewSamples(recording)) throw new AuthoringWorkspaceException($"Unsupported recording schema {recording.StoredSchemaVersion}.");
             var step = PlanCompiler.PreviewRawStep(raw);
             if (!step.Enabled) return;
             var hints = OpenTapPresentation.TryReadMixin(step);

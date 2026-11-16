@@ -24,9 +24,16 @@ public sealed class FeedbackLayoutStabilityTests
         var inspector = fixture.Control<ScrollViewer>("Selected step inspector");
         var sequenceBounds = BoundsInWindow(sequence, window);
         var inspectorBounds = BoundsInWindow(inspector, window);
+        var scope = fixture.Control<TextBlock>("Validation scope");
+        Assert.True(scope.IsEffectivelyVisible);
+        Assert.Equal(fixture.ViewModel.ValidationScope, scope.Text);
+        Assert.Contains("before validating", scope.Text);
 
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.NotEmpty(fixture.ViewModel.SaveAllResults);
+        Assert.True(scope.IsEffectivelyVisible);
+        Assert.Equal(fixture.ViewModel.ValidationScope, scope.Text);
+        Assert.Contains("saved TapPlans", scope.Text);
         Assert.Equal(sequenceBounds, BoundsInWindow(sequence, window));
         Assert.Equal(inspectorBounds, BoundsInWindow(inspector, window));
         fixture.ViewModel.Open(fixture.WorkspaceRoot);

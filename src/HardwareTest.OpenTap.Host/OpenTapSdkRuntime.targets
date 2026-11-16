@@ -1,0 +1,12 @@
+<Project>
+  <!-- OpenTAP's transitive NuGet library differs from its supported SDK runtime.
+       Executables import the SDK directly; publish the same complete runtime. -->
+  <Target Name="PublishHardwareTestOpenTapRuntime" AfterTargets="Publish">
+    <ItemGroup>
+      <HardwareTestOpenTapRuntime Include="$([System.String]::Copy('$(OpenTapRuntimeDir)').Replace('osx-', 'macos-'))/**/*" />
+    </ItemGroup>
+    <Error Condition="'@(HardwareTestOpenTapRuntime)' == ''" Text="The matching OpenTAP SDK runtime is required for an operator or worker publication." />
+    <Copy SourceFiles="@(HardwareTestOpenTapRuntime)"
+          DestinationFiles="@(HardwareTestOpenTapRuntime->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+</Project>

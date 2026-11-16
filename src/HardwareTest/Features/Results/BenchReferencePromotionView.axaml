@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HardwareTest.Features.Results" x:Class="HardwareTest.Features.Results.BenchReferencePromotionView" x:DataType="vm:BenchReferencePromotionViewModel">
+  <DockPanel Margin="16">
+    <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,12">
+      <TextBlock Text="Save golden reference" FontSize="22" FontWeight="SemiBold" AutomationProperties.HeadingLevel="1"/>
+      <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"/>
+    </StackPanel>
+    <Button DockPanel.Dock="Bottom" Content="Save new reference" Command="{Binding SaveCommand}" IsEnabled="{Binding CanPromote}" MinHeight="40" Margin="0,12,0,0" HorizontalAlignment="Left" AutomationProperties.Name="Save new golden reference"/>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Golden reference source and values">
+      <StackPanel Spacing="12" IsEnabled="{Binding CanEdit}">
+        <SelectableTextBlock Text="{Binding SourceDetails}" TextWrapping="Wrap"/>
+        <Expander Header="Exact program and bench identity" HorizontalContentAlignment="Stretch"><SelectableTextBlock Text="{Binding SourceIdentity}" Margin="8" TextWrapping="Wrap"/></Expander>
+        <StackPanel Spacing="4"><TextBlock Text="Reference name"/>
+          <TextBox Text="{Binding Name}" MinHeight="40" AutomationProperties.Name="Golden reference name"/>
+        </StackPanel>
+        <StackPanel Spacing="4"><TextBlock Text="Valid for days (0 means no automatic expiry)" TextWrapping="Wrap"/>
+          <TextBox Text="{Binding ValidDays}" MinHeight="40" AutomationProperties.Name="Golden reference validity in days"/>
+        </StackPanel>
+        <TextBlock Text="Values to save — arithmetic mean of matching samples, including repeat invocations" TextWrapping="Wrap" FontWeight="SemiBold"/>
+        <ItemsControl ItemsSource="{Binding Candidates}"><ItemsControl.ItemTemplate><DataTemplate x:DataType="vm:BenchReferenceCaptureRow">
+          <StackPanel Spacing="4" Margin="0,0,0,8">
+            <CheckBox IsChecked="{Binding IsSelected}" IsEnabled="{Binding CanSelect}"
+                      AutomationProperties.Name="{Binding AutomationName}" AutomationProperties.HelpText="{Binding Details}"><TextBlock Text="{Binding Label}" TextWrapping="Wrap"/></CheckBox>
+            <Expander Header="Measurement and criterion details" HorizontalContentAlignment="Stretch"><SelectableTextBlock Text="{Binding Details}" Margin="8" TextWrapping="Wrap"/></Expander>
+          </StackPanel>
+        </DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

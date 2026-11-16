@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Diagnostics;
 using HardwareTest.Core.Engine;
@@ -15,6 +16,7 @@ using HardwareTest.Core.Time;
 using HardwareTest.Features.Shell;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
+using HardwareTest.UiThreading;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 
@@ -54,7 +56,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         IClock? clock = null,
         IOperatorCredentialBroker? credentialBroker = null,
         IStationHealthStore? stationHealthStore = null,
-        IStationHealthGate? stationHealthGate = null)
+        IStationHealthGate? stationHealthGate = null,
+        IBenchReferenceStore? benchReferenceStore = null)
     {
         _plan = plan;
         _runSession = runSession;
@@ -65,6 +68,11 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _shellNotification = shellNotification;
         _clock = clock ?? SystemClock.Instance;
         _stationHealthGate = stationHealthGate;
+        _visaModeController = visaModeController;
+        if (_visaModeController is not null)
+        {
+            _visaModeController.ModeApplied += (_, _) => UiDispatch.Post(RefreshVisaMode, UiScheduler);
+        }
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         BindLiveSettings(settingsStore, settings);
 
@@ -90,6 +98,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             credentialBroker,
             stationHealthStore,
             stationHealthGate);
+        InitializeBenchReferences(benchReferenceStore, station, settingsStore);
 
         ContinueOperatorCommand = ReactiveCommand.Create(ContinueOperator, ObserveAwaitingOperator(Interaction));
         ClearRunCommand = ReactiveCommand.Create(ClearRun, ObserveCanClearRun());
@@ -217,12 +226,21 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     {
         ProgramSelection.PropertyChanged += (_, args) =>
         {
-            if (args.PropertyName != nameof(ProgramSelectionViewModel.SelectedProgram)
-                || ProgramSelection.SelectedProgram is null)
+            if (args.PropertyName == nameof(ProgramSelectionViewModel.IsBusy))
+            {
+                RaiseProgramAvailability();
+                return;
+            }
+
+            if (args.PropertyName != nameof(ProgramSelectionViewModel.SelectedProgram))
             {
                 return;
             }
 
+            InvalidateSelectedProgram();
+            SetReferenceOutcome(null, [], HardwareTest.Core.Runs.RunResult.Unknown);
+            References.Configure(ProgramSelection.SelectedProgram, null);
+            if (ProgramSelection.SelectedProgram is null) return;
             SessionPanel.RefreshRequirementFlags();
             if (ProgramSelection.IsBusy)
             {
@@ -235,6 +253,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 
         SessionPanel.PropertyChanged += (_, args) =>
         {
+            if (args.PropertyName == nameof(OperatorSessionPanelViewModel.IdleCountdownText)) References.RefreshState();
+            if (args.PropertyName == nameof(OperatorSessionPanelViewModel.SessionBlocked) && !SessionPanel.SessionBlocked)
+                ClearResolvedSessionGateNotice();
             if (args.PropertyName is nameof(OperatorSessionPanelViewModel.SessionBlocked)
                 or nameof(OperatorSessionPanelViewModel.IsStalePrompt)
                 or nameof(OperatorSessionPanelViewModel.IsIdleWarningPrompt))
@@ -295,6 +316,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             if (args.PropertyName == nameof(IsEngineerDebugMode))
             {
                 StationOverrides.RefreshParameterFields();
+                References.RefreshState();
             }
             else if (args.PropertyName == nameof(IsCompactLayout))
             {
@@ -305,6 +327,8 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 RefreshHero();
                 if (args.PropertyName == nameof(IsRunning))
                 {
+                    References.RefreshState();
+                    this.RaisePropertyChanged(nameof(ShowSavedResult));
                     RaiseStartGates();
                     this.RaisePropertyChanged(nameof(ShowHeaderChangeSession));
                     this.RaisePropertyChanged(nameof(ShowOverallProgress));
@@ -312,6 +336,10 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                     SessionPanel.RefreshSessionSummary();
                     Workspace.Refresh();
                 }
+            }
+            else if (args.PropertyName == nameof(LastRunId))
+            {
+                this.RaisePropertyChanged(nameof(ShowSavedResult));
             }
         };
     }
@@ -327,50 +355,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         string? preserveStagePath = null,
         string? preserveStepPath = null,
         CancellationToken cancellationToken = default)
-    {
-        if (ProgramSelection.SelectedProgram is not { } program)
-        {
-            return;
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        SessionPanel.ApplyIdleStaleCheck();
-        ApplySelectedProgram(program);
-
-        var alreadyLoaded = string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
-        if (!alreadyLoaded)
-        {
-            await LoadProgramEntryAsync(program, cancellationToken).ConfigureAwait(false);
-        }
-
-        cancellationToken.ThrowIfCancellationRequested();
-        await RunOnUiAsync(() =>
-        {
-            if (!alreadyLoaded
-                || (StepTree.Hierarchy.Count == 0 && StepTree.FullHierarchy.Count == 0))
-            {
-                StepTree.RebuildFromHost(preserveStagePath, preserveStepPath);
-            }
-            else if (!string.IsNullOrWhiteSpace(preserveStepPath))
-            {
-                // Keep Hierarchy instances; only re-resolve selection by path.
-                StepTree.ResolveSelectedStep(preserveStepPath);
-            }
-            else if (!string.IsNullOrWhiteSpace(preserveStagePath))
-            {
-                StepTree.RestoreSelection(preserveStagePath, preserveStepPath);
-            }
-
-            StationOverrides.RefreshStationSlotSummary();
-            StationOverrides.ApplySavedParameterOverrides();
-            StationOverrides.RefreshParameterFields();
-            SessionPanel.RefreshSessionSummary();
-            if (!alreadyLoaded)
-            {
-                Workspace.ResetToSteps();
-            }
-        }).ConfigureAwait(false);
-    }
+        => await LoadSelectedProgramSafelyAsync(preserveStagePath, preserveStepPath, cancellationToken).ConfigureAwait(false);
 
     private Task LoadProgramEntryAsync(
         ProgramItemViewModel program,
@@ -410,7 +395,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     }
 
     private string? ResolveConditionSummary(HierarchyStepViewModel step)
-        => IsEngineerDebugMode
+        => IsEngineerDebugMode && !step.IsReadOnlyEvidence
            && _plan.TryGetStepConditionSummary(step.Path, out var summary)
            && !string.IsNullOrWhiteSpace(summary)
             ? summary

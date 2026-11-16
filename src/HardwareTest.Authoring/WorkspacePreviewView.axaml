@@ -1,27 +1,31 @@
-<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
-    <Grid x:Name="PreviewLayout" RowDefinitions="Auto,Auto,*" RowSpacing="8" AutomationProperties.Name="Preview content">
-      <ScrollViewer x:Name="SourceDetailsViewport" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" ClipToBounds="True" AutomationProperties.Name="Data source details viewport">
-        <Border x:Name="SourceFrame" Classes="surface" Padding="8">
-          <StackPanel Spacing="12">
-            <WrapPanel x:Name="SourceActions">
-              <TextBlock Text="Preview data" Margin="0,0,8,0" VerticalAlignment="Center" FontWeight="SemiBold" AutomationProperties.HeadingLevel="3" Classes="sectionTitle"/>
-              <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,8,0"/>
-              <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,8,0"/>
-              <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,8,0"/>
-              <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,8,0"/>
-            </WrapPanel>
-            <TextBlock Text="{Binding DataSourceDetails}" TextWrapping="Wrap"/>
-            <TextBlock Text="{Binding RecordingEmptyState}" TextWrapping="Wrap"/>
-          </StackPanel>
-        </Border>
-      </ScrollViewer>
-      <StackPanel x:Name="RecordingRows" Grid.Row="1" Spacing="8" Margin="0">
-        <TextBlock x:Name="RecordingsHeading" FontWeight="SemiBold" Text="Recordings" AutomationProperties.HeadingLevel="3" TextWrapping="Wrap" Classes="sectionTitle"/>
-        <ListBox Height="80" ItemsSource="{Binding DatasetItems}" SelectedIndex="{Binding SelectedDatasetIndex}" KeyboardNavigation.TabNavigation="Once" AutomationProperties.Name="Recordings" AutomationProperties.LabeledBy="{Binding #RecordingsHeading}"/>
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:HardwareTest.Authoring" x:Class="HardwareTest.Authoring.WorkspacePreviewView" x:DataType="vm:AuthoringWorkspaceViewModel">
+  <Grid x:Name="PreviewLayout" RowDefinitions="Auto,*" RowSpacing="8" AutomationProperties.Name="Preview content">
+    <Border x:Name="SourceFrame" Classes="surface" Padding="4">
+      <StackPanel Spacing="4">
+        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+          <TextBlock Text="{Binding PreviewSourceKind}" FontWeight="SemiBold" VerticalAlignment="Top" TextWrapping="Wrap"/>
+          <TextBlock Grid.Column="1" Text="{Binding PreviewSourceName}" MaxLines="2" TextWrapping="Wrap" TextTrimming="CharacterEllipsis"
+              VerticalAlignment="Top" ToolTip.Tip="{Binding DataSourceDetails}" AutomationProperties.Name="{Binding PreviewSourceName}"/>
+        </Grid>
+        <WrapPanel x:Name="SourceActions">
+          <Button Content="Example" Click="OnUseExampleData" ToolTip.Tip="Use example data" AutomationProperties.Name="Use example data" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Import" Click="OnImportRecording" ToolTip.Tip="Import recording" IsEnabled="{Binding CanImportRecording}" AutomationProperties.Name="Import recording" Classes="authoringAction primaryAction" Margin="0,0,6,4"/>
+          <Button Content="Folder" Click="OnOpenRecordingFolder" ToolTip.Tip="Open recordings folder" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Open recordings folder" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Refresh" Click="OnRefreshRecordings" ToolTip.Tip="Reload recordings copied or changed outside this app" IsEnabled="{Binding HasWorkspace}" AutomationProperties.Name="Refresh recordings" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Source details" Click="OnShowSourceDetails" IsEnabled="{Binding CanInspectPreviewDetails}" AutomationProperties.Name="Preview data source details" AutomationProperties.HelpText="{Binding PreviewDetailsHelp}" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="Reference review" Click="OnShowReferenceDetails" IsVisible="{Binding HasRecordedReferences}" IsEnabled="{Binding CanInspectPreviewDetails}" AutomationProperties.HelpText="{Binding PreviewDetailsHelp}"
+              AutomationProperties.Name="Review recorded references" Classes="authoringAction" Margin="0,0,6,4"/>
+          <Button Content="{Binding DatasetItems.Count, StringFormat='Recordings ({0})'}" IsVisible="{Binding HasRecordings}" Click="OnChooseRecording" AutomationProperties.Name="Choose a recording" Classes="authoringAction" Margin="0,0,6,4"/>
+        </WrapPanel>
+        <TextBlock Text="Preview only; no hardware execution." Classes="purpose" TextWrapping="Wrap" AutomationProperties.Name="Preview does not execute hardware"/>
+        <TextBlock Text="{Binding RecordingReferenceSummary}" IsVisible="{Binding HasRecordedReferences}" TextWrapping="Wrap"
+            AutomationProperties.Name="Recorded reference input summary"/>
       </StackPanel>
-      <Grid x:Name="BoardRegion" RowDefinitions="Auto,*" RowSpacing="8" Grid.Row="2">
-        <TextBlock x:Name="BoardHeading" Text="Operator board" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
-        <vm:OperatorPreviewPane x:Name="BoardPane" Grid.Row="1"/>
-      </Grid>
+    </Border>
+    <Grid x:Name="BoardRegion" RowDefinitions="Auto,*" RowSpacing="8" Grid.Row="1">
+      <TextBlock x:Name="BoardHeading" Text="Operator board" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+      <vm:OperatorPreviewPane x:Name="BoardPane" Grid.Row="1"/>
     </Grid>
+  </Grid>
 </UserControl>

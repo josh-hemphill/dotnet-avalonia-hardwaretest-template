@@ -9,6 +9,31 @@ namespace HardwareTest.Features.Results;
 /// List filters (result/plan/DUT/operator/date) and yield counts.
 public partial class ResultsViewModel
 {
+    private bool _resettingFilters;
+
+    public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearFiltersCommand { get; }
+    public bool HasStoredRuns => _allRuns.Count > 0;
+    public bool HasActiveFilters => !string.IsNullOrWhiteSpace(SearchText) || ActiveFilterCount > 0;
+    private int ActiveFilterCount => new[] { ResultFilter, PlanFilter, DutFilter, OperatorFilter }.Count(value => value != AllFilter)
+        + (DateFilter != DateAll ? 1 : 0);
+    public string FilterHeading => ActiveFilterCount > 0 ? $"Filters ({ActiveFilterCount} active)" : "Filters";
+    public string EmptyResultsTitle => HasStoredRuns ? "No matching runs" : "No saved runs yet";
+    public string EmptyResultsHint => HasStoredRuns
+        ? "Change the search or filters to find a saved run."
+        : "Confirm a DUT and run a program on the Run page. Its saved results will appear here.";
+
+    private void ResetFilters()
+    {
+        _resettingFilters = true;
+        try
+        {
+            SearchText = string.Empty;
+            ResultFilter = PlanFilter = DutFilter = OperatorFilter = AllFilter;
+            DateFilter = DateAll;
+        }
+        finally { _resettingFilters = false; }
+        ApplyFilters();
+    }
     public const string DateAll = "All dates";
     public const string DateToday = "Today";
     public const string DateLast7Days = "Last 7 days";
@@ -69,43 +94,56 @@ public partial class ResultsViewModel
 
     private void ApplyFilters()
     {
-        var selectedId = SelectedRun?.RunId;
-        Runs.Clear();
-        foreach (var run in _allRuns.Where(MatchesFilters))
+        // Rebuilding ItemsSource clears a bound ListBox selection before it can be
+        // restored. That maintenance is not a new user selection or an open action.
+        var wasSuppressed = _suppressAutoOpen;
+        _suppressAutoOpen = true;
+        try
         {
-            Runs.Add(run);
-        }
+            var selectedId = SelectedRun?.RunId;
+            Runs.Clear();
+            foreach (var run in _allRuns.Where(MatchesFilters))
+            {
+                Runs.Add(run);
+            }
 
-        var slice = _allRuns.Where(MatchesNonResultFilters).ToList();
-        var passed = slice.Count(r => r.Result == RunResult.Passed);
-        var failed = slice.Count(r => r.Result == RunResult.Failed);
-        var other = slice.Count - passed - failed;
-        YieldSummary = slice.Count == 0
-            ? string.Empty
-            : $"Passed {passed} · Failed {failed} · Other {other}";
+            var slice = _allRuns.Where(MatchesNonResultFilters).ToList();
+            var passed = slice.Count(r => r.Result == RunResult.Passed);
+            var failed = slice.Count(r => r.Result == RunResult.Failed);
+            var other = slice.Count - passed - failed;
+            YieldSummary = slice.Count == 0
+                ? string.Empty
+                : $"Passed {passed} · Failed {failed} · Other {other}";
 
-        if (_allRuns.Count == 0)
-        {
-            FilterStatus = string.Empty;
-        }
-        else if (string.IsNullOrWhiteSpace(YieldSummary))
-        {
-            FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count}";
-        }
-        else
-        {
-            FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
-        }
+            if (_allRuns.Count == 0)
+            {
+                FilterStatus = string.Empty;
+            }
+            else if (string.IsNullOrWhiteSpace(YieldSummary))
+            {
+                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count}";
+            }
+            else
+            {
+                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
+            }
 
-        this.RaisePropertyChanged(nameof(HasRuns));
-        this.RaisePropertyChanged(nameof(HasSchemaDrift));
-        this.RaisePropertyChanged(nameof(SchemaDriftSummary));
+            this.RaisePropertyChanged(nameof(HasRuns));
+            this.RaisePropertyChanged(nameof(HasSchemaDrift));
+            this.RaisePropertyChanged(nameof(SchemaDriftSummary));
+            this.RaisePropertyChanged(nameof(HasStoredRuns));
+            this.RaisePropertyChanged(nameof(HasActiveFilters));
+            this.RaisePropertyChanged(nameof(FilterHeading));
+            this.RaisePropertyChanged(nameof(EmptyResultsTitle));
+            this.RaisePropertyChanged(nameof(EmptyResultsHint));
 
-        if (selectedId is not null)
-        {
-            SelectedRun = Runs.FirstOrDefault(r =>
-                string.Equals(r.RunId, selectedId, StringComparison.OrdinalIgnoreCase));
+            if (selectedId is not null)
+            {
+                SelectedRun = Runs.FirstOrDefault(r =>
+                    string.Equals(r.RunId, selectedId, StringComparison.OrdinalIgnoreCase));
+            }
         }
+        finally { _suppressAutoOpen = wasSuppressed; }
     }
 
     private bool MatchesFilters(TestRunSummary run)

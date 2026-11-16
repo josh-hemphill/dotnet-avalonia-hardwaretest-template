@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using HardwareTest.Core.BenchReferences;
 using HardwareTest.Core.Crash;
 using HardwareTest.Core.Credentials;
 using HardwareTest.Core.Hardware;
@@ -50,6 +51,16 @@ namespace HardwareTest.Core.Serialization;
 [JsonSerializable(typeof(StationIdnRecord))]
 [JsonSerializable(typeof(List<StationIdnRecord>))]
 [JsonSerializable(typeof(StationHealthRecord))]
+[JsonSerializable(typeof(BenchReferenceProfile))]
+[JsonSerializable(typeof(BenchReferenceRetirement))]
+[JsonSerializable(typeof(BenchReferenceRule))]
+[JsonSerializable(typeof(BenchReferenceUse))]
+[JsonSerializable(typeof(BenchReferenceEvaluation))]
+[JsonSerializable(typeof(BenchReferenceContext))]
+[JsonSerializable(typeof(BenchReferenceValue))]
+[JsonSerializable(typeof(List<BenchReferenceRule>))]
+[JsonSerializable(typeof(List<BenchReferenceUse>))]
+[JsonSerializable(typeof(List<BenchReferenceEvaluation>))]
 [JsonSerializable(typeof(StationHealthMetric))]
 [JsonSerializable(typeof(List<StationHealthMetric>))]
 public partial class AppJsonContext : JsonSerializerContext;

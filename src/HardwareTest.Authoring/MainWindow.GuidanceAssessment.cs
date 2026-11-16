@@ -6,10 +6,11 @@ public partial class MainWindow
     private bool _guidanceAssessmentRunning;
     private bool _guidanceAssessmentPending;
     private GuidanceInputIdentity? _guidanceAssessmentIdentity;
+    private readonly HashSet<string> _guidanceObservedSources = new(StringComparer.OrdinalIgnoreCase);
     private string _guidanceEnvironmentIdentity = string.Empty;
     private Guid _guidanceEnvironmentSession;
     private sealed record GuidanceInputIdentity(Guid Session, AuthoringDocumentSnapshot? Snapshot, long? Revision,
-        string? Plan, string? SavedPlan, string? SavedSidecar, string? Root, string Home, string Packages, string Environment);
+        string? Plan, string? SavedPlan, string? SavedSidecar, string? Root, string Home, string Packages, string Environment, AuthoringFirstSaveBaseline? FirstSave);
 
     private GuidanceInputIdentity CurrentGuidanceIdentity()
     {
@@ -18,6 +19,7 @@ public partial class MainWindow
         {
             _guidanceEnvironmentSession = session;
             _guidanceEnvironmentIdentity = string.Empty;
+            _guidanceObservedSources.Clear();
         }
         // Read only published package values; pending notifications alone do not invalidate guidance.
         static string Values(IEnumerable<string> values) => string.Concat(values.Select(value => $"{value.Length}:{value}"));
@@ -28,15 +30,19 @@ public partial class MainWindow
         return new(session, document?.Snapshot, document?.Revision, _viewModel.SelectedProgram?.PlanId,
             document?.SavedPlanIdentity, document?.SavedSidecarIdentity, _viewModel.Workspace?.Root,
             _viewModel.OpenTapHomeOverride, Values(_viewModel.Workspace?.Manifest.Dependencies.Select(package => package.Package) ?? []),
-            _guidanceEnvironmentIdentity);
+            _guidanceEnvironmentIdentity, _guidanceObservedSources.Contains(_viewModel.SelectedProgram?.PlanId ?? "") ? null : _viewModel.SelectedFirstAuthoringSaveBaseline);
     }
 
     private Func<Action, Task> _runGuidanceAssessment = action => Task.Run(action);
 
     private sealed record GuidanceAssessmentRequest(AuthoringDocumentSnapshot Snapshot, string? SavedPlanIdentity,
-        string? SavedSidecarIdentity, string Root, string[] PlanPaths, string[] Packages, string HomeOverride, bool Dirty);
+        string? SavedSidecarIdentity, string Root, string[] PlanPaths, string[] Packages, string HomeOverride, bool Dirty, AuthoringFirstSaveBaseline? FirstSave);
     private sealed record GuidanceAssessmentResult(bool Complete, bool SourceMatches, bool SourceStillBaseline,
-        string[] Blockers, string? Error = null);
+        string[] Blockers, string? Error = null)
+    {
+        internal bool NeedsFirstSave { get; init; }
+        internal bool SourceObserved { get; init; }
+    }
 
     private void RequestGuidanceAssessment()
     {
@@ -71,7 +77,7 @@ public partial class MainWindow
                 // Snapshot is already isolated and immutable. No validation, cloning, or I/O runs on this thread.
                 var request = new GuidanceAssessmentRequest(document.Snapshot, document.SavedPlanIdentity, document.SavedSidecarIdentity,
                     workspace.Root, workspace.TapPlanPaths.ToArray(), workspace.Manifest.Dependencies.Select(item => item.Package).ToArray(),
-                    _viewModel.OpenTapHomeOverride, document.IsDirty);
+                    _viewModel.OpenTapHomeOverride, document.IsDirty, identity?.FirstSave);
                 GuidanceAssessmentResult? result = null;
                 try { await _runGuidanceAssessment(() => result = AssessGuidance(request)); }
                 catch (Exception error) { result = new(false, false, false, [], AuthoringWorkspaceViewModel.PersistenceError(error)); }
@@ -88,7 +94,8 @@ public partial class MainWindow
                     || !ReferenceEquals(request.Snapshot, document.Snapshot)
                     || request.SavedPlanIdentity != document.SavedPlanIdentity || request.SavedSidecarIdentity != document.SavedSidecarIdentity)
                     continue;
-                ApplyGuidanceAssessment(result!);
+                if (result!.SourceObserved) _guidanceObservedSources.Add(plan);
+                ApplyGuidanceAssessment(result);
             }
         }
         finally { _guidanceAssessmentRunning = false; }
@@ -96,6 +103,7 @@ public partial class MainWindow
 
     private static GuidanceAssessmentResult AssessGuidance(GuidanceAssessmentRequest request)
     {
+        var sourceObserved = false;
         try
         {
             var draft = request.Snapshot.Restore();
@@ -106,6 +114,18 @@ public partial class MainWindow
                 .Select(issue => issue.Message).ToArray();
             var store = new AuthoringDocumentStore(request.Root);
             var loaded = AuthoringMeasureSections.Normalize(store.Load(draft.PlanId));
+            sourceObserved = loaded.Exists;
+            if (!loaded.Exists && request.FirstSave is { PlanHash: { } originalPlan } firstSave)
+            {
+                var compiled = request.PlanPaths.SingleOrDefault(file => Path.GetFileNameWithoutExtension(file) == draft.PlanId)
+                    ?? throw new AuthoringWorkspaceException("The imported compiled plan is missing. Restore it before establishing authoring source.");
+                // A sidecar may legitimately have been absent at import; its absence is
+                // part of the receipt, and adding or removing one later still conflicts.
+                if (AuthoringDocumentStore.ComputeHash(store.ValidatePath(compiled)) != originalPlan
+                    || AuthoringDocumentStore.ComputeHash(store.ValidatePath(Path.ChangeExtension(compiled, ".program.json"))) != firstSave.SidecarHash)
+                    throw new AuthoringWorkspaceException("Imported files changed outside this session. Reconcile them before saving authoring source.");
+                return new(false, false, true, blockers) { NeedsFirstSave = true };
+            }
             if (loaded.IsReadOnly || loaded.Document is not { } source)
                 throw new AuthoringWorkspaceException(loaded.Error ?? "Saved authoring source is missing or uses an unsupported schema.");
             var saved = AuthoringDocumentSnapshot.Capture(source.ToDraft());
@@ -120,11 +140,11 @@ public partial class MainWindow
                 complete = matches && !request.Dirty && blockers.Length == 0 && planHash is not null && sidecarHash is not null
                     && source.CompiledPlanHash == planHash && source.CompiledSidecarHash == sidecarHash;
             }
-            return new(complete, matches, baseline, blockers);
+            return new(complete, matches, baseline, blockers) { SourceObserved = true };
         }
         catch (Exception error)
         {
-            return new(false, false, false, [], AuthoringWorkspaceViewModel.PersistenceError(error));
+            return new(false, false, false, [], AuthoringWorkspaceViewModel.PersistenceError(error)) { SourceObserved = sourceObserved };
         }
     }
 
@@ -134,6 +154,9 @@ public partial class MainWindow
         if (result.Error is { } error)
             PresentGuidance("Saved input is unavailable or unsafe", "Restore readable authoring source and compiled files inside this workspace, then resume guidance.",
                 "Review recovery issues", GuidanceIssues, [error]);
+        else if (result.NeedsFirstSave)
+            PresentGuidance("Imported plan needs its first authoring save", "Save this imported plan as an editable draft. Its editing and package requirements remain visible while you work.",
+                "Save authoring draft", GuidanceSave, result.Blockers);
         else if (result.Complete)
             PresentGuidance("First voltage test complete", "Preview the saved result with example data or an imported recording.",
                 "Preview result", () => WorkspaceTabs.SelectedIndex = 5, []);

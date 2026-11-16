@@ -9,5 +9,11 @@ public partial class StepPaletteView : UserControl
     public event EventHandler? InsertRequested;
     private void OnCancel(object? sender, RoutedEventArgs e) => (TopLevel.GetTopLevel(this) as Window)?.Close();
     private void OnInsert(object? sender, RoutedEventArgs e) => InsertRequested?.Invoke(this, EventArgs.Empty);
+    private void OnClearSearch(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AuthoringWorkspaceViewModel vm) return;
+        vm.RecipeSearch = string.Empty;
+        SearchBox.Focus();
+    }
     internal void FocusSearch() => SearchBox.Focus();
 }

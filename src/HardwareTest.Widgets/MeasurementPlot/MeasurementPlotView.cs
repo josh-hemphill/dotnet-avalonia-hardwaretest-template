@@ -474,10 +474,10 @@ public sealed class MeasurementPlotView : UserControl
 
     private void ApplyThemeAndLabels()
     {
-        PlotTheme.Apply(_plot.Plot);
         _plot.Plot.Title(_title);
         _plot.Plot.XLabel(_xLabel);
         _plot.Plot.YLabel(_yLabel);
+        PlotTheme.Apply(_plot.Plot);
     }
 
     private void HookTheme()

@@ -147,7 +147,7 @@ public partial class MainWindow
     private async Task ShowGuidedInitializationAsync()
     {
         if (_transitionInFlight || _destructiveInFlight || _ownerClosed || !IsVisible || !_viewModel.CanInitializePlan) return;
-        if (!GuidanceAllowed) { await ShowPlanInitializationAsync(); return; }
+        if (!GuidanceAllowed) { await ShowAdvancedPlanInitializationAsync(); return; }
         if (_initialization is not null) { _initialization.Activate(); return; }
         if (_guidedSession != _viewModel.WorkspaceSessionId) _guidedForm = null;
         _guidedSession = _viewModel.WorkspaceSessionId;

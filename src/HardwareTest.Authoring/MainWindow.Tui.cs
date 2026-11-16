@@ -9,6 +9,8 @@ public partial class MainWindow
     {
         if (_tuiInFlight) return "The external TUI is already open.";
         if (WorkspaceBlocker() is { } workspace) return workspace;
+        if (_viewModel.SelectedProgram?.Sidecar.ReferenceRules is { Count: > 0 })
+            return "Golden-reference acceptance is evaluated by the operator app. Prepare bench files and execute this program there.";
         if (_viewModel.CompiledConflictProgramIds.Count > 0 || _viewModel.HasUncompiledSources) return "Reconcile external edits and compile the saved source before opening the TUI. Unsaved drafts will remain in the editor.";
         return AuthoringExternalTuiLauncher.Prerequisite(_viewModel.AuthoringHomeText, SelectedTuiPlan, _viewModel.RequiresInstrumentLibrary);
     }

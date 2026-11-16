@@ -127,7 +127,7 @@ public sealed class SettingsViewModelTests
         Assert.Equal("DemoPkg", vm.Packages[0].Name);
         Assert.Single(vm.PluginDirectories);
         Assert.Equal("/tmp/plugins", vm.PluginDirectories[0].Path);
-        Assert.Contains("Packages: 1", vm.Status, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Instrument package list refreshed.", vm.Status);
     }
 
     [Fact]

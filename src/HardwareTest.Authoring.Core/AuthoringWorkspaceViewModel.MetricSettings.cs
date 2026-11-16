@@ -27,6 +27,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         => HasMetricPresentation
            && AuthoringCriteria.Requirements(SelectedMetric!)?.RequiresBand == true;
 
+    public bool HasPassDecision => ShowBandLimits || ShowThreshold;
+
     public string FormulaHelp =>
         "Choose deployment or exploration. Exploration is saved unchanged and excluded from the built plan.";
 
@@ -64,7 +66,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         "Discrete SISO IIR. filtfilt is zero-phase on the whole series; filter is causal. Needs uniform elapsedMs.";
 
     public string SidecarHelp =>
-        "Sidecar is session/DUT/Typst only. Instrument requirements stay on the TapPackage, not here.";
+        "Program settings carry required identity, reports and golden-reference criteria. Add or remove reference requirements with Save draft / compile. Instrument dependencies stay on the package.";
 
     public bool RequireSerial
     {

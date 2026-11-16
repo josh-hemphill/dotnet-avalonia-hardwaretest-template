@@ -154,7 +154,8 @@ public sealed class AuthoringProgramSettingsViewModelTests
         Assert.Contains("certification", vm.SelectedProgram.Sidecar.ReportKinds!);
         Assert.Equal("stationHealth", vm.ProgramKind);
         Assert.Equal("block", vm.StationHealthGate);
-        Assert.Contains("session/DUT/Typst", vm.SidecarHelp, StringComparison.Ordinal);
+        Assert.Contains("golden-reference criteria", vm.SidecarHelp, StringComparison.Ordinal);
+        Assert.Contains("Save draft / compile", vm.SidecarHelp, StringComparison.Ordinal);
         Assert.Contains("serial", vm.RequiredFieldChoices.Select(row => row.Id));
         Assert.True(vm.RequiredFieldChoices.Single(row => row.Id == "partNumber").Included);
     }

@@ -195,14 +195,14 @@ public sealed class AlphaOperatorPersonaTests
             Assert.Equal(5, instruments.VisibleSlots.Count);
             Assert.Contains(instruments.VisibleSlots, slot => slot.TypeName.Contains("Keithley", StringComparison.Ordinal));
             Capture(window, $"operator-instruments-unbound-{width}");
-            var slots = window.GetVisualDescendants().OfType<ListBox>().Single(list => ReferenceEquals(list.ItemsSource, instruments.VisibleSlots));
+            var slots = window.GetVisualDescendants().OfType<ComboBox>().Single(list => ReferenceEquals(list.ItemsSource, instruments.VisibleSlots));
             slots.SelectedIndex = 0;
             Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).First(button => Equals(button.Content, "Discover VISA")));
             await E2EHarness.WaitUntilAsync(() => !instruments.IsBusy && instruments.DiscoveredVisa.Count > 0);
-            var resources = window.GetVisualDescendants().OfType<ListBox>().Single(list => ReferenceEquals(list.ItemsSource, instruments.DiscoveredVisa));
+            var resources = window.GetVisualDescendants().OfType<ComboBox>().Single(list => ReferenceEquals(list.ItemsSource, instruments.DiscoveredVisa));
             Assert.True(resources.Focus());
-            window.KeyPress(Key.Home, RawInputModifiers.None, PhysicalKey.Home, null);
-            window.KeyRelease(Key.Home, RawInputModifiers.None, PhysicalKey.Home, null);
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             await E2EHarness.PumpUiAsync();
             Assert.NotNull(instruments.SelectedVisa);
             Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => Equals(button.Content, "Apply selected resource")));
@@ -211,7 +211,9 @@ public sealed class AlphaOperatorPersonaTests
             Assert.True(instruments.SelectedSlot!.HasLastIdn);
             Capture(window, $"operator-instruments-identified-{width}");
             await E2EHarness.PumpUiAsync();
-            var edit = window.GetVisualDescendants().OfType<TextBox>().Where(control => control.IsEffectivelyVisible).First(box => AutomationProperties.GetName(box)?.StartsWith("Resource override for ", StringComparison.Ordinal) == true);
+            window.GetVisualDescendants().OfType<Expander>().Single(control => AutomationProperties.GetName(control) == "Selected instrument slot details").IsExpanded = true;
+            await E2EHarness.PumpUiAsync();
+            var edit = window.GetVisualDescendants().OfType<TextBox>().Single(box => AutomationProperties.GetName(box) == "Station override address");
             Type(window, edit, "MOCK::REBOUND");
             Assert.False(instruments.SelectedSlot!.HasLastIdn);
             Assert.Empty(instruments.SelectedSlot.LastIdnSummary);
@@ -219,14 +221,14 @@ public sealed class AlphaOperatorPersonaTests
             await E2EHarness.WaitUntilAsync(() => instruments.Status.Contains("Saved", StringComparison.OrdinalIgnoreCase));
             Capture(window, $"operator-instruments-rebound-{width}");
             var slotName = instruments.SelectedSlot.SlotName;
-            Activate(window, window.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Refresh plan slots") && button.IsEffectivelyVisible));
+            Activate(window, window.GetVisualDescendants().OfType<Button>().Single(button => AutomationProperties.GetName(button) == "Refresh plan slots" && button.IsEffectivelyVisible));
             await E2EHarness.PumpUiAsync();
             Assert.Equal("mixed-alpha", instruments.SelectedSlot!.PlanId);
             Assert.Equal(slotName, instruments.SelectedSlot.SlotName);
             Assert.Equal("MOCK::REBOUND", instruments.SelectedSlot.EffectiveResource);
             Assert.False(instruments.SelectedSlot.HasLastIdn);
             Capture(window, $"operator-instruments-rebound-unidentified-{width}");
-            edit = window.GetVisualDescendants().OfType<TextBox>().First(box => box.IsEffectivelyVisible && AutomationProperties.GetName(box)?.StartsWith("Resource override for ", StringComparison.Ordinal) == true);
+            edit = window.GetVisualDescendants().OfType<TextBox>().Single(box => AutomationProperties.GetName(box) == "Station override address");
             // Restore a simulated resource; station edits must not rewrite the plan's driver identity.
             Type(window, edit, "MOCK::keysight.34461a");
             Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => Equals(button.Content, "Save overrides")));
@@ -318,7 +320,7 @@ public sealed class AlphaOperatorPersonaTests
             Capture(window, "operator-instruments-configuration-error-900");
             // A service technician obtains the repaired plan from Authoring; operator cannot silently assert commissioning.
             Save(true);
-            Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => Equals(button.Content, "Refresh plan slots")));
+            Activate(window, window.GetVisualDescendants().OfType<Button>().Where(control => control.IsEffectivelyVisible).Single(button => AutomationProperties.GetName(button) == "Refresh plan slots"));
             await E2EHarness.WaitUntilAsync(() => !instruments.IsBusy && instruments.VisibleSlots.Count == 1 && string.IsNullOrWhiteSpace(instruments.VisibleSlots[0].ConfigurationIssue));
             Assert.Equal("Alpha service (simulated)", instruments.PlanFilter);
             var repaired = Assert.Single(instruments.VisibleSlots);

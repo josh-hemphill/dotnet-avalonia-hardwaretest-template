@@ -12,6 +12,16 @@ public sealed record RunDataset(string Path, TestRunRecord Run)
     // Captured during ingest, before the mutable compatibility Run is exposed. UI
     // preview workers consume this owned immutable source rather than a live DTO.
     internal AuthoringRecordingSnapshot? RecordingSnapshot { get; init; }
+    public RecordingIdentity? Identity { get; init; }
+}
+
+/// Small immutable display metadata captured before the compatibility DTO is exposed.
+public sealed record RecordingIdentity(string RunId, string? DutSerial, DateTimeOffset StartedAt, int SampleCount)
+{
+    public string DisplayDetails => $"Run: {(string.IsNullOrWhiteSpace(RunId) ? "Not recorded" : RunId)}\n"
+        + $"Device: {(string.IsNullOrWhiteSpace(DutSerial) ? "Not recorded" : DutSerial)}\n"
+        + $"Started: {(StartedAt == default ? "Not recorded" : StartedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", System.Globalization.CultureInfo.InvariantCulture))}\n"
+        + $"Samples: {SampleCount.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 }
 
 internal sealed record AuthoringRecordingSnapshot(string Json, int StoredVersion, bool IsReadOnly)
@@ -29,6 +39,12 @@ internal sealed record AuthoringRecordingSnapshot(string Json, int StoredVersion
 /// Discovers and loads operator run.json goldens. OpenTAP-free ingest via Core.
 public static class RunDatasetCatalog
 {
+    internal static string SchemaNotice(TestRunRecord run) => run.IsSchemaReadOnly
+        ? run.StoredSchemaVersion == 4
+            ? "Historical schema 4 recording · read-only sample preview. Original bytes are preserved; golden-reference qualification requires a current recording."
+            : "Unsupported recording schema · read-only. Original bytes are preserved."
+        : string.Empty;
+
     /// Lists `{recordingsDirectory}/**/run.json`. Missing folder is empty, not an error.
     public static IReadOnlyList<RunDataset> List(AuthoringWorkspace workspace)
     {
@@ -98,9 +114,18 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: samples must be an array without null entries.");
         if (run.Events is null || run.Events.Any(mark => mark is null))
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: events must be an array without null entries.");
+        if (run.ReferenceRules is null || run.ReferenceUses is null || run.ReferenceEvaluations is null
+            || run.ReferenceRules.Any(rule => rule is null)
+            || run.ReferenceUses.Any(use => use is null || use.Rule is null || use.ReferenceValue is null || use.Context is null)
+            || run.ReferenceEvaluations.Any(evaluation => evaluation is null))
+            throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: recorded reference inputs are incomplete.");
         run.StoredSchemaVersion = status.StoredVersion;
         run.IsSchemaReadOnly = status.IsReadOnly;
-        return new RunDataset(fullPath, run) { RecordingSnapshot = new(raw, status.StoredVersion, status.IsReadOnly) };
+        return new RunDataset(fullPath, run)
+        {
+            RecordingSnapshot = new(raw, status.StoredVersion, status.IsReadOnly),
+            Identity = new(run.RunId, run.DutSerial, run.StartedAt, run.Samples.Count)
+        };
     }
 
     public static string ResolveRecordingsRoot(AuthoringWorkspace workspace)
@@ -135,7 +160,7 @@ public static class RunDatasetCatalog
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedPlanId);
         var source = Load(sourcePath);
         RequireExpectedPlan(source.Run, expectedPlanId);
-        if (source.Run.IsSchemaReadOnly) throw new AuthoringWorkspaceException("Unsupported recording schema cannot be imported.");
+        if (!CanImportSchema(source.Run)) throw new AuthoringWorkspaceException("Unsupported recording schema cannot be imported.");
         if (string.IsNullOrWhiteSpace(source.Run.PlanId) || source.Run.Samples.Any(sample => !double.IsFinite(sample.Value) || string.IsNullOrWhiteSpace(sample.EffectiveMetricKey)))
             throw new AuthoringWorkspaceException("Recording requires a plan id and finite sample values.");
         if (string.IsNullOrWhiteSpace(destinationName) || destinationName.StartsWith(".import-", StringComparison.Ordinal) || destinationName != Path.GetFileName(destinationName)
@@ -158,7 +183,9 @@ public static class RunDatasetCatalog
             File.Copy(source.Path, Path.Combine(temporary, "run.json"));
             var validated = Load(Path.Combine(temporary, "run.json"));
             RequireExpectedPlan(validated.Run, expectedPlanId);
-            if (validated.Run.PlanId != source.Run.PlanId || validated.Run.IsSchemaReadOnly || validated.Run.Samples.Any(sample => !double.IsFinite(sample.Value) || string.IsNullOrWhiteSpace(sample.EffectiveMetricKey)))
+            if (validated.Run.PlanId != source.Run.PlanId || !CanImportSchema(validated.Run)
+                || validated.RecordingSnapshot?.Json != source.RecordingSnapshot?.Json
+                || validated.Run.Samples.Any(sample => !double.IsFinite(sample.Value) || string.IsNullOrWhiteSpace(sample.EffectiveMetricKey)))
                 throw new AuthoringWorkspaceException("Recording changed during import; retry.");
             Directory.Move(temporary, destination);
             return validated with { Path = Path.Combine(destination, "run.json") };
@@ -174,5 +201,10 @@ public static class RunDatasetCatalog
         if (!string.Equals(run.PlanId, expectedPlanId, StringComparison.OrdinalIgnoreCase))
             throw new AuthoringWorkspaceException("Recording plan id does not match the selected program.");
     }
+
+    internal static bool CanPreviewSamples(TestRunRecord run)
+        => !run.IsSchemaReadOnly || run.StoredSchemaVersion == 4;
+
+    private static bool CanImportSchema(TestRunRecord run) => CanPreviewSamples(run);
 
 }

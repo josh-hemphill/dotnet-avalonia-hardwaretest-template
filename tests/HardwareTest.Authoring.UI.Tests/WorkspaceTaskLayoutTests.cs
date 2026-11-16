@@ -27,10 +27,21 @@ public sealed class WorkspaceTaskLayoutTests
         await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues); Assert.NotEmpty(fixture.ViewModel.FindingRows);
         fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2; AuthoringUiFixture.Drain();
-        fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
+        var editing = fixture.Control<Expander>("Editing findings");
+        Assert.True(editing.IsExpanded);
+        editing.IsExpanded = false;
+        fixture.ViewModel.ReportError("Unrelated operation status");
+        fixture.Window!.Width = 1000;
+        AuthoringUiFixture.Drain();
+        Assert.False(editing.IsExpanded);
+        editing.IsExpanded = true;
+        AuthoringUiFixture.Drain();
         var list = fixture.Control<ListBox>("Contract findings");
-        list.BringIntoView(); AuthoringUiFixture.Drain();
-        Assert.True(list.Bounds.Height >= 90); ResponsiveShellTests.Inside(list, fixture.Window);
+        var viewport = fixture.Control<ScrollViewer>("Issues task viewport");
+        ResponsiveShellTests.Inside(viewport, fixture.Window);
+        var listScroller = Assert.Single(list.GetVisualDescendants().OfType<ScrollViewer>());
+        Assert.Equal(Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled, listScroller.VerticalScrollBarVisibility);
+        Assert.Equal(0, listScroller.Offset.Y);
         var row = fixture.ViewModel.FindingRows.First();
         var fields = list.GetVisualDescendants().OfType<TextBlock>().Where(field => Equals(field.DataContext, row));
         foreach (var field in fields.Where(field => field.IsEffectivelyVisible))
@@ -38,7 +49,7 @@ public sealed class WorkspaceTaskLayoutTests
             field.BringIntoView(); AuthoringUiFixture.Drain();
             Assert.True(field.Bounds.Height > 0); ResponsiveShellTests.Inside(field, fixture.Window);
         }
-        var navigation = Assert.Single(list.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, row));
+        var navigation = Assert.Single(list.GetVisualDescendants().OfType<Button>(), button => button.Classes.Contains("authoringAction") && Equals(button.DataContext, row));
         navigation.BringIntoView(); AuthoringUiFixture.Drain(); ResponsiveShellTests.Inside(navigation, fixture.Window);
         ResponsiveActionLabelTests.LabelFits(navigation, fixture.Window);
     }
@@ -103,12 +114,17 @@ public sealed class WorkspaceTaskLayoutTests
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
         fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
-        var viewport = fixture.Control<ScrollViewer>("Editing findings viewport");
+        Assert.DoesNotContain(fixture.Window.GetVisualDescendants().OfType<ScrollViewer>(),
+            control => AutomationProperties.GetName(control) == "Editing findings viewport");
+        var viewport = fixture.Control<ScrollViewer>("Issues task viewport");
         Assert.True(viewport.Viewport.Width > 300);
         Assert.True(viewport.Viewport.Height > 100);
         var rows = fixture.Control<ItemsControl>("Editing findings");
         foreach (var issue in issues)
         {
+            var details = rows.GetVisualDescendants().OfType<Expander>().Single(expander => Equals(expander.DataContext, issue));
+            details.IsExpanded = true;
+            AuthoringUiFixture.Drain();
             var fields = rows.GetVisualDescendants().OfType<TextBlock>().Where(text => Equals(text.DataContext, issue)).ToArray();
             foreach (var expected in new[] { issue.Severity.ToString(), issue.Code, "Program: " + issue.PlanId, issue.Message,
                 "Editing draft — separate from saved-plan checks", "Section: " + issue.Section, "Field: " + issue.Field })
@@ -116,13 +132,13 @@ public sealed class WorkspaceTaskLayoutTests
                 var field = Assert.Single(fields, text => text.Text == expected);
                 InViewport(field);
             }
-            InViewport(Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, issue)));
+            InViewport(Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => button.Classes.Contains("authoringAction") && Equals(button.DataContext, issue)));
         }
         Assert.True(viewport.Offset.Y > 0);
         var empty = fixture.Control<TextBlock>("Saved-plan empty state");
         empty.BringIntoView(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(empty, fixture.Window!);
-        var open = Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => Equals(button.DataContext, issues[^1]));
+        var open = Assert.Single(rows.GetVisualDescendants().OfType<Button>(), button => button.Classes.Contains("authoringAction") && Equals(button.DataContext, issues[^1]));
         InViewport(open);
         AuthoringUiFixture.Click(open);
         Assert.Equal(issues[^1].PlanId, fixture.ViewModel.SelectedProgram!.PlanId);
@@ -185,7 +201,7 @@ public sealed class WorkspaceTaskLayoutTests
         using var fixture = Loaded();
         fixture.Window!.FontSize = 20;
         AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
-        var dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window.OwnedWindows));
+        var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         dialog.Width = 480; dialog.Height = 460;
         AuthoringUiFixture.Drain();
         Assert.Equal(20, dialog.FontSize);
@@ -254,6 +270,10 @@ public sealed class WorkspaceTaskLayoutTests
         {
             AuthoringUiFixture.Click(fixture.Control<Button>("Open add instrument"));
             AuthoringUiFixture.Drain();
+        }
+        if (action == "Declare Instrument Components dependency")
+        {
+            fixture.Control<Expander>("Environment dependency setup").IsExpanded = true; AuthoringUiFixture.Drain();
         }
         Control control = action == "Saved-plan empty state" ? fixture.Control<TextBlock>(action) : fixture.Control<Button>(action); control.BringIntoView(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(control, owner);

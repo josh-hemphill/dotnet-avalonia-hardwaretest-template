@@ -143,6 +143,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         get => SelectedMetric?.YUnit ?? string.Empty;
         set
         {
+            // Editable selection controls can clear SelectedItem with null. Keep
+            // incomplete unit text representable in source and recovery snapshots.
             value ??= string.Empty;
             if (string.Equals(YUnit, value, StringComparison.Ordinal))
             {
@@ -452,6 +454,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RaiseEditorProperties()
     {
+        RaiseReferenceProperties();
         RaiseBoardProperties();
         RaiseSequenceOperations();
         OnPropertyChanged(nameof(MetricName));
@@ -522,6 +525,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(CanRemoveSelectedProgram));
         OnPropertyChanged(nameof(ShowThreshold));
         OnPropertyChanged(nameof(ShowBandLimits));
+        OnPropertyChanged(nameof(HasPassDecision));
         OnPropertyChanged(nameof(FormulaSaveNote));
         OnPropertyChanged(nameof(FormulaSaveOutcomeKind));
         OnPropertyChanged(nameof(ChannelKeys));

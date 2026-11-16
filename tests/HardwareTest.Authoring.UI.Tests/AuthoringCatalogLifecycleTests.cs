@@ -47,7 +47,7 @@ public sealed class AuthoringCatalogLifecycleTests
         Assert.True(fixture.Window!.IsVisible); Assert.Same(session, fixture.ViewModel.Workspace); Assert.Same(draft, fixture.ViewModel.SelectedProgram);
         Assert.Empty(fixture.ViewModel.DirtyProgramIds); Assert.True(fixture.ViewModel.WorkspaceCatalogDirty); Assert.False(fixture.ViewModel.LastSaveAllResult!.Succeeded);
         Assert.Contains("future-schema", fixture.ViewModel.WorkspaceCatalogSaveFailure); Assert.Equal(futureBytes, File.ReadAllBytes(manifest));
-        Assert.Contains("Workspace catalog:", string.Join("\n", fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)));
+        Assert.Contains("Workspace catalog:", OperationDetailsUiActions.ReadAndClose(fixture));
         Assert.Contains("retry Save All", fixture.Control<TextBlock>("Authoring error").Text);
         File.WriteAllText(manifest, before);
     }
@@ -58,7 +58,7 @@ public sealed class AuthoringCatalogLifecycleTests
         using var fixture = Loaded(); StageGlobalOnly(fixture); fixture.ViewModel.OpenTapHomeOverride = "invalid\0home";
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all")); var result = fixture.ViewModel.LastSaveAllResult!;
         Assert.True(result.Succeeded); Assert.True(result.WorkspaceCatalogSaved); Assert.Empty(result.SavedProgramIds); Assert.Null(result.WorkspaceCatalogFailure);
-        Assert.Contains(fixture.Control<ItemsControl>("Save all results").GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Saved workspace catalog");
+        Assert.Contains("Saved workspace catalog", OperationDetailsUiActions.ReadAndClose(fixture));
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         await fixture.ViewModel.WaitForBuildInspectionAsync();
         AuthoringUiFixture.Drain();

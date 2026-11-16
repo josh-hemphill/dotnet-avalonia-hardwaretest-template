@@ -1,5 +1,10 @@
+using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 
 namespace HardwareTest.Authoring;
@@ -8,36 +13,129 @@ public partial class WorkspacePreviewView : UserControl
 {
     private readonly IAuthoringRecordingPicker _recordingPicker;
     private readonly Func<TopLevel, DirectoryInfo, Task<bool>>? _launchRecordingFolder;
-    private readonly ScrollViewer _sourceDetailsViewport;
-    private readonly StackPanel _recordingRows;
-    private readonly OperatorPreviewPane _boardPane;
-    private readonly Grid _boardRegion;
-    private readonly TextBlock _boardHeading;
+    private Window? _sourceDetailsWindow;
+    private RecordingPickerWindow? _recordingSelectionWindow;
+
     public WorkspacePreviewView() : this(new AuthoringRecordingPicker()) { }
-    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker, Func<TopLevel, DirectoryInfo, Task<bool>>? launchRecordingFolder = null)
+
+    public WorkspacePreviewView(IAuthoringRecordingPicker recordingPicker,
+        Func<TopLevel, DirectoryInfo, Task<bool>>? launchRecordingFolder = null)
     {
         _recordingPicker = recordingPicker;
         _launchRecordingFolder = launchRecordingFolder;
         InitializeComponent();
-        _sourceDetailsViewport = this.FindControl<ScrollViewer>("SourceDetailsViewport")!;
-        _recordingRows = this.FindControl<StackPanel>("RecordingRows")!;
-        _boardPane = this.FindControl<OperatorPreviewPane>("BoardPane")!;
-        _boardRegion = this.FindControl<Grid>("BoardRegion")!;
-        _boardHeading = this.FindControl<TextBlock>("BoardHeading")!;
-        LayoutUpdated += ConstrainSourceViewport;
     }
 
-    private void ConstrainSourceViewport(object? sender, EventArgs e)
+    private async void OnShowSourceDetails(object? sender, RoutedEventArgs e)
+        => await ShowDetailsAsync(sender, reference: false);
+
+    private async void OnShowReferenceDetails(object? sender, RoutedEventArgs e)
+        => await ShowDetailsAsync(sender, reference: true);
+
+    private async Task ShowDetailsAsync(object? sender, bool reference)
     {
-        if (Bounds.Height <= 0 || !double.IsFinite(Bounds.Height)) return;
-        // Source and board are sibling viewports. The board alone owns its scrolling.
-        const double boardMinimum = 80;
-        const double rowGaps = 16;
-        var boardRegionMinimum = boardMinimum + Math.Max(_boardHeading.Bounds.Height, _boardHeading.DesiredSize.Height) + _boardRegion.RowSpacing;
-        var recordingsHeight = Math.Max(_recordingRows.Bounds.Height, _recordingRows.DesiredSize.Height);
-        var sourceMaximum = Math.Max(48, Math.Min(Bounds.Height * 0.35, Bounds.Height - recordingsHeight - boardRegionMinimum - rowGaps));
-        if (Math.Abs(_boardPane.MinHeight - boardMinimum) > 0.5) _boardPane.MinHeight = boardMinimum;
-        if (Math.Abs(_sourceDetailsViewport.MaxHeight - sourceMaximum) > 0.5) _sourceDetailsViewport.MaxHeight = sourceMaximum;
+        if (_sourceDetailsWindow is not null) { _sourceDetailsWindow.Activate(); return; }
+        if (DataContext is not AuthoringWorkspaceViewModel vm
+            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner) return;
+        if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
+        if (!vm.CanInspectPreviewDetails || reference && !vm.HasRecordedReferences) return;
+        var details = new TextBox
+        {
+            Text = reference ? vm.RecordingReferenceReview : string.Join(Environment.NewLine + Environment.NewLine,
+                new[] { vm.DataSourceDetails, vm.RecordingEmptyState }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap
+        };
+        AutomationProperties.SetName(details, reference ? "Full recorded reference review" : "Full preview data source");
+        ScrollViewer.SetHorizontalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollBarVisibility(details, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
+        var close = new Button
+        {
+            Content = "Close",
+            ContentTemplate = AuthoringActionLabels.WrappedText,
+            IsCancel = true,
+            Classes = { "authoringAction" }
+        };
+        AutomationProperties.SetName(close, reference ? "Close recorded reference review" : "Close preview data source");
+        var footer = new StackPanel
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 12, 0, 0),
+            Children = { close }
+        };
+        DockPanel.SetDock(footer, Dock.Bottom);
+        var panel = new DockPanel { Margin = new Thickness(20) };
+        panel.Children.Add(footer);
+        panel.Children.Add(details);
+        var dialog = new Window
+        {
+            Title = reference ? "Recorded reference review" : "Preview data source",
+            Width = Math.Min(760, owner.ClientSize.Width - 60),
+            Height = Math.Min(560, owner.ClientSize.Height - 60),
+            MinWidth = 400,
+            MinHeight = 300,
+            FontSize = owner.FontSize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = panel,
+            Classes = { "authoringPalette" }
+        };
+        close.Click += (_, _) => dialog.Close();
+        dialog.Opened += (_, _) => details.Focus();
+        _sourceDetailsWindow = dialog;
+        try { await dialog.ShowDialog(owner); }
+        finally { _sourceDetailsWindow = null; }
+        RestoreTriggerFocus(owner, vm, sender);
+    }
+
+    private async void OnChooseRecording(object? sender, RoutedEventArgs e)
+    {
+        if (_recordingSelectionWindow is not null) { _recordingSelectionWindow.Activate(); return; }
+        if (DataContext is not AuthoringWorkspaceViewModel vm
+            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner || !vm.HasRecordings) return;
+        var ownerDataContext = owner.DataContext;
+        if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return;
+        var workspace = vm.Workspace;
+        var program = vm.SelectedProgram;
+        var session = vm.WorkspaceSessionId;
+        var datasets = vm.Datasets;
+        var labels = vm.DatasetItems;
+        bool Current() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+            && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
+            && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(program, vm.SelectedProgram)
+            && session == vm.WorkspaceSessionId;
+        var descriptions = datasets.Select((dataset, index) => dataset.Identity?.DisplayDetails ?? labels[index]).ToArray();
+        var dialog = new RecordingPickerWindow(labels, vm.SelectedDatasetIndex, descriptions)
+        {
+            Width = Math.Min(580, owner.ClientSize.Width - 60),
+            Height = Math.Min(500, owner.ClientSize.Height - 60),
+            FontSize = owner.FontSize
+        };
+        _recordingSelectionWindow = dialog;
+        try
+        {
+            var result = await dialog.ShowDialog<int?>(owner);
+            if (result is not int index || !Current() || index < 0 || index >= datasets.Count) return;
+            var currentIndex = vm.Datasets.ToList().FindIndex(item => ReferenceEquals(item, datasets[index]));
+            if (currentIndex >= 0) vm.SelectedDatasetIndex = currentIndex;
+            else vm.ReportError("The recording list changed. Open Recordings and choose the recording again.");
+        }
+        catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException)
+        {
+            if (Current()) vm.ReportError(error.Message);
+        }
+        finally
+        {
+            _recordingSelectionWindow = null;
+            RestoreTriggerFocus(owner, vm, sender);
+        }
+    }
+
+    private void RestoreTriggerFocus(Window owner, AuthoringWorkspaceViewModel vm, object? sender)
+    {
+        if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
+        if (owner.IsVisible && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
+            && sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) trigger.Focus();
     }
 
     private void OnUseExampleData(object? sender, RoutedEventArgs e)

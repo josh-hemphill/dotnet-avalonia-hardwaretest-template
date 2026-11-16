@@ -23,4 +23,7 @@ public partial class WorkspaceBuildView : UserControl
 
     private void OnPack(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPack(sender, e);
+
+    private void OnPrepareBenchFiles(object? sender, RoutedEventArgs e)
+        => (TopLevel.GetTopLevel(this) as MainWindow)?.OnPrepareBenchFiles(sender, e);
 }

@@ -56,6 +56,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         if (draft.AuthoringState.IncompleteNumericText.Count != 0)
             throw new AuthoringWorkspaceException("BUILD_INCOMPLETE: Deployment source contains incomplete numeric input.");
         EnsureUniqueChannelKeys(draft.Measure);
+        AuthoringReferenceRules.RequireValid(draft);
         AuthoringRecipeCatalog.EnsureScalarLimits(draft);
         AuthoringPluginSearch.Search(_extraPluginDirectories);
 
@@ -108,6 +109,13 @@ public sealed partial class PlanCompiler : IPlanCompiler
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tapPlanPath);
         ArgumentNullException.ThrowIfNull(sidecar);
+        if (HasCompiledReferenceGuard(tapPlanPath) != (sidecar.ReferenceRules is { Count: > 0 }))
+            throw new AuthoringWorkspaceException("REFERENCE_GUARD: Save draft / compile the whole plan when adding or removing golden-reference requirements. The previous compiled files were preserved.");
+        if (sidecar.ReferenceRules is { Count: > 0 })
+        {
+            var compiled = Load(tapPlanPath);
+            AuthoringReferenceRules.RequireValid(compiled with { Sidecar = sidecar });
+        }
         WriteSidecar(tapPlanPath, sidecar);
     }
 
@@ -140,6 +148,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
             return new ProgramSidecar();
         }
 
+        ProgramReferenceDeclarations.RequireSupportedJson(raw);
         return JsonSerializer.Deserialize(raw, ProgramCatalogJsonContext.Default.ProgramSidecar)
                ?? new ProgramSidecar();
     }

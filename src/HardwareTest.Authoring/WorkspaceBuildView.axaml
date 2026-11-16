@@ -1,7 +1,10 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:vm="using:HardwareTest.Authoring" xmlns:host="using:HardwareTest.OpenTap.Host" x:Class="HardwareTest.Authoring.WorkspaceBuildView" x:DataType="vm:AuthoringWorkspaceViewModel">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="12" Classes="routeBody">
-      <TextBlock Text="Build workspace" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Text="Build workspace" Classes="routeTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="2"/>
+        <Button Grid.Column="1" Content="Prepare bench files…" Click="OnPrepareBenchFiles" IsEnabled="{Binding HasWorkspace}" Classes="authoringAction" VerticalAlignment="Center" AutomationProperties.Name="Prepare selected program for bench"/>
+      </Grid>
       <TextBlock Text="Choose the saved plans to include, resolve readiness findings, then create a checked deployment package." Classes="purpose" TextWrapping="Wrap"/>
       <Border Classes="surface taskSection">
         <StackPanel Spacing="12">

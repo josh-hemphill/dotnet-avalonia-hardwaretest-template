@@ -61,8 +61,7 @@ public sealed class EmptyPlanAuthoringTests
         AuthoringUiFixture.Click(create);
         var dialog = Assert.Single(window.OwnedWindows);
         fixture.Control<TextBox>("Plan display name", dialog).Text = "Power checks";
-        fixture.Control<TextBox>("Stable plan ID", dialog).Text = "power-checks";
-        for (var step = 0; step < 5; step++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+        AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(window.OwnedWindows);
         Assert.Equal(0, window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);

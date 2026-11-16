@@ -254,7 +254,9 @@ public sealed class ArchitectureRulesTests
             Path.Combine("src", "HardwareTest.Core", "Storage", "RunRetentionService.cs"),
             Path.Combine("src", "HardwareTest.Core", "Runs", "FileRunStore.cs"),
             Path.Combine("src", "HardwareTest", "Features", "RunTest", "OperatorSessionPanelViewModel.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "OperatorSessionPanelViewModel.Confirmation.cs"),
             Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.Completion.cs"),
             Path.Combine("src", "HardwareTest.OpenTap.Host", "OpenTapRunContext.cs"),
             Path.Combine("src", "HardwareTest.OpenTap.Host", "OpenTapProgressResultListener.cs"),
             Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerClient.cs"),
@@ -417,6 +419,7 @@ public sealed class ArchitectureRulesTests
             Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerClient.cs"),
             Path.Combine("src", "HardwareTest.OpenTap.Host", "Worker", "OpenTapWorkerProcess.cs"),
             Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.cs"),
+            Path.Combine("src", "HardwareTest", "Features", "RunTest", "RunExecutionViewModel.Completion.cs"),
             Path.Combine("src", "HardwareTest", "Crash", "CrashHandler.cs"),
         ];
         string[] needles = ["INtpTimeSource", "ClockSkewDetector", "UdpNtpTimeSource", "NtpHost"];

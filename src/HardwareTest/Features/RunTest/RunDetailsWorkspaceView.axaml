@@ -9,13 +9,16 @@
              x:DataType="vm:RunTestViewModel">
   <DockPanel>
     <StackPanel DockPanel.Dock="Top" Spacing="8" Margin="0,0,0,8">
-      <StackPanel Orientation="Horizontal" Spacing="8">
+      <WrapPanel Orientation="Horizontal">
         <Button Content="Back to steps"
                 Command="{Binding Workspace.OpenStepsCommand}"
-                Classes="operator" />
+                Classes="operator" Margin="0,0,8,6" />
         <TextBlock Text="{Binding StepDetail.DetailStep.Name}"
                    FontWeight="SemiBold"
                    FontSize="16"
+                   MaxWidth="360" MaxLines="2" TextWrapping="Wrap" TextTrimming="WordEllipsis" Margin="8,0"
+                   ToolTip.Tip="{Binding StepDetail.DetailStep.Name}"
+                   AutomationProperties.Name="{Binding StepDetail.DetailStep.Name}"
                    VerticalAlignment="Center" />
         <Border CornerRadius="4"
                 Padding="8,2"
@@ -29,13 +32,14 @@
         <Button Content="Prev fail"
                 Command="{Binding StepTree.PrevFailCommand}"
                 Classes="operator"
-                IsVisible="{Binding StepTree.HasFailedLeaves}" />
+                IsVisible="{Binding StepTree.HasFailedLeaves}" Margin="8,0,0,6" />
         <Button Content="Next fail"
                 Command="{Binding StepTree.NextFailCommand}"
                 Classes="operator"
-                IsVisible="{Binding StepTree.HasFailedLeaves}" />
+                IsVisible="{Binding StepTree.HasFailedLeaves}" Margin="8,0,0,6" />
         <Button Command="{Binding OpenLastRunResultsCommand}"
                 Classes="operator"
+                Margin="8,0,0,6"
                 AutomationProperties.Name="Results"
                 ToolTip.Tip="Open the last run on the Results page">
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -43,31 +47,31 @@
             <TextBlock Text="Results" VerticalAlignment="Center" />
           </StackPanel>
         </Button>
-      </StackPanel>
-      <StackPanel Orientation="Horizontal" Spacing="8">
+      </WrapPanel>
+      <WrapPanel Orientation="Horizontal">
         <ToggleButton Content="Summary"
-                      Classes="filter-chip"
+                      Margin="0,0,8,4" Classes="filter-chip"
                       IsChecked="{Binding StepDetail.IsSummaryPane, Mode=OneWay}"
                       Command="{Binding StepDetail.SelectPaneCommand}"
                       CommandParameter="{x:Static vm:StepDetailPane.Summary}" />
         <ToggleButton Content="Measurements"
-                      Classes="filter-chip"
+                      Margin="0,0,8,4" Classes="filter-chip"
                       IsChecked="{Binding StepDetail.IsMeasurementsPane, Mode=OneWay}"
                       Command="{Binding StepDetail.SelectPaneCommand}"
                       CommandParameter="{x:Static vm:StepDetailPane.Measurements}" />
         <ToggleButton Content="Setup"
-                      Classes="filter-chip"
+                      Margin="0,0,8,4" Classes="filter-chip"
                       IsChecked="{Binding StepDetail.IsSetupPane, Mode=OneWay}"
                       Command="{Binding StepDetail.SelectPaneCommand}"
                       CommandParameter="{x:Static vm:StepDetailPane.Setup}"
                       IsVisible="{Binding IsEngineerDebugMode}" />
         <ToggleButton Content="Log"
-                      Classes="filter-chip"
+                      Margin="0,0,8,4" Classes="filter-chip"
                       IsChecked="{Binding StepDetail.IsLogPane, Mode=OneWay}"
                       Command="{Binding StepDetail.SelectPaneCommand}"
                       CommandParameter="{x:Static vm:StepDetailPane.Log}"
                       IsVisible="{Binding IsEngineerDebugMode}" />
-      </StackPanel>
+      </WrapPanel>
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -113,13 +117,13 @@
           <TextBlock Text="Conditions applied" FontWeight="SemiBold" />
           <TextBlock Text="{Binding StepDetail.ConditionSummary}" TextWrapping="Wrap" Opacity="0.9" />
           <StackPanel Spacing="6" IsVisible="{Binding StationOverrides.HasParameterFields}">
-            <StackPanel Orientation="Horizontal" Spacing="8">
+            <WrapPanel Orientation="Horizontal">
               <TextBlock Text="Station overrides" FontWeight="SemiBold" VerticalAlignment="Center" />
               <Button Content="Apply &amp; save"
                       Command="{Binding StationOverrides.ApplyParametersCommand}"
                       IsEnabled="{Binding !IsRunning}"
                       Classes="operator" />
-            </StackPanel>
+            </WrapPanel>
             <TextBlock Text="Engineer/Debug only. Persists bench settings — does not rewrite the TapPlan."
                        FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                        Opacity="0.65"
@@ -142,15 +146,16 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock Text="{Binding StationOverrides.TemporaryDebugOverlayHint}" IsVisible="{Binding !StationOverrides.AllowsTemporaryDebugOverlay}" TextWrapping="Wrap"/>
+          <WrapPanel Orientation="Horizontal" IsEnabled="{Binding StationOverrides.AllowsTemporaryDebugOverlay}">
             <TextBlock Text="Debug overlay" FontWeight="SemiBold" VerticalAlignment="Center" />
             <CheckBox Content="Enabled" IsChecked="{Binding StationOverrides.DebugStepEnabled}" />
             <ComboBox ItemsSource="{Binding StationOverrides.DebugSlotNames}" SelectedItem="{Binding StationOverrides.DebugSlotName}" PlaceholderText="Select slot" Width="140" />
             <TextBox PlaceholderText="Resource" Text="{Binding StationOverrides.DebugResource}" Width="140" />
             <NumericUpDown Value="{Binding StationOverrides.DebugSampleCount}" Minimum="1" Maximum="4096" Width="90" FormatString="0" />
             <NumericUpDown Value="{Binding StationOverrides.DebugIntervalMs}" Minimum="1" Maximum="60000" Width="90" FormatString="0" />
-            <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" Classes="operator" />
-          </StackPanel>
+            <Button Content="Apply" Command="{Binding StationOverrides.ApplyDebugPatchCommand}" IsEnabled="{Binding StationOverrides.AllowsTemporaryDebugOverlay}" Classes="operator" />
+          </WrapPanel>
         </StackPanel>
 
         <ItemsControl ItemsSource="{Binding StepDetail.DetailLines}" IsVisible="{Binding StepDetail.IsLogPane}" />
