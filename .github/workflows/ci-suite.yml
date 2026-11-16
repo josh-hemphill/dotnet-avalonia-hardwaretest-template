@@ -101,15 +101,14 @@ jobs:
               pnpm --dir tools/ci test
               ;;
             windows)
+              # Run VM regressions first, including fast operator-only changes.
+              pnpm exec node tools/ci/main.ts test:vm --rid "$CI_RID"
               profile=windows-smoke
               if [[ "$CI_PROFILE" == full ]]; then profile=full; fi
               pnpm exec node tools/ci/main.ts test:host --rid "$CI_RID" --profile "$profile"
               pnpm exec node tools/ci/main.ts test:authoring-ui --rid "$CI_RID" --profile "$profile"
               pnpm exec node tools/ci/main.ts test:arch --rid "$CI_RID"
               pnpm exec node tools/ci/main.ts test:e2e --rid "$CI_RID"
-              if [[ "$CI_PROFILE" == full ]]; then
-                pnpm exec node tools/ci/main.ts test:vm --rid "$CI_RID"
-              fi
               ;;
             publish)
               pnpm exec node tools/ci/main.ts publish --rid "$CI_RID"

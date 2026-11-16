@@ -23,8 +23,17 @@ public sealed class CorruptReferenceResultsRecoveryTests
             var path = Path.Combine(store.GetRunDirectory("corrupted"), "run.json");
             await File.WriteAllTextAsync(path, $"{{\"schemaVersion\":{SchemaVersions.TestRunRecord},\"runId\":\"corrupted\",\"referenceRules\":null}}");
             var bytes = await File.ReadAllBytesAsync(path);
-            vm.SelectedRun = selected;
-            await vm.OpenCommand.ExecuteAsync();
+            // Selection already opens the result. Await that UI publication rather
+            // than starting a second load that can race the recovery status.
+            var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var scheduler = vm.UiScheduler;
+            vm.UiScheduler = action => { action(); opened.TrySetResult(); };
+            try
+            {
+                vm.SelectedRun = selected;
+                await opened.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            finally { vm.UiScheduler = scheduler; }
             Assert.Null(vm.OpenedRun);
             Assert.Contains("Preserve the original", vm.Status, StringComparison.Ordinal);
             await vm.OpenRunByIdAsync("intact");
