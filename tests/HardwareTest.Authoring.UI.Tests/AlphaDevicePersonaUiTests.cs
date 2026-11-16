@@ -115,6 +115,21 @@ public sealed class AlphaDevicePersonaUiTests
         fixture.ViewModel.SelectedInstrumentSlot = "2602B";
         AuthoringUiFixture.Click(fixture.Control<Button>("Load selected binding"));
         Assert.Equal("keithley.2602b", fixture.ViewModel.EditDeviceDriver!.Id);
+        Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
+        var editedModel = fixture.Control<ComboBox>("Edit device model");
+        var appliedModelIndex = editedModel.SelectedIndex;
+        Select(window, editedModel, (appliedModelIndex + 1) % editedModel.ItemCount);
+        Assert.Contains("Unapplied edits", fixture.Control<TextBlock>("Binding draft state").Text);
+        Assert.Equal("keithley.2602b", fixture.ViewModel.SelectedInstrument!.Settings["DriverId"]);
+        AuthoringUiFixture.Click(fixture.Control<Button>("Reload applied binding values"));
+        foreach (var (field, value) in new[] { ("Confirmed device channels", "1,2"), ("Confirmed device outputs", "psu:1,psu:2"), ("Edit device commissioning", "pending technician confirmation") })
+        {
+            Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
+            fixture.Type(fixture.Control<TextBox>(field), value);
+            Assert.Contains("Unapplied edits", fixture.Control<TextBlock>("Binding draft state").Text);
+            AuthoringUiFixture.Click(fixture.Control<Button>("Reload applied binding values"));
+        }
+        Assert.Contains("Matches the applied binding", fixture.Control<TextBlock>("Binding draft state").Text);
         fixture.Type(fixture.Control<TextBox>("Confirmed device channels"), "1,2");
         fixture.Type(fixture.Control<TextBox>("Confirmed device outputs"), "psu:1,psu:2");
         Capture(window, $"authoring-hardware-edit-{width}");

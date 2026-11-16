@@ -33,6 +33,8 @@ public partial class HardwareView : UserControl
     {
         if (change.PropertyName is nameof(AuthoringWorkspaceViewModel.HardwareEditType)
             or nameof(AuthoringWorkspaceViewModel.HardwareEditAddress) or nameof(AuthoringWorkspaceViewModel.HardwareEditTimeout)
+            or nameof(AuthoringWorkspaceViewModel.EditDeviceDriver) or nameof(AuthoringWorkspaceViewModel.EditDeviceChannels)
+            or nameof(AuthoringWorkspaceViewModel.EditDeviceOutputs) or nameof(AuthoringWorkspaceViewModel.EditDeviceCommissioning)
             or nameof(AuthoringWorkspaceViewModel.CanReviewLoadedHardwareBinding) or nameof(AuthoringWorkspaceViewModel.SelectedInstrument)
             or nameof(AuthoringWorkspaceViewModel.SelectedInstrumentSlot)) UpdateDraftState();
     }
@@ -46,11 +48,19 @@ public partial class HardwareView : UserControl
         var matches = vm.CanReviewLoadedHardwareBinding && selected is not null
             && vm.HardwareEditType?.TypeId == appliedType
             && string.Equals(vm.HardwareEditAddress.Trim(), selected.VisaAddress, StringComparison.Ordinal)
-            && string.Equals(vm.HardwareEditTimeout.Trim(), selected.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty, StringComparison.Ordinal);
+            && string.Equals(vm.HardwareEditTimeout.Trim(), selected.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty, StringComparison.Ordinal)
+            && (!vm.IsEditingRegisteredDevice
+                || (string.Equals(vm.EditDeviceDriver?.Id, selected.Settings.GetValueOrDefault("DriverId"), StringComparison.Ordinal)
+                    && MatchesSetting(vm.EditDeviceChannels, "Channels")
+                    && MatchesSetting(vm.EditDeviceOutputs, "Outputs")
+                    && MatchesSetting(vm.EditDeviceCommissioning, "Commissioning")));
         BindingDraftState.Text = !vm.CanReviewLoadedHardwareBinding
             ? "Load the selected binding to edit it. Your retained values have not changed the plan."
             : matches ? "Matches the applied binding."
             : "Unapplied edits. Review and confirm to update only this plan's binding.";
+
+        bool MatchesSetting(string value, string key)
+            => string.Equals(value.Trim(), selected?.Settings.GetValueOrDefault(key) ?? string.Empty, StringComparison.Ordinal);
     }
     // ItemsSource refreshes and inactive task controls may temporarily clear selection.
     // Only an actual non-null choice writes back; model-driven clears still flow one way.
