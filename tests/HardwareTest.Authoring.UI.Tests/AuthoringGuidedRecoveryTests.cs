@@ -210,7 +210,7 @@ public sealed class AuthoringGuidedRecoveryTests
     }
 
     [AvaloniaFact]
-    public void Local_unsaved_sidecar_edit_offers_save_without_external_source_recovery()
+    public async Task Local_unsaved_sidecar_edit_offers_save_without_external_source_recovery()
     {
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
@@ -219,12 +219,13 @@ public sealed class AuthoringGuidedRecoveryTests
         { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         vm.Apply();
         vm.DisplayName = "My updated voltage plan";
-        AuthoringUiFixture.Drain();
+        await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         Assert.Equal("Unsaved draft changes", GuidanceUiActions.Feedback(fixture).Text);
         Assert.DoesNotContain("Reopen", fixture.Control<TextBlock>("Guidance next step").Text);
         Assert.Equal("Save and check draft", fixture.Control<Button>("Guidance next action").Content);
         AuthoringUiFixture.Click(fixture.Control<Button>("Guidance next action"));
+        await fixture.WaitForReadinessAsync();
         Assert.Null(vm.Error);
         Assert.False(vm.HasUnsavedChanges);
         Assert.Equal("My updated voltage plan", new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("local-guide").Document!.Sidecar.DisplayName);
