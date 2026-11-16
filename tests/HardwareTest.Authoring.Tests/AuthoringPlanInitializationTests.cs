@@ -143,7 +143,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         var knownHome = new OpenTapHome(Path.Combine(_root, "known-library"));
         var package = Path.Combine(knownHome.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(package);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(knownHome.Root, file));
         File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(package, "package.xml"));
         var type = AuthoringInstrumentCatalog.Discover(knownHome).Single(adapter => adapter.DisplayName == "DC Power Supply").TypeId;

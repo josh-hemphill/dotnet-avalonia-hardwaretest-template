@@ -1,0 +1,25 @@
+{
+  "name": "hardwaretest-ci",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=26 <27"
+  },
+  "scripts": {
+    "build": "node main.ts build",
+    "format": "node main.ts format",
+    "audit": "node main.ts audit",
+    "test:host": "node main.ts test:host",
+    "test:vm": "node main.ts test:vm",
+    "test:e2e": "node main.ts test:e2e",
+    "test:arch": "node main.ts test:arch",
+    "test:authoring-compat": "node main.ts test:authoring-compat",
+    "test:authoring-ui": "node main.ts test:authoring-ui",
+    "coverage": "node main.ts coverage",
+    "publish": "node main.ts publish",
+    "verify": "node main.ts verify",
+    "all": "node main.ts all",
+    "list": "node main.ts list",
+    "test": "node --test *_test.ts"
+  }
+}

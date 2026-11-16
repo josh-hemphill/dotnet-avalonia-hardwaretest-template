@@ -82,11 +82,18 @@ public sealed partial class StandaloneBoundaryTests
         using (var stream = StandaloneVisaPackage.OpenArchive())
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
             foreach (var entry in archive.Entries) File.Delete(Path.Combine(home, entry.FullName));
+        // Broker execution still carries the application's explicit SDK/vendor graph.
+        // These runtime dependencies do not constitute an installed standalone counterpart.
+        foreach (var source in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "BoundaryFixture"), "*.dll")
+            .Where(path => Path.GetFileName(path) == "InstrumentComponents.Scpi.dll"
+                || Path.GetFileName(path).StartsWith("InstrumentComponents.Drivers.", StringComparison.Ordinal)
+                || Path.GetFileName(path) == "HardwareTest.OpenTap.Plugins.Instruments.dll"))
+            File.Copy(source, Path.Combine(home, Path.GetFileName(source)), overwrite: true);
         Assert.False(File.Exists(Path.Combine(home, StandaloneVisaPackage.WrapperFileName)));
         Assert.False(File.Exists(Path.Combine(home, "Packages", StandaloneVisaPackage.PackageName, "package.xml")));
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
         Assert.Equal(0, result.Code);
         Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
-        Assert.Contains("published-instrument-opened-with-embedded-registry-and-closed", result.Output);
+        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", result.Output);
     }
 }

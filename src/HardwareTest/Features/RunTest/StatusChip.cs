@@ -22,8 +22,15 @@ public static class StatusChip
             return "Running";
         }
 
-        if (raw.Contains("Fail", StringComparison.OrdinalIgnoreCase)
-            || raw.Contains("Error", StringComparison.OrdinalIgnoreCase))
+        if (raw.Contains("Cancel", StringComparison.OrdinalIgnoreCase)
+            || raw.Contains("Abort", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Cancelled";
+        }
+
+        if (raw.Contains("Error", StringComparison.OrdinalIgnoreCase)) return "Error";
+
+        if (raw.Contains("Fail", StringComparison.OrdinalIgnoreCase))
         {
             return "Fail";
         }
@@ -39,11 +46,9 @@ public static class StatusChip
             return "Pending";
         }
 
-        if (raw.Contains("Cancel", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Fail";
-        }
-
         return raw.Length <= 12 ? raw : raw[..12];
     }
+
+    public static bool NeedsAttention(string chip) => chip is "Fail" or "Error" or "Cancelled";
+    public static bool IsTerminal(string chip) => chip is "Pass" or "Fail" or "Error" or "Cancelled";
 }

@@ -7,12 +7,12 @@ if (args is ["--metadata", var gate])
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger,
         gate == "no-broker" ? null : new FixtureBroker(), enablePhysicalExecution: gate == "no-broker");
     catalog.EnsurePlugins();
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Metadata boundary acquired an execution library.");
     var binder = typeof(OpenTapHostCatalog).Assembly.GetType("HardwareTest.OpenTap.Host.InstrumentComponentsScpiIo")!;
     if ((bool)binder.GetMethod("TryRegisterProvider")!.Invoke(null, [new FixtureBroker()])!)
         throw new InvalidOperationException("An absent library unexpectedly acquired a provider.");
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Absent-provider registration unexpectedly loaded the library.");
     Console.WriteLine("metadata-boundary-isolated");
     return 0;
@@ -20,7 +20,7 @@ if (args is ["--metadata", var gate])
 
 if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-selected-metadata" or "--invalid-multiple-roots")
 {
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Metadata rejection fixture must begin in a cold process.");
     string[] directories = invalidMode == "--invalid-multiple-roots"
         ? ParseRoots(invalidHome)
@@ -38,7 +38,7 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
     }
     catch (Exception error) when (error is IOException or InvalidOperationException or System.Xml.XmlException)
     {
-        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true)
+        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa")
             || broker.Session is not null)
             throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
         if (!pluginDirectories.SequenceEqual(OpenTap.PluginManager.DirectoriesToSearch))
@@ -52,7 +52,7 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
 
 if (args is [var replacementMode, var selectedHome] && replacementMode is "--replace-approved-contract" or "--replace-approved-provider")
 {
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Approved-buffer replacement fixture must begin in a cold process.");
     var host = typeof(OpenTapHostCatalog).Assembly;
     var selector = host.GetType("HardwareTest.OpenTap.Host.ExecutionInstrumentLibrary")!
@@ -77,7 +77,7 @@ if (args is [var replacementMode, var selectedHome] && replacementMode is "--rep
     catch (System.Reflection.TargetInvocationException error) when (error.InnerException is InvalidOperationException rejected
         && rejected.Message.Contains("no longer matches its source payload", StringComparison.Ordinal))
     {
-        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+        if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
             throw new InvalidOperationException("An unauthorized replacement entered the CLR before rejection.", error);
         Console.WriteLine("approved-buffer-stage-replacement-refused-before-clr-load");
         return 0;
@@ -165,14 +165,14 @@ if (args is ["--loaded-unsupported", var unsupportedHome])
     System.Reflection.Assembly.LoadFrom(Path.Combine(unsupportedHome, "replacement.dll"));
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Unsupported loaded library was accepted."); }
-    catch (InvalidOperationException error) when (error.Message.Contains("current 0.1.1 broker-managed execution contract", StringComparison.Ordinal)) { }
+    catch (InvalidOperationException error) when (error.Message.Contains("current 0.3.0-alpha.1 broker-managed execution contract", StringComparison.Ordinal)) { }
     Console.WriteLine("unsupported-loaded-library-refused");
     return 0;
 }
 
 if (args is ["--loaded", var loadedHome])
 {
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Loaded-library fixture must begin in a cold process.");
     var original = LoadOwnedLibrary(loadedHome);
     var originalLocation = original.Location;
@@ -188,7 +188,7 @@ if (args is ["--loaded", var loadedHome])
 
 if (args is [var managedMode, var selected] && managedMode is "--managed" or "--managed-multiple-roots")
 {
-    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true))
+    if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa"))
         throw new InvalidOperationException("Managed boundary must begin without a loaded library.");
     var broker = new FixtureBroker();
     string[] directories = managedMode == "--managed-multiple-roots"
@@ -271,7 +271,7 @@ internal sealed class FixtureSession(string address, bool failTimeout) : IVisaSe
         Queries++;
         return Task.FromResult(command.Trim().ToUpperInvariant() switch
         {
-            "*IDN?" => "fixture-id",
+            "*IDN?" => "fixture-id,DMM,SN-1,0",
             "*OPC?" => "1",
             _ => "1.25",
         });

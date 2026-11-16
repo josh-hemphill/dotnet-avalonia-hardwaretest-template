@@ -27,7 +27,7 @@ public sealed class LibraryColdWrapperTests
             var home = new OpenTapHome(Path.Combine(root, "actual-home"));
             var workspace = new AuthoringWorkspace(root, new AuthoringManifest
             {
-                Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" }],
+                Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }],
                 InstrumentComponentsPackage = package
             }, []);
             new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });

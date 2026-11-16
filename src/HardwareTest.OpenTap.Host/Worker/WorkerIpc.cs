@@ -121,6 +121,8 @@ public sealed class WorkerSnapshot
             TypeName = slot.TypeName,
             RoleHint = slot.RoleHint,
             ResourceName = slot.ResourceName,
+            ConfigurationIssue = slot.ConfigurationIssue,
+            SupportsIdentityQuery = slot.SupportsIdentityQuery,
         };
 }
 

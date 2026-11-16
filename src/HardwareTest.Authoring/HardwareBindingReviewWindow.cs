@@ -33,6 +33,11 @@ public sealed class HardwareBindingReviewWindow : Window
         proposed.Children.Add(Value("Test plan", planName, "Reviewed binding plan"));
         proposed.Children.Add(Value("Instrument slot", impact.SlotName, "Reviewed binding slot"));
         proposed.Children.Add(Value("Adapter", adapterName, "Reviewed binding adapter"));
+        if (replacement.Settings.TryGetValue("DriverId", out var driverId))
+        {
+            var model = HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.All.FirstOrDefault(info => info.Id == driverId)?.DisplayName ?? driverId;
+            proposed.Children.Add(Value("Device model", model, "Reviewed binding device model"));
+        }
         if (current is not null && current.TypeId != replacement.TypeId)
             proposed.Children.Add(Note("Previous adapter: " + (AuthoringInstrumentCatalog.TryGet(current.TypeId, out var previous)
                 ? previous.DisplayName : "Imported instrument adapter")));
@@ -41,6 +46,10 @@ public sealed class HardwareBindingReviewWindow : Window
             proposed.Children.Add(Note($"Previously: {current.VisaAddress}"));
         if (replacement.Settings.TryGetValue("IoTimeoutMilliseconds", out var timeout))
             proposed.Children.Add(Value("I/O timeout", timeout + " ms", "Reviewed binding timeout"));
+        if (replacement.Settings.TryGetValue("Channels", out var channels))
+            proposed.Children.Add(Value("Channels", channels, "Reviewed binding channels"));
+        if (replacement.Settings.TryGetValue("Outputs", out var outputs))
+            proposed.Children.Add(Value("Outputs", outputs, "Reviewed binding outputs"));
 
         var stepReferences = impact.AffectedNodes.Where(IsStep).ToArray();
         var affected = new StackPanel { Spacing = 6 };

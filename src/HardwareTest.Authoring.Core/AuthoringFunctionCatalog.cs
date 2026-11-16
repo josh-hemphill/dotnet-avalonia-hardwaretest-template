@@ -49,7 +49,8 @@ public static class AuthoringFunctionCatalog
         new(AuthoringFunctionIds.IcSafeShutdown, "InstrumentComponents.OpenTap", "SafeShutdownStep", true, false),
     ];
 
-    public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = Specs;
+    public static IReadOnlyList<AuthoringFunctionSpec> All { get; } = [.. Specs, .. global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.OperationNames.Select(operation => new AuthoringFunctionSpec("Device." + operation,
+            "InstrumentComponents.OpenTap", "DeviceOperationStep", true, false))];
 
     public static bool ConsumesInputChannels(string functionId) => functionId == AuthoringFunctionIds.BasicChannelAverage;
 
@@ -61,7 +62,7 @@ public static class AuthoringFunctionCatalog
 
     public static bool TryGet(string id, out AuthoringFunctionSpec spec)
     {
-        foreach (var candidate in Specs)
+        foreach (var candidate in All)
         {
             if (string.Equals(candidate.Id, id, StringComparison.Ordinal))
             {
@@ -77,8 +78,10 @@ public static class AuthoringFunctionCatalog
     public static bool TryGetByStep(ITestStep step, out AuthoringFunctionSpec spec)
     {
         ArgumentNullException.ThrowIfNull(step);
+        if (step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep operation)
+            return TryGet("Device." + operation.Operation, out spec);
         var typeName = step.GetType().Name;
-        foreach (var candidate in Specs)
+        foreach (var candidate in All)
         {
             if (!string.Equals(candidate.TypeName, typeName, StringComparison.Ordinal))
             {
@@ -107,6 +110,12 @@ public static class AuthoringFunctionCatalog
                 $"{AuthoringCompileCodes.UnknownFunction}: '{functionId}' is not in the authoring function catalog.");
         }
 
+        if (functionId.StartsWith("Device.", StringComparison.Ordinal))
+            return new global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
+            {
+                Operation = functionId[7..],
+                Arguments = global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationRequests.Template(functionId[7..])
+            };
         ITestStep? created = spec.Id switch
         {
             AuthoringFunctionIds.BasicAcquireVoltage => new AcquireVoltageStep(),

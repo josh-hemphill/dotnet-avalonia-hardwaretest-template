@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <Description>Explicitly composed Instrument Components device families and shared device resources.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" />
+    <PackageReference Include="InstrumentComponents.Runtime" />
+    <PackageReference Include="InstrumentComponents.Scpi" />
+    <PackageReference Include="InstrumentComponents.Drivers.Keysight" />
+    <PackageReference Include="InstrumentComponents.Drivers.Keithley" />
+    <PackageReference Include="InstrumentComponents.Drivers.Rigol" />
+    <PackageReference Include="InstrumentComponents.Drivers.Siglent" />
+    <PackageReference Include="InstrumentComponents.Drivers.Tektronix" />
+  </ItemGroup>
+</Project>

@@ -6,6 +6,33 @@ namespace HardwareTest.Tests.Runs;
 public sealed class RunTriageSummaryTests
 {
     [Fact]
+    public void Legacy_nonpassing_attempts_roundtrip_without_turning_cancellation_and_errors_into_measurement_failures()
+    {
+        const string json = """
+        {"runId":"legacy-outcomes","stepAttempts":[
+          {"stepPath":"waiting","attemptCount":1,"failedCount":1,"latestPassed":false,"latestMessage":"Aborted","attempts":[{"stepPath":"waiting","passed":false,"message":"Aborted"}]},
+          {"stepPath":"protocol","attemptCount":1,"failedCount":1,"latestPassed":false,"latestMessage":"Error","attempts":[{"stepPath":"protocol","passed":false,"message":"Error"}]},
+          {"stepPath":"measurement","attemptCount":1,"failedCount":1,"latestPassed":false,"latestMessage":"Fail","attempts":[{"stepPath":"measurement","passed":false,"message":"Fail"}]}
+        ]}
+        """;
+        var run = System.Text.Json.JsonSerializer.Deserialize(json, HardwareTest.Core.Serialization.AppJsonContext.Default.TestRunRecord)!;
+        var triage = RunTriageSummary.FromRecord(run);
+        Assert.Equal(1, triage.PathFailCount);
+        Assert.Contains("1 failed / 1 error / 1 cancelled", triage.OperatorSummary);
+        Assert.Equal(0, run.StepAttempts[0].MeasurementFailureCount);
+        Assert.Equal(1, run.StepAttempts[0].CancelledCount);
+        Assert.DoesNotContain("1F", run.StepAttempts[0].Display);
+        Assert.Equal("Cancelled", run.StepAttempts[0].LatestOutcome);
+        Assert.Equal("Error", run.StepAttempts[1].LatestOutcome);
+        Assert.Equal("Fail", run.StepAttempts[2].LatestOutcome);
+        var saved = System.Text.Json.JsonSerializer.Serialize(run, HardwareTest.Core.Serialization.AppJsonContext.Default.TestRunRecord);
+        Assert.DoesNotContain("outcomeLabel", saved);
+        var restored = System.Text.Json.JsonSerializer.Deserialize(saved, HardwareTest.Core.Serialization.AppJsonContext.Default.TestRunRecord)!;
+        Assert.Equal("Cancelled", restored.StepAttempts[0].Attempts[0].OutcomeLabel);
+        Assert.Equal(1, RunTriageSummary.FromRecord(restored).PathFailCount);
+    }
+
+    [Fact]
     public void FromRecord_uses_attempt_chronology_not_path_order()
     {
         var t1 = new DateTimeOffset(2026, 1, 1, 10, 0, 0, TimeSpan.Zero);

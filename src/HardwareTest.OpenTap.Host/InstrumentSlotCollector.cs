@@ -8,15 +8,36 @@ public static class InstrumentSlotCollector
     public static IReadOnlyList<OpenTapInstrumentSlot> FromPlan(TestPlan plan)
     {
         ArgumentNullException.ThrowIfNull(plan);
+        global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.SharePlanResources(plan);
         return InstrumentResourceAccess.CollectFromPlan(plan)
             .Select(i => new OpenTapInstrumentSlot
             {
                 Name = string.IsNullOrWhiteSpace(i.Name) ? i.GetType().Name : i.Name,
-                TypeName = i.GetType().Name,
-                RoleHint = GuessRole(i.Name),
+                TypeName = i is global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered
+                    ? (global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.All.FirstOrDefault(info => info.Id == registered.DriverId)?.Summary ?? registered.DriverId) + " · " + PublishedInstrumentComponents.Version
+                    : i.GetType().Name,
+                RoleHint = i is global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument device
+                    ? global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.All.FirstOrDefault(info => info.Id == device.DriverId)?.Families ?? "device" : GuessRole(i.Name),
                 ResourceName = InstrumentResourceAccess.GetResource(i),
+                ConfigurationIssue = ConfigurationIssue(i),
+                SupportsIdentityQuery = IdentitySupport(i),
             })
             .ToList();
+    }
+
+    private static bool? IdentitySupport(Instrument instrument)
+    {
+        if (instrument is not global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered) return null;
+        try { return registered.AvailableOperations.Contains("QueryIdentity", StringComparer.Ordinal); }
+        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException) { return false; }
+    }
+
+    private static string ConfigurationIssue(Instrument instrument)
+    {
+        if (instrument is not global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered) return string.Empty;
+        try { _ = registered.AvailableOperations; return string.Empty; }
+        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+        { return error.Message; }
     }
 
     /// Materializes a catalog entry as an in-memory plan (no session mutation).

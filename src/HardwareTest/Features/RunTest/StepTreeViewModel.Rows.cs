@@ -440,7 +440,7 @@ public partial class StepTreeViewModel
             return 0;
         }
 
-        return stage.ChipText == "Fail" ? 1 : 2;
+        return StatusChip.NeedsAttention(stage.ChipText) ? 1 : 2;
     }
 
     private void RefreshSuiteSummary()
@@ -450,7 +450,9 @@ public partial class StepTreeViewModel
             .ToList();
         SuitePassedCount = chips.Count(c => c == "Pass");
         SuiteFailedCount = chips.Count(c => c == "Fail");
-        SuitePendingCount = chips.Count(c => c is not "Pass" and not "Fail");
+        SuiteErrorCount = chips.Count(c => c == "Error");
+        SuiteCancelledCount = chips.Count(c => c == "Cancelled");
+        SuitePendingCount = chips.Count(c => !StatusChip.IsTerminal(c));
         this.RaisePropertyChanged(nameof(HasFailedLeaves));
     }
 

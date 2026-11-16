@@ -44,7 +44,7 @@ public sealed partial class AuthoringWorkspaceInitializer
             IncludeTui = request.IncludeTui
         };
         if (request.IncludeLibraryPackage && !manifest.Dependencies.Any(p => p.Package == AuthoringInstrumentCatalog.LibraryPackage))
-            manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
+            manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         PlanInitializationResult? plan = null;
         if (request.Template != WorkspaceTemplateKind.Empty)
             plan = new AuthoringPlanInitializer().Construct(new(request.PlanId)

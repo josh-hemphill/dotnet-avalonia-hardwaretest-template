@@ -35,7 +35,7 @@ internal sealed record AuthoringEnvironmentInspection(
         var requiresLibrary = workspace.Manifest.Dependencies.Any(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
         var packages = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home);
         var library = AuthoringInstrumentCatalog.LibraryReadiness(home);
-        var choices = AuthoringInstrumentCatalog.Discover(home).Concat(AuthoringInstrumentCatalog.All.Where(adapter => !AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId))).ToArray();
+        var choices = AuthoringInstrumentCatalog.Discover(home).Where(adapter => adapter.TypeId == "HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument").Concat(AuthoringInstrumentCatalog.All.Where(adapter => !AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId))).ToArray();
         var adapters = AuthoringInstrumentCatalog.All;
         var availability = adapters.ToFrozenDictionary(adapter => adapter.TypeId, adapter => adapter.Availability(home), StringComparer.Ordinal);
         var creation = adapters.ToFrozenDictionary(adapter => adapter.TypeId, adapter =>

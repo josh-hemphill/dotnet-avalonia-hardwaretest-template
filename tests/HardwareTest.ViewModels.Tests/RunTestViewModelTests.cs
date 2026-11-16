@@ -291,6 +291,32 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task Throttled_progress_keeps_each_steps_value_and_verdict_with_its_producer()
+    {
+        var vm = CreateVm();
+        vm.UiScheduler = action => action();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        await ConfirmReadyAsync(vm);
+        var leaves = Flatten(vm.StepTree.Hierarchy).Where(step => step.Children.Count == 0).Take(3).ToArray();
+        Assert.Equal(3, leaves.Length);
+        var scheduled = new Queue<Action>();
+        vm.UiScheduler = scheduled.Enqueue;
+        vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[0].Path, KeyValue = "Keysight 1.25 V", Verdict = "Pass", StatusText = "Completed" });
+        vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[1].Path, StatusText = "Running" });
+        vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[1].Path, KeyValue = "Tektronix 1000000 Hz", Verdict = "Fail", StatusText = "Completed" });
+        vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[2].Path, StatusText = "Running" });
+        Assert.Single(scheduled);
+        scheduled.Dequeue()();
+        Assert.Equal("Keysight 1.25 V", leaves[0].KeyValue);
+        Assert.Equal("Pass", leaves[0].Verdict);
+        Assert.Equal("Tektronix 1000000 Hz", leaves[1].KeyValue);
+        Assert.Equal("Fail", leaves[1].Verdict);
+        Assert.True(string.IsNullOrEmpty(leaves[2].KeyValue));
+        Assert.NotEqual("Fail", leaves[2].Verdict);
+        Assert.Equal("Running", leaves[2].StatusText);
+    }
+
+    [Fact]
     public async Task Continue_clears_pending_await_so_flush_does_not_revive()
     {
         var vm = CreateVm();

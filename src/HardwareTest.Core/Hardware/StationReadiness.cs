@@ -6,6 +6,7 @@ public enum StationSlotReadinessKind
     Ready = 0,
     Unbound = 1,
     DemoOnly = 2,
+    ConfigurationError = 3,
 }
 
 /// One slot's readiness for the selected program.
@@ -15,7 +16,7 @@ public sealed class StationSlotReadiness
     public required StationSlotReadinessKind Kind { get; init; }
     public string EffectiveResource { get; init; } = string.Empty;
     public string Detail { get; init; } = string.Empty;
-    public bool BlocksRun => Kind is StationSlotReadinessKind.Unbound or StationSlotReadinessKind.DemoOnly;
+    public bool BlocksRun => Kind != StationSlotReadinessKind.Ready;
 }
 
 /// Aggregate station check used by Run and Instruments (Core, OpenTAP-free).
@@ -34,6 +35,7 @@ public sealed class StationSlotSnapshot
     public string PlanId { get; init; } = string.Empty;
     public string RoleHint { get; init; } = string.Empty;
     public string TypeName { get; init; } = string.Empty;
+    public string ConfigurationIssue { get; init; } = string.Empty;
     public string EffectiveResource { get; init; } = string.Empty;
 }
 
@@ -57,6 +59,8 @@ public static class StationReadinessEvaluator
 
     public static StationSlotReadiness EvaluateSlot(StationSlotSnapshot slot, bool useMockVisa)
     {
+        if (!string.IsNullOrWhiteSpace(slot.ConfigurationIssue))
+            return new() { SlotName = slot.SlotName, Kind = StationSlotReadinessKind.ConfigurationError, EffectiveResource = slot.EffectiveResource, Detail = slot.ConfigurationIssue };
         if (string.IsNullOrWhiteSpace(slot.EffectiveResource))
         {
             return new StationSlotReadiness
@@ -104,6 +108,8 @@ public static class StationReadinessEvaluator
             return $"Station ready ({results.Count} slot(s)).";
         }
 
+        if (blocking.Any(slot => slot.Kind == StationSlotReadinessKind.ConfigurationError))
+            return "Device configuration needs authoring review: " + string.Join("; ", blocking.Where(slot => slot.Kind == StationSlotReadinessKind.ConfigurationError).Select(slot => slot.SlotName + ": " + slot.Detail));
         var unbound = blocking.Where(b => b.Kind == StationSlotReadinessKind.Unbound).Select(b => b.SlotName).ToList();
         var demo = blocking.Where(b => b.Kind == StationSlotReadinessKind.DemoOnly).Select(b => b.SlotName).ToList();
         if (unbound.Count > 0 && demo.Count == 0)

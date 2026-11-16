@@ -1,9 +1,10 @@
-import * as path from "@std/path";
+import { fileURLToPath } from "node:url";
+import * as path from "node:path";
 import { publishedExeName } from "./rid.ts";
 
 /** Repo root (tools/ci/lib → ../../..). */
 export function repoRoot(): string {
-  return path.resolve(path.dirname(path.fromFileUrl(import.meta.url)), "../../..");
+  return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 }
 
 export function coverageDir(root = repoRoot()): string {

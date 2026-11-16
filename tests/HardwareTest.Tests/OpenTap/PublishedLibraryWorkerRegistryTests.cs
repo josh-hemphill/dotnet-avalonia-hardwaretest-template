@@ -21,6 +21,7 @@ public sealed class PublishedLibraryWorkerRegistryTests
         var library = PublishedLibraryMetadataFixture.Assembly;
         var instrument = (Instrument)Activator.CreateInstance(library.GetType("InstrumentComponents.OpenTap.DmmInstrument", throwOnError: true)!)!;
         Assert.True(InstrumentResourceAccess.TrySetResource(instrument, "MOCK::INSTR0"));
+        instrument.GetType().GetProperty("DriverId")!.SetValue(instrument, "keysight.34461a");
         var identity = (TestStep)Activator.CreateInstance(library.GetType("InstrumentComponents.OpenTap.IdentityQueryStep", throwOnError: true)!)!;
         identity.GetType().GetProperty("Instrument")!.SetValue(identity, instrument);
         var plan = new TestPlan();

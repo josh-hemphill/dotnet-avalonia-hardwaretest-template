@@ -58,6 +58,7 @@
                   <StackPanel Spacing="4"><TextBlock Text="{Binding SlotName}" FontWeight="SemiBold"/><TextBlock Text="{Binding PlanDisplayName}" TextWrapping="Wrap"/><TextBlock Text="{Binding PlanId, StringFormat='Plan ID: {0}'}" TextWrapping="Wrap"/><TextBlock Text="{Binding EffectiveResource}" TextWrapping="Wrap"/></StackPanel>
                 </DataTemplate></ComboBox.ItemTemplate>
               </ComboBox>
+              <TextBlock Text="{Binding SelectedSlot.ConfigurationIssue}" TextWrapping="Wrap" AutomationProperties.Name="Selected instrument configuration issue" AutomationProperties.LiveSetting="Polite"/>
               <TextBlock Text="{Binding SelectedSlot.StatusText}" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.Name="Selected instrument slot status"/>
               <TextBlock Text="{Binding SelectedSlot.EffectiveResource}" TextWrapping="Wrap" AutomationProperties.Name="Selected instrument address"/>
               <TextBlock Text="{Binding SelectedSlot.LastIdnSummary, StringFormat='Recorded identity: {0}'}" IsVisible="{Binding SelectedSlot.HasLastIdn}" TextWrapping="Wrap"/>
@@ -82,7 +83,7 @@
                 <Button Content="Discover VISA" Command="{Binding RefreshVisaDiscoverCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Discover VISA resources" Margin="0,0,8,4"/>
                 <Button Content="Discover OpenTAP" Command="{Binding RefreshOpenTapDiscoverCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" AutomationProperties.Name="Discover OpenTAP resources" Margin="0,0,0,4"/>
               </WrapPanel>
-              <TextBlock Text="No resources found yet. Discover instruments, then choose the address for the selected slot." TextWrapping="Wrap" IsVisible="{Binding ShowDiscoverEmpty}"/>
+              <TextBlock Text="Discover VISA to find resource addresses. A plan with confirmed addresses can run without discovery." TextWrapping="Wrap" IsVisible="{Binding ShowDiscoverEmpty}"/>
               <TextBlock x:Name="VisaResourceLabel" Text="VISA resource"/>
               <ComboBox ItemsSource="{Binding DiscoveredVisa}" SelectedItem="{Binding SelectedVisa}" HorizontalAlignment="Stretch" MinHeight="40" MaxDropDownHeight="320"
                         PlaceholderText="Choose a VISA resource" AutomationProperties.Name="Discovered VISA resource" AutomationProperties.LabeledBy="{Binding #VisaResourceLabel}">
@@ -100,14 +101,14 @@
                 </DataTemplate></ComboBox.ItemTemplate>
               </ComboBox>
               <Button Content="Query *IDN?" Command="{Binding QuerySelectedIdnCommand}" IsEnabled="{Binding !IsBusy}" Classes="operator" HorizontalAlignment="Left"
-                      AutomationProperties.Name="Query selected instrument identity" ToolTip.Tip="Opens the selected resource briefly to confirm its identity."/>
+                      AutomationProperties.Name="Query selected instrument identity" ToolTip.Tip="Explicitly queries *IDN? where the saved configuration supports identity. Opens a transport briefly."/>
               <TextBlock Text="{Binding SelectedVisa.IdnSummary}" IsVisible="{Binding SelectedVisa.HasIdn}" TextWrapping="Wrap"/>
               <TextBlock Text="{Binding SelectedOpenTap.IdnSummary}" IsVisible="{Binding SelectedOpenTap.HasIdn}" TextWrapping="Wrap"/>
             </StackPanel>
           </Border>
         </Grid>
         <Expander Header="How station overrides and identity checks work" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Instrument setup help">
-          <TextBlock Text="Apply selected resource changes the chosen slot on this station. Save overrides persists the change; the test plan stays unchanged. Discovery lists address hints. Query *IDN? briefly opens the chosen instrument and records its identity beside station settings." TextWrapping="Wrap"/>
+          <TextBlock Text="Apply selected resource changes the chosen slot on this station. Save overrides persists the change; the test plan stays unchanged. Discovery lists address hints. Supported identity queries briefly open the chosen instrument. Identity is recorded for this exact program, slot and address; rebinding requires a new query." TextWrapping="Wrap"/>
         </Expander>
       </StackPanel>
     </ScrollViewer>

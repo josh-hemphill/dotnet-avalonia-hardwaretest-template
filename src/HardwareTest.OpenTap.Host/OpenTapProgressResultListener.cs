@@ -26,6 +26,7 @@ internal sealed partial class ProgressResultListener : ResultListener
     private readonly Func<string, string?, string?> _resolvePath;
     private readonly TestPlan _plan;
     private readonly IClock _clock;
+    private readonly Func<bool> _isCancellationRequested;
     private readonly Stack<LoopContext> _loops = new();
     private int _stepIndex;
     private int _stepCount = 1;
@@ -44,7 +45,8 @@ internal sealed partial class ProgressResultListener : ResultListener
         Action<string, string?, string, string, string?> updateNode,
         Func<string, string?, string?> resolvePath,
         TestPlan plan,
-        IClock clock)
+        IClock clock,
+        Func<bool>? isCancellationRequested = null)
     {
         _progress = progress;
         _samples = samples;
@@ -55,6 +57,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         _resolvePath = resolvePath;
         _plan = plan;
         _clock = clock;
+        _isCancellationRequested = isCancellationRequested ?? (() => false);
         Name = "HardwareTestProgress";
     }
 
@@ -64,6 +67,9 @@ internal sealed partial class ProgressResultListener : ResultListener
         _stepIndex = 0;
         _loops.Clear();
         _executions.Clear();
+        _completedVerdicts.Clear();
+        _measurementOutcomes.Clear();
+        _completedSteps.Clear();
         _lastSampleReportTimestamp = 0;
         _coalescedSample = null;
         _progress?.Report(new OpenTapProgress { Message = "Plan started", OverallPercent = 0 });
@@ -119,8 +125,11 @@ internal sealed partial class ProgressResultListener : ResultListener
         var id = stepRun.TestStepId.ToString();
         var started = _stepStarted.TryGetValue(id, out var s) ? s : _clock.UtcNow;
         var verdict = stepRun.Verdict.ToString();
+        if (_isCancellationRequested() && stepRun.Verdict is Verdict.Error or Verdict.Aborted)
+            verdict = "Cancelled";
+        _completedVerdicts[stepRun.Id] = verdict;
         var passed = stepRun.Verdict is Verdict.Pass or Verdict.NotSet;
-        _steps.Add(new StepResultRecord
+        var completed = new StepResultRecord
         {
             StepId = id,
             StepType = stepRun.TestStepName,
@@ -129,7 +138,10 @@ internal sealed partial class ProgressResultListener : ResultListener
             Message = verdict,
             StartedAt = started,
             CompletedAt = _clock.UtcNow,
-        });
+        };
+        _completedSteps[stepRun.Id] = completed;
+        if (_measurementOutcomes.TryGetValue(stepRun.Id, out var outcomeDetail)) completed.OutcomeDetail = outcomeDetail;
+        _steps.Add(completed);
         _updateNode(id, stepRun.TestStepName, verdict, verdict, null);
         _stepIndex++;
 
@@ -139,7 +151,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         }
 
         ReportStepProgress(
-            $"{stepRun.TestStepName}: {stepRun.Verdict}",
+            $"{stepRun.TestStepName}: {verdict}",
             stepRun.TestStepName,
             id,
             verdict,
@@ -198,104 +210,16 @@ internal sealed partial class ProgressResultListener : ResultListener
         });
     }
 
-    public override void OnResultPublished(Guid stepRunId, ResultTable result)
-    {
-        try
-        {
-            if (string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
-            {
-                PublishSamples(result, stepRunId);
-                return;
-            }
-
-            if (string.Equals(result.Name, "Scalar", StringComparison.OrdinalIgnoreCase))
-            {
-                PublishScalars(result, stepRunId);
-                return;
-            }
-
-            if (string.Equals(result.Name, "Event", StringComparison.OrdinalIgnoreCase))
-            {
-                PublishEvents(result, stepRunId);
-                return;
-            }
-
-            if (string.Equals(result.Name, "Identity", StringComparison.OrdinalIgnoreCase))
-            {
-                var idn = result.Columns.FirstOrDefault(c => c.Name == "Idn");
-                var key = idn is null || idn.Data.Length == 0 ? null : Convert.ToString(idn.Data.GetValue(0));
-                if (_currentStepId is not null)
-                {
-                    _updateNode(_currentStepId, _currentStepName, "Running", "NotSet", key);
-                }
-
-                _progress?.Report(new OpenTapProgress
-                {
-                    Message = $"IDN {key}",
-                    StepId = _currentStepId,
-                    StepName = _currentStepName,
-                    KeyValue = key,
-                    StatusText = "Identity",
-                });
-                return;
-            }
-
-            if (string.Equals(result.Name, "Analyze", StringComparison.OrdinalIgnoreCase))
-            {
-                var meanCol = result.Columns.FirstOrDefault(c => c.Name == "Mean");
-                var key = meanCol is null || meanCol.Data.Length == 0
-                    ? null
-                    : $"mean={Convert.ToDouble(meanCol.Data.GetValue(0)):F4}";
-                if (_currentStepId is not null)
-                {
-                    _updateNode(_currentStepId, _currentStepName, "Running", "NotSet", key);
-                }
-
-                _progress?.Report(new OpenTapProgress
-                {
-                    Message = key ?? "Analyze",
-                    StepId = _currentStepId,
-                    StepName = _currentStepName,
-                    KeyValue = key,
-                    StatusText = "Analyze",
-                });
-                return;
-            }
-
-            if (string.Equals(result.Name, "OperatorPrompt", StringComparison.OrdinalIgnoreCase))
-            {
-                var msgCol = result.Columns.FirstOrDefault(c => c.Name == "Message");
-                var msg = msgCol is null || msgCol.Data.Length == 0
-                    ? "Awaiting operator"
-                    : Convert.ToString(msgCol.Data.GetValue(0));
-                // Do not set AwaitingOperator here — HandleInteraction already reports the
-                // authoritative pause (with InteractionRequest). Emitting a second
-                // AwaitingOperator=true frame without a request races Progress handlers.
-                _progress?.Report(new OpenTapProgress
-                {
-                    Message = msg ?? "Awaiting operator",
-                    StepId = _currentStepId,
-                    StepName = _currentStepName,
-                    OperatorPromptMessage = msg,
-                    StatusText = "Operator prompt noted",
-                    KeyValue = msg,
-                });
-            }
-        }
-        catch
-        {
-            // Ignore malformed result rows.
-        }
-    }
-
     private void PublishSamples(ResultTable result, Guid stepRunId)
     {
+        var producer = ResultProducer(stepRunId);
         var channelCol = result.Columns.FirstOrDefault(c => c.Name == "Channel");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
         var indexCol = result.Columns.FirstOrDefault(c => c.Name == "Index");
         var limitLowCol = result.Columns.FirstOrDefault(c => c.Name == "LimitLow");
         var limitHighCol = result.Columns.FirstOrDefault(c => c.Name == "LimitHigh");
         var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
+        var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
         if (valueCol is null)
         {
             return;
@@ -308,7 +232,7 @@ internal sealed partial class ProgressResultListener : ResultListener
             var channel = channelCol is null ? "VDC" : Convert.ToString(channelCol.Data.GetValue(i)) ?? "VDC";
             var index = indexCol is null ? i : Convert.ToInt32(indexCol.Data.GetValue(i));
             var ts = _clock.UtcNow;
-            var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+            var stepPath = _resolvePath(producer.Id ?? string.Empty, producer.Name) ?? string.Empty;
             int? iterationIndex = null;
             string? loopPath = null;
             if (_loops.Count > 0)
@@ -338,6 +262,7 @@ internal sealed partial class ProgressResultListener : ResultListener
                 TryReadOptionalDouble(limitHighCol, i),
                 TryReadOptionalDouble(elapsedCol, i));
             StampExecution(stored, stepRunId);
+            if (unitCol is not null && i < unitCol.Data.Length && Convert.ToString(unitCol.Data.GetValue(i)) is { Length: > 0 } publishedUnit) stored.Unit = publishedUnit;
             _samples.Add(stored);
 
             var sampleEvent = MeasurementSampleEvent.FromStored(stored, index);
@@ -353,8 +278,8 @@ internal sealed partial class ProgressResultListener : ResultListener
                 {
                     Message = "Sample",
                     Sample = sampleEvent,
-                    StepId = _currentStepId,
-                    StepName = _currentStepName,
+                    StepId = producer.Id,
+                    StepName = producer.Name,
                     StepPath = stepPath,
                     KeyValue = FormatSampleKey(stored),
                     OverallPercent = percent,
@@ -370,6 +295,7 @@ internal sealed partial class ProgressResultListener : ResultListener
 
     private void PublishScalars(ResultTable result, Guid stepRunId)
     {
+        var producer = ResultProducer(stepRunId);
         var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
         var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
@@ -381,7 +307,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         }
 
         var hints = ExecutionPresentationHints(stepRunId);
-        var stepPath = _resolvePath(_currentStepId ?? string.Empty, _currentStepName) ?? string.Empty;
+        var stepPath = _resolvePath(producer.Id ?? string.Empty, producer.Name) ?? string.Empty;
         for (var i = 0; i < valueCol.Data.Length; i++)
         {
             var value = Convert.ToDouble(valueCol.Data.GetValue(i));
@@ -404,16 +330,16 @@ internal sealed partial class ProgressResultListener : ResultListener
             StampExecution(stored, stepRunId);
             _samples.Add(stored);
 
-            if (_currentStepId is not null)
+            if (producer.Id is not null)
             {
-                _updateNode(_currentStepId, _currentStepName, "Running", "NotSet", FormatSampleKey(stored));
+                _updateNode(producer.Id, producer.Name, producer.Status, producer.Verdict, FormatSampleKey(stored));
             }
 
             _progress?.Report(new OpenTapProgress
             {
                 Message = FormatSampleKey(stored),
-                StepId = _currentStepId,
-                StepName = _currentStepName,
+                StepId = producer.Id,
+                StepName = producer.Name,
                 StepPath = stepPath,
                 KeyValue = FormatSampleKey(stored),
                 StatusText = stored.DisplayRole ?? "Scalar",
@@ -575,8 +501,9 @@ internal sealed partial class ProgressResultListener : ResultListener
         {
             Message = "Sample",
             Sample = sample,
-            StepId = _currentStepId,
-            StepName = _currentStepName,
+            StepId = sample.ProducerStepId?.ToString(),
+            StepName = sample.ProducerStepId is { } producer ? OpenTapLoopProgress.FindStepById(_plan, producer)?.Name : null,
+            StepPath = sample.StepPath,
             OverallPercent = percent,
         });
     }

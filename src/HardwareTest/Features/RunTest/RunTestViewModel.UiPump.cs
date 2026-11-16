@@ -31,9 +31,7 @@ public partial class RunTestViewModel
     private string? _pendingStepId;
     private string? _pendingStepPath;
     private string? _pendingStepName;
-    private string? _pendingStatusText;
-    private string? _pendingVerdict;
-    private string? _pendingKeyValue;
+    private readonly List<StepLiveUpdate> _pendingSteps = new();
     private string? _pendingIterationText;
     private int _flushScheduled;
 
@@ -78,9 +76,13 @@ public partial class RunTestViewModel
             _pendingStepId = progress.StepId ?? _pendingStepId;
             _pendingStepPath = progress.StepPath ?? _pendingStepPath;
             _pendingStepName = progress.StepName ?? _pendingStepName;
-            _pendingStatusText = progress.StatusText ?? _pendingStatusText;
-            _pendingVerdict = progress.Verdict ?? _pendingVerdict;
-            _pendingKeyValue = progress.KeyValue ?? _pendingKeyValue;
+            // Keep each update with its producer. A later step's start event must never
+            // inherit the previous step's value or verdict while the UI is throttled.
+            if (progress.StepId is not null || progress.StepPath is not null)
+            {
+                _pendingSteps.Add(new(progress.StepId, progress.StepPath,
+                    progress.StatusText, progress.Verdict, progress.KeyValue));
+            }
             if (progress.IterationText is not null || progress.IterationIndex is not null)
             {
                 _pendingIterationText = progress.IterationText
@@ -129,9 +131,7 @@ public partial class RunTestViewModel
             _pendingStepId = null;
             _pendingStepPath = null;
             _pendingStepName = null;
-            _pendingStatusText = null;
-            _pendingVerdict = null;
-            _pendingKeyValue = null;
+            _pendingSteps.Clear();
             _pendingIterationText = null;
             _pendingForceFlush = false;
             _pendingAwaitingOperator = false;
@@ -309,7 +309,10 @@ public partial class RunTestViewModel
             CurrentStepPath = frame.StepPath;
         }
 
-        ApplyPendingStepLive(frame);
+        foreach (var update in frame.Steps)
+        {
+            ApplyPendingStepLive(update);
+        }
         if (frame.IterationText is not null)
         {
             IterationText = frame.IterationText;
@@ -338,7 +341,7 @@ public partial class RunTestViewModel
         }
     }
 
-    private void ApplyPendingStepLive(PendingFrame frame)
+    private void ApplyPendingStepLive(StepLiveUpdate frame)
     {
         var vm = StepTree.ApplyLiveStep(
             frame.StepId,
@@ -388,9 +391,7 @@ public partial class RunTestViewModel
                 StepId = _pendingStepId,
                 StepPath = _pendingStepPath,
                 StepName = _pendingStepName,
-                StatusText = _pendingStatusText,
-                Verdict = _pendingVerdict,
-                KeyValue = _pendingKeyValue,
+                Steps = _pendingSteps.ToArray(),
                 IterationText = _pendingIterationText,
             };
 
@@ -401,9 +402,7 @@ public partial class RunTestViewModel
             _pendingStepId = null;
             _pendingStepPath = null;
             _pendingStepName = null;
-            _pendingStatusText = null;
-            _pendingVerdict = null;
-            _pendingKeyValue = null;
+            _pendingSteps.Clear();
             _pendingIterationText = null;
             _pendingSampleStepPath = null;
             if (frame.Sample is not null)
@@ -430,7 +429,11 @@ public partial class RunTestViewModel
 
             if (frame.Sample is not null)
             {
-                _pendingSample ??= frame.Sample;
+                if (_pendingSample is null)
+                {
+                    _pendingSample = frame.Sample;
+                    _pendingSampleStepPath = frame.SampleStepPath;
+                }
             }
 
             if (frame.Details is not null)
@@ -456,12 +459,7 @@ public partial class RunTestViewModel
             _pendingStepId ??= frame.StepId;
             _pendingStepPath ??= frame.StepPath;
             _pendingStepName ??= frame.StepName;
-            _pendingStatusText ??= frame.StatusText;
-            _pendingVerdict ??= frame.Verdict;
-            if (frame.KeyValue is not null)
-            {
-                _pendingKeyValue ??= frame.KeyValue;
-            }
+            _pendingSteps.InsertRange(0, frame.Steps);
 
             if (frame.IterationText is not null)
             {
@@ -512,6 +510,9 @@ public partial class RunTestViewModel
         _pendingDetails.Enqueue(line);
     }
 
+    private sealed record StepLiveUpdate(string? StepId, string? StepPath,
+        string? StatusText, string? Verdict, string? KeyValue);
+
     /// One coalesced progress snapshot handed from the ingest lock to the UI thread.
     private sealed class PendingFrame
     {
@@ -528,9 +529,7 @@ public partial class RunTestViewModel
         public string? StepId { get; init; }
         public string? StepPath { get; init; }
         public string? StepName { get; init; }
-        public string? StatusText { get; init; }
-        public string? Verdict { get; init; }
-        public string? KeyValue { get; init; }
+        public StepLiveUpdate[] Steps { get; init; } = [];
         public string? IterationText { get; init; }
     }
 }

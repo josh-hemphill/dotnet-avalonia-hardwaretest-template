@@ -25,8 +25,8 @@ public sealed partial class StandaloneBoundaryTests
             using (var stream = new MemoryStream(bytes, writable: false))
             using (var pe = new PEReader(stream))
                 versionOffset = pe.PEHeaders.MetadataStartOffset + pe.GetMetadataReader().GetTableMetadataOffset(TableIndex.Assembly) + sizeof(uint);
-            bytes[versionOffset + 4] = 0;
-            bytes[versionOffset + 5] = 0;
+            bytes[versionOffset + 2] = 1;
+            bytes[versionOffset + 3] = 0;
         }
         else if (defect == "wrong-provider-name")
             bytes = File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.dll"));
@@ -43,7 +43,7 @@ public sealed partial class StandaloneBoundaryTests
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
         Assert.Equal(0, result.Code);
         Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("requires current 0.1.1 library assemblies", result.Output);
+        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", result.Output);
         var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(file => Path.GetRelativePath(home, file), File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
@@ -73,7 +73,7 @@ public sealed partial class StandaloneBoundaryTests
         if (defect == "nested-dll")
             File.Copy(Path.Combine(home, "InstrumentComponents.OpenTap.dll"), Path.Combine(plugins, "InstrumentComponents.OpenTap.dll"));
         if (defect == "alias-metadata")
-            File.WriteAllText(Path.Combine(plugins, "package.xml"), "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.1.1\"/>");
+            File.WriteAllText(Path.Combine(plugins, "package.xml"), "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"/>");
         if (!canonicalLibrary)
         {
             RemoveBaseFromFixture(home);

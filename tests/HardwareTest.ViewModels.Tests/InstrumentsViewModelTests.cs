@@ -1,6 +1,7 @@
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Settings;
 using HardwareTest.Features.Instruments;
+using HardwareTest.OpenTap.Host;
 using HardwareTest.ViewModels.Tests.Fakes;
 using Xunit;
 
@@ -13,12 +14,14 @@ public sealed class InstrumentsViewModelTests
         FakeOpenTapSession? openTap = null,
         IVisaSessionFactory? visaSessions = null,
         IBenchOperationCoordinator? bench = null,
-        IStationIdnStore? idnStore = null)
+        IStationIdnStore? idnStore = null,
+        OperatorSession? session = null)
         => new(
             store ?? new FakeSettingsStore(),
             new FakeVisaDiscovery(),
             openTap ?? new FakeOpenTapSession(),
             visaSessions ?? new MockVisaSessionFactory(new VisaSessionGate()),
+            operatorSession: session,
             bench: bench,
             idnStore: idnStore);
 
@@ -129,6 +132,38 @@ public sealed class InstrumentsViewModelTests
     }
 
     [Fact]
+    public async Task Model_without_identity_support_has_manual_guidance_and_refuses_the_diagnostic_before_open()
+    {
+        var factory = new RefusingVisaFactory();
+        var vm = CreateVm(visaSessions: factory);
+        vm.SlotOverrides.Clear();
+        vm.SlotOverrides.Add(new SlotOverrideItemViewModel("native", "Native counter", new OpenTapInstrumentSlot
+        {
+            Name = "Counter",
+            TypeName = "HP 5334A",
+            RoleHint = "counter",
+            ResourceName = "MOCK::NATIVE",
+            SupportsIdentityQuery = false
+        }, null, useMockVisa: true));
+        vm.FocusProgram("native", "Counter");
+        Assert.DoesNotContain("Query *IDN?", vm.CommissionTitle);
+        Assert.Contains("not advertised", vm.CommissionHint);
+        await vm.QuerySelectedIdnCommand.ExecuteAsync();
+        Assert.Equal(0, factory.Opens);
+        Assert.Contains("no query was sent", vm.Status);
+        Assert.False(vm.SelectedSlot!.HasLastIdn);
+    }
+
+    private sealed class RefusingVisaFactory : IVisaSessionFactory
+    {
+        public int Opens;
+        public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+        {
+            Opens++; throw new InvalidOperationException("Diagnostic unexpectedly allocated a transport.");
+        }
+    }
+
+    [Fact]
     public async Task Query_IDN_refused_when_bench_holds_a_device_transfer()
     {
         var bench = new BenchOperationCoordinator();
@@ -203,6 +238,30 @@ public sealed class InstrumentsViewModelTests
     }
 
     [Fact]
+    public async Task Refresh_preserves_commissioning_program_and_slot_instead_of_reverting_to_another_session_program()
+    {
+        var session = new OperatorSession();
+        session.SelectProgram("sample", "", "Sample Hardware Suite (Demo)");
+        var vm = CreateVm(session: session);
+        Assert.NotEmpty(vm.VisibleSlots);
+        Assert.All(vm.VisibleSlots, slot => Assert.Equal("sample", slot.PlanId));
+        var target = vm.SlotOverrides.First(slot => slot.PlanId != "sample");
+        vm.FocusProgram(target.PlanId, target.SlotName);
+        var filter = vm.PlanFilter;
+        await vm.RefreshSlotsCommand.ExecuteAsync();
+        Assert.Equal(filter, vm.PlanFilter);
+        Assert.NotEmpty(vm.VisibleSlots);
+        Assert.All(vm.VisibleSlots, slot => Assert.Equal(target.PlanId, slot.PlanId));
+        Assert.Equal(target.PlanId, vm.SelectedSlot?.PlanId);
+        Assert.Equal(target.SlotName, vm.SelectedSlot?.SlotName);
+        vm.PlanFilter = InstrumentsViewModel.AllPlanFilter;
+        await vm.RefreshSlotsCommand.ExecuteAsync();
+        Assert.Equal(InstrumentsViewModel.AllPlanFilter, vm.PlanFilter);
+        Assert.Contains(vm.VisibleSlots, slot => slot.PlanId == "sample");
+        Assert.Contains(vm.VisibleSlots, slot => slot.PlanId == target.PlanId);
+    }
+
+    [Fact]
     public async Task Query_IDN_on_bound_slot_persists_sidecar_without_settings_schema()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-vm-" + Guid.NewGuid().ToString("N"));
@@ -235,6 +294,47 @@ public sealed class InstrumentsViewModelTests
                 // best effort
             }
         }
+    }
+
+    [Fact]
+    public async Task Rebinding_and_reopening_never_attach_a_previous_resources_identity_to_the_new_address()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-address-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var store = new FakeSettingsStore();
+            var idn = new FileStationIdnStore(dir);
+            var vm = CreateVm(store, idnStore: idn);
+            await vm.RefreshSlotsCommand.ExecuteAsync();
+            var slot = vm.SlotOverrides.First(s => s.PlanId == "sample" && s.SlotName == "DMM");
+            vm.FocusProgram(slot.PlanId, slot.SlotName);
+            vm.SelectedSlot = slot;
+            await vm.QuerySelectedIdnCommand.ExecuteAsync();
+            Assert.True(slot.HasLastIdn);
+            var original = slot.EffectiveResource;
+            Assert.Equal(original, idn.Find(slot.PlanId, slot.SlotName)!.Resource);
+            slot.OverrideResource = "MOCK::NEW-B";
+            Assert.False(slot.HasLastIdn);
+            Assert.Empty(slot.LastIdnSummary);
+            Assert.Contains("Query *IDN?", vm.CommissionTitle);
+            await vm.SaveCommand.ExecuteAsync();
+            await vm.RefreshSlotsCommand.ExecuteAsync();
+            var reopened = CreateVm(store, idnStore: new FileStationIdnStore(dir));
+            var rebound = reopened.SlotOverrides.Single(s => s.PlanId == slot.PlanId && s.SlotName == slot.SlotName);
+            Assert.Equal("MOCK::NEW-B", rebound.EffectiveResource);
+            Assert.False(rebound.HasLastIdn);
+            Assert.Empty(rebound.LastIdnSummary);
+            reopened.SelectedSlot = rebound;
+            await reopened.QuerySelectedIdnCommand.ExecuteAsync();
+            Assert.True(rebound.HasLastIdn);
+            Assert.Equal("MOCK::NEW-B", idn.Find(slot.PlanId, slot.SlotName)!.Resource);
+            store.AppSettings.PlanSlotOverrides.Clear();
+            var defaultAgain = CreateVm(store, idnStore: new FileStationIdnStore(dir)).SlotOverrides.Single(s => s.PlanId == slot.PlanId && s.SlotName == slot.SlotName);
+            Assert.Equal(original, defaultAgain.EffectiveResource);
+            Assert.False(defaultAgain.HasLastIdn);
+        }
+        finally { Directory.Delete(dir, recursive: true); }
     }
 
     [Fact]

@@ -30,7 +30,7 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
         else
         {
             var package = claim == "malformed-counterpart-metadata" ? StandaloneVisaPackage.PackageName : PublishedInstrumentComponents.PackageName;
-            File.WriteAllText(Path.Combine(custom, "package.xml"), $"<Package Name=\"{package}\" Version=\"0.1.1\"><Files />" + (claim == "alias-metadata" ? "</Package>" : ""));
+            File.WriteAllText(Path.Combine(custom, "package.xml"), $"<Package Name=\"{package}\" Version=\"0.3.0-alpha.1\"><Files />" + (claim == "alias-metadata" ? "</Package>" : ""));
         }
         var before = Snapshot(home);
         await AssertBlocked(workspace, home, plan);
@@ -107,7 +107,7 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
         var (workspace, home, plan) = PrepareMockHome();
         var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
         var metadata = Path.Combine(custom, "package.xml");
-        File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.1.1\"><Files /></Package>");
+        File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"><Files /></Package>");
         var before = Snapshot(home);
         using (var held = new FileStream(metadata, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
             await AssertBlocked(workspace, home, plan);

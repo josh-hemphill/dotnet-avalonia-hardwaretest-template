@@ -1,6 +1,7 @@
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.OpenTap.Plugins.Mixins;
+using InstrumentComponents.Drivers.Catalog;
 
 namespace HardwareTest.Authoring;
 
@@ -45,7 +46,11 @@ public static class AuthoringRecipeCatalog
         new(AuthoringRecipeIds.TransferFunction, "Transfer function…", "Check", "Discrete SISO IIR from numerator/denominator/Ts."),
         new(AuthoringRecipeIds.StationHealth, "Report Station Health", "Check", "cal.dc.offset scalar with limits."),
         new(AuthoringRecipeIds.Shutdown, "Safe Shutdown", "Flow", "Cleanup Safe Shutdown on selected instrument slots."),
+        .. global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.OperationNames
+            .Select(operation => new AuthoringRecipe("device:" + operation, FriendlyOperation(operation), "Device operation", "Use an advertised " + operation + " capability on the selected vendor device."))
     ];
+
+    private static string FriendlyOperation(string operation) => System.Text.RegularExpressions.Regex.Replace(operation, "(?<=[a-z0-9])(?=[A-Z])", " ");
 
     public static bool PaletteContainsDialog()
         => Palette.Any(LooksLikeDialog);
@@ -60,6 +65,22 @@ public static class AuthoringRecipeCatalog
                 $"{AuthoringCompileCodes.DialogStep}: '{recipeId}' is not an authoring recipe.");
         }
 
+        if (recipeId.StartsWith("device:", StringComparison.Ordinal))
+        {
+            var operation = recipeId[7..];
+            if (!AuthoringFunctionCatalog.TryGet("Device." + operation, out _))
+                throw new AuthoringWorkspaceException("Choose a supported device operation.");
+            var selected = draft.Instruments.FirstOrDefault(instrument => instrument.SlotName == (instrumentSlot ?? DefaultSlot(draft)));
+            var arguments = selected?.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId
+                ? global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.ArgumentTemplate(AuthoringInstrumentCatalog.DeviceBindingFor(selected), operation)
+                : global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationRequests.Template(operation);
+            var role = Enum.Parse<CatalogOperation>(operation).Describe().Result is ReplyKind.Trace or ReplyKind.Samples
+                ? PresentationDisplayRoles.Timeseries : PresentationDisplayRoles.Scalar;
+            var metric = new MetricDraft(FriendlyOperation(operation), operation, role, "", null, null,
+                new MeasureSource(instrumentSlot ?? DefaultSlot(draft), "Device." + operation,
+                    new Dictionary<string, string> { ["Arguments"] = arguments }));
+            return WithMeasure(draft, metric);
+        }
         return recipeId.Trim().ToLowerInvariant() switch
         {
             AuthoringRecipeIds.TestGroup => draft,

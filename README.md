@@ -24,7 +24,7 @@ docs/adapting.md                     # Productize plans, plugins, station bindin
 docs/testing.md                      # UI vs OpenTAP suite separation
 docs/containers.md                   # Local CI tasks, Podman, appliance image rails
 docs/appliance-linux.md              # Appliance layout + publish notes
-tools/ci/                            # Deno CI tasks shared by Actions + local runs
+tools/ci/                            # Node.js CI tasks shared by Actions + local runs
 tests/
   HardwareTest.Architecture.Tests/   # Layering smoke (Avalonia/OpenTAP boundaries)
   HardwareTest.Authoring.Tests/      # Workspace, compiler, pack, TUI compat
@@ -60,13 +60,13 @@ templates/reports/                   # Typst templates (embedded)
 | [docs/getting-started.md](docs/getting-started.md) | First HardwareTest.Authoring plan; TUI is an optional escape hatch |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
-| [docs/containers.md](docs/containers.md) | Running the Deno CI matrix locally or in Podman |
+| [docs/containers.md](docs/containers.md) | Running the Node.js CI matrix locally or in Podman |
 | [docs/appliance-linux.md](docs/appliance-linux.md) | Publishing a sealed Linux bench image |
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (pinned via `global.json`)
-- [Deno](https://deno.land/) 2.x for the shared CI task runner (`tools/ci/`)
+- [pnpm](https://pnpm.io/installation) for the shared CI task runner (`tools/ci/`); `pnpm install --frozen-lockfile` provisions the pinned Node.js 26 runtime
 - Optional: vendor VISA runtime for real instruments — mock instruments are the default
 - Optional for real PIV signing: [OpenSC](https://github.com/OpenSC/OpenSC) (PKCS#11 module) and a PC/SC/CCID reader; mock credentials remain the default
 - Optional: [Podman](https://podman.io/) for Linux container CI / appliance rails — [docs/containers.md](docs/containers.md)
@@ -90,7 +90,7 @@ cross-building or when you need a specific deployment target.
 
 ```bash
 # Full CI-shaped matrix (preferred):
-deno task --cwd tools/ci all -- --rid win-x64
+pnpm --dir tools/ci run all --rid win-x64
 
 # Or individual suites:
 dotnet test tests/HardwareTest.Architecture.Tests -r win-x64
@@ -109,15 +109,15 @@ dotnet test tests/HardwareTest.E2E.Tests -r win-x64
 
 ## OpenTAP programs
 
-Author structure in **HardwareTest.Authoring** (`dotnet run --project src/HardwareTest.Authoring -r win-x64 -- plans/opentap`); OpenTAP TUI / Editor is an optional escape hatch. Algorithms are a closed recipe, a MATLAB-flavored formula subset (`mean(x)` → Mean GTE; `filter(b,a,x)` → native IIR), or discrete transfer-function coefficients exported from MATLAB as JSON — there is no MATLAB Runtime on the bench. Check formulas/TFs against `recordings/**/run.json` (`--eval-formulas`). Ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use **InstrumentComponents.OpenTap** typed instruments/steps plus HardwareTest Mixins Presentation; pack with `HardwareTest.Authoring --pack <workspace> --out dist/` (appliance CI can still call `HardwareTest.PlanValidate --strict`). Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program). MATLAB export: [docs/adapting.md](docs/adapting.md#discrete-transfer-functions). Architecture (not baked into the operator shell): [docs/authoring-app.md](docs/authoring-app.md).
+Author structure in **HardwareTest.Authoring** (`dotnet run --project src/HardwareTest.Authoring -r win-x64 -- plans/opentap`); OpenTAP TUI / Editor is an optional escape hatch. Algorithms are a closed recipe, a MATLAB-flavored formula subset (`mean(x)` → Mean GTE; `filter(b,a,x)` → native IIR), or discrete transfer-function coefficients exported from MATLAB as JSON — there is no MATLAB Runtime on the bench. Check formulas/TFs against `recordings/**/run.json` (`--eval-formulas`). Ship locked `.TapPlan` files under `plans/opentap/` (copied to `Programs/` on build). Product plans use registered vendor devices from **Instrument Components 0.3.0-alpha.1**, shared capability operations and HardwareTest Mixins Presentation ([alpha workflow](docs/instrument-alpha-workflows.md)); pack with `HardwareTest.Authoring --pack <workspace> --out dist/` (appliance CI can still call `HardwareTest.PlanValidate --strict`). Walkthrough: [docs/getting-started.md](docs/getting-started.md). Contract: [docs/adapting.md](docs/adapting.md#author-a-locked-program). MATLAB export: [docs/adapting.md](docs/adapting.md#discrete-transfer-functions). Architecture (not baked into the operator shell): [docs/authoring-app.md](docs/authoring-app.md).
 
 ## Appliance publish
 
-See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Deno tasks.
+See [docs/appliance-linux.md](docs/appliance-linux.md). CI `publish-win` / `test-linux` smoke self-contained publishes via Node.js tasks.
 
 ```bash
-deno run -A tools/ci/main.ts publish --rid win-x64
-deno run -A tools/ci/main.ts publish --rid linux-x64
+pnpm exec node tools/ci/main.ts publish --rid win-x64
+pnpm exec node tools/ci/main.ts publish --rid linux-x64
 ```
 
 NativeAOT is **not** a product gate for the OpenTAP host.

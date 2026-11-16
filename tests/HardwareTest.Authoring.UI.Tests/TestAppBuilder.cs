@@ -13,10 +13,10 @@ public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
     {
-        var capture = Environment.GetEnvironmentVariable("HT_CAPTURE_UI") == "1";
-        var builder = AppBuilder.Configure<AuthoringTestApplication>().WithInterFont();
-        if (capture) builder.UseSkia();
-        return builder.UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = !capture });
+        var capture = Environment.GetEnvironmentVariable("HT_CAPTURE_UI") == "1"
+            || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY"));
+        return AppBuilder.Configure<AuthoringTestApplication>().WithInterFont().UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = !capture });
     }
 }
 

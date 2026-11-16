@@ -13,7 +13,7 @@ internal static class CurrentHardwareUiFixture
         Directory.CreateDirectory(directory);
         File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(directory, "package.xml"), overwrite: true);
         if (includePayload)
-            foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+            foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
                 File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(home, file), overwrite: true);
     }
 

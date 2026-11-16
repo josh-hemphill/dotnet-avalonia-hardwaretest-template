@@ -20,7 +20,7 @@ public sealed class AuthoringDeclaredLibraryTuiTests : IDisposable
         workspace.Manifest.SchemaVersion = 2;
         workspace.Manifest.Package.Name = "Declared TUI prerequisite";
         var home = AuthoringBuildSnapshotTests.Home(workspace);
-        workspace.Manifest.Dependencies.Add(new() { Package = declaration, Version = "0.1.1" });
+        workspace.Manifest.Dependencies.Add(new() { Package = declaration, Version = "0.3.0-alpha.1" });
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var archive = Path.Combine(root, "unrelated.TapPackage");
         using (var zip = ZipFile.Open(archive, ZipArchiveMode.Create))

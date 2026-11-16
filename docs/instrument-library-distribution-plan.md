@@ -1,4 +1,6 @@
-# Published instrument library distribution
+# Published instrument library distribution (historical 0.1 design)
+
+This document records the pre-alpha distribution design. For the current **0.3.0-alpha.1** package graph, device registration, migration and commissioning workflow, use [Instrument alpha workflows](instrument-alpha-workflows.md). The 0.1.1 pins, two-DLL layout and `OpenTapScpiIo` API below are historical and are not current setup instructions.
 
 The tools ship the pinned Instrument Components device library and optional standalone VISA counterpart, prepare isolated authoring homes without engineers building or reinstalling plugins, and preserve broker ownership in HardwareTest execution. Authoring, validation, and mock workflows do not open a vendor resource manager. Vendor VISA runtimes remain machine prerequisites for physical execution.
 

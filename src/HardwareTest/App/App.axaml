@@ -21,8 +21,13 @@
 
   <Application.Styles>
     <FluentTheme />
-    <sty:FluentAvaloniaTheme />
-    <Style Selector="Window"><Setter Property="FontFamily" Value="fonts:Inter#Inter"/></Style>
+    <sty:FluentAvaloniaTheme UseSystemFontOnWindows="False" />
+    <Style Selector=":is(TemplatedControl)">
+      <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
+    </Style>
+    <Style Selector="TextBlock">
+      <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
+    </Style>
     <Style Selector="Button.danger">
       <Setter Property="Background" Value="#C62828" />
       <Setter Property="Foreground" Value="White" />

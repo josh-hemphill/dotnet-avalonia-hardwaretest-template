@@ -7,6 +7,15 @@ internal sealed partial class ProgressResultListener
 {
     private sealed record Execution(Guid Producer, string Path, string? Loop, int? Iteration, Guid? LoopRunId);
     private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, Execution> _executions = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, string> _completedVerdicts = new();
+
+    private (string? Id, string? Name, string Status, string Verdict) ResultProducer(Guid runId)
+    {
+        var verdict = _completedVerdicts.GetValueOrDefault(runId);
+        return _executions.TryGetValue(runId, out var execution)
+            ? (execution.Producer.ToString(), OpenTapLoopProgress.FindStepById(_plan, execution.Producer)?.Name, verdict ?? "Running", verdict ?? "NotSet")
+            : (null, null, "", "");
+    }
 
     private void RememberExecution(TestStepRun run)
     {

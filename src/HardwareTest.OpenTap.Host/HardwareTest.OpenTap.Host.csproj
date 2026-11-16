@@ -25,6 +25,7 @@
     <PackageReference Include="MessagePack" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Basic\HardwareTest.OpenTap.Plugins.Basic.csproj" />
     <ProjectReference Include="..\HardwareTest.OpenTap.Plugins.Mixins\HardwareTest.OpenTap.Plugins.Mixins.csproj" />
+    <ProjectReference Include="../HardwareTest.OpenTap.Plugins.Instruments/HardwareTest.OpenTap.Plugins.Instruments.csproj" />
     <ProjectReference Include="..\HardwareTest.Core\HardwareTest.Core.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -31,7 +31,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         Assert.Equal("Product tests", loaded.Files.Manifest.Package.Name);
         Assert.Equal("Workspace", loaded.Files.Manifest.DisplayName);
         if (kind == WorkspaceTemplateKind.HardwareScaffold)
-            Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
+            Assert.Equal("0.3.0-alpha.1", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.Equal(loaded.Files.Manifest.DisplayName, new AuthoringDocumentStore(first.Destination).LoadWorkspace().Document!.Manifest.DisplayName);
         if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
         else
@@ -261,7 +261,7 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         new AuthoringWorkspaceInitializer().Create(request);
         var loaded = AuthoringSourceWorkspaceLoader.Load(request.Destination);
         Assert.Contains(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage);
-        Assert.Equal("^0.1.0", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
+        Assert.Equal("0.3.0-alpha.1", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
         else Assert.Contains("Mock", Assert.Single(Assert.Single(loaded.Programs).Instruments).TypeId);
     }

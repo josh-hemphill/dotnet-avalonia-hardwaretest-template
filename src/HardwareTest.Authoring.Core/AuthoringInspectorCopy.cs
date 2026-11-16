@@ -102,6 +102,7 @@ public static class AuthoringInspectorCopy
 
     private static readonly Dictionary<string, SettingPresentation> SettingCopy = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["Arguments"] = new("Arguments", "Operation arguments", "Use name=value pairs separated by semicolons. Leave optional values absent for device defaults. Unknown and duplicate names are rejected.", "channel=1; volts=0"),
         ["SeriesCompliance"] = new(
             "SeriesCompliance",
             "Series compliance",

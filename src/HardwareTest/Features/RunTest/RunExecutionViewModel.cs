@@ -346,6 +346,7 @@ public sealed partial class RunExecutionViewModel
                 PlanId = program.Id,
                 RoleHint = s.RoleHint,
                 TypeName = s.TypeName,
+                ConfigurationIssue = s.ConfigurationIssue,
                 EffectiveResource = resource,
             };
         }).ToList();

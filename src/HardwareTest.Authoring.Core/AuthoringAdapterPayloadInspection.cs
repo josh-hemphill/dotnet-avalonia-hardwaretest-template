@@ -139,7 +139,7 @@ internal static class AuthoringAdapterPayloadInspection
             var metadata = pe.GetMetadataReader();
             if (!metadata.IsAssembly || metadata.GetString(metadata.GetAssemblyDefinition().Name) != Path.GetFileNameWithoutExtension(file))
                 throw new BadImageFormatException("Payload assembly identity does not match its required filename.");
-            if (metadata.GetAssemblyDefinition().Version != new Version(PublishedInstrumentComponents.Version + ".0"))
+            if (metadata.GetAssemblyDefinition().Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
                 throw new BadImageFormatException($"Payload must use current assembly version {PublishedInstrumentComponents.Version}.0.");
         }
         catch (BadImageFormatException error)

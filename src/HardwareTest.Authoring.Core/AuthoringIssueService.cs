@@ -123,6 +123,19 @@ public static class AuthoringIssueService
         }
         foreach (var instrument in draft.Instruments)
         {
+            if (instrument.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId)
+            {
+                try
+                {
+                    var settings = instrument.Settings;
+                    _ = global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.AvailableOperations(new(
+                        settings.GetValueOrDefault("DriverId") ?? string.Empty, instrument.VisaAddress,
+                        settings.GetValueOrDefault("Channels") ?? string.Empty, settings.GetValueOrDefault("Outputs") ?? string.Empty,
+                        settings.GetValueOrDefault("Commissioning") ?? string.Empty));
+                }
+                catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+                { issues.Add(new("INSTRUMENT_CONFIGURATION", instrument.SlotName + ": " + error.Message, draft.PlanId, Guid.Empty)); }
+            }
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId) && declaredPackages is not null
                 && !declaredPackages.Contains(AuthoringInstrumentCatalog.LibraryPackage, StringComparer.OrdinalIgnoreCase))
                 issues.Add(new("INSTRUMENT_DEPENDENCY_MISSING", "Declare Instrument Components in Environment, then Save All before preparing/importing the package or building. The exact binding is retained in this draft.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Environment });

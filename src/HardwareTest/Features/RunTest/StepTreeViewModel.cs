@@ -113,6 +113,9 @@ public partial class StepTreeViewModel : ReactiveObject
                     this.RaisePropertyChanged(nameof(IsFilterAll));
                     this.RaisePropertyChanged(nameof(IsFilterPass));
                     this.RaisePropertyChanged(nameof(IsFilterFail));
+                    this.RaisePropertyChanged(nameof(IsFilterAttention));
+                    this.RaisePropertyChanged(nameof(IsFilterError));
+                    this.RaisePropertyChanged(nameof(IsFilterCancelled));
                     this.RaisePropertyChanged(nameof(IsFilterRunning));
                     this.RaisePropertyChanged(nameof(IsFilterPending));
                 }
@@ -165,6 +168,8 @@ public partial class StepTreeViewModel : ReactiveObject
     [Reactive] private int _suitePassedCount;
     [Reactive] private int _suiteFailedCount;
     [Reactive] private int _suitePendingCount;
+    [Reactive] private int _suiteErrorCount;
+    [Reactive] private int _suiteCancelledCount;
 
     /// True when the step list is currently narrowed to failed steps only (set automatically after a suite fail).
     public bool IsFilteredToFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
@@ -175,11 +180,17 @@ public partial class StepTreeViewModel : ReactiveObject
         StepFilter.Pass => "Showing passed",
         StepFilter.Pending => "Showing pending",
         StepFilter.Running => "Showing running",
+        StepFilter.Attention => "Showing steps needing attention",
+        StepFilter.Error => "Showing errors",
+        StepFilter.Cancelled => "Showing cancelled steps",
         _ => string.Empty,
     };
     public bool IsFilterAll => string.Equals(_stepStatusFilter, StepFilter.All, StringComparison.Ordinal);
     public bool IsFilterPass => string.Equals(_stepStatusFilter, StepFilter.Pass, StringComparison.Ordinal);
     public bool IsFilterFail => string.Equals(_stepStatusFilter, StepFilter.Fail, StringComparison.Ordinal);
+    public bool IsFilterAttention => _stepStatusFilter == StepFilter.Attention;
+    public bool IsFilterError => _stepStatusFilter == StepFilter.Error;
+    public bool IsFilterCancelled => _stepStatusFilter == StepFilter.Cancelled;
     public bool IsFilterRunning => string.Equals(_stepStatusFilter, StepFilter.Running, StringComparison.Ordinal);
     public bool IsFilterPending => string.Equals(_stepStatusFilter, StepFilter.Pending, StringComparison.Ordinal);
     public bool HasFailedLeaves => SuiteFailedCount > 0;

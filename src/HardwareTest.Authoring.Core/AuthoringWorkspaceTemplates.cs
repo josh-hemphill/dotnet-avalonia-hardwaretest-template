@@ -21,7 +21,7 @@ public static class AuthoringWorkspaceTemplates
     private static AuthoringWorkspaceTemplate Template(WorkspaceTemplateKind kind, string name, string task, bool demo)
     {
         List<AuthoringPackageDependency> packages = [new() { Package = "OpenTAP", Version = "^9.32.2" }, new() { Package = "HardwareTest Basic", Version = "^0.2.0" }, new() { Package = "HardwareTest Mixins", Version = "^0.1.0" }];
-        if (kind == WorkspaceTemplateKind.HardwareScaffold) packages.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "^0.1.0" });
+        if (kind == WorkspaceTemplateKind.HardwareScaffold) packages.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         return new(kind, name, task, demo, packages,
             kind == WorkspaceTemplateKind.Empty ? ["Manifest and workspace source", "Empty plans directory", "Schemas and ignore conventions"]
             : ["Manifest and workspace source", kind == WorkspaceTemplateKind.HardwareScaffold ? "Physical hardware scaffold (no measurement recipe)" : "Voltage task authoring draft", "Empty compiled plans directory", "Schemas and ignore conventions"]);

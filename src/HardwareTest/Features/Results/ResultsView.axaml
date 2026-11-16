@@ -41,7 +41,7 @@
           <TextBlock Text="Regenerate reports" VerticalAlignment="Center" />
         </StackPanel>
       </Button>
-      </WrapPanel>
+  </WrapPanel>
       <TextBlock Text="{Binding Status}" TextWrapping="Wrap" AutomationProperties.Name="Results status" AutomationProperties.LiveSetting="Polite"/>
     </StackPanel>
     <DockPanel x:Name="ResultsListPane" Grid.Row="1">
@@ -88,7 +88,7 @@
           <Button Content="Clear search and filters" Command="{Binding ClearFiltersCommand}" Classes="operator" IsVisible="{Binding HasActiveFilters}"
                   AutomationProperties.Name="Clear result filters"/>
         </WrapPanel>
-        <TextBlock Text="{Binding SchemaDriftSummary}" IsVisible="{Binding HasSchemaDrift}" TextWrapping="Wrap"/>
+    <TextBlock Text="{Binding SchemaDriftSummary}" IsVisible="{Binding HasSchemaDrift}" TextWrapping="Wrap"/>
       </StackPanel>
       <Border DockPanel.Dock="Top" Padding="16" CornerRadius="6" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
               IsVisible="{Binding !HasRuns}" Margin="0,0,0,8">
@@ -181,7 +181,7 @@
 
         <ScrollViewer Padding="0,0,4,0">
           <StackPanel Spacing="6">
-            <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
+        <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
               <TextBlock Text="Certification" FontWeight="SemiBold" />
               <TextBlock Text="{Binding AttestationSummary}" TextWrapping="Wrap" Opacity="0.9" />
             </StackPanel>
@@ -193,6 +193,12 @@
               <Button Content="Save golden reference" Click="OnSaveReferenceClick" IsVisible="{Binding ShowReferencePromotion}" IsEnabled="{Binding ReferencePromotion.CanEdit}"
                       Classes="operator" HorizontalAlignment="Left" AutomationProperties.Name="Save golden reference from this run"/>
             </StackPanel>
+            <Border IsVisible="{Binding OpenedRun.ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" Padding="10" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" CornerRadius="4">
+              <StackPanel Spacing="6">
+                <TextBlock Text="Run outcome and recovery" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding OpenedRun.ErrorMessage}" TextWrapping="Wrap" AutomationProperties.Name="Run outcome details"/>
+              </StackPanel>
+            </Border>
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
               <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">
@@ -275,23 +281,17 @@
             <StackPanel Spacing="2" Margin="0,8,0,0" IsVisible="{Binding HasComparison}">
               <TextBlock Text="Compare with previous" FontWeight="SemiBold" />
               <TextBlock Text="{Binding ComparisonSummary}" TextWrapping="Wrap" Opacity="0.9" />
-              <Grid ColumnDefinitions="*,80,80,60,*" Margin="0,4,0,0" Opacity="0.7">
-                <TextBlock Text="Metric" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                <TextBlock Grid.Column="1" Text="This run" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                <TextBlock Grid.Column="2" Text="Previous" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                <TextBlock Grid.Column="3" Text="Delta" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                <TextBlock Grid.Column="4" Text="Note" FontWeight="SemiBold" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-              </Grid>
+              <TextBlock Text="Measurement comparison" FontWeight="SemiBold"/>
               <ItemsControl ItemsSource="{Binding ComparisonMetrics}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:RunComparisonRow">
-                    <Grid ColumnDefinitions="*,80,80,60,*" ColumnSpacing="2" Margin="0,1">
-                      <TextBlock Text="{Binding MetricKey}" TextTrimming="CharacterEllipsis" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                      <TextBlock Grid.Column="1" Text="{Binding CurrentText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                      <TextBlock Grid.Column="2" Text="{Binding PreviousText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                      <TextBlock Grid.Column="3" Text="{Binding DeltaText}" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                      <TextBlock Grid.Column="4" Text="{Binding Note}" TextTrimming="CharacterEllipsis" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
-                    </Grid>
+                    <StackPanel Spacing="4" Margin="0,4">
+                      <TextBlock Text="{Binding MetricKey}" TextWrapping="Wrap" FontWeight="SemiBold"/>
+                      <TextBlock Text="{Binding CurrentText, StringFormat='This run: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding PreviousText, StringFormat='Previous: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding DeltaText, StringFormat='Delta: {0}'}" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding Note}" TextWrapping="Wrap" Opacity="0.75"/>
+                    </StackPanel>
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>

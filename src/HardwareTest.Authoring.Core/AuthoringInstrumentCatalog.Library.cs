@@ -16,7 +16,7 @@ public static partial class AuthoringInstrumentCatalog
     private static AuthoringInstrumentAdapter[] _publishedLibrary = [];
     // Metadata discovery owns LibraryGate while hashing/loading; UI readers must never wait on it.
     public static IReadOnlyList<AuthoringInstrumentAdapter> All => [.. Demo, .. Volatile.Read(ref _publishedLibrary)];
-    public static bool IsLibrary(string typeId) => typeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal);
+    public static bool IsLibrary(string typeId) => typeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal) || typeId == "HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument";
 
     /// Only the supported package payload in this home grants creation availability.
     /// Constructors configure resources; discovery never opens or queries an instrument.
@@ -38,7 +38,7 @@ public static partial class AuthoringInstrumentCatalog
                 var contractBytes = payloads["InstrumentComponents.dll"];
                 // Keep the two validated payloads for OpenTAP's lazy metadata search,
                 // while the shared loader records the exact bytes supplied to the CLR.
-                var metadataDirectory = StableLibraryPayload(libraryBytes, contractBytes);
+                var metadataDirectory = StableLibraryPayload(payloads);
                 var contract = OwnedInstrumentLibrary.Load(contractBytes, Path.Combine(metadataDirectory, "InstrumentComponents.dll"));
                 var assembly = OwnedInstrumentLibrary.Load(libraryBytes, Path.Combine(metadataDirectory, LibraryAssembly));
                 // OpenTAP may cache an assembly from an earlier home. Match actual bytes,
@@ -46,7 +46,7 @@ public static partial class AuthoringInstrumentCatalog
                 if (!SamePayload(assemblyPath, assembly)) return Missing("Selected Instrument Components binary differs from the loaded library. Restart authoring to use the newly installed library version.");
                 if (!SamePayload(contractPath, contract)) return Missing("Selected Instrument Components contract binary differs from the loaded library. Restart authoring to use the newly installed library version.");
                 AuthoringPluginSearch.Search([metadataDirectory]); // Never grant the home root or unrelated package payload.
-                var baseType = assembly.GetType("InstrumentComponents.OpenTap.ScpiInstrument", throwOnError: true)!;
+                var baseType = assembly.GetType("InstrumentComponents.OpenTap.DeviceInstrument", throwOnError: true)!;
                 var devices = DeviceTypes(assembly.GetTypes(), baseType);
                 var result = new List<AuthoringInstrumentAdapter>();
                 foreach (var type in devices)
@@ -56,7 +56,7 @@ public static partial class AuthoringInstrumentCatalog
                     {
                         var display = type.GetCustomAttribute<DisplayAttribute>();
                         adapter = new(id, display?.Name ?? type.Name, LibraryPackage, LibraryAssembly,
-                            ["VisaAddress"], ["IoTimeoutMilliseconds"], [], HasLifecycle(assembly, type, "IdentityQueryStep"), HasLifecycle(assembly, type, "SafeShutdownStep"),
+                            ["VisaAddress"], ["IoTimeoutMilliseconds", "DriverId"], [], HasLifecycle(assembly, type, "IdentityQueryStep"), HasLifecycle(assembly, type, "SafeShutdownStep"),
                             slot => ConstructLibrary(type, slot), resource => SerializeLibrary(resource))
                         { RequiredPayloadFiles = ["InstrumentComponents.dll"], Description = display?.Description ?? "SCPI instrument" };
                         Library.Add(id, adapter);
@@ -65,6 +65,10 @@ public static partial class AuthoringInstrumentCatalog
                     result.Add(adapter);
                 }
                 if (result.Count == 0) return Missing("Instrument Components payload contains no supported concrete device types. Open Environment to import a supported library package.");
+                var registered = RegisteredAdapter();
+                Library.TryAdd(registered.TypeId, registered);
+                result.Add(Library[registered.TypeId]);
+                Volatile.Write(ref _publishedLibrary, Library.Values.ToArray());
                 DiscoveryIssues.Remove(home.Root);
                 return result;
             }
@@ -93,23 +97,19 @@ public static partial class AuthoringInstrumentCatalog
 
     private static readonly Dictionary<string, string> MetadataPayloads = new(StringComparer.Ordinal);
 
-    private static string StableLibraryPayload(byte[] library, byte[] contract)
+    private static string StableLibraryPayload(IReadOnlyDictionary<string, byte[]> payloads)
     {
-        var libraryHash = SHA256.HashData(library);
-        var contractHash = SHA256.HashData(contract);
-        var key = Convert.ToHexString(libraryHash) + Convert.ToHexString(contractHash);
+        var key = string.Join("", InstrumentLibraryMetadata.Files.Select(file => Convert.ToHexString(SHA256.HashData(payloads[file]))));
         if (MetadataPayloads.TryGetValue(key, out var existing))
         {
-            Verify(Path.Combine(existing, LibraryAssembly), libraryHash);
-            Verify(Path.Combine(existing, "InstrumentComponents.dll"), contractHash);
+            foreach (var file in InstrumentLibraryMetadata.Files) Verify(Path.Combine(existing, file), SHA256.HashData(payloads[file]));
             return existing;
         }
         var directory = Path.Combine(Path.GetTempPath(), "ht-library-metadata-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
         {
-            File.WriteAllBytes(Path.Combine(directory, LibraryAssembly), library);
-            File.WriteAllBytes(Path.Combine(directory, "InstrumentComponents.dll"), contract);
+            foreach (var file in InstrumentLibraryMetadata.Files) File.WriteAllBytes(Path.Combine(directory, file), payloads[file]);
             MetadataPayloads.Add(key, directory);
             AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             {
@@ -167,6 +167,7 @@ public static partial class AuthoringInstrumentCatalog
         instrument.Name = slot.SlotName;
         type.GetProperty("VisaAddress")!.SetValue(instrument, slot.VisaAddress);
         type.GetProperty("IoTimeoutMilliseconds")!.SetValue(instrument, timeout);
+        type.GetProperty("DriverId")!.SetValue(instrument, slot.Settings.GetValueOrDefault("DriverId") ?? string.Empty);
         return instrument;
     }
 
@@ -175,6 +176,7 @@ public static partial class AuthoringInstrumentCatalog
     {
         Settings = new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["DriverId"] = (string)resource.GetType().GetProperty("DriverId")!.GetValue(resource)!,
             ["IoTimeoutMilliseconds"] = Convert.ToString(resource.GetType().GetProperty("IoTimeoutMilliseconds")!.GetValue(resource), CultureInfo.InvariantCulture)!
         }
     };

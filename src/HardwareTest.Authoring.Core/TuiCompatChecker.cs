@@ -40,7 +40,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
 
         foreach (var xmlPath in Directory.EnumerateFiles(packages, "package.xml", SearchOption.AllDirectories))
         {
-            foreach (var dll in EnumeratePackageDlls(xmlPath))
+            foreach (var dll in EnumeratePackageDlls(xmlPath, home))
             {
                 AddPluginTypes(dll, map);
             }
@@ -175,7 +175,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
         return findings;
     }
 
-    private static IEnumerable<string> EnumeratePackageDlls(string packageXmlPath)
+    private static IEnumerable<string> EnumeratePackageDlls(string packageXmlPath, OpenTapHome home)
     {
         var dir = Path.GetDirectoryName(packageXmlPath);
         if (string.IsNullOrWhiteSpace(dir))
@@ -193,7 +193,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
             yield break;
         }
 
-        foreach (var file in document.Descendants(PackageNs + "File"))
+        foreach (var file in document.Descendants().Where(element => element.Name.LocalName == "File"))
         {
             var relative = file.Attribute("Path")?.Value;
             if (string.IsNullOrWhiteSpace(relative)
@@ -202,11 +202,15 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
                 continue;
             }
 
-            var full = Path.GetFullPath(Path.Combine(dir, relative));
-            if (File.Exists(full))
+            relative = relative.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+            string? full;
+            try
             {
-                yield return full;
+                full = AuthoringEnvironmentAssessment.ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(dir, relative)));
+                full ??= AuthoringEnvironmentAssessment.ExistingContainedFile(home.Root, Path.GetFullPath(Path.Combine(home.Root, relative)));
             }
+            catch (AuthoringWorkspaceException) { continue; }
+            if (full is not null) yield return full;
         }
     }
 

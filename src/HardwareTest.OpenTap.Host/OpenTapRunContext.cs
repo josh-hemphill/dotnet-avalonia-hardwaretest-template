@@ -108,6 +108,9 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         progress?.Report(new OpenTapProgress { Message = $"Starting '{planDisplayName ?? plan.Name}'", OverallPercent = 0 });
 
+        var deviceFailures = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        string DeviceFailureText() => deviceFailures.IsEmpty ? string.Empty
+            : "Device I/O failed: " + string.Join("; ", deviceFailures) + ". Check Instruments bindings, timeout and device state before retrying.";
         try
         {
             var listener = new ProgressResultListener(
@@ -119,7 +122,8 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 updateNode,
                 resolvePath,
                 plan,
-                _clock);
+                _clock,
+                () => _control.IsCancellationRequested);
             OpenTapFileResultExportListener? exportListener = null;
             if (_settings.ExportOpenTapResults)
             {
@@ -142,6 +146,18 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
             var planRun = await Task.Run(
                 async () =>
                 {
+                    var previousDeviceCancellation = BrokerDeviceConnector.RunCancellation;
+                    var previousDeviceFailure = BrokerDeviceConnector.OnDeviceFailure;
+                    var previousOperationFailure = global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.OperationFailure;
+                    var previousExecutionGate = global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.WaitForExecution;
+                    global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.WaitForExecution = WaitIfPaused;
+                    global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.OperationFailure = (operation, error) =>
+                    {
+                        if (error.GetBaseException() is OperationCanceledException && _control.IsCancellationRequested) return;
+                        deviceFailures.Enqueue(operation + ": " + error.Message);
+                    };
+                    BrokerDeviceConnector.OnDeviceFailure = deviceFailures.Enqueue;
+                    BrokerDeviceConnector.RunCancellation = _control.Token;
                     StepRuntimeBinder.Attach(plan, this);
                     try
                     {
@@ -167,6 +183,10 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                     finally
                     {
                         StepRuntimeBinder.Detach(plan);
+                        BrokerDeviceConnector.RunCancellation = previousDeviceCancellation;
+                        BrokerDeviceConnector.OnDeviceFailure = previousDeviceFailure;
+                        global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.OperationFailure = previousOperationFailure;
+                        global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.WaitForExecution = previousExecutionGate;
                         exportListener?.Close();
                     }
                 },
@@ -176,6 +196,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
             MergePreservedEvents(preservedEvents, sampleScopePaths);
 
             var verdict = planRun.Verdict;
+            if (!deviceFailures.IsEmpty) verdict = Verdict.Error;
             var result = MapVerdict(verdict, cancelled: _control.IsCancellationRequested);
             var summary = BuildSummary(
                 runId,
@@ -186,8 +207,9 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 started,
                 verdict.ToString(),
                 result == RunResult.Cancelled
-                    ? (_control.IsCancellationRequested ? "Safety stop" : "Cancelled")
-                    : (verdict == Verdict.Fail ? "One or more steps failed" : null));
+                    ? (_control.IsCancellationRequested ? "Safety stop" : "Cancelled") + (deviceFailures.IsEmpty ? "" : ". " + DeviceFailureText())
+                    : (!deviceFailures.IsEmpty ? DeviceFailureText()
+                        : verdict == Verdict.Fail ? "One or more steps failed" : null));
 
             progress?.Report(new OpenTapProgress
             {
@@ -210,7 +232,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 RunResult.Cancelled,
                 started,
                 "Aborted",
-                "Safety stop");
+                "Safety stop" + (deviceFailures.IsEmpty ? "" : ". " + DeviceFailureText()));
             progress?.Report(new OpenTapProgress
             {
                 Message = "Cancelled",

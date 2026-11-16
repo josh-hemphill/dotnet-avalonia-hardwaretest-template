@@ -22,15 +22,19 @@ public sealed class PublishedDmmBrokerTests
             dmm.Open();
             Assert.Equal("MOCK::INSTR0", broker.LastOpened);
             Assert.Equal(1, broker.OpenCount);
-            var identity = PublishedLibraryFixture.Call(dmm, "QueryIdn")!;
-            Assert.Equal("FAKE,Broker,SN-1,0", PublishedLibraryFixture.Call(identity, "FormatResponse"));
+            var identity = PublishedLibraryFixture.Call(dmm, "QueryIdentity")!;
+            Assert.Equal("FAKE", identity.GetType().GetProperty("Manufacturer")!.GetValue(identity));
+            Assert.Equal("Broker", identity.GetType().GetProperty("Model")!.GetValue(identity));
+            Assert.Equal("SN-1", identity.GetType().GetProperty("Serial")!.GetValue(identity));
+            Assert.Equal("0", identity.GetType().GetProperty("Revision")!.GetValue(identity));
             var view = dmm.GetType().GetProperty("Dmm")!.GetValue(dmm)!;
-            Assert.Equal(1.25, PublishedLibraryFixture.Call(view, "MeasureVoltageDc", new object?[] { null }));
+            var voltage = PublishedLibraryFixture.Call(view, "MeasureVoltageDc", new object?[] { null })!;
+            Assert.Equal(1.25, voltage.GetType().GetProperty("Value")!.GetValue(voltage));
             PublishedLibraryFixture.Call(dmm, "Reset");
             Assert.Contains("*IDN?", broker.LastSession!.Queries);
             Assert.Contains(broker.LastSession.Queries, command => command.Contains("MEAS", StringComparison.OrdinalIgnoreCase));
             Assert.Contains("*RST", broker.LastSession.Writes);
-            Assert.Contains("*OPC?", broker.LastSession.Queries);
+            Assert.DoesNotContain("*OPC?", broker.LastSession.Queries);
             dmm.Close();
             Assert.True(broker.LastSession.Disposed);
         }
@@ -57,7 +61,7 @@ public sealed class PublishedDmmBrokerTests
             Assert.True(InstrumentComponentsScpiIo.TryRegisterProvider(broker));
             dmm.Open();
             Assert.Equal(expected, broker.LastSession!.IoTimeoutMilliseconds);
-            PublishedLibraryFixture.Call(dmm, "QueryIdn");
+            PublishedLibraryFixture.Call(dmm, "QueryIdentity");
             Assert.Equal(expected, broker.LastSession.IoTimeoutMilliseconds);
             dmm.Close();
             Assert.True(broker.LastSession.Disposed);
@@ -107,12 +111,13 @@ internal static class PublishedLibraryFixture
 {
     internal static Assembly Assembly => PublishedLibraryMetadataFixture.Assembly;
 
-    internal static PropertyInfo ProviderProperty => Assembly.GetType("InstrumentComponents.OpenTap.OpenTapScpiIo", true)!.GetProperty("Provider")!;
+    internal static PropertyInfo ProviderProperty => Assembly.GetType("InstrumentComponents.OpenTap.OpenTapDevices", true)!.GetProperty("Provider")!;
 
     internal static Instrument CreateDmm()
     {
         var instrument = (Instrument)Activator.CreateInstance(Assembly.GetType("InstrumentComponents.OpenTap.DmmInstrument", true)!)!;
         Assert.True(InstrumentResourceAccess.TrySetResource(instrument, "MOCK::INSTR0"));
+        instrument.GetType().GetProperty("DriverId")!.SetValue(instrument, "keysight.34461a");
         return instrument;
     }
 

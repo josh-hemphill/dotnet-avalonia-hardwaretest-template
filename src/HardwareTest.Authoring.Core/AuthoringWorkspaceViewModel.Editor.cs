@@ -482,6 +482,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(Threshold));
         OnPropertyChanged(nameof(HasStepSettings));
         OnPropertyChanged(nameof(MetricFunctionId));
+        OnPropertyChanged(nameof(SelectedDeviceArgumentHelp));
         OnPropertyChanged(nameof(MetricFunctionIdOptions));
         OnPropertyChanged(nameof(MetricFunctionChoices));
         OnPropertyChanged(nameof(SelectedMetricFunction));

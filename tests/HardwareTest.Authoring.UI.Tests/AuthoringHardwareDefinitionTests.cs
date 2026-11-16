@@ -110,7 +110,7 @@ public sealed class AuthoringHardwareDefinitionTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
-        manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.1.1" });
+        manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
             System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
@@ -124,8 +124,10 @@ public sealed class AuthoringHardwareDefinitionTests
         AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
         Click(fixture, "Load selected binding");
-        var selected = AuthoringInstrumentCatalog.All.Single(a => a.TypeId == CurrentHardwareUiFixture.TypeId);
+        var selected = AuthoringInstrumentCatalog.All.Single(a => a.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId);
         fixture.Control<ComboBox>("Hardware adapter type").SelectedItem = selected; AuthoringUiFixture.Drain();
+        fixture.Control<ComboBox>("Edit device model").SelectedItem = vm.DeviceDriverChoices.Single(driver => driver.Id == "keysight.34461a");
+        fixture.Type(fixture.Control<TextBox>("Confirmed device outputs"), "none");
         fixture.Type(fixture.Control<TextBox>("Hardware adapter address"), "TCPIP::192.0.2.1::INSTR");
         fixture.Type(fixture.Control<TextBox>("Hardware adapter timeout"), "1234");
         Click(fixture, "Review binding change"); var dialog = Assert.Single(window.OwnedWindows);
@@ -137,6 +139,8 @@ public sealed class AuthoringHardwareDefinitionTests
         Assert.Equal(selected.TypeId, reopened.SelectedInstrument!.TypeId);
         Assert.Equal("TCPIP::192.0.2.1::INSTR", reopened.SelectedInstrument.VisaAddress);
         Assert.Equal("1234", reopened.SelectedInstrument.Settings["IoTimeoutMilliseconds"]);
+        Assert.Equal("keysight.34461a", reopened.SelectedInstrument.Settings["DriverId"]);
+        Assert.Equal("none", reopened.SelectedInstrument.Settings["Outputs"]);
         Assert.Equal("DMM", reopened.InstrumentSlots.Single());
     }
 
@@ -196,7 +200,7 @@ public sealed class AuthoringHardwareDefinitionTests
         if (package == AuthoringInstrumentCatalog.LibraryPackage)
         {
             var manifest = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot).Manifest;
-            manifest.Dependencies.Add(new AuthoringPackageDependency { Package = package, Version = "0.1.1" });
+            manifest.Dependencies.Add(new AuthoringPackageDependency { Package = package, Version = "0.3.0-alpha.1" });
             File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
                 System.Text.Json.JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         }

@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <_InstrumentComponentsReleaseName>InstrumentComponents.OpenTap.0.1.1.TapPackage</_InstrumentComponentsReleaseName>
-    <_InstrumentComponentsReleaseUrl>https://github.com/josh-hemphill/instrument-components/releases/download/v0.1.1/$(_InstrumentComponentsReleaseName)</_InstrumentComponentsReleaseUrl>
-    <_InstrumentComponentsReleaseSha256>779FC31299FA4624F34B0031CE67A3278FF5F895A54EF3CBCC6F64C3A79FF2EE</_InstrumentComponentsReleaseSha256>
-    <_InstrumentComponentsCache>$(MSBuildProjectDirectory)/obj/published-instrument-components/0.1.1</_InstrumentComponentsCache>
+    <_InstrumentComponentsReleaseName>InstrumentComponents.OpenTap.0.3.0-alpha.1.TapPackage</_InstrumentComponentsReleaseName>
+    <_InstrumentComponentsReleaseUrl>https://github.com/josh-hemphill/instrument-components/releases/download/v0.3.0-alpha.1/$(_InstrumentComponentsReleaseName)</_InstrumentComponentsReleaseUrl>
+    <_InstrumentComponentsReleaseSha256>A7891374E1E613EFF83DCB6DAFD93A3E4B4584F4F2C4B5A942B694188148B9C4</_InstrumentComponentsReleaseSha256>
+    <_InstrumentComponentsCache>$(MSBuildProjectDirectory)/obj/published-instrument-components/0.3.0-alpha.1</_InstrumentComponentsCache>
     <!-- An offline build can supply the genuine release archive. It is still verified. -->
     <_InstrumentComponentsArchiveDefaulted Condition="'$(InstrumentComponentsReleaseArchive)' == ''">true</_InstrumentComponentsArchiveDefaulted>
     <InstrumentComponentsReleaseArchive Condition="'$(InstrumentComponentsReleaseArchive)' == ''">$(_InstrumentComponentsCache)/$(_InstrumentComponentsReleaseName)</InstrumentComponentsReleaseArchive>

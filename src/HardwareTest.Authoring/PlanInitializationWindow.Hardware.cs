@@ -6,7 +6,7 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanInitializationWindow
 {
-    private sealed record HardwareChoice(string Label, AuthoringInstrumentAdapter? Adapter = null, InstrumentRef? Resource = null)
+    private sealed record HardwareChoice(string Label, AuthoringInstrumentAdapter? Adapter = null, InstrumentRef? Resource = null, global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverInfo? Driver = null)
     {
         public override string ToString() => Label;
     }
@@ -54,7 +54,11 @@ public sealed partial class PlanInitializationWindow
         _hardwareChoices.Clear();
         _hardwareChoices.Add(new("No hardware yet"));
         foreach (var adapter in _vm.InstrumentTypeChoices.Where(a => AuthoringInstrumentCatalog.IsLibrary(a.TypeId)))
-            _hardwareChoices.Add(new($"Create {adapter.DisplayName} — Instrument Components", adapter));
+        {
+            if (adapter.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId)
+                foreach (var driver in _vm.DeviceDriverChoices) _hardwareChoices.Add(new("Create " + driver.Summary, adapter, Driver: driver));
+            else _hardwareChoices.Add(new($"Create {adapter.DisplayName} — Instrument Components", adapter));
+        }
         var demo = AuthoringInstrumentCatalog.All.Single(a => a.DisplayName == "Mock DMM");
         _hardwareChoices.Add(new("Create Mock DMM — demo", demo));
         for (var index = 0; index < _reusable.Count; index++)
@@ -67,7 +71,7 @@ public sealed partial class PlanInitializationWindow
         }
         var replacement = selected is null ? null : _hardwareChoices.FirstOrDefault(choice =>
             selected.Resource is { } resource ? choice.Resource is { } candidate && SameResource(resource, candidate)
-                : choice.Resource is null && choice.Adapter?.TypeId == selected.Adapter?.TypeId);
+                : choice.Resource is null && choice.Adapter?.TypeId == selected.Adapter?.TypeId && choice.Driver?.Id == selected.Driver?.Id);
         if (replacement is null && selected is not null)
         {
             replacement = selected;
@@ -99,6 +103,11 @@ public sealed partial class PlanInitializationWindow
         if (SelectedHardware?.Adapter is not { } adapter) return [];
         var settings = new Dictionary<string, string>(StringComparer.Ordinal);
         if (adapter.ConfigurationFields.Contains("IoTimeoutMilliseconds") && !string.IsNullOrEmpty(_timeout.Text)) settings["IoTimeoutMilliseconds"] = _timeout.Text;
+        if (SelectedHardware?.Driver is { } driver)
+        {
+            settings["DriverId"] = driver.Id;
+            settings["Commissioning"] = _commissioning.Text ?? string.Empty;
+        }
         return [new InstrumentRef(_slot.Text ?? "", adapter.TypeId, _address.Text ?? "") { Settings = settings }];
     }
 
@@ -110,11 +119,20 @@ public sealed partial class PlanInitializationWindow
         var library = choice?.Adapter is { } selectedAdapter && AuthoringInstrumentCatalog.IsLibrary(selectedAdapter.TypeId);
         if (library && choice?.Resource is null && _automaticDemoAddress) { _address.Text = ""; _automaticDemoAddress = false; }
         _address.PlaceholderText = library ? "For example TCPIP0::192.0.2.1::inst0::INSTR" : "Instrument resource address";
+        _commissioning.IsVisible = choice?.Driver?.Commissioning.Length > 0;
         var resources = SelectedResources();
+        if (choice?.Driver is { } configured)
+        {
+            _identity.IsEnabled = configured.Operations.Contains("QueryIdentity");
+            _shutdown.IsEnabled = configured.Operations.Contains("Shutdown");
+            if (!_identity.IsEnabled) _identity.IsChecked = false;
+            if (!_shutdown.IsEnabled) _shutdown.IsChecked = false;
+        }
+        else { _identity.IsEnabled = true; _shutdown.IsEnabled = true; }
         if (choice?.Resource is { } reused) { _address.Text = reused.VisaAddress; _timeout.Text = reused.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? "5000"; }
         if (_guided) Title = library ? "First test plan — library lifecycle" : "First test plan";
-        _measurement.Content = new TextBlock { Text = library ? "Voltage measurement unavailable for this device — turn off to save a hardware scaffold" : "Include first measurement", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
-        _criterion.Content = new TextBlock { Text = library ? "Average-voltage criterion unavailable for this device" : _guided ? "Pass when average voltage reaches the threshold" : "Mean greater than or equal criterion", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        _measurement.Content = new TextBlock { Text = library ? "Include demo voltage measurement (Mock DMM only; clear for a device scaffold)" : "Include first measurement", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        _criterion.Content = new TextBlock { Text = library ? "Include demo average criterion (Mock DMM only)" : _guided ? "Pass when average voltage reaches the threshold" : "Mean greater than or equal criterion", TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         _address.IsReadOnly = choice?.Resource is not null;
         _timeout.IsReadOnly = choice?.Resource is not null;
         _address.IsEnabled = choice?.Adapter is not null;
@@ -136,7 +154,7 @@ public sealed partial class PlanInitializationWindow
                         return $"{resource.SlotName} · {resource.TypeId}\nThis retained resource type is unavailable. Its original address, configuration and source are preserved; review its package in Environment before creating supported actions.";
                     var declared = _workspace.Manifest.Dependencies.Any(d => d.Package.Equals(adapter.RequiredPackage, StringComparison.OrdinalIgnoreCase));
                     return $"{adapter.DisplayName} · {adapter.Description}\n{adapter.RequiredPackage} · {(declared ? "dependency declared" : "dependency missing — declare in Environment")}\n"
-                        + (AuthoringInstrumentCatalog.IsLibrary(resource.TypeId) ? (_vm.InstrumentTypeChoices.Any(a => a.TypeId == resource.TypeId) ? "Ready in selected home — compatible installed package reused.\n" : "Unavailable in selected home — open Environment.\n") + "Library identity and cleanup steps can be generated; review output-off/reset for your device. Voltage and average-voltage measurements are unavailable for this device in this form. Turn off the first measurement to save a hardware scaffold. Library measurement recipes are not supported by this authoring form." : "Explicit Mock DMM demo voltage tasks.");
+                        + (AuthoringInstrumentCatalog.IsLibrary(resource.TypeId) ? (_vm.InstrumentTypeChoices.Any(a => a.TypeId == resource.TypeId) ? "Ready in selected home — compatible installed package reused.\n" : "Unavailable in selected home — open Environment.\n") + "Choose the device model and save a hardware scaffold, then add advertised Device operations in the sequence editor. Identity and shutdown are available only when the selected model and confirmed inventory advertise them. For commissioned models, enter the exact assertion shown in Hardware; TDS1002 also requires its communication module and both probe factors. This is a software preview without physical bench qualification." : "Explicit Mock DMM demo voltage tasks.");
                 }));
             if (result is not null)
                 _readiness.Text += "\n" + string.Join("\n", result.Issues.Where(i => i.Code.StartsWith("INSTRUMENT_", StringComparison.Ordinal) || i.Code == "INVALID_OPENTAP_HOME").Select(i => i.Message));

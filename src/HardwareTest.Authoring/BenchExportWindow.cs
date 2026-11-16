@@ -65,9 +65,14 @@ public sealed partial class BenchExportWindow : Window
         AutomationProperties.SetLiveSetting(_status, AutomationLiveSetting.Polite);
         Grid.SetRow(_status, 2); layout.Children.Add(_status);
         _receipt = new TextBox { IsReadOnly = true, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, IsVisible = false };
-        ScrollViewer.SetVerticalScrollBarVisibility(_receipt, Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled);
+        ScrollViewer.SetVerticalScrollBarVisibility(_receipt, Avalonia.Controls.Primitives.ScrollBarVisibility.Auto);
         AutomationProperties.SetName(_receipt, "Prepared bench program receipt"); body.Children.Add(_receipt);
         var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        scroll.PropertyChanged += (_, change) =>
+        {
+            if (change.Property == ScrollViewer.ViewportProperty)
+                _receipt.MaxHeight = Math.Max(40, scroll.Viewport.Height);
+        };
         Grid.SetRow(scroll, 1); layout.Children.Add(scroll);
         var footer = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         _close = new Button { Content = "Close", MinHeight = 40, IsCancel = true, Margin = new Thickness(0, 0, 8, 0) };

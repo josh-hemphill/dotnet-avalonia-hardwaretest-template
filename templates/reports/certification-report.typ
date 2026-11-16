@@ -21,6 +21,11 @@
 == Notes
 #sys.inputs.notes
 
+#if sys.inputs.measurementOutcomes != "" [
+  == Measurement validity
+  #sys.inputs.measurementOutcomes
+]
+
 #if sys.inputs.executionScopeKind == "reference-acquisition" [
   #text(fill: orange)[*REFERENCE ACQUISITION — NOT CERTIFIED*]
   Dependent reference acceptance was not evaluated. This is not production acceptance.

@@ -31,14 +31,17 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
         var (home, plan) = PrepareLiteralHome();
         var dotnet = Environment.GetEnvironmentVariable("DOTNET_ROOT") is { Length: > 0 } root
             ? Path.Combine(root, OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet") : "dotnet";
-        using var child = Process.Start(AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary: false))!;
+        var start = AuthoringExternalTuiLauncher.WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary: false);
+        start.UseShellExecute = false;
+        start.RedirectStandardError = true;
+        using var child = Process.Start(start)!;
         try
         {
             var marker = plan + ".argv.json";
             var elapsed = Stopwatch.StartNew();
             while (!File.Exists(marker))
             {
-                Assert.False(child.HasExited);
+                Assert.False(child.HasExited, child.HasExited ? await child.StandardError.ReadToEndAsync() : null);
                 Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), "Prepared protocol did not publish readiness.");
                 await Task.Delay(20);
             }
@@ -117,7 +120,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
         var home = Path.Combine(root, "Installed homes R&D %PATH%");
         Directory.CreateDirectory(home);
         // A real executable protocol fixture substitutes for tap.dll and records its exact argv.
-        foreach (var file in Directory.GetFiles(AppContext.BaseDirectory, "*.dll"))
+        foreach (var file in Directory.GetFiles(AppContext.BaseDirectory, "*.dll").Where(file => !Path.GetFileName(file).StartsWith("InstrumentComponents.", StringComparison.Ordinal)))
             File.Copy(file, Path.Combine(home, Path.GetFileName(file)));
         var fixture = Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture");
         File.Copy(fixture + ".dll", Path.Combine(home, "tap.dll"), overwrite: true);

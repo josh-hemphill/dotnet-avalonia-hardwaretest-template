@@ -130,7 +130,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                    ?? (typeId == typeof(MockDmmInstrument).FullName
                        ? $"MOCK::INSTR{SelectedProgram.Instruments.Count}"
                        : throw new AuthoringWorkspaceException("Instrument address is required."));
-        var instrument = new InstrumentRef(slot, typeId, visa);
+        var instrument = new InstrumentRef(slot, typeId, visa) { Settings = NewDeviceSettings() };
         // Validate the selected adapter without opening any instrument connection.
         AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));

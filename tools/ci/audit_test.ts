@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert";
+import { test } from "node:test";
+import { assertEquals } from "./lib/assert.ts";
 import { formatAuditFailure, hasVulnerablePackages } from "./lib/audit.ts";
 
-Deno.test("audit treats a clean listing as no vulnerabilities", () => {
+test("audit treats a clean listing as no vulnerabilities", () => {
   const text = `The following sources were used:
    https://api.nuget.org/v3/index.json
 
@@ -10,7 +11,7 @@ The given project \`HardwareTest.Core\` has no vulnerable packages given the cur
   assertEquals(hasVulnerablePackages(text), false);
 });
 
-Deno.test("audit fails when a project reports vulnerable packages", () => {
+test("audit fails when a project reports vulnerable packages", () => {
   const text = `Project \`HardwareTest.Core\` has the following vulnerable packages
    [net10.0]:
    Transitive Package      Resolved   Severity   Advisory URL

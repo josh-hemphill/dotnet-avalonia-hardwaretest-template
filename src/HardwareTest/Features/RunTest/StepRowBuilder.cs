@@ -52,8 +52,9 @@ public static class StepRowBuilder
         IEnumerable<HierarchyStepViewModel> query = leaves;
         if (!string.Equals(statusFilter, StepStatusFilter.All, StringComparison.Ordinal))
         {
-            query = query.Where(l =>
-                string.Equals(StatusChip.FromStatus(l.StatusText, l.Verdict), statusFilter, StringComparison.Ordinal));
+            query = query.Where(l => statusFilter == StepStatusFilter.Attention
+                ? StatusChip.NeedsAttention(StatusChip.FromStatus(l.StatusText, l.Verdict))
+                : string.Equals(StatusChip.FromStatus(l.StatusText, l.Verdict), statusFilter, StringComparison.Ordinal));
         }
 
         if (!string.IsNullOrWhiteSpace(searchText))

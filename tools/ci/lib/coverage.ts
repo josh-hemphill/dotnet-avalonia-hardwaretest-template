@@ -1,9 +1,10 @@
+import * as fs from "node:fs/promises";
 /**
  * Cobertura floor checks ported from tests/check-coverage.py.
  * Fail if Core < 70%, or Hardware/Engine < 80% when those line counts exist.
  */
 
-import * as path from "@std/path";
+import * as path from "node:path";
 
 export type CoverageReport = {
   corePct: number;
@@ -142,7 +143,7 @@ export async function findCobertura(resultsDir: string): Promise<string | null> 
       if (entry.endsWith("coverage.cobertura.xml")) matches.push(entry);
     }
   } catch (err) {
-    if (err instanceof Deno.errors.NotFound) return null;
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
   if (matches.length === 0) return null;
@@ -151,11 +152,11 @@ export async function findCobertura(resultsDir: string): Promise<string | null> 
 }
 
 async function* walkFiles(dir: string): AsyncGenerator<string> {
-  for await (const entry of Deno.readDir(dir)) {
+  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       yield* walkFiles(full);
-    } else if (entry.isFile) {
+    } else if (entry.isFile()) {
       yield full;
     }
   }

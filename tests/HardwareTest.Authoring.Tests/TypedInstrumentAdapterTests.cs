@@ -518,7 +518,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var home = new OpenTapHome(Path.Combine(_root, "library-home"));
         var directory = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
         Directory.CreateDirectory(directory);
-        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll" })
+        foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(home.Root, file), overwrite: true);
         File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(directory, "package.xml"), overwrite: true);
         Assert.Contains(AuthoringInstrumentCatalog.Discover(home), adapter => adapter.TypeId == PhysicalType);

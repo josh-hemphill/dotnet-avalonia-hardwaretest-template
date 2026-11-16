@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- The published Instrument Components embedded model registry uses reflection JSON.
+    <!-- Untrimmed execution permits provider serializers.
          This execution process remains untrimmed; application persistence uses generated contexts. -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <RootNamespace>HardwareTest.OpenTap.Worker</RootNamespace>

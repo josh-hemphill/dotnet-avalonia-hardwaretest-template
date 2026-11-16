@@ -8,6 +8,8 @@ public sealed record GuidedFormState(int Stage, string?[] Text, int[] Choices, b
     public InstrumentRef? ReusedInstrument { get; init; }
     public string? HardwareTypeId { get; init; }
     public string? TimeoutText { get; init; }
+    public string? DriverId { get; init; }
+    public string? CommissioningText { get; init; }
     public bool AutomaticDemoAddress { get; init; }
     public bool AutomaticSlot { get; init; }
 }
@@ -26,6 +28,8 @@ public sealed partial class PlanInitializationWindow
         ReusedInstrument = SelectedHardware?.Resource is { } resource ? CopyResource(resource) : null,
         HardwareTypeId = SelectedHardware?.Adapter?.TypeId,
         TimeoutText = _timeout.Text,
+        DriverId = SelectedHardware?.Driver?.Id,
+        CommissioningText = _commissioning.Text,
         AutomaticDemoAddress = _automaticDemoAddress,
         AutomaticSlot = _automaticSlot
     };
@@ -54,9 +58,21 @@ public sealed partial class PlanInitializationWindow
             }
             _hardware.SelectedItem = _hardwareChoices.First(choice => choice.Resource is { } r && SameResource(r, _reusable[index]));
         }
+        else if (state.DriverId is { } driverId)
+        {
+            var choice = _hardwareChoices.FirstOrDefault(item => item.Driver?.Id == driverId);
+            if (choice is null && AuthoringInstrumentCatalog.TryGet(global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId, out var adapter))
+            {
+                var driver = _vm.DeviceDriverChoices.Single(item => item.Id == driverId);
+                choice = new("Retained " + driver.Summary + " — unavailable in selected home", adapter, Driver: driver);
+                _hardwareChoices.Add(choice); _hardware.ItemsSource = _hardwareChoices.ToArray();
+            }
+            _hardware.SelectedItem = choice ?? _hardwareChoices[0];
+        }
         else if (state.HardwareTypeId is { } typeId) SelectHardwareType(typeId);
         else _hardware.SelectedIndex = 0;
         _timeout.Text = state.TimeoutText ?? "5000";
+        _commissioning.Text = state.CommissioningText ?? string.Empty;
         for (var index = 0; index < GuidedText.Length; index++) GuidedText[index].Text = state.Text[index];
         for (var index = 0; index < GuidedToggles.Length; index++) GuidedToggles[index].IsChecked = state.Toggles[index];
         _automaticDemoAddress = state.AutomaticDemoAddress;

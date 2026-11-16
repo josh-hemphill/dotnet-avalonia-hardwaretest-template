@@ -43,4 +43,7 @@ public static class StepStatusFilter
     public const string Fail = "Fail";
     public const string Running = "Running";
     public const string Pending = "Pending";
+    public const string Attention = "Attention";
+    public const string Error = "Error";
+    public const string Cancelled = "Cancelled";
 }

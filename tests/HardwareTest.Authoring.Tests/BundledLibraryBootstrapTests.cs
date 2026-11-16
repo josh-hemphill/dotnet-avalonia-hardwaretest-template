@@ -12,7 +12,7 @@ namespace HardwareTest.Authoring.Tests;
 public sealed class BundledLibraryBootstrapTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "ht-bundled-tests-" + Guid.NewGuid().ToString("N"));
-    private AuthoringWorkspace Workspace(string version = "^0.1.0") => new(root, new AuthoringManifest
+    private AuthoringWorkspace Workspace(string version = "0.3.0-alpha.1") => new(root, new AuthoringManifest
     { Dependencies = [new() { Package = PublishedInstrumentComponents.PackageName, Version = version }] }, []);
     private OpenTapHome Prepare(AuthoringWorkspace workspace, string name = "home", string? path = null) => new OpenTapHomeBootstrapper().Bootstrap(workspace,
         new() { HomeDirectory = Path.Combine(root, name), Offline = true, InstrumentComponentsPackagePath = path });
@@ -162,12 +162,12 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     public void Deleted_first_home_does_not_break_second_home_generic_lifecycle_metadata()
     {
         var first = Prepare(Workspace(), "first");
-        Assert.Equal(8, AuthoringInstrumentCatalog.Discover(first).Count);
+        Assert.Equal(13, AuthoringInstrumentCatalog.Discover(first).Count);
         var second = Prepare(Workspace(), "second");
         Directory.Delete(first.Root, true);
         var adapters = AuthoringInstrumentCatalog.Discover(second);
-        Assert.Equal(8, adapters.Count);
-        foreach (var adapter in adapters)
+        Assert.Equal(13, adapters.Count);
+        foreach (var adapter in adapters.Where(adapter => adapter.TypeId.StartsWith("InstrumentComponents.OpenTap.", StringComparison.Ordinal)))
         {
             var binding = new InstrumentRef("Device", adapter.TypeId, "TCPIP0::192.0.2.8::inst0::INSTR");
             var draft = new AuthoringPlanInitializer().Construct(new("lifecycle")
@@ -200,8 +200,8 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
 
     [Theory]
     [InlineData("Other", "0.1.0")]
-    [InlineData("Other", "0.1.1")]
-    [InlineData("instrumentcomponents.opentap", "0.1.1")]
+    [InlineData("Other", "0.3.0-alpha.1")]
+    [InlineData("instrumentcomponents.opentap", "0.3.0-alpha.1")]
     public void Noncanonical_metadata_only_library_identity_cannot_grant_reuse(string alias, string canonicalVersion)
     {
         // Case-only directory aliases are separate physical directories on case-sensitive filesystems.
@@ -215,8 +215,8 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var aliasDirectory = Path.Combine(home.Root, "Packages", alias);
         Directory.CreateDirectory(aliasDirectory);
         File.WriteAllText(Path.Combine(aliasDirectory, "package.xml"),
-            """<Package Name=" instrumentcomponents.opentap " Version="0.1.1" />""");
-        var workspace = Workspace("^0.1.1");
+            """<Package Name=" instrumentcomponents.opentap " Version="0.3.0-alpha.1" />""");
+        var workspace = Workspace("^0.3.0-alpha.1");
         var before = Files(home);
 
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
@@ -438,10 +438,10 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         using var stream = new MemoryStream(bytes, writable: false);
         using var pe = new PEReader(stream);
         var metadata = pe.GetMetadataReader();
-        Assert.Equal(new Version(0, 1, 1, 0), metadata.GetAssemblyDefinition().Version);
+        Assert.Equal(new Version(0, 3, 0, 0), metadata.GetAssemblyDefinition().Version);
         var assemblyRow = pe.PEHeaders.MetadataStartOffset + metadata.GetTableMetadataOffset(TableIndex.Assembly);
         // Assembly table stores HashAlgId, then Major/Minor/Build/Revision as UInt16 fields.
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(assemblyRow + 8, 2), 0);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(assemblyRow + 6, 2), 0);
         File.WriteAllBytes(path, bytes);
     }
 
@@ -453,10 +453,11 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var replacement = File.ReadAllBytes(Path.Combine(home.Root, "InstrumentComponents.dll")).Concat(new byte[] { 0 }).ToArray();
         File.WriteAllBytes(Path.Combine(folder, "InstrumentComponents.dll"), replacement);
         File.Copy(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), Path.Combine(folder, "InstrumentComponents.OpenTap.dll"));
+        foreach (var sdk in new[] { "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" }) File.Copy(Path.Combine(home.Root, sdk), Path.Combine(folder, sdk));
         var metadata = unpacked ? folder : Path.Combine(folder, "Packages", PublishedInstrumentComponents.PackageName);
         Directory.CreateDirectory(metadata);
         var version = PublishedInstrumentComponents.Version + (buildMetadata ? "+custom.1" : "");
-        File.WriteAllText(Path.Combine(metadata, "package.xml"), $"""<Package Name="{PublishedInstrumentComponents.PackageName}" Version="{version}"><Files><File Path="InstrumentComponents.dll" /><File Path="InstrumentComponents.OpenTap.dll" /></Files></Package>""");
+        File.WriteAllText(Path.Combine(metadata, "package.xml"), $"""<Package Name="{PublishedInstrumentComponents.PackageName}" Version="{version}"><Files><File Path="InstrumentComponents.dll" /><File Path="InstrumentComponents.OpenTap.dll" /><File Path="InstrumentComponents.Abstractions.dll" /><File Path="InstrumentComponents.Runtime.dll" /></Files></Package>""");
         if (unpacked) return (folder, replacement);
         var archive = Path.Combine(root, "custom-library.TapPackage");
         ZipFile.CreateFromDirectory(folder, archive);

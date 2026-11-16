@@ -187,6 +187,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             ThrowIfExecuting("load or bind a plan");
             _referenceAcceptancePrepared = false;
             _referenceAcquisition = false;
+            global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.SharePlanResources(plan);
             _plan = plan;
             _instruments.Clear();
             foreach (var instr in InstrumentResourceAccess.CollectFromPlan(plan))
@@ -422,6 +423,22 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         RaiseOperatorState();
         try
         {
+            var deviceIssues = OpenTapStepTree.Flatten(plan).OfType<global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>()
+                .Where(step => step.Enabled).Select(step => (Step: step.Name, Issue: step.ValidationIssue())).Where(item => item.Issue is not null).ToArray();
+            if (deviceIssues.Length > 0)
+            {
+                _lastSamples = []; _lastEvents = [];
+                return new OpenTapRunSummary
+                {
+                    RunId = runId ?? string.Empty,
+                    PlanName = LoadedPlanName ?? plan.Name,
+                    Result = RunResult.Error,
+                    Verdict = "Error",
+                    StartedAt = _clock.UtcNow,
+                    CompletedAt = _clock.UtcNow,
+                    ErrorMessage = "Device configuration needs authoring review: " + string.Join("; ", deviceIssues.Select(item => item.Step + ": " + item.Issue))
+                };
+            }
             var summary = await context.ExecuteAsync(
                     plan,
                     LoadedPlanName,
