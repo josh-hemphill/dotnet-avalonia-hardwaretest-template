@@ -339,10 +339,16 @@ public sealed class ResultsExportDestinationTests
                     new MockOperatorCredentialBroker(canSign: false), _store, Settings) : null,
                 settings: Settings, settingsStore: _persistentSettings)
             { UiScheduler = action => action() };
-            await vm.RefreshCommand.ExecuteAsync();
-            vm.SelectedRun = Assert.Single(vm.Runs);
-            await vm.OpenCommand.ExecuteAsync();
+            // Open once: selecting a run also schedules an automatic detail load.
+            await vm.OpenRunByIdAsync(_run.RunId);
+            Assert.Single(vm.Runs);
             Assert.Equal(_run.RunId, vm.OpenedRun?.RunId);
+            // Detail loading starts background PDF verification. Wait for its final
+            // labels before tests mutate evidence or dispose the fixture: Windows
+            // cannot delete a PDF while the verifier holds its read handle.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            while (vm.ReportItems.Any(item => item.VerificationText.StartsWith("Verifying ·", StringComparison.Ordinal)))
+                await Task.Delay(10, timeout.Token);
             return vm;
         }
 
