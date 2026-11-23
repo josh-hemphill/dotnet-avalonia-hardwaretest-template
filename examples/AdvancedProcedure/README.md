@@ -28,7 +28,7 @@ HARDWARETEST_EXPORT_OPENTAP_RESULTS=true \
 "$app/HardwareTest"
 ```
 
-Use the matching RID and executable suffix on Windows and macOS. The serial plugin needs the managed `System.IO.Ports.dll` and the corresponding native helper on Unix. The staging command copies these together with the example DLL. It installs the plan and sidecar in the app's `Programs` directory and places the two tables under `Programs/tables/advanced-procedure/`. Keep the plan-relative layout if distributing the example manually. The desktop and Worker must see the same trusted plugin directory. Restart the app after staging.
+Use the matching RID and executable suffix on Windows and macOS. The example declares `System.IO.Ports` as a NuGet dependency. The .NET SDK selects the serial runtime assets for the target runtime identifier, and the staging command copies those assets with the compiled OpenTAP plugin. It installs the plan and sidecar in the app's `Programs` directory and places the two tables under `Programs/tables/advanced-procedure/`. Keep the plan-relative layout if distributing the example manually. The desktop and Worker must see the same trusted plugin directory. Restart the app after staging.
 
 In **Run**, select **Advanced Fixture Procedure (Simulation)** and confirm a DUT serial and operator. Continue through the simulated harness and DUT handoffs. At the configuration prompt, select `Crossed`, `Terminated`, and `Loopback` in any order. Only outstanding configurations appear in the list. The prompt title shows how many configurations are complete. Use the full procedure when running this plan. A narrower **Run Selected** request stops before measurements because its required sections are outside the selection.
 
