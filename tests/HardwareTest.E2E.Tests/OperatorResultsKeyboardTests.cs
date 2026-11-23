@@ -4,6 +4,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Features.Results;
 using Microsoft.Extensions.DependencyInjection;
@@ -73,6 +74,87 @@ public sealed class OperatorResultsKeyboardTests
         Assert.Equal(record.OperatorName, vm.OpenedRun.OperatorName);
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.False(main.RunTest.IsRunning);
+    }
+
+    [AvaloniaFact]
+    public async Task Escape_then_Enter_reopens_the_selected_run_while_its_comparison_is_loading()
+    {
+        var services = E2EHarness.RequireApp().Services;
+        var store = services.GetRequiredService<IRunStore>();
+        var record = new TestRunRecord
+        {
+            RunId = "keyboard-reopen-" + Guid.NewGuid().ToString("N"),
+            PlanId = "keyboard-review",
+            PlanName = "Saved evidence keyboard review",
+            DutSerial = "KEYBOARD-DUT",
+            StartedAt = DateTimeOffset.UtcNow,
+            Result = RunResult.Passed,
+        };
+        await store.SaveAsync(record);
+
+        var comparison = new PausingRunComparison();
+        var vm = new ResultsViewModel(store, services.GetRequiredService<IReportService>(), comparison: comparison);
+        var view = new ResultsView { DataContext = vm };
+        var window = new Window { Width = 700, Height = 600, Content = view };
+        var list = view.FindControl<ListBox>("RunResultsList")!;
+        window.Show();
+        try
+        {
+            await vm.OpenRunByIdAsync(record.RunId);
+            vm.SearchText = record.RunId;
+            await vm.CloseDetailCommand.ExecuteAsync();
+            await WaitForListFocus();
+
+            Press(Key.Enter, PhysicalKey.Enter);
+            await comparison.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await E2EHarness.WaitUntilAsync(() => vm.ShowDetail
+                && view.FindControl<Button>("ResultsCloseButton")!.IsFocused, TimeSpan.FromSeconds(5));
+
+            Press(Key.Escape, PhysicalKey.Escape);
+            await WaitForListFocus();
+            Press(Key.Enter, PhysicalKey.Enter);
+            comparison.Release.TrySetResult();
+            await E2EHarness.WaitUntilAsync(() => vm.ShowDetail && vm.OpenedRun?.RunId == record.RunId,
+                TimeSpan.FromSeconds(5), "Enter during the previous comparison did not reopen the selected run.");
+        }
+        finally
+        {
+            comparison.Release.TrySetResult();
+            window.Close();
+        }
+
+        Task WaitForListFocus() => E2EHarness.WaitUntilAsync(() =>
+        {
+            var current = window.FocusManager!.GetFocusedElement() as Control;
+            return !vm.ShowDetail && (ReferenceEquals(current, list) || current?.GetVisualAncestors().Contains(list) == true);
+        }, TimeSpan.FromSeconds(5), "Closing Results did not restore focus within the saved-run list.");
+
+        void Press(Key key, PhysicalKey physical)
+        {
+            window.KeyPress(key, RawInputModifiers.None, physical, null);
+            window.KeyRelease(key, RawInputModifiers.None, physical, null);
+        }
+    }
+
+    private sealed class PausingRunComparison : IRunComparisonService
+    {
+        private int _calls;
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public async Task<RunComparisonReport> CompareToPreviousAsync(TestRunRecord current, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref _calls) == 2)
+            {
+                Started.TrySetResult();
+                await Release.Task.WaitAsync(cancellationToken);
+            }
+
+            return new RunComparisonReport { CurrentRunId = current.RunId };
+        }
+
+        public Task<RunComparisonReport> CompareAsync(string currentRunId, string previousRunId,
+            CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private static void Type(Window window, TextBox box, string value)
