@@ -2,7 +2,7 @@
 
 An engineer should be able to open the Advanced Fixture Procedure in HardwareTest Authoring, find a test and the data it uses, change both, preview the effect, and ship a package that runs from a clean installation. Use that procedure as the acceptance fixture. The first release should cover a useful maintenance task end to end: change a switch route or pass band, verify the affected cases in simulation, and package the revision. The full plan extends that workflow to procedure structure and plugin-backed analysis. [Advanced Fixture Procedure](../examples/AdvancedProcedure/README.md)
 
-The current import shows the fixture as one read-only raw node with 42 nested steps. Saving an inspection copy inserts a group above the fixture root, which causes fixture preflight to fail. General workspace packaging currently enumerates plans and their sidecars. The example’s tables travel through its separate staging command. Both paths need to work before engineers can rely on edits made in Authoring. [Authoring workflow evidence](../examples/AdvancedProcedure/council-ux-review.md#authoring-boundary) · [Package file enumeration](../src/HardwareTest.Authoring.Core/PackageXmlRenderer.cs)
+The current import shows the fixture as one read-only raw node with 42 nested steps. Saving an inspection copy inserts a group above the fixture root, which causes fixture preflight to fail. General workspace packaging currently enumerates plans and their sidecars. The example’s tables travel through its separate staging command. Both paths need to work before engineers can rely on edits made in Authoring. [Package file enumeration](../src/HardwareTest.Authoring.Core/PackageXmlRenderer.cs)
 
 ## 1. Preserve imported procedures and package their inputs
 
@@ -33,7 +33,7 @@ The current import shows the fixture as one read-only raw node with 42 nested st
 
 ## Council workflow and interface reviews
 
-Review a working prototype after the route and limit milestone and the staged desktop build before release. Give reviewers realistic tasks and the Advanced Fixture Procedure with enough cases to exercise navigation. Ask them to record completion, wrong turns, recovery, and any action that could silently change execution or evidence. Use keyboard and pointer walkthroughs in compact and wide layouts. File blockers against their release gates and rerun the affected variants after fixes. [Previous Council workflow variants](../examples/AdvancedProcedure/council-ux-review.md#workflow-variants)
+Review a working prototype after the route and limit milestone and the staged desktop build before release. Give reviewers realistic tasks and the Advanced Fixture Procedure with enough cases to exercise navigation. Ask them to record completion, wrong turns, recovery, and any action that could silently change execution or evidence. Use keyboard and pointer walkthroughs in compact and wide layouts. File blockers against their release gates and rerun the affected variants after fixes.
 
 | Role | Workflow variants | What the review should verify |
 | --- | --- | --- |

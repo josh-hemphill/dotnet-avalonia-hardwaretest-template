@@ -78,8 +78,6 @@ Both built-in PDFs include the evaluated metric, value, unit, lower and upper li
 
 The plugin publishes `Capture` rows with `Channel, Index, Value, Unit, ElapsedMs, TimestampUtc` and `Evaluated` rows with `Name, Value, Unit, LimitLow, LimitHigh, Verdict, TimestampUtc`. Use stable names per result row and round-trip ISO 8601 timestamps. An `OperatorGuidance` event can provide a recovery message in the Run banner when a prerequisite blocks execution. A shared OpenTAP step-run ID ties a case's capture, evaluated rows, and routing events together. With OpenTAP exports enabled, the run folder also includes `Capture.csv`, `Evaluated.csv`, and `Event.csv`. The desktop Results page uses the distinct metric keys to show both bounds and the measured score.
 
-See the [procedure Council review](council-review.md) and [UI and workflow review](council-ux-review.md) for the staged checks and Authoring handoff.
-
 ## Maintain the procedure in Authoring
 
 Prepare a fresh workspace from the example after building the Runner. The command copies the plan, sidecar, and both data files. It creates a plugin package for the current platform and declares it in the workspace.
