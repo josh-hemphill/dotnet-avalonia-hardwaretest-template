@@ -10,34 +10,59 @@ public sealed class CounterTriggerStep : FixtureMeasurementStep
         ("increment", "count"), ("span", "count"), ("dutDelta", "count"),
     ];
 
+    internal override (string Id, string Unit)[] OptionalCriteria => [("observedIncrement", "count")];
+
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "count");
+        var route = RequireRoutes(tables, row, "count")[0];
         RequireLevels(row, 3, 20);
         ProcedureTables.Require(row.Levels.All(level => level > 0 && level == Math.Truncate(level)),
             $"Case '{row.Id}' requires positive integer trigger increments.");
+        if (route.CounterReadings is { } readings)
+            ProcedureTables.Require(readings.Length == row.Levels.Length + 1
+                && readings.All(value => double.IsFinite(value) && value >= 0 && value == Math.Truncate(value))
+                && readings.SequenceEqual(readings.Order()),
+                $"Case '{row.Id}' needs a recorded baseline and one nondecreasing integer reading per trigger.");
+        else
+            ProcedureTables.Require(!row.Criteria.Any(band => band.Id == "observedIncrement"),
+                $"Case '{row.Id}' needs recorded counter readings to evaluate observed increments.");
     }
 
     internal override void Measure(FixtureProcedureStep fixture, CaseTable row, MeasurementEvidence evidence)
     {
-        var start = fixture.ActiveRoutes[0].Nominal;
-        var counts = new double[row.Levels.Length + 1];
-        counts[0] = start;
+        var route = fixture.ActiveRoutes[0];
+        var counts = route.CounterReadings ?? SimulateIdealCounter(route.Nominal, row.Levels);
+        evidence.Trace("accumulated", "count", counts, 1, DateTimeOffset.UtcNow);
         for (var i = 0; i < row.Levels.Length; i++)
         {
-            counts[i + 1] = counts[i] + row.Levels[i];
-            evidence.Evaluate("increment", counts[i + 1] - counts[i] - row.Levels[i], "count", $"trigger-{i + 1}");
+            var observed = counts[i + 1] - counts[i];
+            var coordinate = $"trigger-{i + 1}";
+            evidence.Evaluate("increment", observed - row.Levels[i], "count", coordinate);
+            evidence.EvaluateOptional("observedIncrement", observed, "count", coordinate);
         }
 
-        evidence.Trace("accumulated", "count", counts, 1, DateTimeOffset.UtcNow);
         evidence.Evaluate("span", counts[^1] - counts[0], "count");
         evidence.Evaluate("dutDelta", SimulatedDut.ReadNumber(fixture.Serial, "COUNTER?") - counts[^1], "count");
+    }
+
+    // Tables written before recorded counter inputs can still reproduce their ideal simulation.
+    private static double[] SimulateIdealCounter(double baseline, double[] increments)
+    {
+        var counts = new double[increments.Length + 1];
+        counts[0] = baseline;
+        for (var i = 0; i < increments.Length; i++)
+            counts[i + 1] = counts[i] + increments[i];
+        return counts;
     }
 }
 
 [Display("Decode Pulse-Width Data", Groups: ["HardwareTest Examples"])]
 public sealed class DecodePulseWidthStep : FixtureMeasurementStep
 {
+    private const double ThresholdVolts = 1.5;
+
+    public int FirstRiseSamples { get; set; } = 1;
+
     internal override (string Id, string Unit)[] Criteria =>
     [
         ("payload", "check"), ("peakToPeak", "V"), ("highMinimum", "V"), ("lowMaximum", "V"),
@@ -45,10 +70,15 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         ("windowCompliance", "check"),
     ];
 
+    internal override (string Id, string Unit)[] OptionalCriteria =>
+        [("decodedWord", "count"), ("expectedWord", "count")];
+
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
         RequireRoutes(tables, row, "V", "V", "V");
         RequireLevels(row, 4, 8);
+        ProcedureTables.Require(FirstRiseSamples is >= 1 and <= 3,
+            $"Case '{row.Id}' needs one to three samples in the simulated first rising edge.");
         ProcedureTables.Require(row.Levels.All(bit => bit is 0 or 1), $"Case '{row.Id}' expects a binary payload.");
     }
 
@@ -67,24 +97,33 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
             var phase = (i - 3) % window;
             var active = i >= 3 && bit < row.Levels.Length;
             generatorA[i] = active && phase < 5 ? routes[0].Nominal : 0;
-            generatorB[i] = active && row.Levels[bit] == 1 && phase is >= 5 and < 12 ? routes[1].Nominal : 0;
-            signal[i] = (generatorA[i] + generatorB[i] > 0 ? routes[2].Nominal : 0.08) + 0.02 * Math.Sin(i);
+            generatorB[i] = active && row.Levels[bit] == 1 && phase is >= 4 and < 12 ? routes[1].Nominal : 0;
+            var high = generatorA[i] + generatorB[i] > 0;
+            const double low = 0.08;
+            var transition = bit == 0 && high ? Math.Min(1.0, (phase + 1) / (double)FirstRiseSamples) : 1.0;
+            var voltage = high ? low + (routes[2].Nominal - low) * transition : low;
+            signal[i] = voltage + 0.02 * Math.Sin(i);
         }
 
         var capturedAt = DateTimeOffset.UtcNow;
         evidence.Trace(routes[0].Id, "V", generatorA, dt, capturedAt);
         evidence.Trace(routes[1].Id, "V", generatorB, dt, capturedAt);
         evidence.Trace(routes[2].Id, "V", signal, dt, capturedAt);
-        var pulses = Decode(signal, dt);
+        var pulses = Decode(signal, dt, out var complete);
         var expected = row.Levels.Aggregate(0, (word, bit) => (word << 1) | (int)bit);
         var decoded = pulses.Aggregate(0, (word, pulse) => (word << 1) | (pulse.Width >= 0.8 ? 1 : 0));
-        evidence.Evaluate("payload", decoded == expected && pulses.Count == row.Levels.Length ? 1 : 0, "check");
+        evidence.Evaluate("payload", decoded == expected && pulses.Count == row.Levels.Length && complete ? 1 : 0, "check");
+        evidence.EvaluateOptional("decodedWord", decoded, "count");
+        evidence.EvaluateOptional("expectedWord", expected, "count");
         evidence.Evaluate("peakToPeak", signal.Max() - signal.Min(), "V");
-        evidence.Evaluate("highMinimum", signal.Where(value => value >= 1.5).DefaultIfEmpty(0).Min(), "V");
-        evidence.Evaluate("lowMaximum", signal.Where(value => value < 1.5).DefaultIfEmpty(3.3).Max(), "V");
-        evidence.Evaluate("edgeShape", signal.Zip(signal.Skip(1), (a, b) => Math.Abs(a - b)).Max(), "V/sample");
+        evidence.Evaluate("highMinimum", signal.Where(value => value >= ThresholdVolts).DefaultIfEmpty(0).Min(), "V");
+        evidence.Evaluate("lowMaximum", signal.Where(value => value < ThresholdVolts).DefaultIfEmpty(3.3).Max(), "V");
+        var edgeChanges = signal.Zip(signal.Skip(1))
+            .Where(edge => (edge.First >= ThresholdVolts) != (edge.Second >= ThresholdVolts))
+            .Select(edge => Math.Abs(edge.First - edge.Second));
+        evidence.Evaluate("edgeShape", edgeChanges.DefaultIfEmpty(0).Min(), "V/sample");
 
-        var compliant = pulses.Count == row.Levels.Length;
+        var compliant = complete && pulses.Count == row.Levels.Length;
         for (var i = 0; i < pulses.Count; i++)
         {
             var pulse = pulses[i];
@@ -114,13 +153,13 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         evidence.Evaluate("windowCompliance", compliant ? 1 : 0, "check");
     }
 
-    private static List<(double Start, double Width)> Decode(double[] trace, double intervalMs)
+    private static List<(double Start, double Width)> Decode(double[] trace, double intervalMs, out bool complete)
     {
         var pulses = new List<(double Start, double Width)>();
         int? start = null;
         for (var i = 0; i < trace.Length; i++)
         {
-            if (trace[i] >= 1.5)
+            if (trace[i] >= ThresholdVolts)
                 start ??= i;
             else if (start is { } first)
             {
@@ -129,6 +168,7 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
             }
         }
 
+        complete = start is null && trace[0] < ThresholdVolts;
         return pulses;
     }
 }

@@ -34,8 +34,16 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
                 RecordEvent(Results, "OperatorGuidance", started, message);
                 throw new InvalidOperationException(message);
             }
-            ValidateSerial();
-            Tables = ValidateConfiguration();
+            try
+            {
+                ValidateSerial();
+                Tables = ValidateConfiguration();
+            }
+            catch (Exception error) when (error is InvalidDataException or InvalidOperationException or IOException)
+            {
+                RecordEvent(Results, "OperatorGuidance", started, error.Message);
+                throw;
+            }
             if (_sourceHash is { } hash) RecordEvent(Results, "procedure.source", started, $"Plan SHA-256 {hash}");
             RecordEvent(Results, "tables", started, $"{Tables.DescribeProfile()} / {Tables.FileHashes()}");
 

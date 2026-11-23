@@ -11,9 +11,12 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
         ("groundLeak", "mA"), ("voltage", "V"), ("setpointError", "V"),
     ];
 
+    internal override (string Id, string Unit)[] OptionalCriteria => [("crossRailLeak", "mA")];
+
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "V", "mA");
+        RequireRoutes(tables, row, row.Criteria.Any(band => band.Id == "crossRailLeak")
+            ? ["V", "mA", "mA"] : ["V", "mA"]);
         RequireLevels(row, 1, 1);
     }
 
@@ -23,6 +26,8 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
         var nominal = row.Levels[0];
         // The simulator models a low-current preflight followed by enabling this rail and routing it to the DMM.
         evidence.Evaluate("groundLeak", routes[1].Nominal, "mA");
+        if (routes.Length == 3)
+            evidence.Evaluate("crossRailLeak", routes[2].Nominal, "mA");
         if (evidence.Passed)
             fixture.EnableSupply();
         var samples = Enumerable.Range(0, 5).Select(i => fixture.SupplyEnabled && evidence.Passed

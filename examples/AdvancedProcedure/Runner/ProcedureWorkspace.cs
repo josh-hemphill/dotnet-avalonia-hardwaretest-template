@@ -13,7 +13,6 @@ internal static class ProcedureWorkspace
         if (Directory.Exists(workspace) && Directory.EnumerateFileSystemEntries(workspace).Any())
             throw new IOException("Choose an empty directory for the example Authoring workspace.");
         const string packName = "HardwareTest Advanced Fixture";
-        const string version = "0.1.0";
         const string tableDirectory = "tables/advanced-procedure";
         const string planId = "advanced-procedure";
         var assets = new[] { tableDirectory + "/station.json", tableDirectory + "/tests.json" };
@@ -23,6 +22,7 @@ internal static class ProcedureWorkspace
             File.Copy(Path.Combine(sourceDirectory, file), Path.Combine(plans, file));
 
         static string Version(Type type) => type.Assembly.GetName().Version!.ToString(3);
+        var version = Version(typeof(FixtureProcedureStep));
         var dependencies = new[]
         {
             new { package = "OpenTAP", version = Version(typeof(TestPlan)) },
@@ -67,7 +67,10 @@ internal static class ProcedureWorkspace
 
     private static object SerialProfile(string id, string name, int baudRate, int timeoutMs) => new
     {
-        id, name, typeId = typeof(SerialDutPort).FullName, address = SerialDutPort.MockAddress,
+        id,
+        name,
+        typeId = typeof(SerialDutPort).FullName,
+        address = SerialDutPort.MockAddress,
         settings = new Dictionary<string, string>
         {
             ["BaudRate"] = baudRate.ToString(System.Globalization.CultureInfo.InvariantCulture),
