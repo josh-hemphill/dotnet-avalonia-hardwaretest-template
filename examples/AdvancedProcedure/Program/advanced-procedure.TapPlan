@@ -1,0 +1,453 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TestPlan type="OpenTap.TestPlan">
+  <Steps>
+    <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureProcedureStep" Id="f244aba5-4db5-3896-9290-dcaf38c6e40f">
+      <Serial type="HardwareTest.Examples.AdvancedProcedure.SerialDutPort">
+        <Address>MOCK::SERIAL</Address>
+        <BaudRate>115200</BaudRate>
+        <TimeoutMs>1000</TimeoutMs>
+        <EnablePhysicalPort>false</EnablePhysicalPort>
+        <Name>Simulated DUT Serial</Name>
+      </Serial>
+      <TableDirectory>tables/advanced-procedure</TableDirectory>
+      <Name Metadata="Step Name">Advanced Fixture Procedure</Name>
+      <ChildTestSteps>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="e7307d5d-1661-ae6e-4bcd-4664c8f03207">
+          <GatesRemainingSections>true</GatesRemainingSections>
+          <Name Metadata="Step Name">Station Bring-Up and Self-Test</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="dfd8401e-ab16-70c8-0eff-ca0de8afa935">
+              <Name Metadata="Step Name">Low-Power and Data Rails</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.RailBringUpStep" Id="048da638-3e27-59cf-1570-aedfce1eea45">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>rail-logic</CaseId>
+                  <Name Metadata="Step Name">Enable and verify logic rail</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>rail-logic</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.RailBringUpStep" Id="d476ef56-4b4a-2368-94b1-310dec0cb50f">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>rail-data</CaseId>
+                  <Name Metadata="Step Name">Enable and verify data rail</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>rail-data</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="f5e0b6c1-22e9-e60f-fec9-f5f96aef0334">
+              <Name Metadata="Step Name">Analog Supply</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.RailBringUpStep" Id="50bf1006-695b-8c45-8f9c-a81abf7c1379">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>rail-analog</CaseId>
+                  <Name Metadata="Step Name">Enable and verify analog rail</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>rail-analog</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="737d11a9-27c3-830f-8280-03b92f4aebf2">
+              <Name Metadata="Step Name">Harness Integrity</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.FixtureChangeStep" Id="d2a08242-6731-14bf-17eb-ba873abad0fb">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <Message>Simulated supplies are off. Leave the DUT disconnected, install the station loopback on J9 and check the J1 power and data harnesses. Continue when the fixture is in self-test mode.</Message>
+                  <EnableSupplyAfterConfirmation>false</EnableSupplyAfterConfirmation>
+                  <Name Metadata="Step Name">Install self-test loopback</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>install-self-test-loopback</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.HarnessResistanceStep" Id="05f5da44-681f-7efc-f9df-7832310b38c6">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>harness-power</CaseId>
+                  <Name Metadata="Step Name">Measure power harness continuity</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>harness-power</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.HarnessResistanceStep" Id="aa1ab59b-41da-27dc-bdd5-fdd697c6cf23">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>harness-data</CaseId>
+                  <Name Metadata="Step Name">Measure data harness continuity</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>harness-data</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.HarnessResistanceStep" Id="81beb066-5a7f-3faf-6cd0-65815d3da060">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>harness-isolation</CaseId>
+                  <Name Metadata="Step Name">Measure shield isolation</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>harness-isolation</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="1f60841b-7b76-be57-e269-69f151aebf23">
+          <GatesRemainingSections>true</GatesRemainingSections>
+          <Name Metadata="Step Name">DUT Connection and Basic Checks</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="c2478d08-333a-a097-0b01-0bf970c98bce">
+              <Name Metadata="Step Name">DUT Connection</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.FixtureChangeStep" Id="535b38f5-d008-40d8-d4d6-f06e41c91016">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <Message>Simulated supplies are off. Remove the J9 self-test loopback. Connect the DUT power, data, and serial leads at J1–J3. Continue when the DUT is seated.</Message>
+                  <EnableSupplyAfterConfirmation>true</EnableSupplyAfterConfirmation>
+                  <Name Metadata="Step Name">Connect the DUT</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>connect-the-dut</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep" Id="3287f039-dec7-22b2-0f5b-333cd2cf81df">
+                  <Instrument type="HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument">
+                    <VisaAddress>MOCK::INSTR0</VisaAddress>
+                    <ResourceName>MOCK::INSTR0</ResourceName>
+                    <Name>Simulated Fixture DMM</Name>
+                  </Instrument>
+                  <Dut type="HardwareTest.OpenTap.Plugins.Basic.HardwareDut">
+                    <SerialNumber></SerialNumber>
+                    <PartNumber></PartNumber>
+                    <Revision></Revision>
+                    <Family>demo</Family>
+                    <ID Metadata="ID" />
+                    <Comment Metadata="Comment" />
+                    <Name>Signal Board</Name>
+                  </Dut>
+                  <Name Metadata="Step Name">Record session DUT identity</Name>
+                  <ChildTestSteps />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.DutCommunicationsStep" Id="f14f4f14-96d5-c1fb-766b-4ce6fdd96eab">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>dut-commands</CaseId>
+                  <Name Metadata="Step Name">Check serial identity, ping and status</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>dut-commands</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="f44095ba-90e7-3c12-b420-ed2d9d80e23d">
+              <Name Metadata="Step Name">Idle Digital Signals</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.DutSignalsStep" Id="81b35764-3c67-0b00-e36b-fb1ccab32a75">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>dut-clock</CaseId>
+                  <Name Metadata="Step Name">Check clock waveform and data levels</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>dut-clock</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="584d272e-d56c-627b-65ab-be156abd8e6c">
+          <GatesRemainingSections>false</GatesRemainingSections>
+          <Name Metadata="Step Name">Differential and Loaded Analog</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="f128a104-0c79-072e-4aea-4d5093dd6b5a">
+              <Name Metadata="Step Name">Differential Spectrum</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.DifferentialProfileStep" Id="90613f65-bca1-e24d-ad3b-639d272bacaf">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>diff-response</CaseId>
+                  <Name Metadata="Step Name">Measure settled unloaded and loaded ladder</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>diff-response</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="4d379314-8f38-467b-bdaa-c100d8ca1397">
+              <Name Metadata="Step Name">Curve Margin</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.DifferentialProfileStep" Id="590d5458-692d-7cbb-8327-36f04bff6b8d">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>diff-margin</CaseId>
+                  <Name Metadata="Step Name">Score curve against margin reference</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>diff-margin</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="f42d37d2-4bb7-8a59-01ae-e310912780e1">
+              <Name Metadata="Step Name">Load Clamp</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.ClampAndSensorStep" Id="44fb9216-bf10-7ac4-7ee3-a219d99245c0">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>clamp-load</CaseId>
+                  <Name Metadata="Step Name">Measure clamp, reclamp, and DUT sensor agreement</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>clamp-load</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="246abf30-a5ce-40e0-b8ce-f523a11e31f6">
+          <GatesRemainingSections>false</GatesRemainingSections>
+          <Name Metadata="Step Name">AC Equalization and Attenuation</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="7e30a55d-79c0-e78d-4b9d-e18d15c871b6">
+              <Name Metadata="Step Name">Reciprocal Paths</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.ReciprocalAcStep" Id="db779cc5-f813-883d-aa30-4ee37b35fe8c">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>ac-reciprocal</CaseId>
+                  <Name Metadata="Step Name">Measure calibrated attenuation at two impedances</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>ac-reciprocal</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="423af958-8c85-732a-f97c-6b503f01e96f">
+          <GatesRemainingSections>false</GatesRemainingSections>
+          <Name Metadata="Step Name">Counters and Embedded Digital</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="51b29081-8952-8c69-107d-bc29c51b331e">
+              <Name Metadata="Step Name">Trigger Counts</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.CounterTriggerStep" Id="d4f86294-dbc5-415f-ed3d-55a82a367ca5">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>counter-relative</CaseId>
+                  <Name Metadata="Step Name">Check relative, cumulative and serial counter values</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>counter-relative</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="fe53174a-6ce9-3131-ccb4-25a0204abcd2">
+              <Name Metadata="Step Name">Pulse Decoder</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.DecodePulseWidthStep" Id="2c5c48d8-37ee-5ba4-5a79-7efff141a0a4">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>pulse-decoder</CaseId>
+                  <Name Metadata="Step Name">Decode dual-generator digitizer capture</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>pulse-decoder</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="b27c5529-d8c4-15d2-a480-b9fa9252eba7">
+          <GatesRemainingSections>false</GatesRemainingSections>
+          <Name Metadata="Step Name">Operator-Selected Configurations</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureConfigurationsStep" Id="6feacbd3-10f7-b300-1be1-07889678a822">
+              <Name Metadata="Step Name">Run Remaining Configurations</Name>
+              <ChildTestSteps>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.ConfigurationMeasurementStep" Id="54ff4bc1-f8fc-ba9c-40b9-08c673dc12a7">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>config-loopback</CaseId>
+                  <Name Metadata="Step Name">Loopback</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>config-loopback</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.ConfigurationMeasurementStep" Id="87711d23-a11a-7177-17d4-4a60a3c7adbf">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>config-terminated</CaseId>
+                  <Name Metadata="Step Name">Terminated</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>config-terminated</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+                <TestStep type="emb:HardwareTest.Examples.AdvancedProcedure.ConfigurationMeasurementStep" Id="f8c30581-e8c7-83e0-fd22-f4d8a812639a">
+                  <OpenTap.Mixins>
+                    <HardwareTest.Presentation type="HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder">
+                      <MemberName>Presentation</MemberName>
+                    </HardwareTest.Presentation>
+                  </OpenTap.Mixins>
+                  <CaseId>config-crossed</CaseId>
+                  <Name Metadata="Step Name">Crossed</Name>
+                  <ChildTestSteps />
+                  <HardwareTest.Presentation.ChannelKey>config-crossed</HardwareTest.Presentation.ChannelKey>
+                  <HardwareTest.Presentation.DisplayRole>timeseries</HardwareTest.Presentation.DisplayRole>
+                  <HardwareTest.Presentation.YUnit></HardwareTest.Presentation.YUnit>
+                  <HardwareTest.Presentation.HistoryEnabled>true</HardwareTest.Presentation.HistoryEnabled>
+                  <HardwareTest.Presentation.HistoryWatchPercent />
+                  <HardwareTest.Presentation.HistoryAlertPercent />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+        <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSectionStep" Id="2e41acea-75c8-1a66-3af6-d2d5348d8682">
+          <GatesRemainingSections>false</GatesRemainingSections>
+          <Name Metadata="Step Name">Cleanup</Name>
+          <ChildTestSteps>
+            <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureSuiteStep" Id="ff1d693d-6532-25f8-3f96-1c6f103ab320">
+              <Name Metadata="Step Name">Return Fixture to Idle</Name>
+              <ChildTestSteps>
+                <TestStep type="HardwareTest.Examples.AdvancedProcedure.FixtureShutdownStep" Id="dc94aee0-64a7-74c1-b75d-93249a7690a7">
+                  <Name Metadata="Step Name">Safe Shutdown</Name>
+                  <ChildTestSteps />
+                </TestStep>
+              </ChildTestSteps>
+            </TestStep>
+          </ChildTestSteps>
+        </TestStep>
+      </ChildTestSteps>
+    </TestStep>
+  </Steps>
+</TestPlan>

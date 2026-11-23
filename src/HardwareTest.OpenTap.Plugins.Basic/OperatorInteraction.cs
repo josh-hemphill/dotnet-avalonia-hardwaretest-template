@@ -14,6 +14,7 @@ public sealed class OperatorInteractionField
     public required string Label { get; init; }
     public OperatorInteractionFieldKind Kind { get; init; } = OperatorInteractionFieldKind.String;
     public string? DefaultValue { get; init; }
+    public IReadOnlyList<string> Choices { get; init; } = [];
     public bool Required { get; init; }
     public string? ValidationHint { get; init; }
 }
@@ -25,7 +26,19 @@ public sealed class OperatorInteractionRequest
     public required string Id { get; init; }
     public string Title { get; init; } = "Operator attention";
     public required string Message { get; init; }
+    public Guid? ProducerStepId { get; init; }
+    public string? ProducerStepName { get; init; }
     public IReadOnlyList<OperatorInteractionField> Fields { get; init; } = [];
+
+    internal OperatorInteractionRequest ForStep(Guid id, string name) => new()
+    {
+        Id = Id,
+        Title = Title,
+        Message = Message,
+        Fields = Fields,
+        ProducerStepId = id,
+        ProducerStepName = name,
+    };
 
     public static OperatorInteractionRequest ConfirmOnly(string message, string? title = null)
         => new()

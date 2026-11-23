@@ -165,7 +165,7 @@ public sealed class MeanGteStep : RuntimeAwareTestStep
 }
 
 [Display("Safe Shutdown", Groups: ["HardwareTest", "Safety"], Description: "Return instrument to a safe idle.")]
-public sealed class SafeShutdownStep : RuntimeAwareTestStep
+public sealed class SafeShutdownStep : RuntimeAwareTestStep, ISafeShutdownStep
 {
     [Display("Instrument")]
     public HardwareDmm Instrument { get; set; } = null!;

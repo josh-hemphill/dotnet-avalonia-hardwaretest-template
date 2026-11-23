@@ -132,6 +132,41 @@ public sealed class OperatorPromptChromeTests
     }
 
     [Fact]
+    public void Choice_requests_keep_drafts_and_reject_a_stale_continue()
+    {
+        var first = new OperatorInteractionRequest
+        {
+            Id = "first",
+            Message = "Choose an option.",
+            Fields = [new() { Id = "fixture", Label = "Fixture", Required = true, Choices = ["Crossed", "Loopback"] }],
+        };
+        var next = new OperatorInteractionRequest
+        {
+            Id = "next",
+            Message = "Choose the remaining option.",
+            Fields = [new() { Id = "fixture", Label = "Fixture", Required = true, Choices = ["Loopback"] }],
+        };
+        var host = new InteractionHostViewModel();
+        host.Apply(first, fallbackMessage: null);
+        Assert.False(host.TryCollectResponse(first, out _));
+        host.InteractionFields.Single().SelectedChoice = "Crossed";
+        Assert.Null(host.InteractionValidationError);
+        host.Apply(first, fallbackMessage: null);
+        Assert.Equal("Crossed", host.InteractionFields.Single().SelectedChoice);
+
+        Assert.False(host.TryCollectResponse(next, out var staleValues));
+        Assert.Empty(staleValues);
+        Assert.Contains("prompt changed", host.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(host.InteractionFields.Single().SelectedChoice);
+        host.InteractionFields.Single().SelectedChoice = "Crossed";
+        Assert.False(host.TryCollectResponse(next, out _));
+        host.InteractionFields.Single().SelectedChoice = "Loopback";
+        Assert.Null(host.InteractionValidationError);
+        Assert.True(host.TryCollectResponse(next, out var currentValues));
+        Assert.Equal("Loopback", currentValues["fixture"]);
+    }
+
+    [Fact]
     public void InteractionHostViewModel_apply_requests_focus_on_first_field()
     {
         var host = new InteractionHostViewModel();
@@ -243,7 +278,7 @@ public sealed class OperatorPromptChromeTests
         Assert.Contains("Header=\"Jump to current\"", steps, StringComparison.Ordinal);
 
         var codeBehind = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/InteractionHostView.axaml.cs"));
-        Assert.Contains("ContinueButton.Focus()", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("ContinueButton.Focus(NavigationMethod.Tab)", codeBehind, StringComparison.Ordinal);
         Assert.Contains("CanExecute", codeBehind, StringComparison.Ordinal);
 
         var keys = File.ReadAllText(FindRepoFile("src/HardwareTest/Features/RunTest/RunTestView.axaml.cs"));

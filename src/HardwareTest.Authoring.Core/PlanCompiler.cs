@@ -52,6 +52,12 @@ public sealed partial class PlanCompiler : IPlanCompiler
                 $"{AuthoringCompileCodes.PlanIdMismatch}: draft '{draft.PlanId}' does not match '{planId}'.");
         }
 
+        if (draft.ImportedPlanXml is { } imported)
+        {
+            SaveImported(draft, imported, tapPlanPath);
+            return;
+        }
+
         draft = AuthoringFormulaDeployment.Project(draft);
         if (draft.AuthoringState.IncompleteNumericText.Count != 0)
             throw new AuthoringWorkspaceException("BUILD_INCOMPLETE: Deployment source contains incomplete numeric input.");
@@ -72,7 +78,12 @@ public sealed partial class PlanCompiler : IPlanCompiler
         AssertNoDialog(plan);
         var sidecar = CloneSidecar(draft.Sidecar);
         AuthoringCleanup.SyncSidecar(sidecar, draft.Cleanup);
-        WritePlanAndSidecar(plan, tapPlanPath, sidecar);
+        WritePlanAndSidecar(stream =>
+        {
+            using var serialized = new MemoryStream();
+            plan.Save(serialized);
+            AuthoringMeasureSections.WriteCompiledLayout(serialized, stream);
+        }, tapPlanPath, sidecar);
     }
 
     public ProgramDraft Load(string tapPlanPath)
@@ -87,6 +98,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var libraryHome = LibraryHome;
         var availableLibraryTypes = libraryHome is null ? new HashSet<string>(StringComparer.Ordinal)
             : AuthoringInstrumentCatalog.Discover(libraryHome).Select(a => a.TypeId).ToHashSet(StringComparer.Ordinal);
+        if (TryLoadImported(tapPlanPath) is { } imported) return imported;
         var plan = LoadPlanWithOpaqueResources(tapPlanPath, availableLibraryTypes);
         var xmlById = IndexStepXml(tapPlanPath);
         var sidecar = ReadSidecar(tapPlanPath);

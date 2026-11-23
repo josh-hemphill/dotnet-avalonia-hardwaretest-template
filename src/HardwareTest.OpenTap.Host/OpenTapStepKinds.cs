@@ -13,8 +13,12 @@ public static class OpenTapStepKinds
            || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "QueryIdentity", Parent: TestGroupStep { Name: "Setup" } };
 
     public static bool IsSafeShutdown(ITestStep step)
-        => step is SafeShutdownStep || TypeNameIs(step, "SafeShutdownStep")
+        => step is ISafeShutdownStep || IsKnownSafeShutdown(step)
            || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: "Cleanup" } };
+
+    // Only built-in cleanup types can be reconstructed by the Authoring compiler.
+    internal static bool IsKnownSafeShutdown(ITestStep step)
+        => step is SafeShutdownStep || TypeNameIs(step, "SafeShutdownStep");
 
     public static bool IsOperatorInteraction(ITestStep step)
         => step is OperatorPromptStep or OperatorInputStep

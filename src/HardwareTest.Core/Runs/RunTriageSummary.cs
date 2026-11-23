@@ -10,10 +10,19 @@ public sealed class RunTriageSummary
     public string OperatorSummary { get; init; } = string.Empty;
     public IReadOnlyList<StepAttemptSummary> Ledgers { get; init; } = [];
 
-    /// Builds triage from <see cref="TestRunRecord.StepAttempts"/> chronology.
+    /// Builds triage from the attempt ledger or the original steps when no ledger was stored.
     public static RunTriageSummary FromRecord(TestRunRecord run)
     {
-        var ledgers = run.StepAttempts;
+        var ledgers = run.StepAttempts.Count > 0
+            ? run.StepAttempts
+            : run.Steps.GroupBy(step => string.IsNullOrWhiteSpace(step.StepPath) ? step.StepId : step.StepPath,
+                StringComparer.OrdinalIgnoreCase)
+                .Select(group => new StepAttemptSummary
+                {
+                    StepPath = group.Key,
+                    StepName = group.First().StepType,
+                    Attempts = [.. group],
+                }).ToList();
         var chronology = ledgers
             .SelectMany(l => l.Attempts)
             .OrderBy(ChronologyInstant)
@@ -82,6 +91,8 @@ public sealed class RunTriageSummary
         }
 
         var path = string.IsNullOrWhiteSpace(firstFail.StepPath) ? firstFail.StepId : firstFail.StepPath;
+        if (pathFail + pathError + pathCancelled == 0 && firstFail.OutcomeLabel == "Fail")
+            return $"Earlier attempt failed: {path} — {firstFail.Message}. Latest results passed on {pathPass} path(s).";
         var counts = pathError + pathCancelled > 0 ? $"{pathFail} failed / {pathError} error / {pathCancelled} cancelled path(s)" : $"{pathFail} failed path(s)";
         return $"First nonpassing attempt in session: {path} — {firstFail.Message} ({counts})";
     }

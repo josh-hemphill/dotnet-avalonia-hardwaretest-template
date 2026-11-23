@@ -13,6 +13,7 @@ public sealed class MetricGaugeModel : IMetricGaugeSource
 
     public required string MetricKey { get; init; }
     public required string ValueText { get; init; }
+    public string? Unit { get; init; }
     public required string LimitsText { get; init; }
     public bool ShowBand { get; init; }
     public double Value { get; init; }

@@ -240,6 +240,11 @@ public sealed class StoredSample
     public string StepPath { get; set; } = string.Empty;
     public DateTimeOffset Timestamp { get; set; }
     public double Value { get; set; }
+    /// Original sample position within a Capture trace.
+    public int? SampleIndex { get; set; }
+    /// Producer verdict for an Evaluated row. Null for raw capture or legacy measurements.
+    public string? RowVerdict { get; set; }
+    public string? MetricDisplayName { get; set; }
     /// Innermost loop iteration when the sample was published (1-based); null if outside a loop.
     public int? IterationIndex { get; set; }
     /// Path/name of the innermost active loop step when stamped.
@@ -282,7 +287,7 @@ public sealed class StoredSample
             core += $" {unit}";
         }
 
-        return $"{core} @ {Timestamp:u}";
+        return RowVerdict is null ? $"{core} @ {Timestamp:u}" : $"{core} {RowVerdict} @ {Timestamp:O}";
     }
 
     public static StoredSample From(MeasurementSample sample) => new()

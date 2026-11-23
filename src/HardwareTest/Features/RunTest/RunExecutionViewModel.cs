@@ -253,7 +253,7 @@ public sealed partial class RunExecutionViewModel
 
         _host.IsRunning = true;
         if (_host is RunTestViewModel resettingBoard) resettingBoard.SetReferenceOutcome(null, [], RunResult.Unknown);
-        if (_host is RunTestViewModel startingBoard) startingBoard.BeginRunNotifications();
+        if (_host is RunTestViewModel startingBoard) startingBoard.ClearRunCompletionNotice();
         _live.ResetForRun();
         _host.HistoryBanner = string.Empty;
         _host.ResetPumpForRun();

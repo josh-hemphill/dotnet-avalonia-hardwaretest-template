@@ -31,7 +31,7 @@ public partial class RunTestViewModel
         SetBanner(severity, message);
     }
 
-    internal void BeginRunNotifications()
+    internal void ClearRunCompletionNotice()
     {
         var completion = _runCompletionMessage;
         _runCompletionMessage = null;

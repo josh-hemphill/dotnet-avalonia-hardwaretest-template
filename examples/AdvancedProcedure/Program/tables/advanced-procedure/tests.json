@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "stationId": "SIM-FIXTURE",
+  "revision": "tests-r1",
+  "references": [
+    {"id": "profile-nominal-r3", "values": [0.1314688, 0.2958049, 0.5263753, 0.789613, 1.0512506]},
+    {"id": "profile-limit-r2", "values": [0.1393177, 0.3164649, 0.5522709, 0.8379063, 1.1140417]}
+  ],
+  "cases": [
+    {
+      "id": "rail-logic",
+      "routes": ["rail-logic", "rail-logic-leak"],
+      "levels": [1.8],
+      "reference": null,
+      "criteria": [
+        {"id": "groundLeak", "unit": "mA", "low": 0, "high": 0.08},
+        {"id": "voltage", "unit": "V", "low": 1.764, "high": 1.836},
+        {"id": "setpointError", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "rail-data",
+      "routes": ["rail-data", "rail-data-leak"],
+      "levels": [3.3],
+      "reference": null,
+      "criteria": [
+        {"id": "groundLeak", "unit": "mA", "low": 0, "high": 0.08},
+        {"id": "voltage", "unit": "V", "low": 3.234, "high": 3.366},
+        {"id": "setpointError", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "rail-analog",
+      "routes": ["rail-analog", "rail-analog-leak"],
+      "levels": [12],
+      "reference": null,
+      "criteria": [
+        {"id": "groundLeak", "unit": "mA", "low": 0, "high": 0.08},
+        {"id": "voltage", "unit": "V", "low": 11.76, "high": 12.24},
+        {"id": "setpointError", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "harness-power",
+      "routes": ["harness-power"],
+      "levels": [8, 2],
+      "reference": null,
+      "criteria": [
+        {"id": "minResistance", "unit": "ohm", "low": 0, "high": 0.18},
+        {"id": "maxResistance", "unit": "ohm", "low": 0, "high": 0.18},
+        {"id": "consecutiveDelta", "unit": "ohm", "low": 0, "high": 0.01}
+      ]
+    },
+    {
+      "id": "harness-data",
+      "routes": ["harness-data"],
+      "levels": [8, 2],
+      "reference": null,
+      "criteria": [
+        {"id": "minResistance", "unit": "ohm", "low": 0, "high": 0.2},
+        {"id": "maxResistance", "unit": "ohm", "low": 0, "high": 0.2},
+        {"id": "consecutiveDelta", "unit": "ohm", "low": 0, "high": 0.01}
+      ]
+    },
+    {
+      "id": "harness-isolation",
+      "routes": ["harness-isolation"],
+      "levels": [8, 2],
+      "reference": null,
+      "criteria": [
+        {"id": "minResistance", "unit": "ohm", "low": 100000, "high": 1000000},
+        {"id": "maxResistance", "unit": "ohm", "low": 100000, "high": 1000000},
+        {"id": "consecutiveDelta", "unit": "ohm", "low": 0, "high": 0.01}
+      ]
+    },
+    {
+      "id": "dut-commands",
+      "routes": ["dut-serial"],
+      "levels": [1],
+      "reference": null,
+      "criteria": [
+        {"id": "identity", "unit": "check", "low": 1, "high": 1},
+        {"id": "ping", "unit": "check", "low": 1, "high": 1},
+        {"id": "status", "unit": "check", "low": 1, "high": 1}
+      ]
+    },
+    {
+      "id": "dut-clock",
+      "routes": ["dut-clock-lo", "dut-clock-hi"],
+      "levels": [0.01],
+      "reference": null,
+      "criteria": [
+        {"id": "low", "unit": "V", "low": 0, "high": 0.2},
+        {"id": "high", "unit": "V", "low": 3.0, "high": 3.5},
+        {"id": "frequency", "unit": "Hz", "low": 9850, "high": 10150}
+      ]
+    },
+    {
+      "id": "diff-response",
+      "routes": ["diff-p", "diff-n", "load-bank"],
+      "levels": [0.2, 0.45, 0.8, 1.2, 1.6],
+      "reference": "profile-nominal-r3",
+      "criteria": [
+        {"id": "settlingTime", "unit": "ms", "low": 0, "high": 6},
+        {"id": "unloadedGain", "unit": "ratio", "low": 0.68, "high": 0.73},
+        {"id": "loadedStrength", "unit": "ratio", "low": 0.88, "high": 0.96},
+        {"id": "residual", "unit": "dBc", "low": -59, "high": -49},
+        {"id": "referenceDelta", "unit": "V", "low": -0.12, "high": 0.12},
+        {"id": "previousDelta", "unit": "V", "low": -0.08, "high": 0.08},
+        {"id": "spanDelta", "unit": "V", "low": -0.12, "high": 0.12},
+        {"id": "curveScore", "unit": "pts", "low": 93, "high": 99.9}
+      ]
+    },
+    {
+      "id": "diff-margin",
+      "routes": ["diff-p", "diff-n", "load-bank"],
+      "levels": [0.2, 0.45, 0.8, 1.2, 1.6],
+      "reference": "profile-limit-r2",
+      "criteria": [
+        {"id": "settlingTime", "unit": "ms", "low": 0, "high": 6},
+        {"id": "unloadedGain", "unit": "ratio", "low": 0.68, "high": 0.73},
+        {"id": "loadedStrength", "unit": "ratio", "low": 0.88, "high": 0.96},
+        {"id": "residual", "unit": "dBc", "low": -59, "high": -49},
+        {"id": "referenceDelta", "unit": "V", "low": -0.12, "high": 0.12},
+        {"id": "previousDelta", "unit": "V", "low": -0.08, "high": 0.08},
+        {"id": "spanDelta", "unit": "V", "low": -0.12, "high": 0.12},
+        {"id": "curveScore", "unit": "pts", "low": 93, "high": 99.9}
+      ]
+    },
+    {
+      "id": "clamp-load",
+      "routes": ["clamp-current"],
+      "levels": [0.5, 1.5],
+      "reference": null,
+      "criteria": [
+        {"id": "clampTime", "unit": "ms", "low": 0.25, "high": 2},
+        {"id": "reclampTime", "unit": "ms", "low": 0.25, "high": 2},
+        {"id": "pulseWidth", "unit": "ms", "low": 9.75, "high": 10.25},
+        {"id": "peakCurrent", "unit": "A", "low": 0.65, "high": 0.8},
+        {"id": "sensorDelta", "unit": "A", "low": -0.025, "high": 0.025}
+      ]
+    },
+    {
+      "id": "ac-reciprocal",
+      "routes": ["ac-ab", "ac-ba"],
+      "levels": [50, 600, 0, 3, 6, 12],
+      "reference": null,
+      "criteria": [
+        {"id": "vrms", "unit": "VRMS", "low": 0.23, "high": 1.03},
+        {"id": "referenceDelta", "unit": "dB", "low": -0.06, "high": 0.06},
+        {"id": "equalization", "unit": "dB", "low": -0.08, "high": 0.08},
+        {"id": "previousDelta", "unit": "dB", "low": -0.04, "high": 0.04},
+        {"id": "spanDelta", "unit": "dB", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "counter-relative",
+      "routes": ["hw-counter"],
+      "levels": [8, 12, 16],
+      "reference": null,
+      "criteria": [
+        {"id": "increment", "unit": "count", "low": 0, "high": 0},
+        {"id": "span", "unit": "count", "low": 35, "high": 37},
+        {"id": "dutDelta", "unit": "count", "low": 0, "high": 0}
+      ]
+    },
+    {
+      "id": "pulse-decoder",
+      "routes": ["pulse-gen-a", "pulse-gen-b", "pulse-digitizer"],
+      "levels": [1, 0, 1, 1, 0, 1],
+      "reference": null,
+      "criteria": [
+        {"id": "payload", "unit": "check", "low": 1, "high": 1},
+        {"id": "peakToPeak", "unit": "V", "low": 3.0, "high": 3.45},
+        {"id": "highMinimum", "unit": "V", "low": 3, "high": 3.4},
+        {"id": "lowMaximum", "unit": "V", "low": 0, "high": 0.25},
+        {"id": "edgeShape", "unit": "V/sample", "low": 3, "high": 3.5},
+        {"id": "width", "unit": "ms", "low": 0.35, "high": 1.35},
+        {"id": "period", "unit": "ms", "low": 1.85, "high": 2.15},
+        {"id": "frequency", "unit": "Hz", "low": 450, "high": 550},
+        {"id": "windowCompliance", "unit": "check", "low": 1, "high": 1}
+      ]
+    },
+    {
+      "id": "config-loopback",
+      "routes": ["config-loopback"],
+      "levels": [1.0],
+      "reference": null,
+      "criteria": [
+        {"id": "output", "unit": "V", "low": 0.95, "high": 1.05},
+        {"id": "referenceDelta", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "config-terminated",
+      "routes": ["config-terminated"],
+      "levels": [1],
+      "reference": null,
+      "criteria": [
+        {"id": "output", "unit": "V", "low": 0.95, "high": 1.05},
+        {"id": "referenceDelta", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    },
+    {
+      "id": "config-crossed",
+      "routes": ["config-crossed"],
+      "levels": [1],
+      "reference": null,
+      "criteria": [
+        {"id": "output", "unit": "V", "low": 0.95, "high": 1.05},
+        {"id": "referenceDelta", "unit": "V", "low": -0.05, "high": 0.05}
+      ]
+    }
+  ]
+}

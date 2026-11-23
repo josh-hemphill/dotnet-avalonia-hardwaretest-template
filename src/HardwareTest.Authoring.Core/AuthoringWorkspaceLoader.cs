@@ -21,6 +21,7 @@ public static class AuthoringWorkspaceLoader
         "shellAppProjects",
         "includeTui",
         "excludedProgramIds",
+        "programAssets",
         "recordingsDirectory",
         "catalogs",
     };
@@ -109,6 +110,7 @@ public static class AuthoringWorkspaceLoader
 
             if (!isFuture && (manifest.ExcludedProgramIds is null || manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace)))
                 throw new AuthoringWorkspaceException("excludedProgramIds must be an array of nonempty program IDs.");
+            if (!isFuture) AuthoringProgramAssets.Validate(manifest);
             manifest.SchemaVersion = schemaVersion;
             var plansDirectory = ResolvePlansDirectory(fullRoot, manifest.PlansDirectory);
             var tapPlans = EnumerateTapPlans(plansDirectory);

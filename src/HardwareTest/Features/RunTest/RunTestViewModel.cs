@@ -219,9 +219,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     /// Selects a step the Inspect page asked to open on the Run board.
     public void ApplySelectionFromInspect(string? stepPath) => StepTree.ApplySelectionFromInspect(stepPath);
 
-    /// Continue entry point for the window-level transport bar.
-    public void ContinueOperatorAttention() => ContinueOperator();
-
     private void SubscribeToChildren()
     {
         ProgramSelection.PropertyChanged += (_, args) =>
@@ -464,60 +461,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         {
             StepDetail.SyncLive(selected);
         }
-    }
-
-    /// Reveals the waiting step under the docked operator prompt.
-    private void ShowCurrentStep()
-    {
-        Workspace.OpenSteps();
-        StepTree.JumpToCurrent(changeScope: true);
-    }
-
-    private void ContinueOperator()
-    {
-        if (!Interaction.IsAwaitingOperator && !_runSession.IsAwaitingOperator) return;
-        var request = _runSession.PendingInteraction;
-        if (!Interaction.TryCollectResponse(request, out var values))
-        {
-            Status = Interaction.InteractionValidationError!;
-            return;
-        }
-
-        var response = request is null
-            ? null
-            : OperatorInteractionResponse.Continue(request.Id, values);
-
-        ClearPendingOperatorState();
-        _session.TouchActivity();
-        _runSession.Resume(response);
-        _runControl.Resume();
-        Interaction.Clear();
-        Interaction.IsAwaitingOperator = false;
-        Interaction.OperatorPromptMessage = null;
-        Status = "Continuing…";
-        ScheduleScrollToCurrentStep(changeScope: false);
-    }
-
-    private void ScheduleScrollToCurrentStep(bool changeScope = true)
-    {
-        void Scroll()
-        {
-            StepTree.JumpToCurrent(changeScope);
-            if (StepTree.SelectedStep is null && !string.IsNullOrWhiteSpace(CurrentStepPath))
-            {
-                return;
-            }
-
-            StepTree.RaiseRequestScroll();
-        }
-
-        if (UiScheduler is not null)
-        {
-            UiScheduler(Scroll);
-            return;
-        }
-
-        Scroll();
     }
 
     internal void Observe(Task task)

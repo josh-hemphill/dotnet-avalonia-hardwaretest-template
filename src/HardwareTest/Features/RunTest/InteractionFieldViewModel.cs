@@ -16,6 +16,8 @@ public partial class InteractionFieldViewModel : ReactiveObject
         ValidationHint = field.ValidationHint;
         IsReadOnly = isReadOnly;
         Value = field.DefaultValue ?? string.Empty;
+        Choices = field.Choices;
+        SelectedChoice = Choices.FirstOrDefault(choice => string.Equals(choice, field.DefaultValue, StringComparison.Ordinal));
         if (field.Kind == OperatorInteractionFieldKind.Boolean
             && bool.TryParse(field.DefaultValue, out var b))
         {
@@ -36,7 +38,9 @@ public partial class InteractionFieldViewModel : ReactiveObject
 
     public bool IsBoolean => Kind == OperatorInteractionFieldKind.Boolean;
     public bool IsNumber => Kind == OperatorInteractionFieldKind.Number;
-    public bool IsTextOrNumber => !IsBoolean;
+    public IReadOnlyList<string> Choices { get; }
+    public bool IsChoice => Choices.Count > 0;
+    public bool IsTextOrNumber => !IsBoolean && !IsChoice;
 
     /// Label with a required marker so operators do not rely on asterisk-only placeholders.
     public string DisplayLabel => Required ? $"{Label} *" : Label;
@@ -46,6 +50,7 @@ public partial class InteractionFieldViewModel : ReactiveObject
     [Reactive] private string _value = string.Empty;
     [Reactive] private bool _boolValue;
     [Reactive] private string _validationError = string.Empty;
+    [Reactive] private string? _selectedChoice;
 
     public string ToResponseValue()
     {
@@ -54,6 +59,6 @@ public partial class InteractionFieldViewModel : ReactiveObject
             return BoolValue ? "true" : "false";
         }
 
-        return Value.Trim();
+        return IsChoice ? SelectedChoice ?? string.Empty : Value.Trim();
     }
 }

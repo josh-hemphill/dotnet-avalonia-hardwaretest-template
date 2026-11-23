@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Time;
 using OpenTap;
@@ -143,7 +144,10 @@ internal sealed partial class ProgressResultListener : ResultListener
         if (_measurementOutcomes.TryGetValue(stepRun.Id, out var outcomeDetail)) completed.OutcomeDetail = outcomeDetail;
         _steps.Add(completed);
         _updateNode(id, stepRun.TestStepName, verdict, verdict, null);
-        _stepIndex++;
+        if (OpenTapLoopProgress.FindStepById(_plan, stepRun.TestStepId)?.ChildTestSteps.Count == 0)
+        {
+            _stepIndex++;
+        }
 
         if (_loops.Count > 0 && _loops.Peek().StepId == stepRun.TestStepId)
         {
@@ -157,6 +161,8 @@ internal sealed partial class ProgressResultListener : ResultListener
             verdict,
             verdict);
     }
+
+    private double OverallPercent => Math.Min(100, (double)_stepIndex / _stepCount * 100);
 
     private static bool IsFirstEnabledDirectChild(ITestStep child, ITestStep parent)
     {
@@ -194,7 +200,6 @@ internal sealed partial class ProgressResultListener : ResultListener
             }
         }
 
-        var denominator = Math.Max(_stepCount, _stepIndex);
         _progress?.Report(new OpenTapProgress
         {
             Message = message,
@@ -203,14 +208,14 @@ internal sealed partial class ProgressResultListener : ResultListener
             StepPath = _resolvePath(stepId, stepName),
             StatusText = statusText,
             Verdict = verdict,
-            OverallPercent = (double)_stepIndex / denominator * 100,
+            OverallPercent = OverallPercent,
             IterationIndex = iterationIndex,
             IterationTotal = iterationTotal,
             IterationText = iterationText,
         });
     }
 
-    private void PublishSamples(ResultTable result, Guid stepRunId)
+    private void PublishSamples(ResultTable result, Guid stepRunId, bool capture)
     {
         var producer = ResultProducer(stepRunId);
         var channelCol = result.Columns.FirstOrDefault(c => c.Name == "Channel");
@@ -220,6 +225,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         var limitHighCol = result.Columns.FirstOrDefault(c => c.Name == "LimitHigh");
         var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
         var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
+        var timestampCol = capture ? result.Columns.FirstOrDefault(c => c.Name == "TimestampUtc") : null;
         if (valueCol is null)
         {
             return;
@@ -231,7 +237,7 @@ internal sealed partial class ProgressResultListener : ResultListener
             var value = Convert.ToDouble(valueCol.Data.GetValue(i));
             var channel = channelCol is null ? "VDC" : Convert.ToString(channelCol.Data.GetValue(i)) ?? "VDC";
             var index = indexCol is null ? i : Convert.ToInt32(indexCol.Data.GetValue(i));
-            var ts = _clock.UtcNow;
+            var ts = ReadTimestamp(timestampCol, i);
             var stepPath = _resolvePath(producer.Id ?? string.Empty, producer.Name) ?? string.Empty;
             int? iterationIndex = null;
             string? loopPath = null;
@@ -249,6 +255,7 @@ internal sealed partial class ProgressResultListener : ResultListener
             {
                 Channel = channel,
                 Timestamp = ts,
+                SampleIndex = capture ? index : null,
                 Value = value,
                 StepPath = stepPath,
                 IterationIndex = iterationIndex,
@@ -261,12 +268,19 @@ internal sealed partial class ProgressResultListener : ResultListener
                 TryReadOptionalDouble(limitLowCol, i),
                 TryReadOptionalDouble(limitHighCol, i),
                 TryReadOptionalDouble(elapsedCol, i));
+            if (capture)
+            {
+                stored.MetricKey = channel;
+                stored.DisplayRole = "timeseries";
+                stored.Unit = ReadText(unitCol, i) ?? stored.Unit;
+            }
+
             StampExecution(stored, stepRunId);
             if (unitCol is not null && i < unitCol.Data.Length && Convert.ToString(unitCol.Data.GetValue(i)) is { Length: > 0 } publishedUnit) stored.Unit = publishedUnit;
             _samples.Add(stored);
 
             var sampleEvent = MeasurementSampleEvent.FromStored(stored, index);
-            var percent = (double)_stepIndex / _stepCount * 100;
+            var percent = OverallPercent;
             var nowTicks = Stopwatch.GetTimestamp();
             var elapsed = nowTicks - _lastSampleReportTimestamp;
             var interval = SampleReportIntervalTicks * Stopwatch.Frequency / TimeSpan.TicksPerSecond;
@@ -293,7 +307,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         }
     }
 
-    private void PublishScalars(ResultTable result, Guid stepRunId)
+    private void PublishScalars(ResultTable result, Guid stepRunId, bool evaluated)
     {
         var producer = ResultProducer(stepRunId);
         var nameCol = result.Columns.FirstOrDefault(c => c.Name == "Name");
@@ -301,6 +315,9 @@ internal sealed partial class ProgressResultListener : ResultListener
         var unitCol = result.Columns.FirstOrDefault(c => c.Name == "Unit");
         var limitLowCol = result.Columns.FirstOrDefault(c => c.Name == "LimitLow");
         var limitHighCol = result.Columns.FirstOrDefault(c => c.Name == "LimitHigh");
+        var timestampCol = evaluated ? result.Columns.FirstOrDefault(c => c.Name == "TimestampUtc") : null;
+        var verdictCol = evaluated ? result.Columns.FirstOrDefault(c => c.Name == "Verdict") : null;
+        var displayNameCol = evaluated ? result.Columns.FirstOrDefault(c => c.Name == "DisplayName") : null;
         if (valueCol is null)
         {
             return;
@@ -321,12 +338,20 @@ internal sealed partial class ProgressResultListener : ResultListener
             var limitHigh = TryReadOptionalDouble(limitHighCol, i);
             var stored = new StoredSample
             {
-                Timestamp = _clock.UtcNow,
+                Timestamp = ReadTimestamp(timestampCol, i),
                 Value = value,
                 StepPath = stepPath,
                 ResultSource = TryReadResultSource(result, i),
             };
             OpenTapPresentation.ApplyScalar(stored, name, unit, hints, limitLow, limitHigh);
+            if (evaluated)
+            {
+                stored.MetricKey = name;
+                stored.DisplayRole = "passband";
+                stored.RowVerdict = ReadText(verdictCol, i);
+                stored.MetricDisplayName = ReadText(displayNameCol, i) is { Length: > 0 } title ? title : null;
+            }
+
             StampExecution(stored, stepRunId);
             _samples.Add(stored);
 
@@ -344,7 +369,7 @@ internal sealed partial class ProgressResultListener : ResultListener
                 KeyValue = FormatSampleKey(stored),
                 StatusText = stored.DisplayRole ?? "Scalar",
                 Sample = MeasurementSampleEvent.FromStored(stored),
-                OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
+                OverallPercent = OverallPercent,
             });
         }
     }
@@ -355,6 +380,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         var elapsedCol = result.Columns.FirstOrDefault(c => c.Name == "ElapsedMs");
         var labelCol = result.Columns.FirstOrDefault(c => c.Name == "Label");
         var valueCol = result.Columns.FirstOrDefault(c => c.Name == "Value");
+        var timestampCol = result.Columns.FirstOrDefault(c => c.Name == "TimestampUtc");
         var rowCount = elapsedCol?.Data.Length
             ?? nameCol?.Data.Length
             ?? labelCol?.Data.Length
@@ -387,7 +413,7 @@ internal sealed partial class ProgressResultListener : ResultListener
                 Label = string.IsNullOrWhiteSpace(label) ? null : label,
                 Value = TryReadOptionalDouble(valueCol, i),
                 StepPath = stepPath,
-                Timestamp = _clock.UtcNow,
+                Timestamp = ReadTimestamp(timestampCol, i),
             };
             StampExecution(stored, stepRunId);
             _events.Add(stored);
@@ -405,10 +431,19 @@ internal sealed partial class ProgressResultListener : ResultListener
                     stored.Label,
                     stored.Value,
                     stored.StepPath, stored.ProducerStepId, stored.StepRunId, stored.LoopRunId, stored.LoopPath, stored.IterationIndex),
-                OverallPercent = (double)_stepIndex / Math.Max(_stepCount, 1) * 100,
+                OverallPercent = OverallPercent,
             });
         }
     }
+
+    private DateTimeOffset ReadTimestamp(ResultColumn? column, int index)
+        => DateTimeOffset.TryParseExact(ReadText(column, index), "O", CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out var timestamp) ? timestamp.ToUniversalTime() : _clock.UtcNow;
+
+    private static string? ReadText(ResultColumn? column, int index)
+        => column is not null && index < column.Data.Length
+            ? Convert.ToString(column.Data.GetValue(index), CultureInfo.InvariantCulture)
+            : null;
 
     private static string? TryReadResultSource(ResultTable result, int index)
     {

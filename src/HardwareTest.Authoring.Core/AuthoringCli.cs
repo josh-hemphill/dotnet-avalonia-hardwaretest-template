@@ -110,7 +110,7 @@ public static class AuthoringCli
         return selected[0].Command switch
         {
             AuthoringCliCommand.Bootstrap => RunBootstrap(workspace, ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), parsed.GetValue(offlineOption), output),
-            AuthoringCliCommand.Validate => RunValidate(workspace, parsed.GetValue(strictOption), format, output),
+            AuthoringCliCommand.Validate => RunValidate(workspace, parsed.GetValue(strictOption), format, ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), output),
             AuthoringCliCommand.Pack => RunPack(workspace, parsed.GetValue(outputOption), ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), parsed.GetValue(offlineOption), output, error),
             AuthoringCliCommand.Compat => RunCompat(workspace, ResolveOpenTapHome(parsed.GetValue(openTapHomeOption)), parsed.GetValue(offlineOption), output, error),
             AuthoringCliCommand.EvalFormulas => RunEvalFormulas(workspace, output, error),
@@ -132,10 +132,11 @@ public static class AuthoringCli
         return 0;
     }
 
-    private static int RunValidate(string workspaceRoot, bool strict, PlanContractFormat format, TextWriter output)
+    private static int RunValidate(string workspaceRoot, bool strict, PlanContractFormat format, string? preferredHome, TextWriter output)
     {
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
         AuthoringSourceExportGuard.EnsureCurrent(workspace);
+        if (WorkspacePackPlan.TryResolveHomePath(workspace, preferredHome, out var home, out _)) AuthoringPluginSearch.Search([home!]);
         return PlanContractCli.Run(
             workspace.TapPlanPaths,
             output,

@@ -50,7 +50,7 @@ public static class PackageXmlRenderer
         {
             return TemplatePackFiles.Where(file => !file.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase)
                 && !file.EndsWith(".program.json", StringComparison.OrdinalIgnoreCase)
-                || !workspace.Manifest.ExcludedProgramIds.Contains(file[..file.IndexOf('.')], StringComparer.OrdinalIgnoreCase)).ToArray();
+                || !workspace.Manifest.ExcludedProgramIds.Contains(file[..file.IndexOf('.')], StringComparer.OrdinalIgnoreCase)).Concat(AuthoringProgramAssets.Included(workspace)).ToArray();
         }
 
         var files = new List<string>();
@@ -72,6 +72,7 @@ public static class PackageXmlRenderer
             }
         }
 
+        files.AddRange(AuthoringProgramAssets.Included(workspace));
         return files;
     }
 }

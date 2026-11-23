@@ -62,6 +62,7 @@ public sealed class BoardPreviewTileView : UserControl
             {
                 MetricKey = chrome.MetricKey,
                 ValueText = chrome.ValueText,
+                Unit = chrome.YUnit,
                 LimitsText = chrome.LimitsText,
                 ShowBand = chrome.ShowBand,
                 Value = chrome.Value,

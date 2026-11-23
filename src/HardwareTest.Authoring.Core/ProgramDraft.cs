@@ -19,6 +19,9 @@ public sealed record ProgramDraft(
     IReadOnlyList<MeasureNode> Measure,
     CleanupPolicy Cleanup)
 {
+    public string? ImportedPlanXml { get; init; }
+    public IReadOnlyDictionary<string, string> ImportedData { get; init; } = new Dictionary<string, string>();
+
     public AuthoringDocumentState AuthoringState { get; init; } = new();
 }
 

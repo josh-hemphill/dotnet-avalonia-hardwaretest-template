@@ -68,6 +68,8 @@ public partial class ResultsView : UserControl
 
     private void OnResultsChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ResultsViewModel.OpenedRun))
+            RunDetailsScroller.Offset = default;
         if (e.PropertyName is nameof(ResultsViewModel.ShowAttestationPrompt) or nameof(ResultsViewModel.ShowAttestationPin))
         {
             FocusSigningPrompt();

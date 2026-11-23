@@ -24,13 +24,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         var revisions = string.Join(";", _documents.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key}:{pair.Value.Revision}"));
         var files = Workspace!.TapPlanPaths.OrderBy(path => path).SelectMany(path => new[] { path, PlanCompiler.SidecarPath(path) })
             .Select(path => $"{path}:{(File.Exists(path) ? AuthoringBuildService.Hash(File.ReadAllBytes(path)) : "missing")}");
+        var assets = AuthoringProgramAssets.Included(Workspace).Select(relative => AuthoringProgramAssets.ResolvePath(AuthoringBuildService.PlansRoot(Workspace), relative))
+            .Select(path => $"{path}:{AuthoringDocumentStore.ComputeHash(path) ?? "missing"}");
         var store = new AuthoringDocumentStore(Workspace.Root);
         var sources = store.ListDocumentIds()
             .Select(store.GetDocumentPath).OrderBy(path => path)
             .Select(path => $"{path}:{AuthoringBuildService.Hash(File.ReadAllBytes(path))}");
         var catalogs = new[] { Path.Combine(Workspace.Root, AuthoringWorkspaceLoader.ManifestFileName), store.GetWorkspacePath() }
             .Select(path => $"{path}:{(File.Exists(path) ? AuthoringBuildService.Hash(File.ReadAllBytes(path)) : "missing")}");
-        return AuthoringBuildService.Hash(System.Text.Encoding.UTF8.GetBytes(content + revisions + string.Join(";", files.Concat(sources).Concat(catalogs))));
+        return AuthoringBuildService.Hash(System.Text.Encoding.UTF8.GetBytes(content + revisions + string.Join(";", files.Concat(assets).Concat(sources).Concat(catalogs))));
     }
 
     private FindingCheck CaptureFindingCheck()

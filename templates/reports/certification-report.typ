@@ -1,4 +1,4 @@
-#import "lib/sample-chart.typ": channel-names, samples-for, line-chart
+#import "lib/sample-chart.typ": channel-names, samples-for, line-chart, evaluated-results
 
 = Certification Report
 #v(0.5em)
@@ -58,6 +58,8 @@
   ]
   Cryptographic proof, when used, is the detached attestation sidecar hashed to this PDF.
 ]
+
+#evaluated-results(json("run.json"))
 
 #if sys.inputs.includePlots == "true" [
   #let run = json("run.json")

@@ -164,8 +164,11 @@ public partial class ResultsViewModel : ReactiveObject
                 this.RaisePropertyChanged(nameof(HasReferenceEvidence));
                 this.RaisePropertyChanged(nameof(ShowReferencePromotion));
                 ReferencePromotion.Configure(OpenedRun);
+                ResetEvaluatedRows();
             }
             if (args.PropertyName == nameof(OpenedRun) && !ReferenceEquals(OpenedRun, _pendingAttestationRun)) DismissAttestationPrompt();
+            if (args.PropertyName is nameof(EvaluatedSearch) or nameof(ShowFailedMetricsOnly))
+                RebuildEvaluatedRows();
             if (args.PropertyName is nameof(SearchText) or nameof(ResultFilter)
                 or nameof(PlanFilter) or nameof(DutFilter)
                 or nameof(OperatorFilter) or nameof(DateFilter))

@@ -149,7 +149,14 @@
                     <TextBox Grid.Column="3" Text="{Binding DutFamily}" PlaceholderText="e.g. Controller board" AutomationProperties.Name="Sequence device family" AutomationProperties.LabeledBy="{Binding #SequenceDeviceFamilyLabel}"/>
                 </Grid>
               </Border>
-              <Grid x:Name="ProgramLayout" Grid.Row="1" ColumnDefinitions="*,16,400">
+              <Border Grid.Row="1" IsVisible="{Binding HasImportedProcedure}" Classes="surface" Padding="16" VerticalAlignment="Top">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Plugin procedure" FontSize="18" FontWeight="SemiBold"/>
+                  <TextBlock Text="Open the procedure editor to inspect steps, edit their settings, and maintain the data tables they use." TextWrapping="Wrap"/>
+                  <Button Content="Open procedure editor" Click="OnEditProcedure" Classes="authoringAction" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </Border>
+              <Grid x:Name="ProgramLayout" Grid.Row="1" IsVisible="{Binding !HasImportedProcedure}" ColumnDefinitions="*,16,400">
                 <vm:SequenceEditorView Grid.Column="0"/>
                 <GridSplitter x:Name="InspectorSplitter" Grid.Column="1" Classes="paneDivider" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" AutomationProperties.Name="Resize sequence and inspector"/>
                 <Border Grid.Column="2" Classes="surface" Padding="16">
@@ -164,7 +171,16 @@
               </Grid>
             </Grid>
           </TabItem>
-          <TabItem Header="Instruments"><vm:ProgramSettingsView IsEnabled="{Binding CanEditProgramSettings}"/></TabItem>
+          <TabItem Header="Instruments">
+            <Panel>
+              <vm:ProgramSettingsView IsVisible="{Binding !HasImportedProcedure}" IsEnabled="{Binding CanEditProgramSettings}"/>
+              <StackPanel IsVisible="{Binding HasImportedProcedure}" Spacing="10">
+                <TextBlock Text="Procedure instruments" Classes="routeTitle"/>
+                <TextBlock Text="Use the procedure editor to edit the instruments defined by the procedure plugin." TextWrapping="Wrap"/>
+                <Button Content="Edit procedure instruments" Click="OnEditProcedure" Classes="authoringAction"/>
+              </StackPanel>
+            </Panel>
+          </TabItem>
           <TabItem Header="Issues"><ContentControl x:Name="IssuesRoute"/></TabItem>
           <TabItem Header="Environment"><vm:WorkspaceEnvironmentView/></TabItem>
           <TabItem Header="Build"><vm:WorkspaceBuildView/></TabItem>

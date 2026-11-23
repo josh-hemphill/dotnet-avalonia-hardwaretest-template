@@ -30,6 +30,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private List<OpenTapInstrumentSlot> _slots = [];
     private bool _isExecuting;
     private int _runGate;
+    private readonly object _interactionSync = new();
+    private int _interactionVersion;
     private bool _awaitingOperator;
     private string? _operatorPrompt;
     private OperatorInteractionRequest? _pendingInteraction;
@@ -74,7 +76,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     public bool IsExecuting => _isExecuting;
     public bool IsAwaitingOperator => _awaitingOperator;
     public string? OperatorPromptMessage => _operatorPrompt;
-    public OperatorInteractionRequest? PendingInteraction => _pendingInteraction;
+    public OperatorInteractionRequest? PendingInteraction => Volatile.Read(ref _pendingInteraction);
+
+    internal int InteractionVersion => Volatile.Read(ref _interactionVersion);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -161,12 +165,13 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         try
         {
             EnsureStarted();
+            var interactionVersion = InteractionVersion;
             var envelope = _process.Request(
                     WorkerProtocol.Pause,
                     CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-            ApplySnapshotEnvelope(envelope);
+            ApplySnapshotEnvelope(envelope, interactionVersion);
         }
         catch (Exception ex)
         {
@@ -179,6 +184,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         try
         {
             EnsureStarted();
+            var interactionVersion = InteractionVersion;
             var envelope = _process.Request(
                     WorkerProtocol.Resume,
                     new WorkerResumeRequest { Response = response },
@@ -186,7 +192,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
                     CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
-            ApplySnapshotEnvelope(envelope);
+            ApplySnapshotEnvelope(envelope, interactionVersion);
         }
         catch (Exception ex)
         {
@@ -347,9 +353,10 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private async Task MutateAsync(string method, CancellationToken cancellationToken)
     {
         EnsureStarted();
+        var interactionVersion = InteractionVersion;
         var envelope = await _process.Request(method, cancellationToken).ConfigureAwait(false);
         ThrowIfFailed(envelope);
-        ApplySnapshotEnvelope(envelope);
+        ApplySnapshotEnvelope(envelope, interactionVersion);
     }
 
     private async Task MutateAsync<T>(
@@ -359,9 +366,10 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         CancellationToken cancellationToken)
     {
         EnsureStarted();
+        var interactionVersion = InteractionVersion;
         var envelope = await _process.Request(method, payload, typeInfo, cancellationToken).ConfigureAwait(false);
         ThrowIfFailed(envelope);
-        ApplySnapshotEnvelope(envelope);
+        ApplySnapshotEnvelope(envelope, interactionVersion);
     }
 
     private async Task<OpenTapRunSummary> RunCoreAsync<T>(
@@ -480,25 +488,25 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
 
     internal void ApplyFromProgress(OpenTapProgress progress)
     {
-        // Listener telemetry can arrive after the authoritative interaction frame.
-        // Its default AwaitingOperator=false does not acknowledge the pending prompt;
-        // Resume/Abort snapshots and terminal progress own that transition.
-        if (!progress.AwaitingOperator && !progress.IsCompleted && _pendingInteraction is not null)
-            return;
-        _awaitingOperator = progress.AwaitingOperator;
-        _operatorPrompt = progress.OperatorPromptMessage;
-        if (progress.InteractionRequest is not null)
+        lock (_interactionSync)
         {
-            _pendingInteraction = progress.InteractionRequest;
-        }
-        else if (!progress.AwaitingOperator)
-        {
-            _pendingInteraction = null;
+            // Listener telemetry cannot acknowledge a pending prompt. Resume and terminal
+            // progress own that transition.
+            if (!progress.AwaitingOperator && !progress.IsCompleted && _pendingInteraction is not null)
+                return;
+
+            _awaitingOperator = progress.AwaitingOperator;
+            _operatorPrompt = progress.OperatorPromptMessage;
+            if (progress.InteractionRequest is not null)
+                _pendingInteraction = progress.InteractionRequest;
+            else if (!progress.AwaitingOperator)
+                _pendingInteraction = null;
+
+            if (progress.InteractionRequest is not null || progress.IsCompleted)
+                _interactionVersion++;
         }
 
-        Raise(nameof(IsAwaitingOperator));
-        Raise(nameof(OperatorPromptMessage));
-        Raise(nameof(PendingInteraction));
+        RaiseInteractionState();
     }
 
     private bool TryBool<T>(string method, T payload, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> typeInfo)
@@ -512,6 +520,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         try
         {
             EnsureStarted();
+            var interactionVersion = InteractionVersion;
             var envelope = _process.Request(method, payload, typeInfo, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
@@ -519,7 +528,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             var result = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerBoolResult);
             if (result?.Snapshot is not null)
             {
-                ApplySnapshot(result.Snapshot);
+                ApplySnapshot(result.Snapshot, interactionVersion);
             }
 
             return result;
@@ -568,33 +577,41 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         _workerUseMockVisa = _settings.UseMockVisa;
     }
 
-    private void ApplySnapshotEnvelope(WorkerEnvelope envelope)
+    private void ApplySnapshotEnvelope(WorkerEnvelope envelope, int interactionVersion)
     {
         var snapshot = WorkerProtocol.ReadPayload(envelope, WorkerJsonContext.Default.WorkerSnapshot);
         if (snapshot is not null)
         {
-            ApplySnapshot(snapshot);
+            ApplySnapshot(snapshot, interactionVersion);
         }
     }
 
-    private void ApplySnapshot(WorkerSnapshot snapshot)
+    internal void ApplySnapshot(WorkerSnapshot snapshot, int? interactionVersion = null)
     {
-        LoadedPlanPath = snapshot.LoadedPlanPath;
-        LoadedPlanName = snapshot.LoadedPlanName;
-        _stepTree = snapshot.StepTree;
-        _slots = snapshot.InstrumentSlots;
-        _isExecuting = snapshot.IsExecuting;
-        _awaitingOperator = snapshot.IsAwaitingOperator;
-        _operatorPrompt = snapshot.OperatorPromptMessage;
-        _pendingInteraction = snapshot.PendingInteraction;
+        lock (_interactionSync)
+        {
+            // A new prompt can arrive on the run stream before the old Resume reply.
+            if (interactionVersion is not null && interactionVersion != _interactionVersion)
+                return;
+
+            LoadedPlanPath = snapshot.LoadedPlanPath;
+            LoadedPlanName = snapshot.LoadedPlanName;
+            _stepTree = snapshot.StepTree;
+            _slots = snapshot.InstrumentSlots;
+            _isExecuting = snapshot.IsExecuting;
+            _awaitingOperator = snapshot.IsAwaitingOperator;
+            _operatorPrompt = snapshot.OperatorPromptMessage;
+            if (_pendingInteraction?.Id != snapshot.PendingInteraction?.Id)
+                _interactionVersion++;
+            _pendingInteraction = snapshot.PendingInteraction;
+        }
+
         Raise(nameof(LoadedPlanPath));
         Raise(nameof(LoadedPlanName));
         Raise(nameof(StepTree));
         Raise(nameof(InstrumentSlots));
         Raise(nameof(IsExecuting));
-        Raise(nameof(IsAwaitingOperator));
-        Raise(nameof(OperatorPromptMessage));
-        Raise(nameof(PendingInteraction));
+        RaiseInteractionState();
     }
 
     private void ArmKillTimer()
@@ -720,9 +737,19 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
 
     private void ClearInteractionState()
     {
-        _awaitingOperator = false;
-        _operatorPrompt = null;
-        _pendingInteraction = null;
+        lock (_interactionSync)
+        {
+            _awaitingOperator = false;
+            _operatorPrompt = null;
+            _pendingInteraction = null;
+            _interactionVersion++;
+        }
+
+        RaiseInteractionState();
+    }
+
+    private void RaiseInteractionState()
+    {
         Raise(nameof(IsAwaitingOperator));
         Raise(nameof(OperatorPromptMessage));
         Raise(nameof(PendingInteraction));

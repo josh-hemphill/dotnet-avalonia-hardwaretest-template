@@ -179,7 +179,7 @@
                      Opacity="0.85" FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}" />
         </StackPanel>
 
-        <ScrollViewer Padding="0,0,4,0">
+        <ScrollViewer x:Name="RunDetailsScroller" Padding="0,0,4,0">
           <StackPanel Spacing="6">
         <StackPanel Spacing="2" IsVisible="{Binding HasAttestation}">
               <TextBlock Text="Certification" FontWeight="SemiBold" />
@@ -199,6 +199,37 @@
                 <TextBlock Text="{Binding OpenedRun.ErrorMessage}" TextWrapping="Wrap" AutomationProperties.Name="Run outcome details"/>
               </StackPanel>
             </Border>
+            <StackPanel x:Name="EvaluatedResultsPanel" Spacing="6" IsVisible="{Binding HasEvaluatedRows}">
+              <TextBlock Text="Evaluated results" FontWeight="SemiBold" />
+              <TextBox x:Name="EvaluatedSearchBox"
+                       PlaceholderText="Search evaluated results"
+                       AutomationProperties.Name="Search evaluated results"
+                       Text="{Binding EvaluatedSearch}" />
+              <CheckBox Content="Failed results only" HorizontalAlignment="Left" IsChecked="{Binding ShowFailedMetricsOnly}" />
+              <TextBlock Text="{Binding EvaluatedSummary}" FontSize="11" TextWrapping="Wrap" />
+              <ItemsControl ItemsSource="{Binding EvaluatedRows}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ResultsViewModel+EvaluatedResultRow">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" Margin="0,2,0,6"
+                          ToolTip.Tip="{Binding StepPath}">
+                      <TextBlock Text="{Binding Name}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                      <Border Grid.Column="1" CornerRadius="4" Padding="6,2" VerticalAlignment="Top"
+                              Background="{Binding Verdict, Converter={x:Static runVm:ChipBrushConverter.Instance}}">
+                        <TextBlock Text="{Binding Verdict}" Foreground="White" FontSize="11" FontWeight="SemiBold" />
+                      </Border>
+                      <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="2" ToolTip.Tip="{Binding Timestamp}">
+                        <TextBlock Text="{Binding Value}" IsVisible="{Binding !HasLimits}" FontWeight="SemiBold" />
+                        <widgetsPres:LimitReadoutView Reading="{Binding Reading}" />
+                        <Expander IsVisible="{Binding HasTrace}" HorizontalAlignment="Stretch" AutomationProperties.Name="Evaluated row trace">
+                          <Expander.Header><TextBlock Text="{Binding AttemptSummary}" FontSize="11" TextWrapping="Wrap" /></Expander.Header>
+                          <SelectableTextBlock Text="{Binding Trace}" TextWrapping="Wrap" FontSize="11" />
+                        </Expander>
+                      </StackPanel>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
             <StackPanel Spacing="2" IsVisible="{Binding HasReports}">
               <TextBlock Text="Reports" FontWeight="SemiBold" />
               <ListBox ItemsSource="{Binding ReportItems}" SelectedItem="{Binding SelectedReportItem}">

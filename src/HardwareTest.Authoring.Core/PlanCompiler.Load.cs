@@ -174,7 +174,7 @@ public sealed partial class PlanCompiler
             return;
         }
 
-        if (OpenTapStepKinds.IsSafeShutdown(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: CleanupGroupName } })
+        if (OpenTapStepKinds.IsKnownSafeShutdown(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: CleanupGroupName } })
         {
             var slots = cleanup.InstrumentSlots.ToList();
             var slot = ImportedInstrumentSlot(step, xmlById);

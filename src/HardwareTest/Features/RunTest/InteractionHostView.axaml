@@ -80,7 +80,7 @@
                   <TextBlock Text="{Binding DisplayLabel}"
                              FontSize="12"
                              Opacity="0.85"
-                             IsVisible="{Binding IsTextOrNumber}" />
+                             IsVisible="{Binding !IsBoolean}" />
                   <TextBox Text="{Binding Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                            PlaceholderText="{Binding ValidationHint}"
                            IsVisible="{Binding IsTextOrNumber}"
@@ -89,6 +89,13 @@
                            AutomationProperties.HelpText="{Binding ValidationError}"
                            AutomationProperties.IsRequiredForForm="{Binding Required}"
                            KeyDown="OnInteractionFieldKeyDown" />
+                  <ComboBox ItemsSource="{Binding Choices}"
+                            SelectedItem="{Binding SelectedChoice, Mode=TwoWay}"
+                            PlaceholderText="Select an option"
+                            IsVisible="{Binding IsChoice}"
+                            HorizontalAlignment="Stretch"
+                            MinHeight="{x:Static shell:OperatorTouchDensity.OperatorControlMinHeight}"
+                            AutomationProperties.Name="{Binding AutomationName}" />
                   <CheckBox Content="{Binding DisplayLabel}"
                             IsChecked="{Binding BoolValue}"
                             IsVisible="{Binding IsBoolean}"

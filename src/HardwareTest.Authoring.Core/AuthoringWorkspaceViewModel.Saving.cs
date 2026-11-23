@@ -142,7 +142,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         var saved = new List<string>();
         var failures = new List<ProgramSaveFailure>();
         var verificationWarnings = new List<string>();
-        var dirtyPrograms = DirtyProgramIds.Concat(_measureSectionMigrations).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        var procedureExports = _uncompiledDocuments.Where(id => !_compiledConflicts.Contains(id)
+            && _sourceDocuments.GetValueOrDefault(id)?.ImportedPlanXml is not null);
+        var dirtyPrograms = DirtyProgramIds.Concat(_measureSectionMigrations).Concat(procedureExports)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         var canPublish = true;
         WorkspaceCatalogSaveFailure = null;
         if (dirtyPrograms.Length > 0 || WorkspaceCatalogDirty || HasCurrentFindingCheck)
@@ -267,6 +270,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var document = AuthoringDocumentDto.FromDraft(draft, _documents[planId].Revision,
             compiledPlanHash: baseline?.CompiledPlanHash ?? AuthoringDocumentStore.ComputeHash(existing),
             compiledSidecarHash: baseline?.CompiledSidecarHash ?? AuthoringDocumentStore.ComputeHash(existing is null ? null : PlanCompiler.SidecarPath(existing)));
+        document.CompiledAssetHashes = baseline?.CompiledAssetHashes ?? ProcedureAssetFiles.Hashes(draft.ImportedData.Keys, existing);
         document.RequiresCompilation = savePlan || sidecarOnly || actualDirty.PlanDirty || actualDirty.SidecarDirty || baseline?.RequiresCompilation == true;
         store.Save(document);
         _expectedAuthoringSources.Add(planId);
@@ -287,6 +291,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (savePlan)
                 {
                     AuthoringRecipeCatalog.EnsureScalarLimits(AuthoringFormulaDeployment.Project(draft));
+                    ProcedureAssetFiles.CheckDeclaration(draft, workspace.Manifest);
                     _compiler.Save(draft, path);
                     if (existing is null) Workspace = workspace with { TapPlanPaths = [.. workspace.TapPlanPaths, path] };
                 }
@@ -294,6 +299,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 document = AuthoringDocumentDto.FromDraft(draft, _documents[planId].Revision,
                     compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
                     compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)));
+                document.CompiledAssetHashes = ProcedureAssetFiles.Hashes(draft.ImportedData.Keys, path);
                 _sourceDocuments[planId] = document;
                 document.RequiresCompilation = !savePlan && (actualDirty.PlanDirty || baseline?.RequiresCompilation == true);
                 store.Save(document);

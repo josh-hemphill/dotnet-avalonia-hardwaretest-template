@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTAP" />
+    <PackageReference Include="System.IO.Ports" />
+    <ProjectReference Include="../../../src/HardwareTest.OpenTap.Plugins.Basic/HardwareTest.OpenTap.Plugins.Basic.csproj" />
+  </ItemGroup>
+</Project>

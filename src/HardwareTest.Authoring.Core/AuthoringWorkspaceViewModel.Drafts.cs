@@ -158,7 +158,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         bool Changed(AuthoringDocumentDto document)
         {
             var path = PathFor(document.PlanId);
-            return document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
+            return ProcedureAssetFiles.Changed(document, path) || document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
                 || document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path));
         }
         var store = new AuthoringDocumentStore(workspace.Root);
@@ -180,6 +180,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 baselines[draft.PlanId] = AuthoringDocumentDto.FromDraft(draft,
                     compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
                     compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
+                baselines[draft.PlanId].CompiledAssetHashes = ProcedureAssetFiles.Hashes(draft.ImportedData.Keys, path);
                 if (measureSectionMigrations?.Contains(draft.PlanId) == true)
                 {
                     baselines[draft.PlanId].RequiresCompilation = true;
@@ -237,7 +238,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private bool CompiledChanged(AuthoringDocumentDto document)
     {
         var path = TryExistingTapPlanPath(document.PlanId);
-        return document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
+        return ProcedureAssetFiles.Changed(document, path) || document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
             || document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path));
     }
 
@@ -266,7 +267,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             _sourceDocuments.TryGetValue(draft.PlanId, out var baseline);
             _recovery.Schedule(Workspace.Root, AuthoringDocumentDto.FromDraft(draft, session.Revision,
-                compiledPlanHash: baseline?.CompiledPlanHash, compiledSidecarHash: baseline?.CompiledSidecarHash));
+                compiledPlanHash: baseline?.CompiledPlanHash, compiledSidecarHash: baseline?.CompiledSidecarHash) with
+            { CompiledAssetHashes = baseline?.CompiledAssetHashes });
         }
     }
 
@@ -304,7 +306,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var importedNeedsCompilation = false;
         if (useCompiledContent)
         {
-            var imported = _compiler.Load(path!);
+            var imported = ProcedureAssetFiles.Load(_compiler.Load(path!), Workspace!.Manifest, path!);
             var normalized = AuthoringMeasureSections.HasCompiledLayout(path!) ? imported : AuthoringMeasureSections.Initialize(imported);
             importedNeedsCompilation = !ReferenceEquals(imported, normalized);
             _documents[planId].ApplyEdit("Import external compiled changes", _ => normalized);
@@ -312,6 +314,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         _sourceDocuments[planId] = AuthoringDocumentDto.FromDraft(_documents[planId].Draft, _documents[planId].Revision,
             compiledPlanHash: AuthoringDocumentStore.ComputeHash(path), compiledSidecarHash: AuthoringDocumentStore.ComputeHash(path is null ? null : PlanCompiler.SidecarPath(path)));
+        _sourceDocuments[planId].CompiledAssetHashes = ProcedureAssetFiles.Hashes(_documents[planId].Draft.ImportedData.Keys, path);
         if (importedNeedsCompilation)
         {
             _measureSectionMigrations.Add(planId);

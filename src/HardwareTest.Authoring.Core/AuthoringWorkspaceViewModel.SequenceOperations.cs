@@ -40,7 +40,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         SequenceRowKind.Cleanup => "Disable safe shutdown",
         _ => RemoveSelectedTitle
     };
-    public bool CanEditSequence => Workspace is { IsReadOnly: false } && SelectedProgram is not null;
+    public bool CanEditSequence => Workspace is { IsReadOnly: false } && SelectedProgram is { ImportedPlanXml: null };
     public bool HasSelectedPlan => SelectedProgram is not null;
     public bool NeedsFirstPlan => HasWorkspace && SelectedProgram is null;
     public bool IsSequenceEmpty => IsEmptySequence(SelectedProgram);

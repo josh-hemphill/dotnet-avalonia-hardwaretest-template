@@ -59,7 +59,7 @@ public sealed class RunNotificationContinuityTests
         var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
         vm.SetRunCompletionBanner(RunBannerSeverity.Info, "Previous run finished.");
         shell.Publish(severity, "Keep this current alert.", dismissible: false, sourceKey: source);
-        vm.BeginRunNotifications();
+        vm.ClearRunCompletionNotice();
         Assert.True(shell.HasContent);
         Assert.Equal("Keep this current alert.", shell.Message);
         Assert.Equal(severity, shell.Severity);
@@ -73,7 +73,7 @@ public sealed class RunNotificationContinuityTests
         var vm = RunTestViewModelTestFactory.Create(shellNotification: shell);
         vm.SetRunCompletionBanner(RunBannerSeverity.Info, "Previous run finished.");
         vm.SetBanner(RunBannerSeverity.Warning, "Station check is near expiry.");
-        vm.BeginRunNotifications();
+        vm.ClearRunCompletionNotice();
         Assert.True(shell.HasContent);
         Assert.Equal("Station check is near expiry.", shell.Message);
         Assert.Equal(ShellNotificationSeverity.Warning, shell.Severity);

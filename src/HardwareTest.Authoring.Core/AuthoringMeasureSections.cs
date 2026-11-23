@@ -24,7 +24,7 @@ public static class AuthoringMeasureSections
 
     public static ProgramDraft Initialize(ProgramDraft draft)
     {
-        if (draft.Measure.Any(node => node is SectionNode)) return draft;
+        if (draft.ImportedPlanXml is not null || draft.Measure.Any(node => node is SectionNode)) return draft;
         var used = AuthoringSequence.Flatten(draft).Where(row => row.NodeId is not null)
             .Select(row => row.NodeId!.Value).ToHashSet();
         Guid identity;

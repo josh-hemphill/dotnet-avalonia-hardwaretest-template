@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "stationId": "SIM-FIXTURE",
+  "revision": "routes-r1",
+  "calibrationRevision": "cal-r1",
+  "routes": [
+    {"id": "rail-logic", "path": "MX1/J1.1 → DMM.V", "unit": "V", "nominal": 1.801},
+    {"id": "rail-logic-leak", "path": "MX1/J1.1 → LIMITER.I", "unit": "mA", "nominal": 0.02},
+    {"id": "rail-data", "path": "MX1/J1.2 → DMM.V", "unit": "V", "nominal": 3.297},
+    {"id": "rail-data-leak", "path": "MX1/J1.2 → LIMITER.I", "unit": "mA", "nominal": 0.02},
+    {"id": "rail-analog", "path": "MX1/J2.1 → DMM.V", "unit": "V", "nominal": 11.98},
+    {"id": "rail-analog-leak", "path": "MX1/J2.1 → LIMITER.I", "unit": "mA", "nominal": 0.02},
+    {"id": "harness-power", "path": "MX2/J1.1 → J9.1 → DMM.Ω", "unit": "ohm", "nominal": 0.073},
+    {"id": "harness-data", "path": "MX2/J1.2 → J9.2 → DMM.Ω", "unit": "ohm", "nominal": 0.091},
+    {"id": "harness-isolation", "path": "MX2/J1.1 → J1.SHIELD → DMM.Ω", "unit": "ohm", "nominal": 235000},
+    {"id": "dut-serial", "path": "J3.RX/TX → UART1", "unit": "serial", "nominal": 0},
+    {"id": "dut-clock-lo", "path": "MX3/J3.CLK → DIG1.LO", "unit": "V", "nominal": 0.08},
+    {"id": "dut-clock-hi", "path": "MX3/J3.CLK → DIG1.HI", "unit": "V", "nominal": 3.28},
+    {"id": "diff-p", "path": "GEN1.A → MX4/J4.P → DIG1.A", "unit": "V", "nominal": 1.01},
+    {"id": "diff-n", "path": "GEN1.B → MX4/J4.N → DIG1.B", "unit": "V", "nominal": 0.99},
+    {"id": "load-bank", "path": "MX4/J4.P–N → LOAD1", "unit": "V", "nominal": 0.925},
+    {"id": "clamp-current", "path": "MX4/J5.OUT → LOAD2 → DIG1.I", "unit": "A", "nominal": 0.5},
+    {"id": "ac-ab", "path": "GEN1.A → MX5/J6.A→B → DIG2.A", "unit": "VRMS", "nominal": 1.004},
+    {"id": "ac-ba", "path": "GEN2.A → MX5/J6.B→A → DIG2.B", "unit": "VRMS", "nominal": 0.997},
+    {"id": "hw-counter", "path": "MX6/J7.TRIG → CTR1", "unit": "count", "nominal": 1000},
+    {"id": "pulse-gen-a", "path": "GEN1.A → MX6/J7.STIM1", "unit": "V", "nominal": 1.8},
+    {"id": "pulse-gen-b", "path": "GEN2.A → MX6/J7.STIM2", "unit": "V", "nominal": 1.8},
+    {"id": "pulse-digitizer", "path": "MX6/J7.PULSE → DIG2.C", "unit": "V", "nominal": 3.28},
+    {"id": "config-loopback", "path": "MX7/J8.OUT → J8.IN → DMM.V", "unit": "V", "nominal": 1.0},
+    {"id": "config-terminated", "path": "MX7/J8.OUT → 50Ω → DMM.V", "unit": "V", "nominal": 0.98},
+    {"id": "config-crossed", "path": "MX7/J8.OUT → J8.AUX → DMM.V", "unit": "V", "nominal": 1.02}
+  ],
+  "calibrations": [
+    {"route": "ac-ab", "impedanceOhms": 50, "correctionDb": 0.035},
+    {"route": "ac-ab", "impedanceOhms": 600, "correctionDb": 0.044},
+    {"route": "ac-ba", "impedanceOhms": 50, "correctionDb": -0.026},
+    {"route": "ac-ba", "impedanceOhms": 600, "correctionDb": -0.017}
+  ]
+}

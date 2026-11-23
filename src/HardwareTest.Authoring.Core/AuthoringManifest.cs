@@ -36,6 +36,8 @@ public sealed class AuthoringManifest
 
     public bool IncludeTui { get; set; }
 
+    public Dictionary<string, string[]> ProgramAssets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     public List<string> ExcludedProgramIds { get; set; } = [];
 
     /// Optional operator run.json goldens. Default recordings/. Folder need not exist.
