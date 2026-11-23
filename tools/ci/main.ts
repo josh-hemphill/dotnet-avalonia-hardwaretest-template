@@ -149,11 +149,26 @@ async function projectPaths(opts: Options): Promise<string[]> {
 
 async function formatCheck(opts: Options): Promise<void> {
   const workspace = join(opts.root, ".ci-format.slnx");
+  const auxiliaryProjects = await Array.fromAsync(fs.glob(
+    ["examples/**/*.csproj", "tools/**/*.csproj"],
+    { cwd: opts.root, exclude: ["**/bin/**", "**/obj/**", "**/node_modules/**"] },
+  ));
   try {
     await writeTextFile(
       workspace,
-      formatSolution(opts.root, await projectPaths(opts)),
+      formatSolution(opts.root, [
+        ...await projectPaths(opts),
+        ...auxiliaryProjects.map((project) => join(opts.root, project)),
+      ]),
     );
+    await run([
+      "dotnet",
+      "restore",
+      workspace,
+      "--locked-mode",
+      "-p:Configuration=" + opts.configuration,
+      "-p:RuntimeIdentifier=" + opts.rid,
+    ], { cwd: opts.root });
     await run([
       "dotnet",
       "format",
