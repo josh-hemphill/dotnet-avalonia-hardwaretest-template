@@ -61,6 +61,7 @@ internal static partial class ProcedureVerification
             Row(station, "routes", "hw-counter")["counterReadings"] = new JsonArray(1000, 1008, 1021, 1036);
             var reference = Row(tests, "references", "profile-nominal-r3")["values"]!.AsArray();
             reference[^1] = reference[^1]!.GetValue<double>() + 0.09;
+            Row(tests, "cases", "clamp-load")["levels"]![0] = 0.1;
             File.WriteAllText(stationPath, station.ToJsonString());
             File.WriteAllText(testPath, tests.ToJsonString());
             SetMeasurementSetting(plan, "diff-response", "ResponseTimeConstantMs", 1.25);
@@ -76,6 +77,10 @@ internal static partial class ProcedureVerification
             Check(mixed.Samples.Where(row => row.MetricKey.StartsWith("diff-response.", StringComparison.Ordinal)
                     && row.RowVerdict == "Fail").Select(row => row.MetricKey).SequenceEqual(["diff-response.step-5.previousDelta"]),
                 "A nonuniform reference perturbation did not isolate the adjacent error.");
+            Check(Measurement(mixed, "clamp-load.normal.clampTime") is { Value: 0, RowVerdict: "Fail" }
+                && Measurement(mixed, "clamp-load.normal.reclampTime") is { Value: 0, RowVerdict: "Fail" }
+                && Measurement(mixed, "clamp-load.normal.pulseWidth") is { Value: 10, RowVerdict: "Pass" },
+                "A transient below the sample resolution did not produce measurable limit failures.");
             Check(Measurement(mixed, "counter-relative.trigger-2.increment").Value == 1
                 && Measurement(mixed, "counter-relative.trigger-3.increment").Value == -1
                 && Measurement(mixed, "counter-relative.span").Value == 36
@@ -87,7 +92,7 @@ internal static partial class ProcedureVerification
                 && Measurement(mixed, "pulse-decoder.windowCompliance").RowVerdict == "Pass",
                 "A single malformed edge did not fail the waveform independently of payload.");
             await SaveReportsAsync(mixed, settings, cancellationToken);
-            Console.WriteLine("Delayed trigger, isolated adjacent error, observed counter discrepancies, and a malformed edge verified.");
+            Console.WriteLine("Delayed trigger, isolated adjacent error, unresolved clamp transients, counter discrepancies, and a malformed edge verified.");
 
             station = JsonNode.Parse(stationSource)!;
             Row(station, "routes", "pulse-gen-b")["nominal"] = 0;
