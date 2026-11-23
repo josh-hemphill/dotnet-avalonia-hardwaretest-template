@@ -46,11 +46,11 @@ public sealed partial class ProcedureEditorSession
     {
         var choices = field.Kind == ProcedureFieldKind.Instrument ? HardwareChoices(field).Select(option => option.Id.ToString("D")).ToArray()
             : field.ReferenceTable switch
-        {
-            null => Array.Empty<string>(),
-            "sections" => Roots.SelectMany(root => PlanCompiler.ImportedSteps(root.Element("ChildTestSteps"))).Select(StepId).ToArray(),
-            var reference => DataEntries().Where(entry => entry.Table == reference).Select(entry => entry.Item.Name).Distinct().ToArray()
-        };
+            {
+                null => Array.Empty<string>(),
+                "sections" => Roots.SelectMany(root => PlanCompiler.ImportedSteps(root.Element("ChildTestSteps"))).Select(StepId).ToArray(),
+                var reference => DataEntries().Where(entry => entry.Table == reference).Select(entry => entry.Item.Name).Distinct().ToArray()
+            };
         return new(field, value, readOnly, choices);
     }
 

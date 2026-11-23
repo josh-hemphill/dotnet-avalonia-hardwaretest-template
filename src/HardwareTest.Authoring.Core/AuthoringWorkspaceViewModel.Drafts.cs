@@ -268,7 +268,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             _sourceDocuments.TryGetValue(draft.PlanId, out var baseline);
             _recovery.Schedule(Workspace.Root, AuthoringDocumentDto.FromDraft(draft, session.Revision,
                 compiledPlanHash: baseline?.CompiledPlanHash, compiledSidecarHash: baseline?.CompiledSidecarHash) with
-                { CompiledAssetHashes = baseline?.CompiledAssetHashes });
+            { CompiledAssetHashes = baseline?.CompiledAssetHashes });
         }
     }
 

@@ -559,27 +559,38 @@ public sealed class RunTestViewModelTests
         vm.IngestProgress(new OpenTapProgress
         {
             Message = "First step passed",
-            StepPath = leaves[0].Path, StepId = leaves[0].Id, StepName = leaves[0].Name,
-            StatusText = "Pass", Verdict = "Pass",
+            StepPath = leaves[0].Path,
+            StepId = leaves[0].Id,
+            StepName = leaves[0].Name,
+            StatusText = "Pass",
+            Verdict = "Pass",
         });
         vm.IngestProgress(new OpenTapProgress
         {
             Message = "Second step passed",
-            StepPath = leaves[1].Path, StepId = leaves[1].Id, StepName = leaves[1].Name,
-            StatusText = "Pass", Verdict = "Pass",
+            StepPath = leaves[1].Path,
+            StepId = leaves[1].Id,
+            StepName = leaves[1].Name,
+            StatusText = "Pass",
+            Verdict = "Pass",
         });
         vm.IngestProgress(new OpenTapProgress
         {
             Message = "Route evidence",
-            StepPath = leaves[0].Path, StepId = leaves[0].Id,
-            StatusText = "Event", KeyValue = "Route evidence",
+            StepPath = leaves[0].Path,
+            StepId = leaves[0].Id,
+            StatusText = "Event",
+            KeyValue = "Route evidence",
             Event = new MeasurementEventMark("case.route", 0, "Route evidence", null, leaves[0].Path),
         });
         vm.IngestProgress(new OpenTapProgress
         {
             Message = "Confirm fixture",
-            StepPath = leaves[2].Path, StepId = leaves[2].Id, StepName = leaves[2].Name,
-            StatusText = "Awaiting operator", AwaitingOperator = true,
+            StepPath = leaves[2].Path,
+            StepId = leaves[2].Id,
+            StepName = leaves[2].Name,
+            StatusText = "Awaiting operator",
+            AwaitingOperator = true,
         });
 
         while (queue.TryDequeue(out var action))

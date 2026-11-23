@@ -113,7 +113,9 @@ public sealed class ResultsViewModelTests
         var store = new FakeRunStore();
         store.Seed(new TestRunRecord
         {
-            RunId = "retry", Result = RunResult.Failed, StartedAt = timestamp,
+            RunId = "retry",
+            Result = RunResult.Failed,
+            StartedAt = timestamp,
             Samples =
             [
                 new() { ProducerStepId = producer, StepRunId = first, MetricKey = "case.output", MetricDisplayName = "Fixture output",

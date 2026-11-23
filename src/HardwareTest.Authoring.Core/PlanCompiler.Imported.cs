@@ -20,7 +20,8 @@ public sealed partial class PlanCompiler
             NodeId = (Guid?)step.Attribute("Id") ?? throw new AuthoringWorkspaceException("Imported root step is missing its ID.")
         }).ToArray();
         return new ProgramDraft(Path.GetFileNameWithoutExtension(path), ReadSidecar(path), [], [], nodes,
-            new CleanupPolicy(false, string.Empty)) { ImportedPlanXml = original };
+            new CleanupPolicy(false, string.Empty))
+        { ImportedPlanXml = original };
     }
 
     private static bool IsPluginContainer(XElement element)

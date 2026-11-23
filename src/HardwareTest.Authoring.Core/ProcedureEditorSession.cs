@@ -165,9 +165,13 @@ public sealed partial class ProcedureEditorSession
                 foreach (var plugin in plan.ChildTestSteps.OfType<IProcedureAuthoring>()) plugin.ValidateAuthoring();
                 return true;
             });
-        return _original with { ImportedPlanXml = xml, ImportedData = data,
+        return _original with
+        {
+            ImportedPlanXml = xml,
+            ImportedData = data,
             Measure = Roots.Select(step => new RawStepNode(PlanCompiler.SerializedStepType(step), step.ToString(SaveOptions.DisableFormatting))
-            { NodeId = Guid.Parse(StepId(step)) }).ToArray() };
+            { NodeId = Guid.Parse(StepId(step)) }).ToArray()
+        };
     }
 
     private static string[] StepPrerequisites(XElement step)

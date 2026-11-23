@@ -2,8 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Shapes;
 using Avalonia.Layout;
-using Avalonia.VisualTree;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace HardwareTest.Widgets.Presentation;
 

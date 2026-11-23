@@ -1,8 +1,8 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using HardwareTest.Core.BenchReferences;
-using System.Security.Cryptography;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
