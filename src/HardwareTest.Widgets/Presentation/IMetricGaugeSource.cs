@@ -7,6 +7,7 @@ public interface IMetricGaugeSource : INotifyPropertyChanged
 {
     string MetricKey { get; }
     string ValueText { get; }
+    string? Unit => null;
     string LimitsText { get; }
     bool ShowBand { get; }
     double Value { get; }

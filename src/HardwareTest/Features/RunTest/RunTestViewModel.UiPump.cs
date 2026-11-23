@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using HardwareTest.Features.Presentation;
 using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Plugins.Basic;
 using HardwareTest.UiThreading;
@@ -21,6 +22,8 @@ public partial class RunTestViewModel
     private long _lastUiFlushTicks;
     private MeasurementSampleEvent? _pendingSample;
     private string? _pendingSampleStepPath;
+    private readonly Dictionary<string, (MeasurementSampleEvent Sample, string? Path)> _pendingBands =
+        new(StringComparer.OrdinalIgnoreCase);
     private readonly Queue<MeasurementEventMark> _pendingEvents = new();
     private string? _pendingStatus;
     private double _pendingPercent;
@@ -28,10 +31,9 @@ public partial class RunTestViewModel
     private bool _pendingAwaitingOperator;
     private string? _pendingOperatorPrompt;
     private OperatorInteractionRequest? _pendingInteractionRequest;
-    private string? _pendingStepId;
+    private readonly Dictionary<string, StepUpdate> _pendingSteps = new(StringComparer.OrdinalIgnoreCase);
     private string? _pendingStepPath;
     private string? _pendingStepName;
-    private readonly List<StepLiveUpdate> _pendingSteps = new();
     private string? _pendingIterationText;
     private int _flushScheduled;
 
@@ -52,7 +54,15 @@ public partial class RunTestViewModel
 
             if (progress.Sample is { } sample)
             {
-                _pendingSample = sample;
+                if (PresentationRoleMap.IsRunGaugeSample(sample))
+                {
+                    _pendingBands[sample.EffectiveMetricKey] = (sample, progress.StepPath);
+                }
+                else
+                {
+                    _pendingSample = sample;
+                    _pendingSampleStepPath = progress.StepPath;
+                }
             }
 
             if (progress.Event is { } mark)
@@ -73,16 +83,9 @@ public partial class RunTestViewModel
                 _pendingInteractionRequest = progress.InteractionRequest ?? _runSession.PendingInteraction;
             }
 
-            _pendingStepId = progress.StepId ?? _pendingStepId;
             _pendingStepPath = progress.StepPath ?? _pendingStepPath;
             _pendingStepName = progress.StepName ?? _pendingStepName;
-            // Keep each update with its producer. A later step's start event must never
-            // inherit the previous step's value or verdict while the UI is throttled.
-            if (progress.StepId is not null || progress.StepPath is not null)
-            {
-                _pendingSteps.Add(new(progress.StepId, progress.StepPath,
-                    progress.StatusText, progress.Verdict, progress.KeyValue));
-            }
+            RememberStepUpdate(progress);
             if (progress.IterationText is not null || progress.IterationIndex is not null)
             {
                 _pendingIterationText = progress.IterationText
@@ -99,11 +102,6 @@ public partial class RunTestViewModel
                     || progress.AwaitingOperator))
             {
                 _pendingForceFlush = true;
-            }
-
-            if (progress.Sample is not null && !string.IsNullOrWhiteSpace(progress.StepPath))
-            {
-                _pendingSampleStepPath = progress.StepPath;
             }
 
             if (progress.IsCompleted)
@@ -124,14 +122,14 @@ public partial class RunTestViewModel
         {
             _pendingDetails.Clear();
             _pendingEvents.Clear();
+            _pendingBands.Clear();
             _pendingSample = null;
             _pendingSampleStepPath = null;
             _pendingStatus = null;
             _pendingPercent = 0;
-            _pendingStepId = null;
+            _pendingSteps.Clear();
             _pendingStepPath = null;
             _pendingStepName = null;
-            _pendingSteps.Clear();
             _pendingIterationText = null;
             _pendingForceFlush = false;
             _pendingAwaitingOperator = false;
@@ -173,7 +171,7 @@ public partial class RunTestViewModel
                 bool needsForce;
                 lock (_progressSync)
                 {
-                    needsForce = _pendingForceFlush || _pendingSample is not null || _pendingDetails.Count > 0;
+                    needsForce = _pendingForceFlush || _pendingSample is not null || _pendingBands.Count > 0 || _pendingSteps.Count > 0 || _pendingDetails.Count > 0;
                 }
 
                 if (!needsForce)
@@ -237,7 +235,7 @@ public partial class RunTestViewModel
                 lock (_progressSync)
                 {
                     // Leftover detail lines are flushed on a later UI frame (see finally).
-                    if (_pendingForceFlush || _pendingSample is not null || _pendingEvents.Count > 0 || _pendingAwaitingOperator)
+                    if (_pendingForceFlush || _pendingSample is not null || _pendingBands.Count > 0 || _pendingSteps.Count > 0 || _pendingEvents.Count > 0 || _pendingAwaitingOperator)
                     {
                         continue;
                     }
@@ -255,6 +253,8 @@ public partial class RunTestViewModel
                 {
                     if (_pendingForceFlush
                         || _pendingSample is not null
+                        || _pendingBands.Count > 0
+                        || _pendingSteps.Count > 0
                         || _pendingEvents.Count > 0
                         || _pendingDetails.Count > 0
                         || _pendingAwaitingOperator)
@@ -289,8 +289,6 @@ public partial class RunTestViewModel
         {
             Interaction.IsAwaitingOperator = true;
             Interaction.Apply(frame.InteractionRequest ?? _runSession.PendingInteraction, frame.Prompt);
-            // Soft reveal only: keep the operator's stage selection; hero + card identify the waiting step.
-            ScheduleScrollToCurrentStep(changeScope: false);
         }
 
         if (frame.Details is not null)
@@ -299,20 +297,21 @@ public partial class RunTestViewModel
         }
 
         SyncHierarchyLive();
-        if (!string.IsNullOrWhiteSpace(frame.StepName))
+        if (!PinWaitingStep())
         {
-            CurrentStepName = frame.StepName;
+            if (!string.IsNullOrWhiteSpace(frame.StepName))
+                CurrentStepName = frame.StepName;
+            if (!string.IsNullOrWhiteSpace(frame.StepPath))
+                CurrentStepPath = frame.StepPath;
         }
 
-        if (!string.IsNullOrWhiteSpace(frame.StepPath))
+        if (frame.Awaiting)
         {
-            CurrentStepPath = frame.StepPath;
+            // Keep the operator's stage selection until they choose Show this step.
+            ScheduleScrollToCurrentStep(changeScope: false);
         }
 
-        foreach (var update in frame.Steps)
-        {
-            ApplyPendingStepLive(update);
-        }
+        ApplyPendingStepUpdates(frame.StepUpdates);
         if (frame.IterationText is not null)
         {
             IterationText = frame.IterationText;
@@ -328,45 +327,54 @@ public partial class RunTestViewModel
             }
         }
 
-        if (frame.Sample is not null)
+        var refreshPlot = frame.Sample is not null
+            && Live.ApplySample(frame.Sample, frame.SampleStepPath, frame.StepPath, StepTree.SelectedStep);
+        foreach (var (sample, path) in frame.Bands)
         {
-            if (Live.ApplySample(frame.Sample, frame.SampleStepPath, frame.StepPath, StepTree.SelectedStep))
-            {
-                PlotUiFlushCount++;
-            }
+            refreshPlot |= Live.ApplySample(sample, path, frame.StepPath, StepTree.SelectedStep);
         }
-        else if (frame.Force)
+
+        if (refreshPlot || (frame.Force && frame.Sample is null))
         {
             PlotUiFlushCount++;
         }
     }
 
-    private void ApplyPendingStepLive(StepLiveUpdate frame)
+    private void RememberStepUpdate(OpenTapProgress progress)
     {
-        var vm = StepTree.ApplyLiveStep(
-            frame.StepId,
-            frame.StepPath,
-            frame.StatusText,
-            frame.Verdict,
-            frame.KeyValue);
-        if (vm is null)
+        var key = progress.StepId ?? progress.StepPath;
+        if (string.IsNullOrWhiteSpace(key))
         {
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(frame.StepPath))
+        // Measurement and event labels describe evidence. The step verdict describes execution.
+        var status = progress.Sample is null && progress.Event is null ? progress.StatusText : null;
+        if (status is null && progress.Verdict is null && progress.KeyValue is null)
         {
-            CurrentStepPath = frame.StepPath;
+            return;
         }
 
-        if (!string.IsNullOrWhiteSpace(vm.Name))
+        var update = new StepUpdate(progress.StepId, progress.StepPath, status, progress.Verdict, progress.KeyValue);
+        _pendingSteps[key] = _pendingSteps.TryGetValue(key, out var earlier) ? update.WithFallback(earlier) : update;
+    }
+
+    private void ApplyPendingStepUpdates(IReadOnlyList<StepUpdate> updates)
+    {
+        if (updates.Count == 0)
         {
-            CurrentStepName = vm.Name;
+            return;
+        }
+
+        var hasFailure = false;
+        foreach (var update in updates)
+        {
+            var step = StepTree.ApplyLiveStep(update.Id, update.Path, update.Status, update.Verdict, update.KeyValue);
+            hasFailure |= step?.ChipText == "Fail";
         }
 
         StepTree.RollupParentStatuses();
-        RefreshHero();
-        if (string.Equals(vm.ChipText, "Fail", StringComparison.Ordinal))
+        if (hasFailure)
         {
             StepTree.MaybeAutoFocusFail();
         }
@@ -382,16 +390,16 @@ public partial class RunTestViewModel
                 Percent = _pendingPercent,
                 Sample = _pendingSample,
                 SampleStepPath = _pendingSampleStepPath,
+                Bands = [.. _pendingBands.Values],
                 Events = DequeueEvents_NoLock(),
                 Force = _pendingForceFlush,
                 Awaiting = _pendingAwaitingOperator,
                 Prompt = _pendingOperatorPrompt,
                 InteractionRequest = _pendingInteractionRequest,
                 Details = DequeueDetailBatch_NoLock(MaxDetailLinesPerFlush),
-                StepId = _pendingStepId,
+                StepUpdates = [.. _pendingSteps.Values],
                 StepPath = _pendingStepPath,
                 StepName = _pendingStepName,
-                Steps = _pendingSteps.ToArray(),
                 IterationText = _pendingIterationText,
             };
 
@@ -399,12 +407,12 @@ public partial class RunTestViewModel
             _pendingAwaitingOperator = false;
             _pendingOperatorPrompt = null;
             _pendingInteractionRequest = null;
-            _pendingStepId = null;
+            _pendingSteps.Clear();
             _pendingStepPath = null;
             _pendingStepName = null;
-            _pendingSteps.Clear();
             _pendingIterationText = null;
             _pendingSampleStepPath = null;
+            _pendingBands.Clear();
             if (frame.Sample is not null)
             {
                 _pendingSample = null;
@@ -427,13 +435,15 @@ public partial class RunTestViewModel
                 }
             }
 
-            if (frame.Sample is not null)
+            if (frame.Sample is not null && _pendingSample is null)
             {
-                if (_pendingSample is null)
-                {
-                    _pendingSample = frame.Sample;
-                    _pendingSampleStepPath = frame.SampleStepPath;
-                }
+                _pendingSample = frame.Sample;
+                _pendingSampleStepPath = frame.SampleStepPath;
+            }
+
+            foreach (var band in frame.Bands)
+            {
+                _pendingBands.TryAdd(band.Sample.EffectiveMetricKey, band);
             }
 
             if (frame.Details is not null)
@@ -456,10 +466,13 @@ public partial class RunTestViewModel
                 _pendingInteractionRequest = frame.InteractionRequest;
             }
 
-            _pendingStepId ??= frame.StepId;
             _pendingStepPath ??= frame.StepPath;
             _pendingStepName ??= frame.StepName;
-            _pendingSteps.InsertRange(0, frame.Steps);
+            foreach (var update in frame.StepUpdates)
+            {
+                var key = (update.Id ?? update.Path)!;
+                _pendingSteps[key] = _pendingSteps.TryGetValue(key, out var newer) ? newer.WithFallback(update) : update;
+            }
 
             if (frame.IterationText is not null)
             {
@@ -510,8 +523,12 @@ public partial class RunTestViewModel
         _pendingDetails.Enqueue(line);
     }
 
-    private sealed record StepLiveUpdate(string? StepId, string? StepPath,
-        string? StatusText, string? Verdict, string? KeyValue);
+    private sealed record StepUpdate(string? Id, string? Path, string? Status, string? Verdict, string? KeyValue)
+    {
+        public StepUpdate WithFallback(StepUpdate earlier) => new(
+            Id ?? earlier.Id, Path ?? earlier.Path, Status ?? earlier.Status,
+            Verdict ?? earlier.Verdict, KeyValue ?? earlier.KeyValue);
+    }
 
     /// One coalesced progress snapshot handed from the ingest lock to the UI thread.
     private sealed class PendingFrame
@@ -520,16 +537,16 @@ public partial class RunTestViewModel
         public double Percent { get; init; }
         public MeasurementSampleEvent? Sample { get; init; }
         public string? SampleStepPath { get; init; }
+        public (MeasurementSampleEvent Sample, string? Path)[] Bands { get; init; } = [];
         public List<MeasurementEventMark>? Events { get; init; }
         public bool Force { get; init; }
         public bool Awaiting { get; init; }
         public string? Prompt { get; init; }
         public OperatorInteractionRequest? InteractionRequest { get; init; }
         public List<string>? Details { get; init; }
-        public string? StepId { get; init; }
+        public StepUpdate[] StepUpdates { get; init; } = [];
         public string? StepPath { get; init; }
         public string? StepName { get; init; }
-        public StepLiveUpdate[] Steps { get; init; } = [];
         public string? IterationText { get; init; }
     }
 }

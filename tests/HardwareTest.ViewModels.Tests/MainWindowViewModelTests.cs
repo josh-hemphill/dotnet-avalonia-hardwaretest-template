@@ -352,7 +352,7 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
-    public async Task PauseResume_when_awaiting_shows_Continue_and_invokes_run_continue()
+    public async Task PauseResume_from_another_page_reveals_the_prompt_before_continuing()
     {
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
@@ -372,7 +372,7 @@ public sealed class MainWindowViewModelTests
         runControl.AttachRun(cts);
         openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
 
-        Assert.Equal("Continue", vm.PauseResumeLabel);
+        Assert.Equal("Review prompt", vm.PauseResumeLabel);
         Assert.True(vm.ShowContinueIcon);
         Assert.False(vm.ShowPauseIcon);
         Assert.False(vm.ShowResumeIcon);
@@ -380,12 +380,17 @@ public sealed class MainWindowViewModelTests
         Assert.Contains("Install fixture", vm.ControlStatus, StringComparison.OrdinalIgnoreCase);
 
         await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.True(openTap.IsAwaitingOperator);
+        Assert.True(runTest.Interaction.IsAwaitingOperator);
+        Assert.Equal("Continue", vm.PauseResumeLabel);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
         Assert.Equal("RunTest", vm.SelectedItem?.Id);
     }
 
     [Fact]
-    public async Task PauseResume_when_awaiting_without_a_run_still_continues()
+    public async Task PauseResume_when_awaiting_without_a_run_requires_review_then_continue()
     {
         var store = new FakeSettingsStore();
         var openTap = new FakeOpenTapSession();
@@ -405,6 +410,11 @@ public sealed class MainWindowViewModelTests
         Assert.False(vm.IsRunning);
         Assert.True(vm.CanPauseResume);
         Assert.True(vm.CanSafetyStop);
+
+        await vm.PauseResumeCommand.ExecuteAsync();
+        Assert.True(openTap.IsAwaitingOperator);
+        Assert.True(runTest.Interaction.IsAwaitingOperator);
+        Assert.Equal("Continue", vm.PauseResumeLabel);
 
         await vm.PauseResumeCommand.ExecuteAsync();
         Assert.False(openTap.IsAwaitingOperator);
@@ -461,7 +471,7 @@ public sealed class MainWindowViewModelTests
 
         openTap.BeginInteraction(OperatorInteractionRequest.ConfirmOnly("Install fixture"));
         Assert.False(vm.IsRunning);
-        Assert.Equal("Cancel prompt", runTest.HeaderStopLabel);
+        Assert.Equal(StopRunCopy.Label, runTest.HeaderStopLabel);
 
         await runTest.Run.CancelCommand.ExecuteAsync();
 

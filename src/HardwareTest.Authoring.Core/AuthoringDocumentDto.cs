@@ -37,6 +37,12 @@ public sealed record AuthoringDocumentDto
     public required AuthoringSetupDto[] Setup { get; set; }
     public required AuthoringMeasureDto[] Measure { get; set; }
     public required AuthoringCleanupDto Cleanup { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ImportedPlanXml { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string>? ImportedData { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, string?>? CompiledAssetHashes { get; set; }
     public AuthoringDocumentState State { get; set; } = new();
 
     public static AuthoringDocumentDto FromDraft(ProgramDraft draft, long revision = 0,
@@ -53,6 +59,8 @@ public sealed record AuthoringDocumentDto
             Setup = isolated.Setup.Select(AuthoringSetupDto.From).ToArray(),
             Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(),
             Cleanup = AuthoringCleanupDto.From(isolated.Cleanup),
+            ImportedPlanXml = isolated.ImportedPlanXml,
+            ImportedData = isolated.ImportedData.Count == 0 ? null : new(isolated.ImportedData),
             State = (state ?? draft.AuthoringState).Clone(),
             CompiledPlanHash = compiledPlanHash,
             CompiledSidecarHash = compiledSidecarHash
@@ -71,7 +79,7 @@ public sealed record AuthoringDocumentDto
             throw new InvalidDataException("The reference criteria contain an empty declaration.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
             Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy())
-        { AuthoringState = State.Clone() };
+        { AuthoringState = State.Clone(), ImportedPlanXml = ImportedPlanXml, ImportedData = ImportedData ?? new() };
         var ids = AuthoringDependencyIndex.Build(draft).Nodes.Select(n => n.NodeId).ToArray();
         if (ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             throw new InvalidDataException("Draft node identities must be unique and nonempty.");

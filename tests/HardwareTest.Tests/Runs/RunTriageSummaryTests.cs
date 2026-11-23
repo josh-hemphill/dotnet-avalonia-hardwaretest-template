@@ -153,7 +153,7 @@ public sealed class RunTriageSummaryTests
         Assert.Contains("No failed steps", triage.OperatorSummary, StringComparison.OrdinalIgnoreCase);
     }
     [Fact]
-    public void FromRecord_empty_attempt_ledger_does_not_infer_chronology_from_steps()
+    public void FromRecord_empty_attempt_ledger_uses_the_saved_steps()
     {
         var run = new TestRunRecord
         {
@@ -161,11 +161,33 @@ public sealed class RunTriageSummaryTests
         };
 
         var triage = RunTriageSummary.FromRecord(run);
-        Assert.Null(triage.FirstFail);
-        Assert.Empty(triage.Ledgers);
-        Assert.Equal(0, triage.TotalAttempts);
-        Assert.Equal(0, triage.PathFailCount);
+        Assert.Equal("failed-step", triage.FirstFail?.StepPath);
+        Assert.Single(triage.Ledgers);
+        Assert.Equal(1, triage.TotalAttempts);
+        Assert.Equal(1, triage.PathFailCount);
         Assert.Equal(0, triage.PathPassCount);
+    }
+
+    [Fact]
+    public void FromRecord_labels_a_failed_attempt_as_history_after_a_passing_retry()
+    {
+        var run = new TestRunRecord
+        {
+            StepAttempts = [new StepAttemptSummary
+            {
+                StepPath = "Curve",
+                Attempts =
+                [
+                    new() { StepPath = "Curve", Passed = false, Message = "Fail", AttemptNumber = 1 },
+                    new() { StepPath = "Curve", Passed = true, Message = "Pass", AttemptNumber = 2 },
+                ],
+            }],
+        };
+
+        var triage = RunTriageSummary.FromRecord(run);
+        Assert.Equal(0, triage.PathFailCount);
+        Assert.Contains("Earlier attempt failed: Curve", triage.OperatorSummary, StringComparison.Ordinal);
+        Assert.Contains("Latest results passed", triage.OperatorSummary, StringComparison.Ordinal);
     }
 
     [Fact]

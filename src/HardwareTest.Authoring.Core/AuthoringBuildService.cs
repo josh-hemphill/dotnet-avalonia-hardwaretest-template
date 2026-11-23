@@ -101,13 +101,15 @@ public static partial class AuthoringBuildService
                         throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' needs a measurement before deployment.");
                     if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
                         throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' contains incomplete numeric deployment input.");
-                    if ((File.Exists(path) && document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path))
+                    if (ProcedureAssetFiles.Changed(document, path) || (File.Exists(path) && document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path))
                         || (File.Exists(PlanCompiler.SidecarPath(path)) && document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path))))
                         throw new AuthoringWorkspaceException($"BUILD_SOURCE_CONFLICT: Compiled artifacts for '{id}' disagree with saved baseline. Explicitly reconcile before building.");
+                    ProcedureAssetFiles.CheckDeclaration(draft, workspace.Manifest);
                     compiler.Save(draft, path);
                     document.RequiresCompilation = false;
                     document.CompiledPlanHash = AuthoringDocumentStore.ComputeHash(path);
                     document.CompiledSidecarHash = AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path));
+                    document.CompiledAssetHashes = ProcedureAssetFiles.Hashes(draft.ImportedData.Keys, path);
                     store.Save(document); // Staging baseline only; original saved revision is untouched.
                 }
                 else

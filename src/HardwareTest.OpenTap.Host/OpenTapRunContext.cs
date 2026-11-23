@@ -75,6 +75,8 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
         _progress?.Report(new OpenTapProgress
         {
             Message = request.Message,
+            StepId = request.ProducerStepId?.ToString(),
+            StepName = request.ProducerStepName,
             AwaitingOperator = true,
             OperatorPromptMessage = request.Message,
             InteractionRequest = request,
@@ -192,6 +194,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 },
                 CancellationToken.None).ConfigureAwait(false);
 
+            var guidance = _events.LastOrDefault(mark => string.Equals(mark.Name, "OperatorGuidance", StringComparison.OrdinalIgnoreCase))?.Label;
             MergePreservedSamples(preservedSamples, sampleScopePaths);
             MergePreservedEvents(preservedEvents, sampleScopePaths);
 
@@ -209,7 +212,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 result == RunResult.Cancelled
                     ? (_control.IsCancellationRequested ? "Safety stop" : "Cancelled") + (deviceFailures.IsEmpty ? "" : ". " + DeviceFailureText())
                     : (!deviceFailures.IsEmpty ? DeviceFailureText()
-                        : verdict == Verdict.Fail ? "One or more steps failed" : null));
+                        : verdict == Verdict.Fail ? "One or more steps failed" : verdict == Verdict.Error ? guidance : null));
 
             progress?.Report(new OpenTapProgress
             {

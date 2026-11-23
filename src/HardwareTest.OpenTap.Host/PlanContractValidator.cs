@@ -183,6 +183,14 @@ public static class PlanContractValidator
             catalog.EnsurePlugins();
             var plan = TestPlan.Load(tapPlanPath);
             AnalyzePlan(plan, includeCleanup, sidecar, findings);
+            foreach (var step in plan.ChildTestSteps.OfType<IProcedureAuthoring>())
+            {
+                try { step.ValidateAuthoring(); }
+                catch (Exception error)
+                {
+                    findings.Add(Error("PROCEDURE_CONFIGURATION", error.Message));
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -370,6 +378,12 @@ public static class PlanContractValidator
         {
             if (step.ChildTestSteps.Count > 0)
             {
+                continue;
+            }
+
+            if (step is IEvaluatedResultStep)
+            {
+                roles.Add(PresentationDisplayRoles.Passband);
                 continue;
             }
 

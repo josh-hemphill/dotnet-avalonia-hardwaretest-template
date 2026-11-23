@@ -1,70 +1,72 @@
 using System.Text.Json;
 using HardwareTest.OpenTap.Host;
-using OpenTap;
 
 namespace HardwareTest.Authoring;
 
 public sealed partial class PlanCompiler
 {
-    // Rollback handles replacement exceptions; the two files are not a crash-safe transaction.
-    private void WritePlanAndSidecar(TestPlan plan, string tapPlanPath, ProgramSidecar sidecar)
+    private void WritePlanAndSidecar(Action<Stream> writePlan, string tapPlanPath, ProgramSidecar sidecar,
+        IReadOnlyDictionary<string, string>? data = null)
     {
         var tapFull = Path.GetFullPath(tapPlanPath);
-        var sidecarFull = SidecarPath(tapFull);
-        var tapTemp = tapFull + ".saving";
-        var sidecarTemp = sidecarFull + ".saving";
-        var tapTempOwned = false;
-        var sidecarTempOwned = false;
+        var files = new List<(string Path, Action<Stream> Write)>
+        {
+            (tapFull, writePlan),
+            (SidecarPath(tapFull), stream => JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar))
+        };
+        if (data is not null)
+            foreach (var (relative, contents) in data.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+            {
+                var path = AuthoringProgramAssets.ResolvePath(Path.GetDirectoryName(tapFull)!, relative);
+                if (!File.Exists(path) || File.ReadAllText(path) != contents)
+                    files.Add((path, stream => stream.Write(System.Text.Encoding.UTF8.GetBytes(contents))));
+            }
+        WriteCompilation(files, data is not null);
+    }
+
+    // Replacement failures roll back all replaced files. Source hashes detect an incomplete
+    // compilation on the next open if a process is killed between replacements.
+    private void WriteCompilation(IReadOnlyList<(string Path, Action<Stream> Write)> files, bool importedProcedure)
+    {
+        var staged = new List<string>();
+        var backups = new List<string?>();
+        var touched = 0;
         try
         {
-            using (var stream = new FileStream(tapTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            foreach (var (path, write) in files)
             {
-                tapTempOwned = true;
-                using var serialized = new MemoryStream();
-                plan.Save(serialized);
-                AuthoringMeasureSections.WriteCompiledLayout(serialized, stream);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                var temporary = importedProcedure ? path + "." + Guid.NewGuid().ToString("N") + ".saving" : path + ".saving";
+                using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                staged.Add(temporary);
+                write(stream);
                 stream.Flush(flushToDisk: true);
             }
-            using (var stream = new FileStream(sidecarTemp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            foreach (var (path, _) in files) backups.Add(CreatePreimageBackup(path));
+            for (var index = 0; index < files.Count; index++)
             {
-                sidecarTempOwned = true;
-                JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar);
-                stream.Flush(flushToDisk: true);
+                touched++;
+                _replaceFile(staged[index], files[index].Path);
             }
-            var tapBackup = CreatePreimageBackup(tapFull);
-            var sidecarBackup = CreatePreimageBackup(sidecarFull);
-            try
+        }
+        catch (Exception originalError)
+        {
+            var rollbackErrors = new List<Exception>();
+            for (var index = touched - 1; index >= 0; index--)
+                TryRestoreFile(files[index].Path, backups[index], rollbackErrors);
+            if (rollbackErrors.Count > 0)
             {
-                _replaceFile(tapTemp, tapFull);
-                _replaceFile(sidecarTemp, sidecarFull);
+                originalError.Data["AuthoringRecoveryBackups"] = backups.OfType<string>().ToArray();
+                originalError.Data["AuthoringRecoveryAction"] = "Restore the retained .preimage files to their original paths before exporting again.";
+                originalError.Data["AuthoringRollbackErrors"] = rollbackErrors.ToArray();
+                backups.Clear();
             }
-            catch (Exception originalError)
-            {
-                var rollbackErrors = new List<Exception>();
-                TryRestoreFile(tapFull, tapBackup, rollbackErrors);
-                TryRestoreFile(sidecarFull, sidecarBackup, rollbackErrors);
-                if (rollbackErrors.Count > 0)
-                {
-                    originalError.Data["AuthoringRecoveryBackups"] = new[] { tapBackup, sidecarBackup }
-                        .Where(path => path is not null).ToArray();
-                    originalError.Data["AuthoringRecoveryAction"] =
-                        "Restore the retained .preimage files to their original paths before exporting again.";
-                    originalError.Data["AuthoringRollbackErrors"] = rollbackErrors.ToArray();
-                }
-                else
-                {
-                    if (tapBackup is not null) TryDeleteFile(tapBackup);
-                    if (sidecarBackup is not null) TryDeleteFile(sidecarBackup);
-                }
-                throw;
-            }
-            if (tapBackup is not null) TryDeleteFile(tapBackup);
-            if (sidecarBackup is not null) TryDeleteFile(sidecarBackup);
+            throw;
         }
         finally
         {
-            if (tapTempOwned) TryDeleteFile(tapTemp);
-            if (sidecarTempOwned) TryDeleteFile(sidecarTemp);
+            foreach (var temporary in staged) TryDeleteFile(temporary);
+            foreach (var backup in backups.OfType<string>()) TryDeleteFile(backup);
         }
     }
 

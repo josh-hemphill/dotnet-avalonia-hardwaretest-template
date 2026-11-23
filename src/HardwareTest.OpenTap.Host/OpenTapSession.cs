@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using HardwareTest.Core.BenchReferences;
+using System.Security.Cryptography;
 using HardwareTest.Core.Hardware;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
@@ -160,7 +161,15 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             throw new FileNotFoundException("Test plan not found.", tapPlanPath);
         }
 
-        var plan = TestPlan.Load(tapPlanPath);
+        var source = File.ReadAllBytes(tapPlanPath);
+        using var stream = new MemoryStream(source, writable: false);
+        var plan = TestPlan.Load(stream, Path.GetFullPath(tapPlanPath));
+        var provenance = plan.ChildTestSteps.OfType<IProcedureSourceIdentity>().ToArray();
+        if (provenance.Length > 0)
+        {
+            var hash = Convert.ToHexStringLower(SHA256.HashData(source));
+            foreach (var owner in provenance) owner.BindPlanSha256(hash);
+        }
         LogicalInstrumentBindings.Canonicalize(plan, tapPlanPath);
         var sidecarPath = Path.ChangeExtension(tapPlanPath, ".program.json");
         if (File.Exists(sidecarPath))

@@ -1,0 +1,10 @@
+{
+  "$schema": "./program.schema.json",
+  "displayName": "Advanced Fixture Procedure (Simulation)",
+  "dutFamily": "demo",
+  "requireSerial": true,
+  "requireOperator": true,
+  "reportKinds": ["status", "certification"],
+  "defaultReportKind": "status",
+  "selectionIncludesCleanup": true
+}

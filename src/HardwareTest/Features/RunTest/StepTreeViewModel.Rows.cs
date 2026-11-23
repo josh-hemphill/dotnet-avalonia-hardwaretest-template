@@ -94,12 +94,6 @@ public partial class StepTreeViewModel
             return;
         }
 
-        StepListItems.Clear();
-        foreach (var item in items)
-        {
-            StepListItems.Add(item);
-        }
-
         StepRows.Clear();
         foreach (var item in items)
         {
@@ -109,6 +103,9 @@ public partial class StepTreeViewModel
             }
         }
 
+        // Replace the scope as one collection so a selected, realized row from
+        // the previous scope cannot survive a sequence of clear/add notifications.
+        StepListItems = items;
         RefreshBreadcrumb();
         SyncSelectedStepListItem();
     }
@@ -289,6 +286,9 @@ public partial class StepTreeViewModel
         _refreshHero();
         RefreshSuiteSummary();
     }
+
+    internal HierarchyStepViewModel? FindStepById(string id)
+        => StepHierarchy.Flatten(_fullHierarchy).FirstOrDefault(step => string.Equals(step.Id, id, StringComparison.OrdinalIgnoreCase));
 
     /// Applies one streaming status update; returns the touched node so the coordinator can update the hero.
     public HierarchyStepViewModel? ApplyLiveStep(

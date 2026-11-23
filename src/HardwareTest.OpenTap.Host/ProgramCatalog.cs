@@ -47,6 +47,9 @@ public sealed class ProgramCatalogEntry
 /// Optional sidecar beside a .TapPlan: `{planId}.program.json`.
 public sealed class ProgramSidecar
 {
+    [JsonPropertyName("$schema")]
+    public string? Schema { get; set; }
+
     public string? DisplayName { get; set; }
     public string? DutFamily { get; set; }
     public bool? RequireSerial { get; set; }

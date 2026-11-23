@@ -36,6 +36,25 @@ public sealed class WorkerProgressOrderingTests
     }
 
     [Fact]
+    public void Older_resume_snapshot_cannot_clear_the_next_operator_prompt()
+    {
+        using var client = new OpenTapWorkerClient(new AppSettings { UseMockVisa = true, CrashEnabled = false });
+        var first = OperatorInteractionRequest.ConfirmOnly("First fixture");
+        client.ApplyFromProgress(new() { Message = first.Message, AwaitingOperator = true, InteractionRequest = first });
+        var resumeVersion = client.InteractionVersion;
+        var next = OperatorInteractionRequest.ConfirmOnly("Next fixture");
+        client.ApplyFromProgress(new() { Message = next.Message, AwaitingOperator = true, InteractionRequest = next });
+
+        client.ApplySnapshot(new WorkerSnapshot { IsExecuting = true }, resumeVersion);
+
+        Assert.Same(next, client.PendingInteraction);
+        Assert.True(client.IsAwaitingOperator);
+        client.ApplySnapshot(new WorkerSnapshot { IsExecuting = true }, client.InteractionVersion);
+        Assert.Null(client.PendingInteraction);
+        Assert.False(client.IsAwaitingOperator);
+    }
+
+    [Fact]
     public async Task Blocked_callback_delays_terminal_response_without_blocking_worker_controls()
     {
         using var temp = new TempDataDirectory();

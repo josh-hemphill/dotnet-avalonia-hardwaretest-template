@@ -9,15 +9,17 @@ internal sealed partial class ProgressResultListener
         var producer = ResultProducer(stepRunId);
         try
         {
-            if (string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
+            var capture = string.Equals(result.Name, "Capture", StringComparison.OrdinalIgnoreCase);
+            if (capture || string.Equals(result.Name, "Sample", StringComparison.OrdinalIgnoreCase))
             {
-                PublishSamples(result, stepRunId);
+                PublishSamples(result, stepRunId, capture);
                 return;
             }
 
-            if (string.Equals(result.Name, "Scalar", StringComparison.OrdinalIgnoreCase))
+            var evaluated = string.Equals(result.Name, "Evaluated", StringComparison.OrdinalIgnoreCase);
+            if (evaluated || string.Equals(result.Name, "Scalar", StringComparison.OrdinalIgnoreCase))
             {
-                PublishScalars(result, stepRunId);
+                PublishScalars(result, stepRunId, evaluated);
                 return;
             }
 

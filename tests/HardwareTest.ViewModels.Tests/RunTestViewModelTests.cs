@@ -519,6 +519,82 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
+    public async Task One_ui_flush_keeps_distinct_passbands_from_the_same_step()
+    {
+        var vm = CreateVm();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var step = Flatten(vm.StepTree.Hierarchy).First(item => item.Children.Count == 0);
+        vm.StepTree.SelectedStep = step;
+        var queue = new Queue<Action>();
+        vm.UiScheduler = queue.Enqueue;
+        var now = DateTimeOffset.UtcNow;
+
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Curve score",
+            StepPath = step.Path,
+            Sample = new MeasurementSampleEvent("curve", 0, 97, now, "curve", "passband", "pts", 93, 99.9),
+        });
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Span difference",
+            StepPath = step.Path,
+            Sample = new MeasurementSampleEvent("span", 0, 0.01, now, "span", "passband", "V", -0.12, 0.12),
+        });
+
+        Assert.Single(queue)();
+        Assert.Contains(vm.Live.PresentationTiles, tile => tile.MetricKey == "curve" && tile.Value == 97);
+        Assert.Contains(vm.Live.PresentationTiles, tile => tile.MetricKey == "span" && tile.Value == 0.01);
+    }
+
+    [Fact]
+    public async Task Fast_completed_steps_keep_distinct_verdicts_before_the_next_prompt()
+    {
+        var vm = CreateVm();
+        await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
+        var leaves = Flatten(vm.StepTree.Hierarchy).Where(step => step.Children.Count == 0).Take(3).ToArray();
+        var queue = new Queue<Action>();
+        vm.UiScheduler = queue.Enqueue;
+
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "First step passed",
+            StepPath = leaves[0].Path, StepId = leaves[0].Id, StepName = leaves[0].Name,
+            StatusText = "Pass", Verdict = "Pass",
+        });
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Second step passed",
+            StepPath = leaves[1].Path, StepId = leaves[1].Id, StepName = leaves[1].Name,
+            StatusText = "Pass", Verdict = "Pass",
+        });
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Route evidence",
+            StepPath = leaves[0].Path, StepId = leaves[0].Id,
+            StatusText = "Event", KeyValue = "Route evidence",
+            Event = new MeasurementEventMark("case.route", 0, "Route evidence", null, leaves[0].Path),
+        });
+        vm.IngestProgress(new OpenTapProgress
+        {
+            Message = "Confirm fixture",
+            StepPath = leaves[2].Path, StepId = leaves[2].Id, StepName = leaves[2].Name,
+            StatusText = "Awaiting operator", AwaitingOperator = true,
+        });
+
+        while (queue.TryDequeue(out var action))
+        {
+            action();
+        }
+
+        Assert.Equal("Pass", leaves[0].ChipText);
+        Assert.Equal("Pass", leaves[1].ChipText);
+        Assert.Equal("NotSet", leaves[2].Verdict);
+        Assert.Equal(leaves[2].Path, vm.CurrentStepPath);
+        Assert.True(vm.Interaction.IsAwaitingOperator);
+    }
+
+    [Fact]
     public async Task Run_without_presentation_metrics_stays_usable_without_tiles()
     {
         var openTap = new FakeOpenTapSession

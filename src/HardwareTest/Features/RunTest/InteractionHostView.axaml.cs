@@ -81,7 +81,7 @@ public partial class InteractionHostView : UserControl
             var field = this.GetVisualDescendants().OfType<Control>().FirstOrDefault(control =>
                 control.IsEffectivelyVisible && control.IsEffectivelyEnabled
                 && control.DataContext is InteractionFieldViewModel model && model.Id == id
-                && control is TextBox or CheckBox);
+                && control is TextBox or ComboBox or CheckBox);
             field?.BringIntoView();
             field?.Focus();
         }, DispatcherPriority.Loaded);
@@ -91,17 +91,18 @@ public partial class InteractionHostView : UserControl
     {
         void FocusFirst()
         {
-            var box = this.GetVisualDescendants()
-                .OfType<TextBox>()
-                .FirstOrDefault(t => t.IsVisible && t.IsEnabled);
-            if (box is not null)
+            var field = this.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => control is TextBox or ComboBox or CheckBox
+                    && control.IsEffectivelyVisible && control.IsEnabled);
+            if (field is not null)
             {
-                box.BringIntoView();
-                box.Focus();
+                field.BringIntoView();
+                field.Focus(NavigationMethod.Tab);
                 return;
             }
 
-            ContinueButton.Focus();
+            ContinueButton.Focus(NavigationMethod.Tab);
         }
 
         Dispatcher.UIThread.Post(FocusFirst, DispatcherPriority.Loaded);

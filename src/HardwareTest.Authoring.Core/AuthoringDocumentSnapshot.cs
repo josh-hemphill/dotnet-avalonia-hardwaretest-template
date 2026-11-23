@@ -19,6 +19,8 @@ public sealed class AuthoringDocumentSnapshot
         PlanIdentity = Canonical(JsonSerializer.Serialize(new
         {
             _draft.PlanId,
+            _draft.ImportedPlanXml,
+            _draft.ImportedData,
             _draft.Instruments,
             Setup = _draft.Setup.Select(SetupValue).ToArray(),
             Measure = _draft.Measure.Select(NodeValue).ToArray(),
@@ -45,6 +47,7 @@ public sealed class AuthoringDocumentSnapshot
         return draft with
         {
             Sidecar = sidecar,
+            ImportedData = new Dictionary<string, string>(draft.ImportedData, StringComparer.Ordinal),
             AuthoringState = draft.AuthoringState.Clone(),
             Instruments = draft.Instruments.Select(i => i with { Settings = new Dictionary<string, string>(i.Settings, StringComparer.Ordinal) }).ToArray(),
             Setup = draft.Setup.Select(CloneSetup).ToArray(),

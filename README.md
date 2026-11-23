@@ -60,6 +60,7 @@ templates/reports/                   # Typst templates (embedded)
 | [docs/getting-started.md](docs/getting-started.md) | First HardwareTest.Authoring plan; TUI is an optional escape hatch |
 | [docs/adapting.md](docs/adapting.md) | Replacing sample plans, plugins, station bindings, reports, or settings |
 | [docs/testing.md](docs/testing.md) | Adding or choosing a test suite |
+| [Advanced fixture procedure](examples/AdvancedProcedure/README.md) | Optional simulated multi-suite procedure, serial DUT plugin, station tables, and reporting evidence |
 | [docs/containers.md](docs/containers.md) | Running the Node.js CI matrix locally or in Podman |
 | [docs/appliance-linux.md](docs/appliance-linux.md) | Publishing a sealed Linux bench image |
 

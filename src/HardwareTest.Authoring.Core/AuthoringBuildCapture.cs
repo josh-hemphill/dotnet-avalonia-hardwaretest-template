@@ -41,6 +41,14 @@ public static partial class AuthoringBuildService
                 p => p.EndsWith(".authoring.json", StringComparison.Ordinal)),
             CaptureTree(home.Root, "home", true, EnvironmentInput),
         };
+        var plansRoot = PlansRoot(saved);
+        foreach (var group in AuthoringProgramAssets.Included(saved).GroupBy(asset => Path.GetDirectoryName(asset)!))
+        {
+            var directory = Path.Combine(plansRoot, group.Key);
+            EnsureContained(plansRoot, ResolvedPath(directory, directory: true));
+            var selected = group.Select(asset => AuthoringProgramAssets.ResolvePath(plansRoot, asset)).ToHashSet(StringComparer.Ordinal);
+            trees.Add(CaptureTree(directory, "workspace/plans/" + group.Key.Replace(Path.DirectorySeparatorChar, '/'), false, selected.Contains));
+        }
         if (!string.Equals(Path.GetFullPath(home.Root), Path.GetFullPath(tuiHome.Root), StringComparison.Ordinal))
             trees.Add(CaptureTree(tuiHome.Root, "tui-home", true, EnvironmentInput));
         for (var i = 0; i < saved.Manifest.PluginProjects.Count; i++)
@@ -137,7 +145,7 @@ public static partial class AuthoringBuildService
                     ? p => ShellConfigurationNames.Contains(Path.GetFileName(p), StringComparer.Ordinal)
                 : tree.StageRelativePath == "workspace/authoring-drafts"
                     ? p => p.EndsWith(".authoring.json", StringComparison.Ordinal)
-                    : tree.StageRelativePath.StartsWith("plugins/", StringComparison.Ordinal) || tree.StageRelativePath.StartsWith("compiler/", StringComparison.Ordinal) || tree.StageRelativePath == "dotnet-host" || tree.StageRelativePath.StartsWith("shell-assets/", StringComparison.Ordinal)
+                    : tree.StageRelativePath.StartsWith("workspace/plans/", StringComparison.Ordinal) || tree.StageRelativePath.StartsWith("plugins/", StringComparison.Ordinal) || tree.StageRelativePath.StartsWith("compiler/", StringComparison.Ordinal) || tree.StageRelativePath == "dotnet-host" || tree.StageRelativePath.StartsWith("shell-assets/", StringComparison.Ordinal)
                         ? p => selected.Contains(p) : tree.StageRelativePath == "shell" ? ShellInput
                         : tree.StageRelativePath is "home" or "tui-home" ? EnvironmentInput : null;
             var current = CaptureTree(tree.Root, tree.StageRelativePath, tree.Recursive, filter, materialize: false);

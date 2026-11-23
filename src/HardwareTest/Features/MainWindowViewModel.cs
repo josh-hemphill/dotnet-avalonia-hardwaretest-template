@@ -183,7 +183,7 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (IsAwaitingOperator)
             {
-                return "Continue";
+                return IsOnRunPage ? "Continue" : "Review prompt";
             }
 
             return IsPaused ? "Resume" : "Pause";
@@ -196,7 +196,7 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (IsAwaitingOperator)
             {
-                return "Continue the operator prompt (same as Run board Continue)";
+                return IsOnRunPage ? "Continue the operator prompt" : "Open Run to review the waiting prompt";
             }
 
             return IsPaused ? "Resume the run" : "Pause the run";
@@ -208,7 +208,6 @@ public partial class MainWindowViewModel : ReactiveObject
         get
         {
             if (IsSafetyStopping) return "Cancel shutdown";
-            if (IsAwaitingOperator) return "Cancel prompt";
             return StopRunCopy.Label;
         }
     }
@@ -339,9 +338,12 @@ public partial class MainWindowViewModel : ReactiveObject
             _syncingNavSelection = false;
         }
         _settingsStore.UiState.SelectedPageId = item.Id;
+        this.RaisePropertyChanged(nameof(PauseResumeLabel));
+        this.RaisePropertyChanged(nameof(PauseResumeTip));
         RunTest.SessionPanel.TouchActivity();
         if (item.Id == ShellNavigationPolicy.Results)
         {
+            ShellNotification.Clear(ShellNotificationViewModel.SourceRun);
             _ = Results.LoadRunsAsync();
         }
         else if (item.Id == ShellNavigationPolicy.Inspect)
@@ -507,11 +509,15 @@ public partial class MainWindowViewModel : ReactiveObject
         Pause();
     }
 
+    private bool IsOnRunPage => SelectedItem?.Id == ShellNavigationPolicy.RunTest;
+
     private void ContinueOperator()
     {
-        if (SelectedItem?.Id != ShellNavigationPolicy.RunTest)
+        if (!IsOnRunPage)
         {
             NavigateToPageId(ShellNavigationPolicy.RunTest);
+            RunTest.RevealWaitingOperatorRequest();
+            return;
         }
 
         RunTest.ContinueOperatorAttention();

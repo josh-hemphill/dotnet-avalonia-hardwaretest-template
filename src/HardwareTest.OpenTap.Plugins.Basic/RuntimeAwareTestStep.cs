@@ -23,7 +23,7 @@ public abstract class RuntimeAwareTestStep : TestStep, IRuntimeAwareStep
     protected void WaitIfPaused() => _runtime?.WaitIfPaused();
 
     protected OperatorInteractionResponse RequestInteraction(OperatorInteractionRequest request)
-        => _runtime?.RequestInteraction(request)
+        => _runtime?.RequestInteraction(request.ForStep(Id, Name))
            ?? OperatorInteractionResponse.Cancel(request.Id);
 
     protected void RequestOperatorAttention(string message)

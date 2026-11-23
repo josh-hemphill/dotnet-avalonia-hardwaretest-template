@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <CreateOpenTapPackage>false</CreateOpenTapPackage>
+    <InstallCreatedOpenTapPackage>false</InstallCreatedOpenTapPackage>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Plugin/HardwareTest.Examples.AdvancedProcedure.csproj" />
+    <ProjectReference Include="../../../src/HardwareTest.OpenTap.Host/HardwareTest.OpenTap.Host.csproj" />
+    <ProjectReference Include="../../../src/HardwareTest.OpenTap.Worker/HardwareTest.OpenTap.Worker.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

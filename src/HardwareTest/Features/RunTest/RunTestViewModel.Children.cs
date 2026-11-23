@@ -146,11 +146,6 @@ public partial class RunTestViewModel
                 return "Cancel shutdown";
             }
 
-            if (Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator)
-            {
-                return "Cancel prompt";
-            }
-
             return StopRunCopy.Label;
         }
     }

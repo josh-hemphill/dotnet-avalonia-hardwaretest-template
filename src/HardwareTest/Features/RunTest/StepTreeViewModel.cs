@@ -132,7 +132,18 @@ public partial class StepTreeViewModel : ReactiveObject
     public ObservableCollection<StageItemViewModel> Stages { get; } = [];
     public ObservableCollection<StageItemViewModel> Subsections { get; } = [];
     public ObservableCollection<StageItemViewModel> NestedSubsections { get; } = [];
-    public ObservableCollection<StepListItemViewModel> StepListItems { get; } = [];
+    private IReadOnlyList<StepListItemViewModel> _stepListItems = [];
+    public IReadOnlyList<StepListItemViewModel> StepListItems
+    {
+        get => _stepListItems;
+        private set
+        {
+            this.RaiseAndSetIfChanged(ref _stepListItems, value);
+            this.RaisePropertyChanged(nameof(UseSimpleStepList));
+        }
+    }
+
+    public bool UseSimpleStepList => StepListItems.Count <= 100;
 
     public IReadOnlyList<HierarchyStepViewModel> FullHierarchy => _fullHierarchy;
 
@@ -209,7 +220,7 @@ public partial class StepTreeViewModel : ReactiveObject
         Subsections.Clear();
         NestedSubsections.Clear();
         StepRows.Clear();
-        StepListItems.Clear();
+        StepListItems = [];
         foreach (var node in _stepTreeSource())
         {
             _fullHierarchy.Add(new HierarchyStepViewModel(node));

@@ -136,8 +136,14 @@
              ItemsSource="{Binding StepTree.StepListItems}"
              SelectedItem="{Binding StepTree.SelectedStepListItem}"
              DoubleTapped="OnHierarchyDoubleTapped"
-             Classes.compact="{Binding StepTree.CompactStepRows}">
+             Classes.compact="{Binding StepTree.CompactStepRows}"
+             Classes.short-scope="{Binding StepTree.UseSimpleStepList}">
       <ListBox.Styles>
+        <Style Selector="ListBox.short-scope">
+          <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate><StackPanel /></ItemsPanelTemplate>
+          </Setter>
+        </Style>
         <Style Selector="ListBoxItem" x:DataType="vm:StepListItemViewModel">
           <Setter Property="AutomationProperties.Name" Value="{Binding DisplayName}"/>
           <Setter Property="AutomationProperties.HelpText" Value="{Binding Step.ChipText}"/>
@@ -192,7 +198,7 @@
                            IsVisible="{Binding Step.KeyValue, Converter={x:Static vm:StringPresenceConverter.IsNotNullOrWhiteSpace}}" />
               </StackPanel>
               <TextBlock Grid.Column="2"
-                         Text="{Binding Step.AttemptsText}"
+                         Text="{Binding Step.AttemptsText, StringFormat=Attempts {0}}"
                          FontWeight="SemiBold"
                          FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                          VerticalAlignment="Center"

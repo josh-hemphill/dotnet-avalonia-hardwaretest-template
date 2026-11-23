@@ -72,6 +72,78 @@ public sealed class ResultsViewModelTests
     }
 
     [Fact]
+    public async Task Imported_failed_run_surfaces_failing_score_and_a_searchable_passing_sibling()
+    {
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "mixed",
+            Result = RunResult.Failed,
+            Steps = [new() { StepId = "curve", StepPath = "Sweep / Curve", Message = "Fail", Passed = false }],
+            Samples =
+            [
+                new() { MetricKey = "curve.score", Value = 91, Unit = "pts", LimitLow = 93, LimitHigh = 99.9, RowVerdict = "Fail" },
+                new() { MetricKey = "curve.span", Value = 0, Unit = "V", LimitLow = -0.1, LimitHigh = 0.1, RowVerdict = "Pass" },
+            ],
+        });
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.RefreshCommand.ExecuteAsync();
+        vm.SelectedRun = vm.Runs[0];
+        await vm.OpenCommand.ExecuteAsync();
+
+        Assert.Contains("Sweep / Curve", vm.FirstFailSummary, StringComparison.Ordinal);
+        var reading = Assert.IsType<HardwareTest.Widgets.Presentation.LimitReadout>(Assert.Single(vm.EvaluatedRows).Reading);
+        Assert.Equal("93 pts", reading.Lower);
+        Assert.Equal("99.9 pts", reading.Upper);
+        Assert.Equal("91 pts", reading.Value);
+        Assert.Equal("2 pts below lower limit", reading.Distance);
+        Assert.True(vm.ShowFailedMetricsOnly);
+        vm.ShowFailedMetricsOnly = false;
+        vm.EvaluatedSearch = "curve.span";
+        Assert.Equal("Pass", Assert.Single(vm.EvaluatedRows).Verdict);
+    }
+
+    [Fact]
+    public async Task Evaluated_trace_distinguishes_retries_and_uses_stable_metric_identity()
+    {
+        var producer = Guid.NewGuid();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var timestamp = new DateTimeOffset(2026, 11, 23, 15, 0, 0, TimeSpan.Zero);
+        var store = new FakeRunStore();
+        store.Seed(new TestRunRecord
+        {
+            RunId = "retry", Result = RunResult.Failed, StartedAt = timestamp,
+            Samples =
+            [
+                new() { ProducerStepId = producer, StepRunId = first, MetricKey = "case.output", MetricDisplayName = "Fixture output",
+                    RowVerdict = "Fail", Timestamp = timestamp, LimitHigh = 1, Value = 1.1 },
+                new() { ProducerStepId = producer, StepRunId = second, MetricKey = "case.output", RowVerdict = "Pass",
+                    Timestamp = timestamp.AddSeconds(1), LimitHigh = 1, Value = 0.99 },
+                new() { ProducerStepId = producer, StepRunId = first, MetricKey = "case.capture", SampleIndex = 0 }
+            ],
+            Events =
+            [
+                new() { StepRunId = first, Name = "case.route", Label = "MX1/J1.1" },
+                new() { StepRunId = first, Name = "case.configuration", Label = "Crossed" },
+                new() { Name = "tables", Label = "calibration r3" }
+            ]
+        });
+        var vm = new ResultsViewModel(store, new FakeReportService());
+        await vm.OpenRunByIdAsync("retry");
+        var failed = Assert.Single(vm.EvaluatedRows);
+        Assert.Equal("Fixture output", failed.Name);
+        Assert.Equal("Attempt 1 · Crossed", failed.AttemptSummary);
+        Assert.Contains(first.ToString("D"), failed.Trace, StringComparison.Ordinal);
+        Assert.Contains("case.output", failed.Trace, StringComparison.Ordinal);
+        Assert.Contains("case.capture", failed.Trace, StringComparison.Ordinal);
+        Assert.Contains("calibration r3", failed.Trace, StringComparison.Ordinal);
+        vm.ShowFailedMetricsOnly = false;
+        vm.EvaluatedSearch = second.ToString("D");
+        Assert.Equal("Attempt 2", Assert.Single(vm.EvaluatedRows).AttemptSummary);
+    }
+
+    [Fact]
     public async Task Open_caps_step_and_sample_sidebar_rows()
     {
         var store = new FakeRunStore();

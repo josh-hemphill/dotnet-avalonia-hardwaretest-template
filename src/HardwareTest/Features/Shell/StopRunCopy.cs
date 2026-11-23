@@ -10,7 +10,7 @@ public static class StopRunCopy
         "Stop Run — cooperative software stop, then kill the OpenTAP worker if a step ignores cancel. Not a hardware interlock.";
 
     public const string CancelPromptTip =
-        "Cancel prompt (aborts run) — operator interaction is cancelled via Stop Run. Not a hardware interlock.";
+        "Stop the run and cancel the waiting operator prompt.";
 
     public const string CancelShutdownTip = "Cancel the in-progress software stop";
 

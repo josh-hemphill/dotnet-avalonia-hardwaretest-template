@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using HardwareTest.OpenTap.Plugins.Basic;
@@ -13,6 +14,12 @@ namespace HardwareTest.Features.RunTest;
 public partial class InteractionHostViewModel : ReactiveObject
 {
     public ObservableCollection<InteractionFieldViewModel> InteractionFields { get; } = [];
+
+    private string? _requestId;
+    private InteractionFieldViewModel? _invalidChoice;
+
+    internal Guid? ProducerStepId { get; private set; }
+    internal string? ProducerStepName { get; private set; }
 
     [Reactive] private bool _isAwaitingOperator;
     [Reactive] private string? _operatorPromptMessage;
@@ -27,15 +34,26 @@ public partial class InteractionHostViewModel : ReactiveObject
     /// Shows the prompt card for a host request, falling back to a plain progress message.
     public void Apply(OperatorInteractionRequest? request, string? fallbackMessage)
     {
+        if (request is not null && request.Id == _requestId)
+        {
+            return;
+        }
+
+        _requestId = request?.Id;
+        ProducerStepId = request?.ProducerStepId;
+        ProducerStepName = request?.ProducerStepName;
         InteractionValidationError = null;
         InteractionTitle = request?.Title ?? "Operator attention";
         OperatorPromptMessage = request?.Message ?? fallbackMessage;
-        InteractionFields.Clear();
+        ClearFields();
         if (request?.Fields is { Count: > 0 })
         {
             foreach (var field in request.Fields)
             {
-                InteractionFields.Add(new InteractionFieldViewModel(field));
+                var editor = new InteractionFieldViewModel(field);
+                if (editor.IsChoice)
+                    editor.PropertyChanged += OnChoiceChanged;
+                InteractionFields.Add(editor);
             }
         }
 
@@ -45,7 +63,10 @@ public partial class InteractionHostViewModel : ReactiveObject
 
     public void Clear()
     {
-        InteractionFields.Clear();
+        _requestId = null;
+        ProducerStepId = null;
+        ProducerStepName = null;
+        ClearFields();
         HasInteractionFields = false;
         InteractionTitle = "Operator attention";
         InteractionValidationError = null;
@@ -60,6 +81,16 @@ public partial class InteractionHostViewModel : ReactiveObject
         out Dictionary<string, string> values)
     {
         values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (request?.Id != _requestId)
+        {
+            if (request is not null)
+                Apply(request, fallbackMessage: null);
+
+            InteractionValidationError = "The prompt changed. Review the current request before continuing.";
+            return false;
+        }
+
+        _invalidChoice = null;
         foreach (var field in InteractionFields) field.ValidationError = string.Empty;
         if (request is not null && InteractionFields.Count > 0)
         {
@@ -76,7 +107,15 @@ public partial class InteractionHostViewModel : ReactiveObject
                     continue;
                 }
 
-                var trimmed = field.Value.Trim();
+                var trimmed = field.ToResponseValue();
+                if (field.IsChoice && (field.Required || trimmed.Length > 0) &&
+                    !field.Choices.Contains(trimmed, StringComparer.Ordinal))
+                {
+                    _invalidChoice = field;
+                    RejectField(field, $"Select an option for {field.Label.ToLowerInvariant()} before continuing.");
+                    return false;
+                }
+
                 if (field.Required && string.IsNullOrWhiteSpace(trimmed))
                 {
                     RejectField(field, $"{field.Label} is required.");
@@ -110,5 +149,26 @@ public partial class InteractionHostViewModel : ReactiveObject
         field.ValidationError = message;
         InteractionValidationError = message;
         RequestFocusField?.Invoke(field.Id);
+    }
+
+    private void OnChoiceChanged(object? sender, PropertyChangedEventArgs change)
+    {
+        if (change.PropertyName == nameof(InteractionFieldViewModel.SelectedChoice)
+            && _invalidChoice is { SelectedChoice: { } selected } field
+            && ReferenceEquals(sender, field)
+            && field.Choices.Contains(selected, StringComparer.Ordinal))
+        {
+            _invalidChoice = null;
+            field.ValidationError = string.Empty;
+            InteractionValidationError = null;
+        }
+    }
+
+    private void ClearFields()
+    {
+        foreach (var field in InteractionFields)
+            field.PropertyChanged -= OnChoiceChanged;
+        InteractionFields.Clear();
+        _invalidChoice = null;
     }
 }

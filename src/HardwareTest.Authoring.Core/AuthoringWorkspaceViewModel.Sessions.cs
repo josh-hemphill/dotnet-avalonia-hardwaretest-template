@@ -102,12 +102,15 @@ public sealed partial class AuthoringWorkspaceViewModel
         _savedManifestIdentity = ManifestIdentity();
     }
 
-    private bool CommitDocument(ProgramDraft draft, string description = "Edit program")
+    private bool CommitDocument(ProgramDraft draft, string description = "Edit program", bool procedureEdit = false)
     {
         EnsureWritableWorkspace("edit a program");
         if (!_documents.TryGetValue(draft.PlanId, out var session))
             throw new AuthoringWorkspaceException($"Program '{draft.PlanId}' no longer exists in this session.");
-        if (session.Snapshot.ContentEquals(AuthoringDocumentSnapshot.Capture(draft))) return false;
+        var proposed = AuthoringDocumentSnapshot.Capture(draft);
+        if (session.Snapshot.ContentEquals(proposed)) return false;
+        if (session.Draft.ImportedPlanXml is not null && !procedureEdit && session.Snapshot.PlanIdentity != proposed.PlanIdentity)
+            throw new AuthoringWorkspaceException("Use the procedure editor to edit plugin-owned steps and their resources.");
         if (_catalogTransaction)
         {
             session.RestoreExternal(draft, session.SelectedNodeId);

@@ -30,7 +30,7 @@ public static class AuthoringSourceExportGuard
             var document = result.Document;
             if (document.RequiresCompilation || path is null)
                 issues.Add(new("SOURCE_COMPILE_REQUIRED", $"Compile saved source '{id}' before checking or exporting its artifacts.", true, store.GetDocumentPath(id)));
-            else if (document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
+            else if (ProcedureAssetFiles.Changed(document, path) || document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
                 || document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)))
                 issues.Add(new("SOURCE_EXTERNAL_CONFLICT", $"Reconcile external compiled changes for '{id}' before checking or exporting.", true, path));
         }

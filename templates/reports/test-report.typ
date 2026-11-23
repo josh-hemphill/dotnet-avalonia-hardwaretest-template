@@ -1,4 +1,4 @@
-#import "lib/sample-chart.typ": channel-names, samples-for, line-chart
+#import "lib/sample-chart.typ": channel-names, samples-for, line-chart, evaluated-results
 
 = Test Report
 #v(0.5em)
@@ -58,6 +58,8 @@
     #sys.inputs.historyMetrics
   ]
 ]
+
+#evaluated-results(json("run.json"))
 
 #if sys.inputs.includePlots == "true" [
   #let run = json("run.json")

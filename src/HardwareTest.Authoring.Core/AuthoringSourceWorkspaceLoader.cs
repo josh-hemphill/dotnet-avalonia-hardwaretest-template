@@ -20,6 +20,7 @@ public static class AuthoringSourceWorkspaceLoader
         var programs = loaded.Programs.Select(program =>
         {
             var path = imports.TapPlanPaths.FirstOrDefault(file => string.Equals(Path.GetFileNameWithoutExtension(file), program.PlanId, StringComparison.OrdinalIgnoreCase));
+            if (path is not null) program = ProcedureAssetFiles.Load(program, files.Manifest, path);
             var normalized = path is not null && AuthoringMeasureSections.HasCompiledLayout(path)
                 ? program : AuthoringMeasureSections.Initialize(program);
             if (!ReferenceEquals(program, normalized)) migrations.Add(program.PlanId);

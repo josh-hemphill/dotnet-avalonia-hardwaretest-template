@@ -226,6 +226,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         OnPropertyChanged(nameof(CanRemoveSelectedInstrumentSlot));
         OnPropertyChanged(nameof(InstrumentRemovalGuardText));
         OnPropertyChanged(nameof(CanEditProgramSettings));
+        OnPropertyChanged(nameof(HasImportedProcedure));
         RaiseEditorProperties();
     }
 

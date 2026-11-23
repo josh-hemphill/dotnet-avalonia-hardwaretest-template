@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Xml.Linq;
 using HardwareTest.OpenTap.Host;
+using HardwareTest.OpenTap.Plugins.Basic;
 
 namespace HardwareTest.Authoring;
 
@@ -36,7 +37,7 @@ public static partial class WorkspacePacker
         ArgumentNullException.ThrowIfNull(options);
         var findings = new List<PackPreflightFinding>();
         var includedFiles = PackageXmlRenderer.EnumeratePackFiles(workspace);
-        var includedPaths = includedFiles.Where(f => f.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase))
+        var includedPaths = includedFiles.Where(f => !f.Contains('/') && f.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase))
             .Select(f => Path.GetFullPath(Path.Combine(ResolvePlansDirectory(workspace), f))).ToArray();
         var packingWorkspace = workspace with { TapPlanPaths = includedPaths };
         PlanContractBatchReport? contract = null;
@@ -85,6 +86,7 @@ public static partial class WorkspacePacker
 
         try
         {
+            if (home is not null) AuthoringPluginSearch.Search([home.Root]);
             options.Progress?.Invoke("Strict validation of included plans");
             contract = PlanContractValidator.Validate(packingWorkspace.TapPlanPaths,
                 new PlanContractOptions { Strict = true, EnablePhysicalExecution = false });
@@ -92,6 +94,18 @@ public static partial class WorkspacePacker
                 foreach (var finding in plan.Findings)
                     findings.Add(new(AuthoringPackCodes.ContractFailed + "/" + finding.Code, finding.Message,
                         finding.Severity == PlanContractSeverity.Error, finding.Path ?? plan.TargetPath));
+            if (!contract.HasErrors)
+            {
+                foreach (var planPath in includedPaths)
+                {
+                    if (PlanCompiler.TryLoadImported(planPath) is not { } draft) continue;
+                    var plan = PlanCompiler.ReadImportedForAuthoring(planPath, validate: false);
+                    var declared = AuthoringProgramAssets.ForPlan(workspace.Manifest, draft.PlanId);
+                    foreach (var asset in plan.ChildTestSteps.OfType<IProcedureAuthoring>().SelectMany(plugin => plugin.EditorProfile.DataFiles))
+                        if (!declared.Contains(asset.Path, StringComparer.Ordinal))
+                            findings.Add(new("PROCEDURE_ASSET", $"Declare '{asset.Path}' for '{draft.PlanId}' in programAssets.", true, planPath));
+                }
+            }
         }
         catch (Exception ex)
         {
