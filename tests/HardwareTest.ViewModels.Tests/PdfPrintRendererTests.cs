@@ -39,7 +39,7 @@ public sealed class PdfPrintRendererTests
         {
             File.WriteAllBytes(path, CreatePdf(1, 7200, 7200));
             using var document = new PdfPrintRenderer().Open(path);
-            Assert.Throws<InvalidDataException>(() => document.RenderPage(0));
+            _ = Assert.Throws<InvalidDataException>(() => document.RenderPage(0));
         }
         finally { File.Delete(path); }
     }
@@ -54,9 +54,9 @@ public sealed class PdfPrintRendererTests
             File.WriteAllBytes(path, CreatePdf(1, 144, 72, rotation: 90));
             using var document = new PdfPrintRenderer().Open(path);
             using var page = document.RenderPage(0);
-            var expected = PrintGeometry.ValidateRasterSize(document.PageSizes[0]);
-            Assert.Equal(expected.Width, page.Width);
-            Assert.Equal(expected.Height, page.Height);
+            var (Width, Height) = PrintGeometry.ValidateRasterSize(document.PageSizes[0]);
+            Assert.Equal(Width, page.Width);
+            Assert.Equal(Height, page.Height);
             Assert.Equal(300, page.Width);
             Assert.Equal(600, page.Height);
         }
@@ -78,12 +78,12 @@ public sealed class PdfPrintRendererTests
         for (var i = 0; i < objects.Count; i++)
         {
             offsets.Add(content.Length);
-            content.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+            _ = content.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
         }
         var xref = content.Length;
-        content.Append($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
-        foreach (var offset in offsets) content.Append(offset.ToString("D10", CultureInfo.InvariantCulture)).Append(" 00000 n \n");
-        content.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        _ = content.Append($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
+        foreach (var offset in offsets) _ = content.Append(offset.ToString("D10", CultureInfo.InvariantCulture)).Append(" 00000 n \n");
+        _ = content.Append($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
         return Encoding.ASCII.GetBytes(content.ToString());
     }
 }

@@ -30,14 +30,14 @@ public sealed class LogicalInstrumentBindingsTests
             DisplayName = "Shared instrument",
             Path = path,
         });
-        Assert.Single(InstrumentResourceAccess.CollectFromPlan(catalogPlan));
+        _ = Assert.Single(InstrumentResourceAccess.CollectFromPlan(catalogPlan));
         var acquire = Assert.IsType<AcquireVoltageStep>(catalogPlan.ChildTestSteps[1]);
         Assert.Same(acquire.Instrument, Assert.IsType<IdentityCheckStep>(catalogPlan.ChildTestSteps[0]).Instrument);
         Assert.Same(acquire.Instrument, Assert.IsType<SafeShutdownStep>(catalogPlan.ChildTestSteps[2]).Instrument);
 
         var session = new OpenTapSession(new AppSettings { UseMockVisa = true });
         await session.LoadPlanAsync(path);
-        Assert.Single(session.InstrumentSlots);
+        _ = Assert.Single(session.InstrumentSlots);
         var first = await session.RunAsync();
         var second = await session.RunAsync();
         Assert.Equal(RunResult.Passed, first.Result);

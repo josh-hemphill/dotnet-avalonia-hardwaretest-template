@@ -55,11 +55,11 @@ public sealed class EnvironmentPresentationTests
         workspace.Manifest.Dependencies.Add(new() { Package = "Download fixture", Version = "^1.0.0" });
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = Path.Combine(workspace.Root, "selected-home");
-        Directory.CreateDirectory(home); File.WriteAllText(Path.Combine(home, "marker.txt"), "preserved");
+        _ = Directory.CreateDirectory(home); File.WriteAllText(Path.Combine(home, "marker.txt"), "preserved");
         var archive = Path.Combine(workspace.Root, "manual.TapPackage");
         AuthoringEnvironmentBuildWindowTests.WriteArchive(archive, "Download fixture", "1.2.0");
         var picker = new TestWorkspacePicker { Path = archive };
-        fixture.Show(offlinePackagePicker: picker); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(3);
+        _ = fixture.Show(offlinePackagePicker: picker); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(3);
         fixture.ViewModel.OpenTapHomeOverride = home;
         fixture.ViewModel.DownloadRequiredPackages = automatic;
         // Invalid HTTPS settings prove that the chosen repository reaches the child without using the network.
@@ -123,7 +123,7 @@ public sealed class EnvironmentPresentationTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         File.WriteAllText(fixture.Preferences.FilePath, """{"schemaVersion":999,"futureOnly":true}""");
         fixture.Preferences.Load();
-        fixture.Show(); fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.NavigateTask(3);
+        _ = fixture.Show(); fixture.ViewModel.Open(fixture.WorkspaceRoot); fixture.NavigateTask(3);
         Assert.False(fixture.Control<CheckBox>("Automatically download required packages").IsEffectivelyEnabled);
         OpenSources(fixture);
         Assert.False(fixture.Control<TextBox>("Environment package repository URL").IsEffectivelyEnabled);
@@ -185,7 +185,7 @@ public sealed class EnvironmentPresentationTests
         workspace.Manifest.Dependencies.Single(dependency => dependency.Package == AuthoringInstrumentCatalog.LibraryPackage).Version = "9.9.0";
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         fixture.ViewModel.OpenTapHomeOverride = home.Root;
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         fixture.NavigateTask(3);

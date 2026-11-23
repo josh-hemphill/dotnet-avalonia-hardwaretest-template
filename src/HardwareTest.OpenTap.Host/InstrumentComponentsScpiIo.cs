@@ -77,7 +77,7 @@ internal static class InstrumentComponentsScpiIo
 
             if (targetMethod.Name == "Open" && args is { Length: 3 })
             {
-                var selection = (global::InstrumentComponents.Runtime.DriverSelection)args[2]!;
+                var selection = (InstrumentComponents.Runtime.DriverSelection)args[2]!;
                 var timeout = (TimeSpan)args[1]!;
                 return global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.Open(
                     new(selection.DriverId ?? string.Empty, (string)args[0]!, TimeoutMilliseconds: ClampTimeout(timeout)),

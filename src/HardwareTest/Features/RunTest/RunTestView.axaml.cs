@@ -71,7 +71,7 @@ public partial class RunTestView : UserControl
         var contentWidthWithOverview = Bounds.Width - OperatorTouchDensity.OverviewSidebarWidth - 8;
         var readableContentWidth = ShellLayoutBreakpoints.CompactBoardWidth * Math.Max(1, FontSize / 14);
         _subscribed.IsCompactLayout = Bounds.Width > 0 && contentWidthWithOverview < readableContentWidth;
-        _subscribed.IsCompactHeight = Bounds.Height > 0 && Bounds.Height < ShellLayoutBreakpoints.CompactBoardHeight;
+        _subscribed.IsCompactHeight = Bounds.Height is > 0 and < ShellLayoutBreakpoints.CompactBoardHeight;
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

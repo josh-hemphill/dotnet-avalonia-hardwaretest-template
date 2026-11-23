@@ -16,7 +16,7 @@ public sealed class PdfViewerLauncherTests
         var launcher = new PdfViewerLauncher(_ => Task.FromResult((nint)42), backend, worker);
         await launcher.OpenAsync("older-revision.pdf");
         Assert.Equal("older-revision.pdf", backend.ChosenPath);
-        Assert.Equal((nint)42, backend.Owner);
+        Assert.Equal(42, backend.Owner);
         Assert.Equal(1, worker.Calls);
 #pragma warning disable CA1416
         Assert.Equal(0x24u, WindowsPdfViewerBackend.OpenWithFlags);
@@ -28,7 +28,7 @@ public sealed class PdfViewerLauncherTests
     {
         var backend = new Backend { OpenError = new Win32Exception(5) };
         var launcher = new PdfViewerLauncher(_ => Task.FromResult((nint)42), backend, new Worker());
-        await Assert.ThrowsAsync<Win32Exception>(() => launcher.OpenAsync("report.pdf"));
+        _ = await Assert.ThrowsAsync<Win32Exception>(() => launcher.OpenAsync("report.pdf"));
         Assert.Null(backend.ChosenPath);
     }
 
@@ -37,7 +37,7 @@ public sealed class PdfViewerLauncherTests
     {
         var backend = new Backend { OpenError = new Win32Exception(1155), ChooseError = new OperationCanceledException() };
         var launcher = new PdfViewerLauncher(_ => Task.FromResult((nint)42), backend, new Worker());
-        await Assert.ThrowsAsync<OperationCanceledException>(() => launcher.OpenAsync("report.pdf"));
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(() => launcher.OpenAsync("report.pdf"));
     }
 
     private sealed class Backend : IPdfViewerBackend

@@ -74,8 +74,8 @@ public sealed class OfflineBundleSettingsWorkflowTests
         vm.OfflineBundlePath = folder.Path; await vm.CheckOfflineBundleAsync();
         Assert.True(vm.HasOfflineBundleInspection);
         var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        vm.PropertyChanged += (_, args) =>
-        { if (args.PropertyName == nameof(vm.HasOfflineBundleInspection) && !vm.HasOfflineBundleInspection) changed.TrySetResult(); };
+        vm.PropertyChanged += (sender, args) =>
+        { if (args.PropertyName == nameof(vm.HasOfflineBundleInspection) && !vm.HasOfflineBundleInspection) _ = changed.TrySetResult(); };
         File.WriteAllText(System.IO.Path.Combine(folder.Path, "changed.txt"), "changed");
         await changed.Task.WaitAsync(TimeSpan.FromSeconds(10));
         Assert.False(vm.HasOfflineBundleInspection); Assert.Empty(vm.OfflineBundleDetails);

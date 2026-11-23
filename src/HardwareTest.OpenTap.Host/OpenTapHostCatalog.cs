@@ -7,28 +7,19 @@ using ILogger = Serilog.ILogger;
 namespace HardwareTest.OpenTap.Host;
 
 /// Plugin search, package catalog, and device discovery — kept off the run type.
-public sealed class OpenTapHostCatalog : IOpenTapHostCatalog
+public sealed class OpenTapHostCatalog(
+    AppSettings settings,
+    ILogger logger,
+    IVisaBroker? visaBroker = null,
+    bool trustConfiguredPluginDirectories = false,
+    bool enablePhysicalExecution = false) : IOpenTapHostCatalog
 {
-    private readonly AppSettings _settings;
-    private readonly ILogger _logger;
-    private readonly IVisaBroker? _visaBroker;
-    private readonly bool _trustConfiguredPluginDirectories;
-    private readonly bool _enablePhysicalExecution;
+    private readonly AppSettings _settings = settings;
+    private readonly ILogger _logger = logger;
+    private readonly IVisaBroker? _visaBroker = visaBroker;
+    private readonly bool _trustConfiguredPluginDirectories = trustConfiguredPluginDirectories;
+    private readonly bool _enablePhysicalExecution = enablePhysicalExecution;
     private bool _pluginSearchDone;
-
-    public OpenTapHostCatalog(
-        AppSettings settings,
-        ILogger logger,
-        IVisaBroker? visaBroker = null,
-        bool trustConfiguredPluginDirectories = false,
-        bool enablePhysicalExecution = false)
-    {
-        _settings = settings;
-        _logger = logger;
-        _visaBroker = visaBroker;
-        _trustConfiguredPluginDirectories = trustConfiguredPluginDirectories;
-        _enablePhysicalExecution = enablePhysicalExecution;
-    }
 
     public void EnsurePlugins()
     {

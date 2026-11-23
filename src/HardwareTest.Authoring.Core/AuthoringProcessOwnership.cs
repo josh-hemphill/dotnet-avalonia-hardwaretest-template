@@ -116,7 +116,7 @@ internal sealed class AuthoringProcessOwnership : IDisposable
                 ArgumentList = { "-axo", "pgid=,stat=" }
             }
         };
-        status.Start();
+        _ = status.Start();
         var output = status.StandardOutput.ReadToEndAsync();
         var error = status.StandardError.ReadToEndAsync();
         try { await status.WaitForExitAsync().WaitAsync(remaining).ConfigureAwait(false); }

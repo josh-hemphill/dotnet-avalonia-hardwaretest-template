@@ -132,7 +132,7 @@ public sealed class PreparedPkcs11Tests
     {
         using var selected = new TestToken(); using var ct = new CancellationTokenSource();
         selected.BeforeLogin = () => ct.Cancel(); var backend = new TestBackend(selected);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Broker(backend).PrepareSigningAsync(selected.Credential, "1234", ct.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Broker(backend).PrepareSigningAsync(selected.Credential, "1234", ct.Token));
         Assert.True(selected.Closed); Assert.True(backend.Closed); Assert.Equal(0, selected.SignCount);
     }
 
@@ -212,7 +212,7 @@ public sealed class PreparedPkcs11Tests
     public async Task Fixed_width_ecdsa_components_with_leading_zeroes_are_encoded_as_unsigned_integers(int bits)
     {
         var raw = new byte[bits / 4];
-        raw[raw.Length / 2 - 1] = 1;
+        raw[(raw.Length / 2) - 1] = 1;
         raw[^1] = 0x80;
         using var selected = new TestToken(true, bits) { SignatureOverride = raw };
         var prepared = await Broker(new TestBackend(selected)).PrepareSigningAsync(selected.Credential, "1234");

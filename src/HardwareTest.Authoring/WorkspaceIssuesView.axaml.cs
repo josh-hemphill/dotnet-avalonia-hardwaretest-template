@@ -12,7 +12,7 @@ public partial class WorkspaceIssuesView : UserControl
         AttachedToVisualTree += (_, _) => HookFindings();
         DetachedFromVisualTree += (_, _) =>
         {
-            if (_findingsSession is not null) _findingsSession.PropertyChanged -= OnFindingsChanged;
+            _findingsSession?.PropertyChanged -= OnFindingsChanged;
             _findingsSession = null;
         };
     }
@@ -24,9 +24,9 @@ public partial class WorkspaceIssuesView : UserControl
 
     private void HookFindings()
     {
-        if (_findingsSession is not null) _findingsSession.PropertyChanged -= OnFindingsChanged;
+        _findingsSession?.PropertyChanged -= OnFindingsChanged;
         _findingsSession = DataContext as AuthoringWorkspaceViewModel;
-        if (_findingsSession is not null) _findingsSession.PropertyChanged += OnFindingsChanged;
+        _findingsSession?.PropertyChanged += OnFindingsChanged;
         RevealEditingFindings();
     }
 

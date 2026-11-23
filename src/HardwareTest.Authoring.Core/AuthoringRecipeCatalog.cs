@@ -340,14 +340,4 @@ public static class AuthoringRecipeCatalog
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                 }));
-
-    private static bool IsBandRole(string displayRole)
-        => string.Equals(displayRole, PresentationDisplayRoles.Scalar, StringComparison.OrdinalIgnoreCase)
-           || string.Equals(displayRole, PresentationDisplayRoles.Passband, StringComparison.OrdinalIgnoreCase)
-           || string.Equals(displayRole, PresentationRoles.Scalar, StringComparison.OrdinalIgnoreCase)
-           || string.Equals(displayRole, PresentationRoles.Passband, StringComparison.OrdinalIgnoreCase);
-
-    private static bool HasLimit(LimitSpec? limits)
-        => limits is not null
-           && (limits.Low is not null || limits.High is not null || limits.Threshold is not null);
 }

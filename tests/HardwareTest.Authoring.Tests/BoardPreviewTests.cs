@@ -37,7 +37,7 @@ public sealed class BoardPreviewTests : IDisposable
         if (Environment.GetEnvironmentVariable("HT_BOARD_EVIDENCE_DIRECTORY") is { } evidence)
         {
             var exported = Path.Combine(evidence, threshold == 0 ? "pass" : "fail");
-            Directory.CreateDirectory(exported);
+            _ = Directory.CreateDirectory(exported);
             File.Copy(path, Path.Combine(exported, "board.TapPlan"), true);
             File.Copy(PlanCompiler.SidecarPath(path), Path.Combine(exported, "board.program.json"), true);
             File.WriteAllText(Path.Combine(exported, "run.json"), json);
@@ -180,7 +180,7 @@ public sealed class BoardPreviewTests : IDisposable
         Assert.All(board.Where(tile => tile.NodeId == filter.NodeId || tile.NodeId == mean.NodeId), tile =>
         {
             Assert.Equal(2, tile.Chrome.Events.Count);
-            Assert.Single(tile.Chrome.Events.Select(mark => (mark.LoopRunId, mark.IterationIndex)).Distinct());
+            _ = Assert.Single(tile.Chrome.Events.Select(mark => (mark.LoopRunId, mark.IterationIndex)).Distinct());
             Assert.All(tile.Chrome.Events, mark => Assert.NotNull(mark.LoopRunId));
         });
         var missingLoopIdentity = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord)!;
@@ -211,7 +211,7 @@ public sealed class BoardPreviewTests : IDisposable
         if (nested && Environment.GetEnvironmentVariable("HT_BOARD_EVIDENCE_DIRECTORY") is { } evidence)
         {
             var exported = Path.Combine(evidence, "nested-repeat");
-            Directory.CreateDirectory(exported);
+            _ = Directory.CreateDirectory(exported);
             File.Copy(path, Path.Combine(exported, "board.TapPlan"), true);
             File.Copy(PlanCompiler.SidecarPath(path), Path.Combine(exported, "board.program.json"), true);
             File.WriteAllText(Path.Combine(exported, "run.json"), json);
@@ -235,7 +235,7 @@ public sealed class BoardPreviewTests : IDisposable
         {
             "duplicateFalse" => new Dictionary<string, string> { ["Enabled"] = "true", ["enabled"] = "false" },
             "duplicateTrue" => new Dictionary<string, string> { ["Enabled"] = "false", ["enabled"] = "true" },
-            null => new Dictionary<string, string>(),
+            null => [],
             _ => new Dictionary<string, string> { [key] = value! }
         };
         var metric = Mean("VDC").Metric with { Source = new AlgorithmSource(AuthoringFunctionIds.BasicChannelAverage, ["VDC"], settings) };
@@ -316,7 +316,7 @@ public sealed class BoardPreviewTests : IDisposable
             Assert.Equal(before, File.ReadAllBytes(selected.Path));
             Assert.Equal(invalidBytes, File.ReadAllBytes(source));
             Assert.Equal(entries, Directory.GetFileSystemEntries(recordings, "*", SearchOption.AllDirectories));
-            Assert.Single(vm.Datasets);
+            _ = Assert.Single(vm.Datasets);
         }
         finally { vm.StopRecovery(); }
     }
@@ -330,9 +330,9 @@ public sealed class BoardPreviewTests : IDisposable
         var board = BoardPreviewBuilder.Build(draft, run);
         Assert.NotEmpty(board[0].Preview.CannedSamples);
         Assert.Empty(board[1].Preview.CannedSamples);
-        Assert.Contains("GRID", board[1].Preview.Note!);
+        Assert.Contains("GRID", board[1].Preview.Note);
         Assert.Empty(board[2].Preview.CannedSamples);
-        Assert.Contains("filtered", board[2].Preview.Note!);
+        Assert.Contains("filtered", board[2].Preview.Note);
         Assert.All(BoardPreviewBuilder.Build(draft, new TestRunRecord()), tile => Assert.Empty(tile.Preview.CannedSamples));
     }
 
@@ -348,12 +348,12 @@ public sealed class BoardPreviewTests : IDisposable
         var imported = RunDatasetCatalog.Import(workspace, source, "captured", "board");
         Assert.Equal(5, Assert.Single(imported.Run.Samples).ElapsedMs);
         var before = File.ReadAllBytes(imported.Path);
-        Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "captured", "board"));
-        Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "../escape", "board"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "captured", "board"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "../escape", "board"));
         File.WriteAllText(source, "invalid");
-        Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "invalid", "board"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(workspace, source, "invalid", "board"));
         Assert.Equal(before, File.ReadAllBytes(imported.Path));
-        Assert.Single(RunDatasetCatalog.List(workspace));
+        _ = Assert.Single(RunDatasetCatalog.List(workspace));
         Assert.False(Directory.Exists(Path.Combine(root, "recordings", "invalid")));
     }
 
@@ -374,16 +374,16 @@ public sealed class BoardPreviewTests : IDisposable
             vm.ImportRecording(source, "captured");
             var selected = vm.SelectedDataset;
             Assert.NotNull(selected);
-            Assert.Single(vm.Datasets);
+            _ = Assert.Single(vm.Datasets);
             Assert.Contains("5", vm.BoardTiles.First().Preview.SampleElapsedMs.Select(value => value.ToString()));
-            Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "captured"));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "captured"));
             Assert.Same(selected, vm.SelectedDataset);
             run.SchemaVersion = 999;
             File.WriteAllText(source, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
-            Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "future"));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "future"));
             Assert.Same(selected, vm.SelectedDataset);
             File.WriteAllText(source, "invalid");
-            Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "invalid"));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "invalid"));
             Assert.Same(selected, vm.SelectedDataset);
             vm.UseExampleData();
             Assert.Null(vm.SelectedDataset);
@@ -410,7 +410,7 @@ public sealed class BoardPreviewTests : IDisposable
         Assert.Equal(runtime.Value, board[1].Preview.CannedValue, 10);
         Assert.Empty(board[2].Preview.CannedSamples);
         Assert.Null(board[2].Preview.Passed);
-        Assert.Contains("Sample", board[2].Preview.Note!);
+        Assert.Contains("Sample", board[2].Preview.Note);
         // Unrelated unfinished acquisition settings must not poison a valid recorded dependency.
         var unrelated = Acquisition() with { Metric = Acquisition().Metric with { ChannelKey = "unrelated", Source = new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string> { ["SampleCount"] = "unfinished" }) } };
         var independent = compiled with { Measure = [unrelated, .. compiled.Measure] };
@@ -469,14 +469,22 @@ public sealed class BoardPreviewTests : IDisposable
             var selected = vm.SelectedDataset!;
             var before = File.ReadAllBytes(selected.Path);
             var entries = Directory.GetFileSystemEntries(Path.Combine(root, "recordings"), "*", SearchOption.AllDirectories);
-            void Replace() => File.WriteAllText(source, JsonSerializer.Serialize(WithPlan(), AppJsonContext.Default.TestRunRecord));
-            TestRunRecord WithPlan() => new() { PlanId = "another", Samples = run.Samples };
+            void Replace()
+            {
+                File.WriteAllText(source, JsonSerializer.Serialize(WithPlan(), AppJsonContext.Default.TestRunRecord));
+            }
+
+            TestRunRecord WithPlan()
+            {
+                return new() { PlanId = "another", Samples = run.Samples };
+            }
+
             if (!duringCopy) Replace();
             Assert.Contains("plan id", Assert.Throws<AuthoringWorkspaceException>(() => vm.ImportRecording(source, "wrong", duringCopy ? Replace : null)).Message);
             Assert.Same(selected, vm.SelectedDataset);
             Assert.Equal(before, File.ReadAllBytes(selected.Path));
             Assert.Equal(entries, Directory.GetFileSystemEntries(Path.Combine(root, "recordings"), "*", SearchOption.AllDirectories));
-            Assert.Single(vm.Datasets);
+            _ = Assert.Single(vm.Datasets);
         }
         finally { vm.StopRecovery(); }
     }
@@ -505,5 +513,5 @@ public sealed class BoardPreviewTests : IDisposable
         new ExpressionAlgorithm([input], $"mean({input})")));
     private static ProgramDraft Draft(IReadOnlyList<MeasureNode> measure) => new("board", new ProgramSidecar { DisplayName = "Board" },
         [new InstrumentRef("DMM", typeof(MockDmmInstrument).FullName!, "MOCK::INSTR0")], [], measure, new CleanupPolicy(false, "DMM"));
-    private string Temp() { var root = Path.Combine(Path.GetTempPath(), "ht-board-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root); _roots.Add(root); return root; }
+    private string Temp() { var root = Path.Combine(Path.GetTempPath(), "ht-board-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(root); _roots.Add(root); return root; }
 }

@@ -26,7 +26,7 @@ internal static class OfflineBenchPaths
 
     public static string Under(string root, string relative)
     {
-        Relative(relative);
+        _ = Relative(relative);
         var result = Path.GetFullPath(Path.Combine(root, relative.Replace('/', Path.DirectorySeparatorChar)));
         if (!IsUnder(root, result)) throw new InvalidDataException("Offline payload escapes its owned directory.");
         RejectLinks(result);
@@ -42,7 +42,7 @@ internal static class OfflineBenchPaths
         for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
         {
             if (new FileInfo(current).LinkTarget is not null || new DirectoryInfo(current).LinkTarget is not null
-                || (File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
+                || ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0))
             {
                 throw new InvalidDataException("Offline input and destination paths cannot traverse symbolic links or reparse points.");
             }

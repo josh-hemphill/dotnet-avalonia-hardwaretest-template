@@ -47,7 +47,7 @@ public static class StationHealthDemoProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         OpenTapPluginSearch.SearchSerialized();
         Create().Save(Path.Combine(directory, FixtureFileName));
     }

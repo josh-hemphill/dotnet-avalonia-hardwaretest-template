@@ -56,7 +56,7 @@ internal static partial class ProcedureVerification
         Check(full.Result == RunResult.Passed, $"Full procedure returned {full.Result}. {full.ErrorMessage}\n"
             + string.Join("\n", full.Samples.Where(sample => sample.RowVerdict == "Fail").Select(sample => sample.ToDisplayLine())));
         var events = full.Events.Where(mark => mark.Name == "fixture.configuration").Select(mark => mark.Label).ToArray();
-        Check(events.SequenceEqual(new[] { "Crossed", "Terminated", "Loopback" }), "Configuration order differs from the operator's choices.");
+        Check(events.SequenceEqual(["Crossed", "Terminated", "Loopback"]), "Configuration order differs from the operator's choices.");
         Check(full.Events.Where(mark => mark.Name == "fixture.handoff").Select(mark => mark.Label).SequenceEqual(
             new[] { "Install self-test loopback / supplies off / 0 active routes", "Connect the DUT / supplies off / 0 active routes" }),
             "Fixture handoffs did not establish the expected supplies-off sequence.");
@@ -202,7 +202,10 @@ internal static partial class ProcedureVerification
             var invalid = await worker.RunAsync(cancellationToken: cancellationToken);
             Check(invalid.Result == RunResult.Error && invalid.Samples.Count == 0, "Malformed route reached measurement.");
 
-            JsonNode ReadTable(string name) => JsonNode.Parse(File.ReadAllText(Path.Combine(sourceTables, name)))!;
+            JsonNode ReadTable(string name)
+            {
+                return JsonNode.Parse(File.ReadAllText(Path.Combine(sourceTables, name)))!;
+            }
         }
         finally
         {
@@ -256,7 +259,7 @@ internal static partial class ProcedureVerification
         var run = worker.RunAsync(new CallbackProgress(progress =>
         {
             if (abortAfterConfigurationStarts && progress.Event?.Name == "fixture.configuration.started")
-                Interlocked.Exchange(ref configured, 1);
+                _ = Interlocked.Exchange(ref configured, 1);
         }), cancellationToken);
         while (!run.IsCompleted)
         {
@@ -280,7 +283,7 @@ internal static partial class ProcedureVerification
                 }
             }
 
-            await Task.WhenAny(run, Task.Delay(15, cancellationToken));
+            _ = await Task.WhenAny(run, Task.Delay(15, cancellationToken));
             cancellationToken.ThrowIfCancellationRequested();
         }
 

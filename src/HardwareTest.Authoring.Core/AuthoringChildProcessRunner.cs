@@ -4,9 +4,9 @@ using System.Text.Json;
 namespace HardwareTest.Authoring;
 
 /// Launches the authoring executable itself, never the operator worker.
-public sealed class AuthoringChildProcessRunner
+public sealed class AuthoringChildProcessRunner(string executable, IReadOnlyList<string>? arguments = null)
 {
-    private readonly string executable;
+    private readonly string executable = executable;
     private readonly object reapGate = new();
     private readonly List<(AuthoringProcessOwnership Ownership, Process Process)> retained = [];
     internal Action? BeforeExitVerification { get; init; }
@@ -14,20 +14,18 @@ public sealed class AuthoringChildProcessRunner
     public async Task ReapPendingAsync()
     {
         (AuthoringProcessOwnership Ownership, Process Process)[] pending;
-        lock (reapGate) pending = retained.ToArray();
+        lock (reapGate) pending = [.. retained];
         foreach (var scope in pending)
         {
             SignalEndOfInput(scope.Process);
             scope.Ownership.Terminate();
             BeforeExitVerification?.Invoke();
             await scope.Ownership.WaitForExitAsync(scope.Process).ConfigureAwait(false);
-            lock (reapGate) retained.Remove(scope);
+            lock (reapGate) _ = retained.Remove(scope);
             scope.Ownership.Dispose(); scope.Process.Dispose();
         }
     }
-    private readonly IReadOnlyList<string> prefix;
-    public AuthoringChildProcessRunner(string executable, IReadOnlyList<string>? arguments = null)
-    { this.executable = executable; prefix = arguments?.ToArray() ?? []; }
+    private readonly IReadOnlyList<string> prefix = arguments?.ToArray() ?? [];
 
     public static AuthoringChildProcessRunner ForExecutable(string assemblyPath)
     {

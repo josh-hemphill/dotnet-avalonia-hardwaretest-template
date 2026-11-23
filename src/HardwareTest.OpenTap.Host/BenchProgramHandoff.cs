@@ -81,7 +81,7 @@ public static class BenchProgramHandoff
 
         if (receipt.RequiredOperatorCapability == "bench-references-v1")
         {
-            var guard = typeof(HardwareTest.OpenTap.Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName;
+            var guard = typeof(Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName;
             var hasGuard = XDocument.Load(planPath).Descendants().Attributes()
                 .Any(attribute => attribute.Name.LocalName == "type"
                     && attribute.Value.Split(',')[0].Trim().Replace("emb:", string.Empty, StringComparison.Ordinal) == guard);

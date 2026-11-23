@@ -12,7 +12,7 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunChartWorkspaceView : UserControl
 {
-    private readonly CompositeDisposable _subscriptions = new();
+    private readonly CompositeDisposable _subscriptions = [];
     private RunTestViewModel? _subscribed;
 
     public RunChartWorkspaceView()

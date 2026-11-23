@@ -13,7 +13,6 @@ namespace HardwareTest.Features.RunTest;
 /// DUT / technician confirmation panel: confirm, same-DUT, change session and stale prompts.
 public partial class OperatorSessionPanelViewModel : ReactiveObject
 {
-    private readonly OperatorSession _session;
     private readonly AppSettings _settings;
     private readonly Action<string> _setStatus;
     private readonly Func<ProgramItemViewModel?> _getSelectedProgram;
@@ -37,7 +36,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         IOperatorCredentialBroker? credentialBroker = null,
         Func<bool>? isRunning = null)
     {
-        _session = session;
+        Session = session;
         _settings = settings;
         _setStatus = setStatus;
         _getSelectedProgram = getSelectedProgram ?? (() => null);
@@ -88,9 +87,9 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
                 // Timer must not crash the process.
             }
         };
-        _session.PropertyChanged += (_, e) =>
+        Session.PropertyChanged += (_, e) =>
         {
-            if ((e.PropertyName == nameof(OperatorSession.State) && _session.State == OperatorSessionState.Stale)
+            if ((e.PropertyName == nameof(OperatorSession.State) && Session.State == OperatorSessionState.Stale)
                 || e.PropertyName is nameof(OperatorSession.SessionId)
                     or nameof(OperatorSession.ProgramId)
                     or nameof(OperatorSession.ProgramPath))
@@ -108,7 +107,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         UpdateIdleTimer();
     }
 
-    public OperatorSession Session => _session;
+    public OperatorSession Session { get; }
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ConfirmSessionCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ConfirmSameDutCommand { get; }
@@ -153,7 +152,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public bool HasDutRevisionError => !string.IsNullOrWhiteSpace(DutRevisionError);
     public bool HasOperatorError => !string.IsNullOrWhiteSpace(OperatorError);
     public bool ShowSameDutPrompt => IsStalePrompt || IsIdleWarningPrompt;
-    public bool ShowFullFormChangeSession => NeedsDutConfirm && _session.ConfirmedAt is not null;
+    public bool ShowFullFormChangeSession => NeedsDutConfirm && Session.ConfirmedAt is not null;
 
     public string PromptTitle
     {
@@ -201,7 +200,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
         if (RequireOperator
             && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput))
-            && string.IsNullOrWhiteSpace(_session.OperatorName))
+            && string.IsNullOrWhiteSpace(Session.OperatorName))
         {
             return SessionFieldTechnician;
         }
@@ -215,16 +214,16 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         if (_isRunning())
         {
             // A live run is operator activity — otherwise a long suite trips idle the instant it ends.
-            _session.TouchActivity();
+            Session.TouchActivity();
             return;
         }
         var minutes = OperatorSessionIdle.ClampMinutes(_settings.OperatorSessionIdleMinutes);
         var warn = OperatorSessionIdle.ClampWarnPercent(_settings.OperatorSessionIdleWarnPercent);
-        _session.EvaluateIdle(TimeSpan.FromMinutes(minutes), warn);
+        Session.EvaluateIdle(TimeSpan.FromMinutes(minutes), warn);
     }
 
     /// Bumps last-activity while the session is Active (navigation / meaningful page use).
-    public void TouchActivity() => _session.TouchActivity();
+    public void TouchActivity() => Session.TouchActivity();
 
     /// After a terminal run when station policy requires re-confirm.
     public void ApplyConfirmEveryRunPolicy(bool runReachedTerminal)
@@ -234,7 +233,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
 
-        _session.MarkStale();
+        Session.MarkStale();
         PendingConfirmEveryRun = true;
         ShowSessionForm = true;
         RefreshSessionSummary();
@@ -243,12 +242,12 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     public void RefreshRequirementFlags()
     {
         var req = CurrentRequirements;
-        _session.ApplyProgramRequirements(req);
+        Session.ApplyProgramRequirements(req);
         ApplyRequirementFlags(req);
         RefreshSessionSummary();
     }
 
-    private ProgramRequirements CurrentRequirements => _getSelectedProgram()?.Requirements ?? _session.Requirements;
+    private ProgramRequirements CurrentRequirements => _getSelectedProgram()?.Requirements ?? Session.Requirements;
 
     private void ApplyRequirementFlags(ProgramRequirements req)
     {
@@ -264,13 +263,13 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
     {
         var req = CurrentRequirements;
         ApplyRequirementFlags(req);
-        if (!_isRunning() && _session.State != OperatorSessionState.NeedsDut && !_requiresFullConfirmation)
+        if (!_isRunning() && Session.State != OperatorSessionState.NeedsDut && !_requiresFullConfirmation)
         {
-            var missingDutInfo = (req.RequireSerial && string.IsNullOrWhiteSpace(_session.DutSerial))
-                || (req.RequirePartNumber && string.IsNullOrWhiteSpace(_session.DutPartNumber))
-                || (req.RequireRevision && string.IsNullOrWhiteSpace(_session.DutRevision));
-            var missingActiveIdentity = _session.State == OperatorSessionState.Active
-                && ((req.RequireOperator && string.IsNullOrWhiteSpace(_session.OperatorName))
+            var missingDutInfo = (req.RequireSerial && string.IsNullOrWhiteSpace(Session.DutSerial))
+                || (req.RequirePartNumber && string.IsNullOrWhiteSpace(Session.DutPartNumber))
+                || (req.RequireRevision && string.IsNullOrWhiteSpace(Session.DutRevision));
+            var missingActiveIdentity = Session.State == OperatorSessionState.Active
+                && ((req.RequireOperator && string.IsNullOrWhiteSpace(Session.OperatorName))
                     || !TryRequireCredential(req, out _));
             if (missingDutInfo || missingActiveIdentity)
             {
@@ -281,41 +280,41 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             }
         }
 
-        NeedsDutConfirm = _session.State == OperatorSessionState.NeedsDut || _requiresFullConfirmation;
-        IsStalePrompt = !NeedsDutConfirm && _session.State == OperatorSessionState.Stale;
+        NeedsDutConfirm = Session.State == OperatorSessionState.NeedsDut || _requiresFullConfirmation;
+        IsStalePrompt = !NeedsDutConfirm && Session.State == OperatorSessionState.Stale;
         IsIdleWarningPrompt = !_isRunning()
             && !NeedsDutConfirm
-            && _session.State == OperatorSessionState.Active
-            && _session.IsIdleWarning;
-        SessionBlocked = !_isRunning() && (NeedsDutConfirm || !_session.CanRun || IsIdleWarningPrompt);
+            && Session.State == OperatorSessionState.Active
+            && Session.IsIdleWarning;
+        SessionBlocked = !_isRunning() && (NeedsDutConfirm || !Session.CanRun || IsIdleWarningPrompt);
         ShowSessionForm = NeedsDutConfirm || IsStalePrompt || IsIdleWarningPrompt || SessionBlocked;
         ShowStaleTechnicianField = (IsStalePrompt || IsIdleWarningPrompt)
             && RequireOperator
-            && string.IsNullOrWhiteSpace(_session.OperatorName);
+            && string.IsNullOrWhiteSpace(Session.OperatorName);
         RefreshIdleCountdown();
         this.RaisePropertyChanged(nameof(ShowSameDutPrompt));
         this.RaisePropertyChanged(nameof(ShowFullFormChangeSession));
         this.RaisePropertyChanged(nameof(PromptTitle));
 
-        var program = _session.ProgramDisplayName ?? "(none)";
-        if (!SessionBlocked && _session.CanRun && !IsIdleWarningPrompt)
+        var program = Session.ProgramDisplayName ?? "(none)";
+        if (!SessionBlocked && Session.CanRun && !IsIdleWarningPrompt)
         {
-            var tech = string.IsNullOrWhiteSpace(_session.OperatorName) ? "—" : _session.OperatorName;
-            SessionSummary = $"DUT {_session.DutSerial} | Tech {tech} | {program}";
+            var tech = string.IsNullOrWhiteSpace(Session.OperatorName) ? "—" : Session.OperatorName;
+            SessionSummary = $"DUT {Session.DutSerial} | Tech {tech} | {program}";
             return;
         }
 
         if (IsIdleWarningPrompt)
         {
-            SessionSummary = $"Still testing {_session.DutSerial}? Session idle soon — Same DUT or Change Session.";
+            SessionSummary = $"Still testing {Session.DutSerial}? Session idle soon — Same DUT or Change Session.";
             return;
         }
 
         if (IsStalePrompt)
         {
             SessionSummary = PendingConfirmEveryRun
-                ? $"DUT {_session.DutSerial} — confirm Same DUT before next Run | {program}"
-                : $"DUT {_session.DutSerial} (re-confirm) | {program}";
+                ? $"DUT {Session.DutSerial} — confirm Same DUT before next Run | {program}"
+                : $"DUT {Session.DutSerial} (re-confirm) | {program}";
             return;
         }
 
@@ -328,10 +327,10 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
 
     private void RetainConfirmedInputs()
     {
-        if (string.IsNullOrWhiteSpace(DutSerialInput)) DutSerialInput = _session.DutSerial;
-        if (string.IsNullOrWhiteSpace(DutPartInput)) DutPartInput = _session.DutPartNumber ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(DutRevisionInput)) DutRevisionInput = _session.DutRevision ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(OperatorInput)) OperatorInput = _session.OperatorName ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(DutSerialInput)) DutSerialInput = Session.DutSerial;
+        if (string.IsNullOrWhiteSpace(DutPartInput)) DutPartInput = Session.DutPartNumber ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(DutRevisionInput)) DutRevisionInput = Session.DutRevision ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(OperatorInput)) OperatorInput = Session.OperatorName ?? string.Empty;
     }
 
     /// A changed execution reference is new session context, not a new DUT.
@@ -352,7 +351,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
             return;
         }
 
-        if (_session.State != OperatorSessionState.Active || _session.LastActivityAt is null)
+        if (Session.State != OperatorSessionState.Active || Session.LastActivityAt is null)
         {
             ShowIdleCountdown = false;
             IdleCountdownText = string.Empty;
@@ -360,17 +359,17 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         }
 
         var parts = new List<string>();
-        if (_session.LastActivityAt is { } activity)
+        if (Session.LastActivityAt is { } activity)
         {
             parts.Add($"Last activity {FormatRelative(activity)}");
         }
 
-        if (_session.TimeUntilSoftWarn is { } warn && warn > TimeSpan.Zero && !_session.IsIdleWarning)
+        if (Session.TimeUntilSoftWarn is { } warn && warn > TimeSpan.Zero && !Session.IsIdleWarning)
         {
             parts.Add($"soft-warn in {FormatDuration(warn)}");
         }
 
-        if (_session.TimeUntilStale is { } stale && stale > TimeSpan.Zero)
+        if (Session.TimeUntilStale is { } stale && stale > TimeSpan.Zero)
         {
             parts.Add($"stale in {FormatDuration(stale)}");
         }
@@ -385,7 +384,7 @@ public partial class OperatorSessionPanelViewModel : ReactiveObject
         // Poll every 15–60s, or ≤10% of idle window.
         var intervalMs = Math.Clamp(minutes * 60_000 / 10, 15_000, 60_000);
         _idleTimer.Interval = intervalMs;
-        if (_session.State == OperatorSessionState.Active)
+        if (Session.State == OperatorSessionState.Active)
         {
             _idleTimer.Start();
         }

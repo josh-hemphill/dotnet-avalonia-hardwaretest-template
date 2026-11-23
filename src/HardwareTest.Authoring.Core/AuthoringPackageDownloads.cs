@@ -25,7 +25,7 @@ internal static class AuthoringPackageDownloads
         if (missing.Length == 0) return;
         var repository = RepositoryUri(repositoryUrl).AbsoluteUri;
         var owned = Path.Combine(home, ".package-download-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(owned);
+        _ = Directory.CreateDirectory(owned);
         var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var requirements = manifest.Dependencies.Concat(manifest.OptionalDependencies).ToList();
         try
@@ -65,7 +65,7 @@ internal static class AuthoringPackageDownloads
             progress?.Invoke($"Checking {requirement.Package}");
             OpenTapHomeBootstrapper.InstallFileOrDirectoryPackage(archive, home, constraints);
             foreach (var dependency in dependencies) Install(dependency);
-            visiting.Remove(requirement.Package);
+            _ = visiting.Remove(requirement.Package);
         }
     }
 

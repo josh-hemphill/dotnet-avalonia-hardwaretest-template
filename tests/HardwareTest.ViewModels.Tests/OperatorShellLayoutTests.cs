@@ -81,7 +81,7 @@ public sealed class OperatorShellLayoutTests
         Assert.DoesNotContain("UniformGrid", axaml, StringComparison.Ordinal);
         Assert.Equal(1, CountOccurrences(axaml, "<WrapPanel"));
 
-        var home = new HardwareTest.Features.Home.HomeViewModel(new FakeSettingsStore());
+        var home = new Features.Home.HomeViewModel(new FakeSettingsStore());
         Assert.False(home.IsEngineerMode);
     }
 
@@ -89,7 +89,7 @@ public sealed class OperatorShellLayoutTests
     public async Task Home_engineer_tile_follows_saved_settings()
     {
         var store = new FakeSettingsStore();
-        var home = new HardwareTest.Features.Home.HomeViewModel(store);
+        var home = new Features.Home.HomeViewModel(store);
         Assert.False(home.IsEngineerMode);
         store.AppSettings.IsEngineerDebugMode = true;
         await store.SaveAppSettingsAsync();

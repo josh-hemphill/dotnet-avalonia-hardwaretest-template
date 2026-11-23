@@ -57,19 +57,19 @@ public static partial class AuthoringInstrumentCatalog
                         var display = type.GetCustomAttribute<DisplayAttribute>();
                         adapter = new(id, display?.Name ?? type.Name, LibraryPackage, LibraryAssembly,
                             ["VisaAddress"], ["IoTimeoutMilliseconds", "DriverId"], [], HasLifecycle(assembly, type, "IdentityQueryStep"), HasLifecycle(assembly, type, "SafeShutdownStep"),
-                            slot => ConstructLibrary(type, slot), resource => SerializeLibrary(resource))
+                            slot => ConstructLibrary(type, slot), SerializeLibrary)
                         { RequiredPayloadFiles = ["InstrumentComponents.dll"], Description = display?.Description ?? "SCPI instrument" };
                         Library.Add(id, adapter);
-                        Volatile.Write(ref _publishedLibrary, Library.Values.ToArray());
+                        Volatile.Write(ref _publishedLibrary, [.. Library.Values]);
                     }
                     result.Add(adapter);
                 }
                 if (result.Count == 0) return Missing("Instrument Components payload contains no supported concrete device types. Open Environment to import a supported library package.");
                 var registered = RegisteredAdapter();
-                Library.TryAdd(registered.TypeId, registered);
+                _ = Library.TryAdd(registered.TypeId, registered);
                 result.Add(Library[registered.TypeId]);
-                Volatile.Write(ref _publishedLibrary, Library.Values.ToArray());
-                DiscoveryIssues.Remove(home.Root);
+                Volatile.Write(ref _publishedLibrary, [.. Library.Values]);
+                _ = DiscoveryIssues.Remove(home.Root);
                 return result;
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or BadImageFormatException
@@ -106,7 +106,7 @@ public static partial class AuthoringInstrumentCatalog
             return existing;
         }
         var directory = Path.Combine(Path.GetTempPath(), "ht-library-metadata-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             foreach (var file in InstrumentLibraryMetadata.Files) File.WriteAllBytes(Path.Combine(directory, file), payloads[file]);
@@ -134,10 +134,10 @@ public static partial class AuthoringInstrumentCatalog
             && binding?.CanWrite == true && binding.PropertyType.IsAssignableFrom(resource);
     }
 
-    internal static Type[] DeviceTypes(IEnumerable<Type> catalog, Type baseType) => catalog
+    internal static Type[] DeviceTypes(IEnumerable<Type> catalog, Type baseType) => [.. catalog
         .Where(type => type.IsPublic && !type.IsAbstract && !type.ContainsGenericParameters && type.IsSubclassOf(baseType)
             && typeof(Instrument).IsAssignableFrom(type) && type.GetConstructor(Type.EmptyTypes) is not null)
-        .OrderBy(type => type.FullName, StringComparer.Ordinal).ToArray();
+        .OrderBy(type => type.FullName, StringComparer.Ordinal)];
 
     internal static bool LibraryPayloadMatches(OpenTapHome home)
     {

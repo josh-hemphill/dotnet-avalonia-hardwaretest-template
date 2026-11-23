@@ -15,7 +15,7 @@ public sealed class ShellHostTests
         try
         {
             var store = new FakeSettingsStore(root);
-            Directory.CreateDirectory(store.RootDirectory);
+            _ = Directory.CreateDirectory(store.RootDirectory);
             var host = new ShellHost(store);
             var path = host.GetAppDataDirectory("hardwaretest.notes");
             Assert.True(PathContainment.IsUnderRoot(store.RootDirectory, path));
@@ -40,9 +40,9 @@ public sealed class ShellHostTests
         try
         {
             var store = new FakeSettingsStore(root);
-            Directory.CreateDirectory(store.RootDirectory);
+            _ = Directory.CreateDirectory(store.RootDirectory);
             var host = new ShellHost(store);
-            Assert.Throws<InvalidOperationException>(() => host.GetAppDataDirectory("../escape"));
+            _ = Assert.Throws<InvalidOperationException>(() => host.GetAppDataDirectory("../escape"));
         }
         finally
         {
@@ -60,7 +60,7 @@ public sealed class ShellHostTests
         try
         {
             var store = new FakeSettingsStore(root);
-            Directory.CreateDirectory(store.RootDirectory);
+            _ = Directory.CreateDirectory(store.RootDirectory);
             var host = new ShellHost(store);
             var bench = new BenchOperationCoordinator();
             Assert.True(bench.TryEnter(BenchOperation.DeviceTransfer, out var lease, out _));

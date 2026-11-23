@@ -115,7 +115,7 @@ public sealed class RecordingPickerWindow : Window
         panel.Children.Add(recordings);
         Content = panel;
         recordings.SelectionChanged += (_, _) => ShowSelection();
-        cancel.Click += (_, _) => Close((int?)null);
+        cancel.Click += (_, _) => Close(null);
         use.Click += (_, _) =>
         {
             if (recordings.SelectedIndex >= 0 && recordings.SelectedIndex < labelSnapshot.Count)
@@ -123,7 +123,7 @@ public sealed class RecordingPickerWindow : Window
         };
         Opened += (_, _) =>
         {
-            recordings.Focus();
+            _ = recordings.Focus();
             if (recordings.SelectedItem is { } selected) recordings.ScrollIntoView(selected);
         };
     }

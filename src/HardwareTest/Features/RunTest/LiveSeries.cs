@@ -22,25 +22,22 @@ public readonly record struct LiveSeriesKey(string StepPath, string MetricKey)
 }
 
 /// Bounded ring buffer for one live metric (values + elapsed seconds from first sample).
-public sealed class LiveSeriesBuffer
+public sealed class LiveSeriesBuffer(LiveSeriesKey key)
 {
     public const int Capacity = 2048;
 
     private readonly double[] _values = new double[Capacity];
     private readonly double[] _elapsed = new double[Capacity];
-    private int _count;
     private int _write;
     private DateTimeOffset? _t0;
 
-    public LiveSeriesBuffer(LiveSeriesKey key) => Key = key;
-
-    public LiveSeriesKey Key { get; }
+    public LiveSeriesKey Key { get; } = key;
     public string? Unit { get; private set; }
     public double? LimitLow { get; private set; }
     public double? LimitHigh { get; private set; }
     public double LatestValue { get; private set; }
     public DateTimeOffset? LatestTimestamp { get; private set; }
-    public int Count => _count;
+    public int Count { get; private set; }
 
     public bool IsOutOfBand
         => (LimitLow is { } lo && LatestValue < lo) || (LimitHigh is { } hi && LatestValue > hi);
@@ -61,9 +58,9 @@ public sealed class LiveSeriesBuffer
         _values[_write] = value;
         _elapsed[_write] = elapsed;
         _write = (_write + 1) % Capacity;
-        if (_count < Capacity)
+        if (Count < Capacity)
         {
-            _count++;
+            Count++;
         }
 
         LatestValue = value;
@@ -79,19 +76,19 @@ public sealed class LiveSeriesBuffer
     /// Copies the windowed series into a snapshot (oldest → newest).
     public LiveSeriesSnapshot Snapshot(TimeSpan? window)
     {
-        if (_count == 0)
+        if (Count == 0)
         {
             return LiveSeriesSnapshot.Empty(Key, Unit);
         }
 
-        var start = _count == Capacity ? _write : 0;
-        var lastElapsed = _elapsed[(start + _count - 1) % Capacity];
+        var start = Count == Capacity ? _write : 0;
+        var lastElapsed = _elapsed[(start + Count - 1) % Capacity];
         var minElapsed = window is { } span ? lastElapsed - span.TotalSeconds : double.NegativeInfinity;
 
-        var xs = new double[_count];
-        var ys = new double[_count];
+        var xs = new double[Count];
+        var ys = new double[Count];
         var n = 0;
-        for (var i = 0; i < _count; i++)
+        for (var i = 0; i < Count; i++)
         {
             var idx = (start + i) % Capacity;
             if (_elapsed[idx] < minElapsed)
@@ -179,18 +176,10 @@ public sealed record LiveSeriesSnapshot(
 }
 
 /// One selectable series in the Chart workspace toolbar.
-public sealed class LiveSeriesItemViewModel
+public sealed class LiveSeriesItemViewModel(LiveSeriesKey key, string? unit, bool isOutOfBand)
 {
-    public LiveSeriesItemViewModel(LiveSeriesKey key, string? unit, bool isOutOfBand)
-    {
-        Key = key;
-        DisplayName = key.DisplayName;
-        Unit = unit ?? string.Empty;
-        IsOutOfBand = isOutOfBand;
-    }
-
-    public LiveSeriesKey Key { get; }
-    public string DisplayName { get; }
-    public string Unit { get; }
-    public bool IsOutOfBand { get; }
+    public LiveSeriesKey Key { get; } = key;
+    public string DisplayName { get; } = key.DisplayName;
+    public string Unit { get; } = unit ?? string.Empty;
+    public bool IsOutOfBand { get; } = isOutOfBand;
 }

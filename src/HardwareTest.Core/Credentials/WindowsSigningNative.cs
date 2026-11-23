@@ -76,7 +76,7 @@ internal sealed class WindowsSigningNative : IWindowsSigningNative
         {
             var providerBytes = GetCngProperty(key.Handle, "Provider Handle", nint.Size, false)!;
             if (providerBytes.Length != nint.Size) throw new WindowsSigningNativeException(0, "provider-properties");
-            var provider = nint.Size == 8 ? (nint)BitConverter.ToInt64(providerBytes) : (nint)BitConverter.ToInt32(providerBytes);
+            var provider = nint.Size == 8 ? (nint)BitConverter.ToInt64(providerBytes) : BitConverter.ToInt32(providerBytes);
             if (provider == 0) throw new WindowsSigningNativeException(0, "provider-properties");
             // NCRYPT_PROVIDER_HANDLE_PROPERTY returns a provider reference owned by this query.
             try { return (ReadImplementation(GetCngProperty(provider, "Impl Type", sizeof(uint), false)!) & 1) != 0; }

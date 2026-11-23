@@ -48,7 +48,7 @@ public partial class RunTestViewModel
             status => Status = status,
             () => IsEngineerDebugMode,
             token => LoadSelectedProgramAsync(cancellationToken: token),
-            () => SessionPanel!.RefreshSessionSummary(),
+            () => SessionPanel.RefreshSessionSummary(),
             () => IsSelectedProgramReady,
             () => IsRunning || _runControl.IsRunning);
         SessionPanel = new OperatorSessionPanelViewModel(
@@ -68,12 +68,12 @@ public partial class RunTestViewModel
             status => Status = status,
             () => IsEngineerDebugMode,
             () => IsRunning,
-            () => StepTree!.SelectedStep,
+            () => StepTree.SelectedStep,
             () => ProgramSelection.SelectedProgram,
             summary => StepDetail.ConditionSummary = summary);
         StepTree = new StepTreeViewModel(
             () => _plan.StepTree,
-            path => Run!.FindAttempt(path),
+            path => Run.FindAttempt(path),
             () => OpenSelectedDetail(revealDetail: true),
             RefreshHero,
             () => CurrentStepPath);
@@ -180,8 +180,8 @@ public partial class RunTestViewModel
     /// Binds catalog identity and session requirements for the selected program.
     private void ApplySelectedProgram(ProgramItemViewModel program)
     {
-        _session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
-        _session.ApplyProgramRequirements(program.Requirements);
+        Session.SelectProgram(program.Id, program.Path, program.DisplayName, program.DutFamily);
+        Session.ApplyProgramRequirements(program.Requirements);
         RefreshStationHealthGate();
     }
 

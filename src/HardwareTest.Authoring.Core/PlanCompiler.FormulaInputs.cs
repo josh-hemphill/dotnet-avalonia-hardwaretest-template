@@ -34,8 +34,8 @@ public sealed partial class PlanCompiler
                     RawStepNode raw => LoadRawStep(raw) switch
                     {
                         ChannelAverageStep average when average.Enabled => new[] { average.InputChannel },
-                        ApplyTransferFunctionStep filter when filter.Enabled => new[] { filter.InputChannel },
-                        _ => Array.Empty<string>()
+                        ApplyTransferFunctionStep filter when filter.Enabled => [filter.InputChannel],
+                        _ => []
                     },
                     _ => Array.Empty<string>()
                 };

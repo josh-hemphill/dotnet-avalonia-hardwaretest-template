@@ -16,7 +16,7 @@ public sealed class AuthoringWorkspaceState
         ArgumentNullException.ThrowIfNull(drafts);
         _manifest = CloneManifest(manifest);
         _manifestIdentity = CanonicalManifest(_manifest);
-        _drafts = drafts.Select(AuthoringDocumentSnapshot.Capture).ToArray();
+        _drafts = [.. drafts.Select(AuthoringDocumentSnapshot.Capture)];
     }
 
     public AuthoringManifest Manifest => CloneManifest(_manifest);

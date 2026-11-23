@@ -146,7 +146,7 @@ public sealed partial class RunExecutionViewModel
             var kinds = program.ReportKinds is { Count: > 0 }
                 ? program.ReportKinds
                 : ProgramCatalog.ResolveReportKinds(program.Id);
-            await _reportService.GenerateReportsAsync(record, kinds, historyReport).ConfigureAwait(false);
+            _ = await _reportService.GenerateReportsAsync(record, kinds, historyReport).ConfigureAwait(false);
             await _host.RunOnUiAsync(() => _host.Status += " Report(s) generated.").ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -164,7 +164,7 @@ public sealed partial class RunExecutionViewModel
         string status;
         if (selectionOnly && !string.IsNullOrWhiteSpace(selectionPath))
         {
-            _attemptLedger.TryGetValue(selectionPath, out var ledger);
+            _ = _attemptLedger.TryGetValue(selectionPath, out var ledger);
             var attemptNo = ledger?.AttemptCount ?? 1;
             var badge = ledger?.Display ?? $"{attemptNo}";
             status = $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
@@ -234,10 +234,9 @@ public sealed partial class RunExecutionViewModel
     }
 
     private List<StepResultRecord> BuildRolledUpSteps()
-        => _attemptLedger.Values
+        => [.. _attemptLedger.Values
             .Select(l => l.Attempts.LastOrDefault())
             .Where(a => a is not null)
             .Cast<StepResultRecord>()
-            .OrderBy(a => a.StepPath)
-            .ToList();
+            .OrderBy(a => a.StepPath)];
 }

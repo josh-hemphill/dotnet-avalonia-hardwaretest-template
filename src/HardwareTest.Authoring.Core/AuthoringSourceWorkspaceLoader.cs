@@ -23,7 +23,7 @@ public static class AuthoringSourceWorkspaceLoader
             if (path is not null) program = ProcedureAssetFiles.Load(program, files.Manifest, path);
             var normalized = path is not null && AuthoringMeasureSections.HasCompiledLayout(path)
                 ? program : AuthoringMeasureSections.Initialize(program);
-            if (!ReferenceEquals(program, normalized)) migrations.Add(program.PlanId);
+            if (!ReferenceEquals(program, normalized)) _ = migrations.Add(program.PlanId);
             return normalized;
         }).ToArray();
         loaded = loaded with { Programs = programs, MeasureSectionMigrations = migrations };

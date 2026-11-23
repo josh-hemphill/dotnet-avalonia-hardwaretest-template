@@ -10,19 +10,9 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     private readonly IPlanCompiler _compiler;
     private readonly bool _usesDefaultCompiler;
     private readonly IAuthoringPreferencesStore? _preferences;
-    private AuthoringWorkspace? _workspace;
-    private IReadOnlyList<ProgramDraft> _programs = [];
     private ProgramDraft? _selectedProgram;
-    private IReadOnlyList<PlanContractFinding> _findings = [];
-    private IReadOnlyList<AuthoringFindingRow> _findingRows = [];
-    private IReadOnlyList<string> _measureTree = [];
-    private string? _status;
-    private string? _error;
     private int _selectedMeasureIndex = -1;
-    private string? _selectedRecipeId;
-    private IReadOnlyList<RunDataset> _datasets = [];
     private IReadOnlyList<RunDataset>? _openingDatasets;
-    private IReadOnlyList<string> _datasetItems = [];
     private int _selectedDatasetIndex = -1;
     private readonly HashSet<string> _dirtyPlans = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _dirtySidecars = new(StringComparer.OrdinalIgnoreCase);
@@ -69,10 +59,10 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public AuthoringWorkspace? Workspace
     {
-        get => _workspace;
+        get;
         private set
         {
-            if (SetField(ref _workspace, value))
+            if (SetField(ref field, value))
             {
                 OnPropertyChanged(nameof(HasWorkspace));
                 RaisePackGuardProperties();
@@ -82,12 +72,12 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<ProgramDraft> Programs
     {
-        get => _programs;
+        get;
         private set
         {
-            if (SetField(ref _programs, value)) RefreshProgramRows();
+            if (SetField(ref field, value)) RefreshProgramRows();
         }
-    }
+    } = [];
 
     public ProgramDraft? SelectedProgram
     {
@@ -115,25 +105,21 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
 
     public IReadOnlyList<string> MeasureTree
     {
-        get => _measureTree;
-        private set => SetField(ref _measureTree, value);
-    }
+        get;
+        private set => SetField(ref field, value);
+    } = [];
 
     public IReadOnlyList<PlanContractFinding> Findings
     {
-        get => _findings;
-        private set => SetField(ref _findings, value);
-    }
+        get;
+        private set => SetField(ref field, value);
+    } = [];
 
-    public IReadOnlyList<AuthoringFindingRow> FindingRows
-    {
-        get => _findingRows;
-        private set { if (SetField(ref _findingRows, value)) OnPropertyChanged(nameof(IssuesSummary)); }
-    }
+    public IReadOnlyList<AuthoringFindingRow> FindingRows { get; private set { if (SetField(ref field, value)) OnPropertyChanged(nameof(IssuesSummary)); } } = [];
 
-    public IReadOnlyList<RunDataset> Datasets => _datasets;
+    public IReadOnlyList<RunDataset> Datasets { get; private set; } = [];
 
-    public IReadOnlyList<string> DatasetItems => _datasetItems;
+    public IReadOnlyList<string> DatasetItems { get; private set; } = [];
 
     public int SelectedDatasetIndex
     {
@@ -142,22 +128,14 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
     }
 
     public RunDataset? SelectedDataset
-        => _selectedDatasetIndex < 0 || _selectedDatasetIndex >= _datasets.Count
-            || !MatchesRecordingChoice(_datasets[_selectedDatasetIndex])
+        => _selectedDatasetIndex < 0 || _selectedDatasetIndex >= Datasets.Count
+            || !MatchesRecordingChoice(Datasets[_selectedDatasetIndex])
             ? null
-            : _datasets[_selectedDatasetIndex];
+            : Datasets[_selectedDatasetIndex];
 
-    public string? Status
-    {
-        get => _status;
-        private set => SetField(ref _status, value);
-    }
+    public string? Status { get; private set => SetField(ref field, value); }
 
-    public string? Error
-    {
-        get => _error;
-        private set => SetField(ref _error, value);
-    }
+    public string? Error { get; private set => SetField(ref field, value); }
 
     public string? MeasureHint
         => SelectedProgram is not null && !AuthoringSequence.HasMeasurement(SelectedProgram.Measure)
@@ -263,7 +241,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
             RefreshDatasets();
             RememberLastWorkspace(files.Root);
             RaiseSidecarProperties();
-            _packPreview = prepared.PackPreview;
+            PackPreview = prepared.PackPreview;
             RaisePackPreviewProperties();
         }
         finally { _openingDatasets = null; }
@@ -385,7 +363,7 @@ public sealed partial class AuthoringWorkspaceViewModel : INotifyPropertyChanged
         Programs = Programs.Select(mutate).ToArray();
         foreach (var program in Programs)
         {
-            CommitDocument(program);
+            _ = CommitDocument(program);
         }
         if (selectedId is not null)
         {

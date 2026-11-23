@@ -159,7 +159,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
-            _busyGate.Release();
+            _ = _busyGate.Release();
         }
     }
 

@@ -27,7 +27,7 @@ public sealed class CorruptReferenceResultsRecoveryTests
             // than starting a second load that can race the recovery status.
             var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var scheduler = vm.UiScheduler;
-            vm.UiScheduler = action => { action(); opened.TrySetResult(); };
+            vm.UiScheduler = action => { action(); _ = opened.TrySetResult(); };
             try
             {
                 vm.SelectedRun = selected;

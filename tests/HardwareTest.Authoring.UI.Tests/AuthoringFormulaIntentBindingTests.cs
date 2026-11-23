@@ -13,7 +13,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     public void ExplorationCheckboxTracksFormulaProgramSelectionAndUndoRedo()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -45,7 +45,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     public async Task DeploymentStatusRefreshesPerRevisionAndMissingThresholdNavigatesToField()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -78,7 +78,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     public async Task ExcludedIncompleteFormulaSavesWithBuildEnabledAndSourceUndoRemainsIntact()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -112,7 +112,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     public async Task MissingFilterProducerStatusAndSavedBuildEligibilityAgree()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -130,7 +130,7 @@ public sealed class AuthoringFormulaIntentBindingTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var recording = Path.Combine(fixture.WorkspaceRoot, "recordings", "sample", "irregular");
-        Directory.CreateDirectory(recording);
+        _ = Directory.CreateDirectory(recording);
         var run = new TestRunRecord
         {
             PlanId = "sample",
@@ -140,7 +140,7 @@ public sealed class AuthoringFormulaIntentBindingTests
             new() { Channel = "VDC", MetricKey = "VDC", Value = 3, ElapsedMs = 15 }]
         };
         File.WriteAllText(Path.Combine(recording, "run.json"), JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.StopRecovery();
         Assert.Null(vm.SelectedDataset);

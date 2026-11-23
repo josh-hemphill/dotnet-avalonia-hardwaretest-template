@@ -38,7 +38,7 @@ internal static class OfflineBenchVersions
                         var name = AssemblyName.GetAssemblyName(path);
                         if (name.Name != "OpenTap.Package" || name.Version != typeof(TestPlan).Assembly.GetName().Version)
                             throw new InvalidDataException("The operator package SDK does not match its OpenTAP engine. Restore the matching operator release.");
-                        AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
+                        _ = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
                         return;
                     }
                 }

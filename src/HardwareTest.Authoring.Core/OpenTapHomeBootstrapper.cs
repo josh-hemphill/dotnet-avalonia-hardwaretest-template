@@ -39,14 +39,14 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         {
             var selected = AuthoringBuildService.CaptureTree(homeRoot, "operation-home", true);
             var identity = new AuthoringBuildRequest(workspace.Root, new PackOptions(), [selected], AuthoringBuildService.CaptureEnvironment());
-            Directory.CreateDirectory(owned);
+            _ = Directory.CreateDirectory(owned);
             foreach (var file in selected.Files)
             {
                 var destination = Path.Combine(owned, file.RelativePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 AuthoringBuildService.Materialize(file, destination);
             }
-            BootstrapOwned(workspace, new BootstrapOptions
+            _ = BootstrapOwned(workspace, new BootstrapOptions
             {
                 HomeDirectory = owned,
                 Offline = options.Offline,
@@ -73,8 +73,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
             throw new AuthoringWorkspaceException(claimIssue);
         try { AuthoringAdapterPayloadInspection.RejectAlternateLibraryPayloads(homeRoot); }
         catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
-        Directory.CreateDirectory(homeRoot);
-        Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
+        _ = Directory.CreateDirectory(homeRoot);
+        _ = Directory.CreateDirectory(Path.Combine(homeRoot, "Packages"));
 
         InstallOptionalFilePackage(options.OfflinePackagePath, homeRoot, workspace.Manifest);
         CopyOpenTapRuntime(homeRoot);
@@ -187,7 +187,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
                 var hash = declaration.Elements().SingleOrDefault(element => element.Name.LocalName == "Hash")?.Value.Trim();
                 if (Directory.Exists(destination) || !bundledDeclarations.ContainsKey(relative)
                     || !AuthoringEnvironmentAssessment.RuntimeFileAvailable(new(sourceDir), relative)
-                    || hash is not null && !Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(source))).Equals(hash, StringComparison.OrdinalIgnoreCase))
+                    || (hash is not null && !Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(source))).Equals(hash, StringComparison.OrdinalIgnoreCase)))
                 {
                     throw new AuthoringWorkspaceException($"OpenTAP declared runtime payload '{relative}' cannot be repaired from the genuine bundled runtime; preparation preserved the selected home.");
                 }
@@ -196,14 +196,14 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
         var runtimeFiles = new HashSet<string>(OpenTapRuntimeFiles, StringComparer.OrdinalIgnoreCase);
         runtimeFiles.UnionWith(bundledDeclarations.Keys);
-        runtimeFiles.Add(OperatingSystem.IsWindows() ? "tap.exe" : "tap");
+        _ = runtimeFiles.Add(OperatingSystem.IsWindows() ? "tap.exe" : "tap");
         AddDirectory("Dependencies");
         AddDirectory("Packages/OpenTAP");
         var missingFiles = runtimeFiles.Where(relative => !File.Exists(Destination(relative))).ToArray();
         foreach (var relative in missingFiles)
         {
             var destination = Destination(relative);
-            AuthoringBuildService.EnsureContained(homeRoot, AuthoringBuildService.ResolvedPath(destination, directory: false));
+            AuthoringBuildService.EnsureContained(homeRoot, AuthoringBuildService.ResolvedPath(destination));
             for (var parent = Path.GetDirectoryName(destination); parent is not null; parent = Path.GetDirectoryName(parent))
             {
                 if (File.Exists(parent)) throw new AuthoringWorkspaceException($"OpenTAP runtime destination '{relative}' has a file in its directory path; preparation preserved the selected home.");
@@ -215,19 +215,23 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         foreach (var relative in missingFiles)
         {
             var destination = Destination(relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(Path.Combine(sourceDir, relative.Replace('/', Path.DirectorySeparatorChar)), destination, overwrite: false);
         }
         if (StandaloneVisaReadiness.OpenTapRuntimeIssue(new(homeRoot)) is { } repairedIssue)
             throw new AuthoringWorkspaceException("The bundled OpenTAP runtime could not completely repair the selected home; preparation preserved the selected home. " + repairedIssue);
 
-        string Destination(string relative) => Path.Combine(homeRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+        string Destination(string relative)
+        {
+            return Path.Combine(homeRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+        }
+
         void AddDirectory(string relative)
         {
             var source = Path.Combine(sourceDir, relative.Replace('/', Path.DirectorySeparatorChar));
             if (!Directory.Exists(source)) return;
             foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
-                runtimeFiles.Add(Path.GetRelativePath(sourceDir, file).Replace('\\', '/'));
+                _ = runtimeFiles.Add(Path.GetRelativePath(sourceDir, file).Replace('\\', '/'));
         }
     }
 
@@ -242,7 +246,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         var packageXml = FindPackageXml(packageName);
         var dest = Path.Combine(homeRoot, "Packages", packageName);
         if (File.Exists(Path.Combine(dest, "package.xml"))) return;
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         File.Copy(packageXml, Path.Combine(dest, "package.xml"), overwrite: true);
         foreach (var fileName in ReadPackageFileNames(packageXml))
         {
@@ -331,8 +335,8 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         if (StandaloneVisaReadiness.SupportedDependencies(home) is { } reason) throw new AuthoringWorkspaceException(reason);
         var declaredDependencies = new AuthoringManifest
         {
-            Dependencies = manifest.Dependencies.Where(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
-                || dependency.Package.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)).ToList()
+            Dependencies = [.. manifest.Dependencies.Where(dependency => dependency.Package.Equals(InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
+                || dependency.Package.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))]
         };
         var unmet = AuthoringEnvironmentAssessment.Packages(declaredDependencies, home).Where(package => !package.Satisfied).ToArray();
         if (unmet.Length != 0) throw new AuthoringWorkspaceException(string.Join("; ", unmet.Select(package => package.DisplayText)));
@@ -438,7 +442,7 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
 
     private static void CopyDirectory(string source, string dest)
     {
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         foreach (var file in Directory.EnumerateFiles(source))
         {
             File.Copy(file, Path.Combine(dest, Path.GetFileName(file)), overwrite: true);
@@ -448,17 +452,6 @@ public sealed class OpenTapHomeBootstrapper : IOpenTapHomeBootstrapper
         {
             CopyDirectory(child, Path.Combine(dest, Path.GetFileName(child)));
         }
-    }
-
-    private static void CopyIfExists(string source, string dest)
-    {
-        if (!File.Exists(source))
-        {
-            return;
-        }
-
-        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-        File.Copy(source, dest, overwrite: true);
     }
 
     private static string ResolveAgainstWorkspace(string workspaceRoot, string path)

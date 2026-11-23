@@ -45,7 +45,7 @@ public sealed class ResultsRunIdentityTests
                      record.DutRevision, record.OperatorName, record.StartedAt.ToString("O", CultureInfo.InvariantCulture),
                      record.CompletedAt.Value.ToString("O", CultureInfo.InvariantCulture), record.ExecutionScopeText })
         {
-            Assert.Contains(value!, vm.RunIdentityText, StringComparison.Ordinal);
+            Assert.Contains(value, vm.RunIdentityText, StringComparison.Ordinal);
         }
 
         Assert.Contains($"Verdict: {result}", vm.RunIdentityText, StringComparison.Ordinal);

@@ -37,7 +37,7 @@ public sealed class ConfigurationArgs
         var overlayOptions = new Dictionary<SettingBinding, Option<string?>>();
         foreach (var binding in AppSettingsEnvironmentBinder.Bindings.Where(binding => binding.CliNames.Count > 0))
         {
-            var option = new Option<string?>(binding.CliNames[0], binding.CliNames.Skip(1).ToArray());
+            var option = new Option<string?>(binding.CliNames[0], [.. binding.CliNames.Skip(1)]);
             if (LooksBoolBinding(binding))
             {
                 option.Arity = ArgumentArity.ZeroOrOne;

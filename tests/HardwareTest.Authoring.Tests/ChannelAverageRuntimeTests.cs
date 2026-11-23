@@ -21,8 +21,8 @@ public sealed class ChannelAverageRuntimeTests
     [InlineData(double.NegativeInfinity)]
     public void Evaluator_rejects_invalid_sample_or_threshold(double invalid)
     {
-        Assert.Throws<InvalidOperationException>(() => ChannelAverageEvaluator.Evaluate([1, invalid], 1));
-        Assert.Throws<InvalidOperationException>(() => ChannelAverageEvaluator.Evaluate([1], invalid));
+        _ = Assert.Throws<InvalidOperationException>(() => ChannelAverageEvaluator.Evaluate([1, invalid], 1));
+        _ = Assert.Throws<InvalidOperationException>(() => ChannelAverageEvaluator.Evaluate([1], invalid));
     }
 
     [Fact]
@@ -277,7 +277,7 @@ public sealed class ChannelAverageRuntimeTests
             var values = _runs++ > 0 ? LaterValues ?? Values : Values;
             for (var i = 0; i < values.Length; i++)
             {
-                Results.Publish("Sample", new List<string> { "Channel", "Value", "ElapsedMs" }, "VDC", values[i], i * 5d);
+                Results.Publish("Sample", ["Channel", "Value", "ElapsedMs"], "VDC", values[i], i * 5d);
             }
 
             if (DisableAfterRun)
@@ -294,8 +294,8 @@ public sealed class ChannelAverageRuntimeTests
     {
         public override void Run()
         {
-            RunChildSteps();
-            RunChildSteps();
+            _ = RunChildSteps();
+            _ = RunChildSteps();
         }
     }
 
@@ -305,10 +305,10 @@ public sealed class ChannelAverageRuntimeTests
         public override void Run()
         {
             ChildTestSteps[1].Enabled = false;
-            RunChildSteps();
+            _ = RunChildSteps();
             ChildTestSteps[0].Enabled = false;
             ChildTestSteps[1].Enabled = true;
-            RunChildSteps();
+            _ = RunChildSteps();
         }
     }
 

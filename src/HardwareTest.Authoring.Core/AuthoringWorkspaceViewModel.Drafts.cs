@@ -45,10 +45,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         StopRecovery();
         AuthoringRecoveryCheckpointService[] owned;
-        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        lock (_retiredRecovery) owned = [.. _retiredRecovery];
         await Task.WhenAll(owned.Select(service => service.StopAsync())).ConfigureAwait(false);
         lock (_retiredRecovery)
-            foreach (var service in owned) _retiredRecovery.Remove(service);
+            foreach (var service in owned) _ = _retiredRecovery.Remove(service);
     }
 
     public void ResumeRecoveryAfterAbortedClose(Func<bool> ownerRetainsSession)
@@ -58,9 +58,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         _resumeRecoveryOwner = ownerRetainsSession;
         if (!ownerRetainsSession()) return;
         var generation = _recoveryGeneration;
-        var session = _workspaceSession;
+        var session = WorkspaceSessionId;
         AuthoringRecoveryCheckpointService[] owned;
-        lock (_retiredRecovery) owned = _retiredRecovery.ToArray();
+        lock (_retiredRecovery) owned = [.. _retiredRecovery];
         _ = ResumeAfterDrainAsync();
         async Task ResumeAfterDrainAsync()
         {
@@ -68,10 +68,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 // A timed-out stop retains its writers. Resume only after those exact writers release ownership.
                 await Task.WhenAll(owned.Select(service => service.DrainStoppedWritersAsync())).ConfigureAwait(false);
-                lock (_retiredRecovery) foreach (var service in owned) _retiredRecovery.Remove(service);
+                lock (_retiredRecovery) foreach (var service in owned) _ = _retiredRecovery.Remove(service);
                 _recoveryDispatch(() =>
                 {
-                    if (!ownerRetainsSession() || generation != _recoveryGeneration || session != _workspaceSession || _recovery is not null
+                    if (!ownerRetainsSession() || generation != _recoveryGeneration || session != WorkspaceSessionId || _recovery is not null
                         || Workspace is not { IsReadOnly: false })
                     {
                         return;
@@ -85,7 +85,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 _recoveryDispatch(() =>
                 {
-                    if (ownerRetainsSession() && generation == _recoveryGeneration && session == _workspaceSession)
+                    if (ownerRetainsSession() && generation == _recoveryGeneration && session == WorkspaceSessionId)
                         ReportError($"Recovery could not resume after closing was cancelled: {error.Message}");
                 });
             }
@@ -99,7 +99,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             ? new(path!) : null;
         // Snapshot candidate context without mutating the current workspace/home on failed open.
         var compiler = _usesDefaultCompiler ? new PlanCompiler(libraryHomeProvider: () => candidateHome) : _compiler;
-        if (candidateHome is not null) AuthoringInstrumentCatalog.Discover(candidateHome);
+        if (candidateHome is not null) _ = AuthoringInstrumentCatalog.Discover(candidateHome);
         return AuthoringSourceWorkspaceLoader.Load(root, compiler);
     }
 
@@ -114,13 +114,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             var source = AuthoringMeasureSections.Normalize(store.Load(id));
             if (source.Document is not { } document)
             {
-                uncompiled.Add(id);
+                _ = uncompiled.Add(id);
                 continue;
             }
             documents[id] = document;
-            _expectedAuthoringSources.Add(id);
-            if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(id);
-            if (CompiledChanged(document)) conflicts.Add(id);
+            _ = _expectedAuthoringSources.Add(id);
+            if (document.RequiresCompilation || document.CompiledPlanHash is null) _ = uncompiled.Add(id);
+            if (CompiledChanged(document)) _ = conflicts.Add(id);
         }
         foreach (var previous in _sourceDocuments)
         {
@@ -128,14 +128,14 @@ public sealed partial class AuthoringWorkspaceViewModel
                 && _documents.ContainsKey(previous.Key) && !documents.ContainsKey(previous.Key))
             {
                 documents[previous.Key] = previous.Value;
-                uncompiled.Add(previous.Key);
-                if (CompiledChanged(previous.Value)) conflicts.Add(previous.Key);
+                _ = uncompiled.Add(previous.Key);
+                if (CompiledChanged(previous.Value)) _ = conflicts.Add(previous.Key);
             }
         }
         foreach (var baseline in _compiledOnlyBaselines)
         {
-            if (!documents.ContainsKey(baseline.Key) && _compiledConflicts.Contains(baseline.Key) && CompiledChanged(baseline.Value)) conflicts.Add(baseline.Key);
-            if (!documents.ContainsKey(baseline.Key) && baseline.Value.RequiresCompilation) uncompiled.Add(baseline.Key);
+            if (!documents.ContainsKey(baseline.Key) && _compiledConflicts.Contains(baseline.Key) && CompiledChanged(baseline.Value)) _ = conflicts.Add(baseline.Key);
+            if (!documents.ContainsKey(baseline.Key) && baseline.Value.RequiresCompilation) _ = uncompiled.Add(baseline.Key);
         }
         _sourceDocuments.Clear();
         foreach (var document in documents) _sourceDocuments.Add(document.Key, document.Value);
@@ -158,7 +158,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         var uncompiled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var migrations = new HashSet<string>(measureSectionMigrations ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase);
         string? errorText = null;
-        string? PathFor(string id) => workspace.TapPlanPaths.FirstOrDefault(path => string.Equals(Path.GetFileNameWithoutExtension(path), id, StringComparison.OrdinalIgnoreCase));
+        string? PathFor(string id)
+        {
+            return workspace.TapPlanPaths.FirstOrDefault(path => string.Equals(Path.GetFileNameWithoutExtension(path), id, StringComparison.OrdinalIgnoreCase));
+        }
+
         bool Changed(AuthoringDocumentDto document)
         {
             var path = PathFor(document.PlanId);
@@ -172,15 +176,15 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (rawSource is { IsReadOnly: false, Document: { HasConfigurableMeasureSections: false } legacy }
                 && !legacy.Measure.Any(node => node.Kind == "section"))
             {
-                migrations.Add(draft.PlanId);
+                _ = migrations.Add(draft.PlanId);
             }
 
             var document = AuthoringMeasureSections.Normalize(rawSource).Document;
             if (document is not null)
             {
                 sources[draft.PlanId] = document;
-                if (Changed(document)) conflicts.Add(draft.PlanId);
-                if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(draft.PlanId);
+                if (Changed(document)) _ = conflicts.Add(draft.PlanId);
+                if (document.RequiresCompilation || document.CompiledPlanHash is null) _ = uncompiled.Add(draft.PlanId);
             }
             else
             {
@@ -192,7 +196,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (measureSectionMigrations?.Contains(draft.PlanId) == true)
                 {
                     baselines[draft.PlanId].RequiresCompilation = true;
-                    uncompiled.Add(draft.PlanId);
+                    _ = uncompiled.Add(draft.PlanId);
                 }
             }
             var recovered = AuthoringMeasureSections.Normalize(store.LoadAtPath(store.GetRecoveryPath(draft.PlanId)));
@@ -213,7 +217,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         // Unread excluded sources retain their bytes and become blockers immediately on inclusion.
         foreach (var id in store.ListDocumentIds())
-            if (!AuthoringBuildInclusion.Includes(workspace.Manifest, id) && !sources.ContainsKey(id)) uncompiled.Add(id);
+            if (!AuthoringBuildInclusion.Includes(workspace.Manifest, id) && !sources.ContainsKey(id)) _ = uncompiled.Add(id);
         return new(baselines, sources, recoverable, conflicts, uncompiled, migrations, errorText);
     }
 
@@ -268,8 +272,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         foreach (var draft in Programs)
         {
             if (!_documents.TryGetValue(draft.PlanId, out var session)) continue;
-            var dirty = session.GetDirtyState(draft);
-            if (!dirty.PlanDirty && !dirty.SidecarDirty)
+            var (PlanDirty, SidecarDirty) = session.GetDirtyState(draft);
+            if (!PlanDirty && !SidecarDirty)
             {
                 _recovery.Cancel(Workspace.Root, draft.PlanId);
                 if (!_recoverableDocuments.ContainsKey(draft.PlanId))
@@ -279,7 +283,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 }
                 continue;
             }
-            _sourceDocuments.TryGetValue(draft.PlanId, out var baseline);
+            _ = _sourceDocuments.TryGetValue(draft.PlanId, out var baseline);
             _recovery.Schedule(Workspace.Root, AuthoringDocumentDto.FromDraft(draft, session.Revision,
                 compiledPlanHash: baseline?.CompiledPlanHash, compiledSidecarHash: baseline?.CompiledSidecarHash) with
             { CompiledAssetHashes = baseline?.CompiledAssetHashes });
@@ -295,11 +299,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             session = new AuthoringDocumentSession(checkpoint.ToDraft(), isSaved: false, revision: checkpoint.Revision);
             _documents.Add(planId, session);
             Programs = [.. Programs, session.Draft];
-            _uncompiledDocuments.Add(planId);
+            _ = _uncompiledDocuments.Add(planId);
         }
         else
         {
-            session.ApplyEdit("Recover checkpoint", _ => checkpoint.ToDraft());
+            _ = session.ApplyEdit("Recover checkpoint", _ => checkpoint.ToDraft());
         }
 
         PresentSession(_documents[planId]);
@@ -311,7 +315,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         EnsureWritableWorkspace("discard recovery");
         var store = new AuthoringDocumentStore(Workspace!.Root);
         store.DeleteRecovery(planId);
-        _recoverableDocuments.Remove(planId);
+        _ = _recoverableDocuments.Remove(planId);
         RaiseDraftState();
     }
 
@@ -327,7 +331,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             var imported = ProcedureAssetFiles.Load(_compiler.Load(path!), Workspace!.Manifest, path!);
             var normalized = AuthoringMeasureSections.HasCompiledLayout(path!) ? imported : AuthoringMeasureSections.Initialize(imported);
             importedNeedsCompilation = !ReferenceEquals(imported, normalized);
-            _documents[planId].ApplyEdit("Import external compiled changes", _ => normalized);
+            _ = _documents[planId].ApplyEdit("Import external compiled changes", _ => normalized);
             PresentSession(_documents[planId]);
         }
         _sourceDocuments[planId] = AuthoringDocumentDto.FromDraft(_documents[planId].Draft, _documents[planId].Revision,
@@ -335,19 +339,19 @@ public sealed partial class AuthoringWorkspaceViewModel
         _sourceDocuments[planId].CompiledAssetHashes = ProcedureAssetFiles.Hashes(_documents[planId].Draft.ImportedData.Keys, path);
         if (importedNeedsCompilation)
         {
-            _measureSectionMigrations.Add(planId);
+            _ = _measureSectionMigrations.Add(planId);
             _sourceDocuments[planId].RequiresCompilation = true;
-            _uncompiledDocuments.Add(planId);
+            _ = _uncompiledDocuments.Add(planId);
         }
         if (!useCompiledContent)
         {
             _sourceDocuments[planId].RequiresCompilation = true;
             new AuthoringDocumentStore(Workspace!.Root).Save(_sourceDocuments[planId]);
-            _measureSectionMigrations.Remove(planId);
-            _uncompiledDocuments.Add(planId);
+            _ = _measureSectionMigrations.Remove(planId);
+            _ = _uncompiledDocuments.Add(planId);
         }
         InvalidateContractFindings();
-        _compiledConflicts.Remove(planId);
+        _ = _compiledConflicts.Remove(planId);
         RaiseDraftState();
     }
 

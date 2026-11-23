@@ -35,7 +35,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (Workspace is null) return;
         foreach (var pair in _sourceDocuments.Concat(_compiledOnlyBaselines.Where(pair => !_sourceDocuments.ContainsKey(pair.Key))))
-            if (CompiledChanged(pair.Value)) _compiledConflicts.Add(pair.Key);
+            if (CompiledChanged(pair.Value)) _ = _compiledConflicts.Add(pair.Key);
         InvalidateContractFindings();
         RaiseDraftState();
     }

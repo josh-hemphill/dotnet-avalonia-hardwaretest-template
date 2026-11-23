@@ -5,7 +5,7 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     internal Func<IReadOnlyList<string>, PlanContractOptions, PlanContractBatchReport> ValidateSavedPlans { get; set; }
-        = (paths, options) => PlanContractValidator.Validate(paths, options);
+        = PlanContractValidator.Validate;
 
     private FindingCheck PrepareFindingCheck() => VerifyFindingInputs(() =>
     {
@@ -38,7 +38,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         return saved;
     }
 
-    private bool HasCurrentFindingCheck => _lastFindingCheck is { } check && check.Session == _workspaceSession && !_lastFindingCheckStale;
+    private bool HasCurrentFindingCheck => _lastFindingCheck is { } check && check.Session == WorkspaceSessionId && !_lastFindingCheckStale;
 
     private void VerifySavedInputsForSave(IEnumerable<string> planIds) => VerifyFindingInputs(() =>
     {

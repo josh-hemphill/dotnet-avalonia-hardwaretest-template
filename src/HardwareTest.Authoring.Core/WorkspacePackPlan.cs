@@ -73,7 +73,7 @@ public static class WorkspacePackPlan
         var homeValid = TryResolveHomePath(workspace, homeOverride, out var resolvedHome, out var homeError);
         var homePath = resolvedHome ?? homeError;
         var homePackages = homeValid && Directory.Exists(homePath)
-            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath!))
+            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath))
                 .Select(package => new OpenTapEnvironmentLine(package.Name, package.Version, "installed in home"))
                 .ToArray()
             : [];

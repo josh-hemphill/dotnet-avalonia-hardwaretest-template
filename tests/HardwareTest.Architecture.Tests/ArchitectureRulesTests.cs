@@ -71,7 +71,7 @@ public sealed class ArchitectureRulesTests
     [Fact]
     public void ShellAbstractions_must_not_reference_Avalonia_or_OpenTap()
     {
-        var assembly = typeof(global::HardwareTest.Shell.ShellPageDescriptor).Assembly;
+        var assembly = typeof(Shell.ShellPageDescriptor).Assembly;
         AssertNoForbiddenReference(
             assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
@@ -86,7 +86,7 @@ public sealed class ArchitectureRulesTests
     public void OpenTapWorker_must_not_reference_Avalonia()
     {
         AssertNoForbiddenReference(
-            typeof(global::HardwareTest.OpenTap.Worker.Program).Assembly,
+            typeof(OpenTap.Worker.Program).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
             Phase23WorkerRule);
     }
@@ -95,7 +95,7 @@ public sealed class ArchitectureRulesTests
     public void PlanValidate_must_not_reference_Avalonia()
     {
         AssertNoForbiddenReference(
-            typeof(global::HardwareTest.PlanValidate.Program).Assembly,
+            typeof(PlanValidate.Program).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
             PlanValidateAvaloniaFree);
     }
@@ -104,7 +104,7 @@ public sealed class ArchitectureRulesTests
     public void AuthoringCore_must_not_reference_Avalonia()
     {
         AssertNoForbiddenReference(
-            typeof(global::HardwareTest.Authoring.AuthoringWorkspace).Assembly,
+            typeof(Authoring.AuthoringWorkspace).Assembly,
             name => name.StartsWith("Avalonia", StringComparison.OrdinalIgnoreCase),
             AuthoringCoreAvaloniaFree);
     }
@@ -117,7 +117,7 @@ public sealed class ArchitectureRulesTests
         var xml = File.ReadAllText(csproj);
         Assert.DoesNotContain("HardwareTest.Authoring", xml, StringComparison.Ordinal);
         AssertNoForbiddenDirectReference(
-            typeof(global::HardwareTest.MainWindow).Assembly,
+            typeof(MainWindow).Assembly,
             name => name is not null && name.StartsWith("HardwareTest.Authoring", StringComparison.Ordinal),
             AuthoringCoreAvaloniaFree);
     }
@@ -367,7 +367,7 @@ public sealed class ArchitectureRulesTests
         var versions = central.Descendants("PackageVersion")
             .Select(element => element.Attribute("Include")?.Value)
             .Where(package => !string.IsNullOrWhiteSpace(package))
-            .Select(package => package!)
+            .Select(package => package)
             .ToArray();
         Assert.Equal(versions.Length, versions.Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
@@ -490,15 +490,15 @@ public sealed class ArchitectureRulesTests
 
     [Theory]
     [InlineData(typeof(AppSettings))]
-    [InlineData(typeof(global::HardwareTest.Shell.ShellPageDescriptor))]
-    [InlineData(typeof(global::HardwareTest.ShellApps.Notes.NotesApplication))]
+    [InlineData(typeof(Shell.ShellPageDescriptor))]
+    [InlineData(typeof(ShellApps.Notes.NotesApplication))]
     [InlineData(typeof(OpenTapSession))]
     [InlineData(typeof(AcquireVoltageStep))]
     [InlineData(typeof(AnnotationMixin))]
-    [InlineData(typeof(global::HardwareTest.MainWindow))]
-    [InlineData(typeof(global::HardwareTest.OpenTap.Worker.Program))]
-    [InlineData(typeof(global::HardwareTest.PlanValidate.Program))]
-    [InlineData(typeof(global::HardwareTest.Authoring.AuthoringWorkspace))]
+    [InlineData(typeof(MainWindow))]
+    [InlineData(typeof(OpenTap.Worker.Program))]
+    [InlineData(typeof(PlanValidate.Program))]
+    [InlineData(typeof(Authoring.AuthoringWorkspace))]
     public void Assemblies_must_not_reference_WinForms_or_Wpf(Type marker)
     {
         AssertNoForbiddenReference(
@@ -510,7 +510,7 @@ public sealed class ArchitectureRulesTests
     [Fact]
     public void HardwareTest_has_only_MainWindow_as_Window_subclass()
     {
-        var windows = typeof(global::HardwareTest.MainWindow).Assembly
+        var windows = typeof(MainWindow).Assembly
             .GetTypes()
             .Where(t => typeof(Window).IsAssignableFrom(t) && !t.IsAbstract)
             .Select(t => t.Name)
@@ -527,7 +527,7 @@ public sealed class ArchitectureRulesTests
     [Fact]
     public void ShellApps_must_not_define_Window_subclasses()
     {
-        var windows = typeof(global::HardwareTest.ShellApps.Notes.NotesApplication).Assembly
+        var windows = typeof(ShellApps.Notes.NotesApplication).Assembly
             .GetTypes()
             .Where(t => typeof(Window).IsAssignableFrom(t) && !t.IsAbstract)
             .Select(t => t.Name)
@@ -697,7 +697,7 @@ public sealed class ArchitectureRulesTests
             typeof(TransferFunctionGrid).Assembly.GetName().Name);
         Assert.Equal(
             "HardwareTest.Authoring.Core",
-            typeof(global::HardwareTest.Authoring.TransferFunctionTimeBase).Assembly.GetName().Name);
+            typeof(Authoring.TransferFunctionTimeBase).Assembly.GetName().Name);
         Assert.DoesNotContain(
             typeof(AcquireVoltageStep).Assembly.GetTypes(),
             type => type.Name is "TransferFunctionTimeBase");
@@ -782,14 +782,13 @@ public sealed class ArchitectureRulesTests
     private static string[] ProjectsFromDirsProj(string repo)
     {
         var dirs = XDocument.Load(Path.Combine(repo, "dirs.proj"));
-        return dirs.Descendants("ProjectReference")
+        return [.. dirs.Descendants("ProjectReference")
             .Select(e => e.Attribute("Include")?.Value ?? string.Empty)
             .Where(p => p.Length > 0)
             .SelectMany(pattern => ExpandMsbuildGlob(repo, pattern))
             .Select(p => Path.GetRelativePath(repo, p).Replace('\\', '/'))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)];
     }
 
     private static IEnumerable<string> ExpandMsbuildGlob(string repo, string pattern)
@@ -828,9 +827,7 @@ public sealed class ArchitectureRulesTests
         var rids = MatchBuildProperty(props, "RuntimeIdentifiers");
         Assert.False(string.IsNullOrWhiteSpace(tfm), "Directory.Build.props must set TargetFramework.");
         Assert.False(string.IsNullOrWhiteSpace(rids), "Directory.Build.props must set RuntimeIdentifiers.");
-        return rids.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(rid => $"{tfm}/{rid}")
-            .ToArray();
+        return [.. rids.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(rid => $"{tfm}/{rid}")];
     }
 
     private static string MatchBuildProperty(string propsXml, string name)
@@ -892,7 +889,7 @@ public sealed class ArchitectureRulesTests
     {
         var hits = assembly.GetReferencedAssemblies()
             .Select(name => name.Name)
-            .Where(name => !string.IsNullOrWhiteSpace(name) && isForbidden(name!))
+            .Where(name => !string.IsNullOrWhiteSpace(name) && isForbidden(name))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -907,7 +904,7 @@ public sealed class ArchitectureRulesTests
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var queue = new Queue<Assembly>();
         queue.Enqueue(root);
-        seen.Add(root.GetName().Name!);
+        _ = seen.Add(root.GetName().Name!);
 
         while (queue.Count > 0)
         {

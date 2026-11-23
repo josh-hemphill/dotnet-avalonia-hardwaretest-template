@@ -4,10 +4,9 @@ using HardwareTest.OpenTap.Host;
 namespace HardwareTest.Authoring;
 
 /// Constructs one normal source draft; durable creation publishes only authoring JSON.
-public sealed class AuthoringPlanInitializer
+public sealed class AuthoringPlanInitializer(AuthoringAtomicWriter? writer = null)
 {
-    private readonly AuthoringAtomicWriter? _writer;
-    public AuthoringPlanInitializer(AuthoringAtomicWriter? writer = null) => _writer = writer;
+    private readonly AuthoringAtomicWriter? _writer = writer;
 
     public PlanInitializationResult Construct(PlanInitializationRequest request)
     {
@@ -23,7 +22,7 @@ public sealed class AuthoringPlanInitializer
             throw new ArgumentException("Enter a device family without control characters.");
         var destination = ValidateDestination(request, id);
         if (!Enum.IsDefined(request.StartingPoint)) throw new ArgumentException("Choose a supported starting point.");
-        if (request.Home is not null) AuthoringInstrumentCatalog.Discover(request.Home);
+        if (request.Home is not null) _ = AuthoringInstrumentCatalog.Discover(request.Home);
         var chosenInstruments = request.UseTemplateHardware && request.StartingPoint == PlanStartingPoint.DemoVoltageTask && request.Instruments.Count == 0
             ? new[] { new InstrumentRef("DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, "MOCK::INSTR0") }
             : request.Instruments;

@@ -92,7 +92,7 @@ public partial class RunPreparationView : UserControl
         var owner = _subscribed;
         Dispatcher.UIThread.Post(() =>
         {
-            if (owner is not null && ReferenceEquals(owner, _subscribed)) FocusSessionField(field);
+            if (owner is not null && ReferenceEquals(owner, _subscribed)) _ = FocusSessionField(field);
         }, DispatcherPriority.Loaded);
     }
 
@@ -105,7 +105,7 @@ public partial class RunPreparationView : UserControl
             if (owner is null || !ReferenceEquals(owner, _subscribed) || board?.IsEffectivelyVisible != true) return;
             var run = board.GetVisualDescendants().OfType<Button>().FirstOrDefault(button =>
                 button.IsEffectivelyVisible && button.IsEffectivelyEnabled && AutomationProperties.GetName(button) == "Run");
-            run?.Focus();
+            _ = (run?.Focus());
         }, DispatcherPriority.Loaded);
     }
 

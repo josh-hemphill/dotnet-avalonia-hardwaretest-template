@@ -43,7 +43,7 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
         Assert.Contains("blocked", vm.ExcludedPackPlans);
         var home = AuthoringBuildSnapshotTests.Home(vm.Workspace!); vm.OpenTapHomeOverride = home.Root;
         var output = AuthoringBuildSnapshotTests.Temp();
-        vm.Pack(output);
+        _ = vm.Pack(output);
         Assert.Contains("sample", vm.LastBuildReceipt!.IncludedPlans);
         Assert.Contains("blocked", vm.LastBuildReceipt.ExcludedPlans);
         using (var archive = ZipFile.OpenRead(Directory.GetFiles(output, "*.TapPackage").Single()))
@@ -59,7 +59,7 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
         Assert.True(vm.SaveAll().Succeeded); vm.Open(root);
         Assert.False(vm.CanPack);
         var saved = AuthoringBuildService.CaptureSaved(vm.Workspace!, new PackOptions { Home = home, Offline = true });
-        Assert.ThrowsAny<AuthoringWorkspaceException>(() => AuthoringBuildService.Execute(saved, AuthoringBuildSnapshotTests.Temp()));
+        _ = Assert.ThrowsAny<AuthoringWorkspaceException>(() => AuthoringBuildService.Execute(saved, AuthoringBuildSnapshotTests.Temp()));
     }
 
     [Theory]
@@ -69,13 +69,13 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
     public void Actual_saved_build_selects_IDs_before_loading_excluded_source(string kind)
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root);
-        var store = new AuthoringDocumentStore(root); var path = store.GetDocumentPath("excluded"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var store = new AuthoringDocumentStore(root); var path = store.GetDocumentPath("excluded"); _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, kind == "corrupt" ? "{" : kind == "future" ? "{\"schemaVersion\":999,\"planId\":\"excluded\"}" : "{\"schemaVersion\":1,\"planId\":\"excluded\",\"unknown\":true}");
         var home = AuthoringBuildSnapshotTests.Home(workspace);
         var result = AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = true }), AuthoringBuildSnapshotTests.Temp());
         Assert.Contains("excluded", result.Receipt.ExcludedPlans); Assert.DoesNotContain(result.Receipt.Sources, s => s.PlanId == "excluded");
         workspace.Manifest.Package.Name = "Everything"; AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home }), AuthoringBuildSnapshotTests.Temp()));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Execute(AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home }), AuthoringBuildSnapshotTests.Temp()));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class AuthoringEnvironmentBuildTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
         workspace.Manifest.Dependencies.Add(new() { Package = "Offline Fixture", Version = "^1.2.0" });
-        var directory = Path.Combine(home.Root, "Packages", "Offline Fixture"); Directory.CreateDirectory(directory);
+        var directory = Path.Combine(home.Root, "Packages", "Offline Fixture"); _ = Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "package.xml"), "<Package Name=\"Offline Fixture\" Version=\"1.3.0\"><Files><File Path=\"payload.txt\"/></Files></Package>");
         File.WriteAllText(Path.Combine(directory, "payload.txt"), "real payload");
         Assert.True(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home).Single(p => p.Package == "Offline Fixture").Satisfied);

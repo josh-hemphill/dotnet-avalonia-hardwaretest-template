@@ -38,11 +38,9 @@ public interface IRunComparisonService
 }
 
 /// Local on-disk comparison; missing metrics are listed as unavailable (does not throw).
-public sealed class RunComparisonService : IRunComparisonService
+public sealed class RunComparisonService(IRunStore runStore) : IRunComparisonService
 {
-    private readonly IRunStore _runStore;
-
-    public RunComparisonService(IRunStore runStore) => _runStore = runStore;
+    private readonly IRunStore _runStore = runStore;
 
     public async Task<RunComparisonReport> CompareToPreviousAsync(
         TestRunRecord current,
@@ -94,8 +92,8 @@ public sealed class RunComparisonService : IRunComparisonService
         var metrics = new List<RunComparisonMetric>(keys.Count);
         foreach (var key in keys)
         {
-            currentMeans.TryGetValue(key, out var cur);
-            previousMeans.TryGetValue(key, out var prev);
+            _ = currentMeans.TryGetValue(key, out var cur);
+            _ = previousMeans.TryGetValue(key, out var prev);
             var hasCurrent = currentMeans.ContainsKey(key);
             var hasPrevious = previousMeans.ContainsKey(key);
             if (!hasCurrent || !hasPrevious)

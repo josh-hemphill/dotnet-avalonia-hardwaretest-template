@@ -388,7 +388,7 @@ public sealed class PlanContractValidatorTests
         SampleProgramFactory.SaveBeside(dir.Path);
         WriteSidecar(dir.Path, "sample", selectionIncludesCleanup: true);
         var extra = Path.Combine(dir.Path, "author-plugins");
-        Directory.CreateDirectory(extra);
+        _ = Directory.CreateDirectory(extra);
         var settings = new AppSettings
         {
             UseMockVisa = true,
@@ -422,8 +422,8 @@ public sealed class PlanContractValidatorTests
         WriteSidecar(dir.Path, "sample", selectionIncludesCleanup: true);
         var cliDir = Path.Combine(dir.Path, "cli-plugins");
         var envDir = Path.Combine(dir.Path, "env-plugins");
-        Directory.CreateDirectory(cliDir);
-        Directory.CreateDirectory(envDir);
+        _ = Directory.CreateDirectory(cliDir);
+        _ = Directory.CreateDirectory(envDir);
         var previous = Environment.GetEnvironmentVariable("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES");
         try
         {
@@ -599,7 +599,7 @@ public sealed class PlanContractValidatorTests
         Assert.Contains("\"hasErrors\": true", json, StringComparison.Ordinal);
 
         using var sarifWriter = new StringWriter();
-        PlanContractCli.Run([path], sarifWriter, new PlanContractOptions { Format = PlanContractFormat.Sarif });
+        _ = PlanContractCli.Run([path], sarifWriter, new PlanContractOptions { Format = PlanContractFormat.Sarif });
         var sarif = sarifWriter.ToString();
         Assert.Contains("\"ruleId\": \"MISSING_SAFE_SHUTDOWN\"", sarif, StringComparison.Ordinal);
         Assert.Contains("sarif-2.1.0", sarif, StringComparison.Ordinal);
@@ -640,7 +640,7 @@ public sealed class PlanContractValidatorTests
         public TempPlanDir()
         {
             Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "plan-contract-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(Path);
+            _ = Directory.CreateDirectory(Path);
         }
 
         public string Path { get; }

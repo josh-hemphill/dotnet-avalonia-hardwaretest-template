@@ -15,7 +15,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Func<AuthoringBuildInspectionInput, AuthoringBuildInspectionResult> _inspectBuild = InspectBuild;
     private long _buildInspectionGeneration;
     private bool _buildInspectionRunning, _buildInspectionQueued, _buildInspectionPending, _buildInspectionStopped;
-    private bool _buildInspectionBlockers = true, _buildInspectionWritable, _buildInspectionBusy;
+    private bool _buildInspectionBusy;
     private IReadOnlyList<AuthoringBuildProgramLine> _buildProgramCache = [];
     private string? _buildInspectionIdentity;
     private TaskCompletionSource _buildInspectionIdle = CompletedBuildInspection();
@@ -39,7 +39,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _buildInspectionGeneration++;
         _buildInspectionPending = false;
         BuildInspectionBusy = false;
-        _buildInspectionIdle.TrySetResult();
+        _ = _buildInspectionIdle.TrySetResult();
     }
     public void RequestBuildInspection()
     {
@@ -60,7 +60,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             _buildInspectionPending = false;
             BuildInspectionBusy = false;
-            _buildInspectionIdle.TrySetResult();
+            _ = _buildInspectionIdle.TrySetResult();
             return;
         }
         _buildInspectionPending = false;
@@ -73,14 +73,14 @@ public sealed partial class AuthoringWorkspaceViewModel
                 AuthoringJsonContext.Default.AuthoringManifest)!,
             TapPlanPaths = workspace.TapPlanPaths.ToArray()
         };
-        var input = new AuthoringBuildInspectionInput(_workspaceSession, _buildInspectionGeneration, workspace, detached,
+        var input = new AuthoringBuildInspectionInput(WorkspaceSessionId, _buildInspectionGeneration, workspace, detached,
             Prefs.OpenTapHomeOverride, _documents.Select(pair => (pair.Key, pair.Value.Revision, pair.Value.Snapshot)).ToArray(),
             _dirtyPlans.Union(_dirtySidecars).Select(id => new DirtyProgramSummary(id, _dirtyPlans.Contains(id), _dirtySidecars.Contains(id))).ToArray(),
             WorkspaceCatalogDirty, _uncompiledDocuments.ToArray(), _compiledConflicts.ToArray());
         _ = InspectBuildAsync(input, _buildInspectionDispatch!, _inspectBuild);
     }
     private bool BuildInspectionCurrent(AuthoringBuildInspectionInput input)
-        => input.Session == _workspaceSession && input.Generation == _buildInspectionGeneration && ReferenceEquals(input.Owner, Workspace)
+        => input.Session == WorkspaceSessionId && input.Generation == _buildInspectionGeneration && ReferenceEquals(input.Owner, Workspace)
         && input.Home == Prefs.OpenTapHomeOverride && input.Documents.Count == _documents.Count
         && input.Documents.All(document => _documents.TryGetValue(document.Id, out var current)
             && current.Revision == document.Revision && ReferenceEquals(current.Snapshot, document.Snapshot));
@@ -101,15 +101,15 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _buildInspectionRunning = false;
                 if (!_buildInspectionStopped && _buildInspectionOwner?.Invoke() == true && BuildInspectionCurrent(input))
                 {
-                    _buildInspectionBlockers = result?.Blockers ?? true;
-                    _buildInspectionWritable = result?.Writable ?? false;
+                    HasKnownSavedBuildBlockers = result?.Blockers ?? true;
+                    CanPack = result?.Writable ?? false;
                     _buildInspectionIdentity = result?.Identity;
                     _buildProgramCache = result?.Programs ?? [];
                     if (result is not null)
                     {
-                        _packPreview = result.Preview;
+                        PackPreview = result.Preview;
                         if (LastCompletedBuild is { } completed)
-                            _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, completed.Result.Manifest, completed.OutputDirectory);
+                            PackPreview = WorkspacePackPlan.WithLastPack(PackPreview, completed.Result.Manifest, completed.OutputDirectory);
                         ClearResolvedHomePreviewWarning();
                     }
                     if (failure is not null) ReportError($"Build readiness could not refresh: {failure}");
@@ -130,7 +130,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                         dispatch(StartBuildInspection);
                     }
                 }
-                else { BuildInspectionBusy = false; _buildInspectionIdle.TrySetResult(); }
+                else { BuildInspectionBusy = false; _ = _buildInspectionIdle.TrySetResult(); }
             }
             catch (Exception error)
             {
@@ -138,14 +138,14 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _buildInspectionRunning = false;
                 _buildInspectionBusy = false;
                 _buildInspectionPending = false;
-                completion.TrySetException(error);
+                _ = completion.TrySetException(error);
             }
         });
         }
         catch (Exception error)
         {
             // A rejected dispatch cannot publish UI state. Surface it through the owned wait.
-            completion.TrySetException(error);
+            _ = completion.TrySetException(error);
         }
     }
     private static AuthoringBuildInspectionResult InspectBuild(AuthoringBuildInspectionInput input)
@@ -162,11 +162,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (loaded.Document is { } document)
             {
                 sources[id] = document;
-                if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(id);
+                if (document.RequiresCompilation || document.CompiledPlanHash is null) _ = uncompiled.Add(id);
             }
             else
             {
-                uncompiled.Add(id);
+                _ = uncompiled.Add(id);
             }
         }
         var programs = AuthoringBuildInclusion.ProgramIds(workspace).Select(id => new AuthoringBuildProgramLine(id,

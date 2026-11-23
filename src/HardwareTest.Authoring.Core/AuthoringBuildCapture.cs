@@ -45,7 +45,7 @@ public static partial class AuthoringBuildService
         foreach (var group in AuthoringProgramAssets.Included(saved).GroupBy(asset => Path.GetDirectoryName(asset)!))
         {
             var directory = Path.Combine(plansRoot, group.Key);
-            EnsureContained(plansRoot, ResolvedPath(directory, directory: true));
+            EnsureContained(plansRoot, ResolvedPath(directory));
             var selected = group.Select(asset => AuthoringProgramAssets.ResolvePath(plansRoot, asset)).ToHashSet(StringComparer.Ordinal);
             trees.Add(CaptureTree(directory, "workspace/plans/" + group.Key.Replace(Path.DirectorySeparatorChar, '/'), false, selected.Contains));
         }
@@ -100,14 +100,14 @@ public static partial class AuthoringBuildService
     internal static BuildInputTree CaptureTree(string root, string stage, bool recursive, Func<string, bool>? select = null, bool materialize = true)
     {
         root = Path.GetFullPath(root);
-        EnsureContained(root, ResolvedPath(root, directory: true));
+        EnsureContained(root, ResolvedPath(root));
         var files = new List<BuildInputFile>();
         var links = new List<string>();
         if (Directory.Exists(root)) Walk(root);
         return new(root, stage, recursive, files.AsReadOnly(), links.AsReadOnly(), materialize);
         void Walk(string directory)
         {
-            var resolvedDirectory = ResolvedPath(directory, true);
+            var resolvedDirectory = ResolvedPath(directory);
             EnsureContained(root, resolvedDirectory);
             if (new DirectoryInfo(directory).LinkTarget is not null) links.Add(directory + "=>" + resolvedDirectory);
             foreach (var path in Directory.EnumerateFiles(directory).Order(StringComparer.Ordinal))
@@ -168,9 +168,9 @@ public static partial class AuthoringBuildService
     {
         var root = environment is null ? Environment.GetEnvironmentVariable("DOTNET_ROOT") : environment.GetValueOrDefault("DOTNET_ROOT");
         var name = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
-        if (!string.IsNullOrWhiteSpace(root) && File.Exists(Path.Combine(root, name))) return ResolvedPath(Path.Combine(root, name), directory: false);
+        if (!string.IsNullOrWhiteSpace(root) && File.Exists(Path.Combine(root, name))) return ResolvedPath(Path.Combine(root, name));
         foreach (var directory in ((environment is null ? Environment.GetEnvironmentVariable("PATH") : environment.GetValueOrDefault("PATH")) ?? "").Split(Path.PathSeparator))
-            if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name), directory: false);
+            if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name));
         throw new AuthoringWorkspaceException("BUILD_PREREQUISITE: dotnet executable was not found.");
     }
     private static bool EnvironmentInput(string path) => !path.Split(Path.DirectorySeparatorChar).Any(p => p is "SessionLogs" or ".opentap_recent_logs" or ".PackageCache" || p.StartsWith(".PackageCache.", StringComparison.Ordinal));
@@ -183,7 +183,7 @@ public static partial class AuthoringBuildService
         if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             throw new AuthoringWorkspaceException($"BUILD_CONTAINMENT: '{path}' escapes '{root}'.");
     }
-    internal static string ResolvedPath(string path, bool directory)
+    internal static string ResolvedPath(string path)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         var activeLinks = new HashSet<string>(comparison);
@@ -212,7 +212,7 @@ public static partial class AuthoringBuildService
                     // Keep raw '..' until preceding directory links have resolved, matching File.Open.
                     current = ResolveTarget(target);
                 }
-                finally { activeLinks.Remove(link); }
+                finally { _ = activeLinks.Remove(link); }
             }
             return Path.GetFullPath(current);
         }

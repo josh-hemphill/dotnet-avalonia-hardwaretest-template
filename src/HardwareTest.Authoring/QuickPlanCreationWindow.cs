@@ -62,7 +62,7 @@ public sealed class QuickPlanCreationWindow : Window
         };
         AutomationProperties.SetName(_error, "Initialization error");
         AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
-        _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
+        _ = _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
         AutomationProperties.SetName(_destination, "Draft destination preview");
         var details = new Expander
         {
@@ -104,7 +104,7 @@ public sealed class QuickPlanCreationWindow : Window
         };
         _id.TextChanged += (_, _) => { ClearFieldError(_id); _idEdited = _id.Text != _automaticId; ShowDestination(); };
         _family.TextChanged += (_, _) => ClearFieldError(_family);
-        Opened += (_, _) => { _name.Focus(); _name.SelectAll(); };
+        Opened += (_, _) => { _ = _name.Focus(); _name.SelectAll(); };
         ShowDestination();
     }
 
@@ -142,8 +142,8 @@ public sealed class QuickPlanCreationWindow : Window
                 Instruments = [],
                 IncludeSafeShutdown = false
             };
-            _vm.ReviewPlanInitialization(request);
-            _vm.InitializePlan(request);
+            _ = _vm.ReviewPlanInitialization(request);
+            _ = _vm.InitializePlan(request);
             Close(true);
         }
         catch (Exception error)
@@ -167,12 +167,12 @@ public sealed class QuickPlanCreationWindow : Window
             var expander = content.GetVisualDescendants().OfType<Expander>().Single();
             expander.IsExpanded = true;
         }
-        Dispatcher.UIThread.Post(() => { if (IsVisible) { field.BringIntoView(); field.Focus(); field.SelectAll(); } }, DispatcherPriority.Loaded);
+        Dispatcher.UIThread.Post(() => { if (IsVisible) { field.BringIntoView(); _ = field.Focus(); field.SelectAll(); } }, DispatcherPriority.Loaded);
     }
 
     private void ClearFieldError(TextBox? editedField = null)
     {
-        if (_errorField is not { } field || editedField is not null && !ReferenceEquals(editedField, field)) return;
+        if (_errorField is not { } field || (editedField is not null && !ReferenceEquals(editedField, field))) return;
         // Restore only this validation message; keep any underlying help binding intact.
         if (AutomationProperties.GetHelpText(field) == _fieldError)
             field.SetCurrentValue(AutomationProperties.HelpTextProperty, _previousFieldHelp);
@@ -190,7 +190,7 @@ public sealed class QuickPlanCreationWindow : Window
 
     private static string Slug(string value)
         => string.Join('-', value.Trim().ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-            .Select(part => new string(part.Select(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' ? character : '-').ToArray())));
+            .Select(part => new string([.. part.Select(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.' ? character : '-')])));
     private static TextBox Input(string name) { var box = new TextBox(); AutomationProperties.SetName(box, name); return box; }
     private static Button Action(string name) { var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, Classes = { "authoringAction" } }; AutomationProperties.SetName(button, name); return button; }
     private static StackPanel Label(string label, Control field)

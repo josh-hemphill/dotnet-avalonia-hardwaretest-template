@@ -53,7 +53,7 @@ public sealed class ShellApplicationWarmupTests
                 cts.Token.ThrowIfCancellationRequested();
             });
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(
             () => ShellApplicationWarmup.RunAsync(
                 [cancelling, later],
                 new ServiceCollection().BuildServiceProvider(),
@@ -67,7 +67,7 @@ public sealed class ShellApplicationWarmupTests
     {
         var later = new WarmupStub("vendor.later", () => Task.CompletedTask);
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(
             () => ShellApplicationWarmup.RunAsync(
                 [later],
                 new ServiceCollection().BuildServiceProvider(),
@@ -75,17 +75,11 @@ public sealed class ShellApplicationWarmupTests
         Assert.Equal(0, later.Calls);
     }
 
-    private sealed class WarmupStub : IShellApplication
+    private sealed class WarmupStub(string id, Func<Task> warm) : IShellApplication
     {
-        private readonly Func<Task> _warm;
+        private readonly Func<Task> _warm = warm;
 
-        public WarmupStub(string id, Func<Task> warm)
-        {
-            Id = id;
-            _warm = warm;
-        }
-
-        public string Id { get; }
+        public string Id { get; } = id;
         public string Title => Id;
         public string Version => "0.0.0";
         public int MinHostAbi => ShellHostAbi.Current;

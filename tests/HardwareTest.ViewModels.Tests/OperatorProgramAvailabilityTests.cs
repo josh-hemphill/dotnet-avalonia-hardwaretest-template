@@ -40,7 +40,7 @@ public sealed class OperatorProgramAvailabilityTests
         var prior = new TestRunRecord { RunId = "prior-evidence", PlanId = "original", DutSerial = "OLD-DUT", OperatorName = "Prior operator" };
         store.Seed(prior);
         var vm = new RunTestViewModel(tap, tap, tap, new OperatorSession(), new FakeRunControl(), new FakeReportService(), store,
-            new HardwareTest.Core.Settings.AppSettings { UseMockVisa = true })
+            new Core.Settings.AppSettings { UseMockVisa = true })
         { UiScheduler = action => action() };
         await vm.ProgramSelection.RefreshProgramsAsync();
         var correct = vm.ProgramSelection.SelectedProgram!;

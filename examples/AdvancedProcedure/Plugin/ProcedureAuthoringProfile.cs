@@ -58,7 +58,7 @@ public sealed partial class FixtureProcedureStep : IProcedureAuthoring
     void IProcedureAuthoring.ValidateAuthoring()
     {
         ValidateSerial();
-        ValidateConfiguration();
+        _ = ValidateConfiguration();
     }
 
     OperatorInteractionRequest? IProcedureAuthoring.PreviewInteraction(Guid stepId, IReadOnlySet<string> completed)

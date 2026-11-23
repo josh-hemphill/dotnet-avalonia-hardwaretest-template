@@ -74,7 +74,7 @@ public sealed class AuthoringUsabilityTests
         var package = PublishedLibraryFixture.PackageRoot;
         var home = Path.Combine(fixture.WorkspaceRoot, "library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        Directory.CreateDirectory(payload);
+        _ = Directory.CreateDirectory(payload);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(package, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package, "package.xml"), Path.Combine(payload, "package.xml"));

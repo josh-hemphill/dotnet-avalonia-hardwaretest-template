@@ -22,13 +22,13 @@ public partial class MainWindow
     private static Func<Task> Sync(Action action) => () => { action(); return Task.CompletedTask; };
     private IReadOnlyList<EditorCommand> Commands() =>
     [
-        new("open", "Open workspace", $"{PrimaryName}+O", () => _transitionInFlight ? "A workspace transition is pending." : null, async () => { await OpenWorkspaceAsync(); }),
+        new("open", "Open workspace", $"{PrimaryName}+O", () => _transitionInFlight ? "A workspace transition is pending." : null, async () => { _ = await OpenWorkspaceAsync(); }),
         new("workspace", "Create workspace", $"{PrimaryName}+Shift+N", () => _viewModel.OperationBusy || _viewModel.OperationCleanupPending ? "Finish the active operation and its cleanup first." : null, ShowWorkspaceCreationAsync),
         new("plan", "New test plan", $"{PrimaryName}+N", () => _viewModel.CanInitializePlan ? null : "Open a writable workspace and finish the active operation.", ShowPlanInitializationAsync),
         new("save", "Save draft / compile", $"{PrimaryName}+S", () => WorkspaceBlocker() ?? (_viewModel.SelectedProgram is null ? "Select a program first." : null), Sync(_viewModel.Apply)),
-        new("save-all", "Save all", $"{PrimaryName}+Shift+S", WorkspaceBlocker, Sync(() => { _viewModel.SaveAll(); RefreshGuidance(); })),
-        new("undo", "Undo program edit", $"{PrimaryName}+Z", () => _viewModel.CanUndo ? null : "No program edit to undo.", Sync(() => _viewModel.Undo())),
-        new("redo", "Redo program edit", $"{PrimaryName}+Shift+Z", () => _viewModel.CanRedo ? null : "No program edit to redo.", Sync(() => _viewModel.Redo())),
+        new("save-all", "Save all", $"{PrimaryName}+Shift+S", WorkspaceBlocker, Sync(() => { _ = _viewModel.SaveAll(); RefreshGuidance(); })),
+        new("undo", "Undo program edit", $"{PrimaryName}+Z", () => _viewModel.CanUndo ? null : "No program edit to undo.", Sync(_viewModel.Undo)),
+        new("redo", "Redo program edit", $"{PrimaryName}+Shift+Z", () => _viewModel.CanRedo ? null : "No program edit to redo.", Sync(_viewModel.Redo)),
         new("rename", "Rename selected step", "F2", () => _viewModel.CanRenameSequence ? null : "Select a named editable step.", RenameCommandAsync),
         new("duplicate", "Duplicate selected step", $"{PrimaryName}+D", () => _viewModel.CanDuplicateSequence ? null : "Select a duplicable editable step.", Sync(_viewModel.DuplicateSelectedSequence)),
         new("pane", "Switch sequence and step editor", "F6", () => WorkspaceTabs.SelectedIndex == 0 ? null : "Open Sequence first.", Sync(SwitchEditingPane)),
@@ -97,17 +97,23 @@ public partial class MainWindow
         var current = OwnerContext();
         var search = new TextBox { PlaceholderText = "Search commands", MinHeight = 42 };
         AutomationProperties.SetName(search, "Search commands");
-        var list = new ListBox { Classes = { "authoringList" }, Margin = new Thickness(8, 8, 8, 24), Padding = new Thickness(0), BorderThickness = new Thickness(0) };
-        list.ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new StackPanel { Margin = new Thickness(0, 0, 0, 16) });
-        list.ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<EditorCommand>((command, _) =>
+        var list = new ListBox
         {
-            if (command is null) return new TextBlock();
-            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
-            row.Children.Add(new TextBlock { Text = command.Title, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
-            var shortcut = new TextBlock { Text = command.Shortcut, Opacity = 0.65, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            Grid.SetColumn(shortcut, 1); row.Children.Add(shortcut);
-            return row;
-        });
+            Classes = { "authoringList" },
+            Margin = new Thickness(8, 8, 8, 24),
+            Padding = new Thickness(0),
+            BorderThickness = new Thickness(0),
+            ItemsPanel = new Avalonia.Controls.Templates.FuncTemplate<Panel?>(() => new StackPanel { Margin = new Thickness(0, 0, 0, 16) }),
+            ItemTemplate = new Avalonia.Controls.Templates.FuncDataTemplate<EditorCommand>((command, _) =>
+                {
+                    if (command is null) return new TextBlock();
+                    var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
+                    row.Children.Add(new TextBlock { Text = command.Title, TextWrapping = Avalonia.Media.TextWrapping.Wrap });
+                    var shortcut = new TextBlock { Text = command.Shortcut, Opacity = 0.65, VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center };
+                    Grid.SetColumn(shortcut, 1); row.Children.Add(shortcut);
+                    return row;
+                })
+        };
         AutomationProperties.SetName(list, "Authoring commands");
         var hint = new TextBlock { TextWrapping = Avalonia.Media.TextWrapping.Wrap };
         var run = new Button { Content = "Run command", IsDefault = true, Classes = { "accent", "authoringAction" } };
@@ -165,7 +171,7 @@ public partial class MainWindow
         string? requested;
         try { requested = await dialog.ShowDialog<string?>(this); }
         finally { _commandPalette = null; }
-        if (requested is not null && current()) await ExecuteCommandAsync(requested);
+        if (requested is not null && current()) _ = await ExecuteCommandAsync(requested);
     }
     private async Task RenameCommandAsync()
     {
@@ -211,7 +217,7 @@ public partial class MainWindow
         { _viewModel.SequenceRename = name.Text ?? ""; _viewModel.RenameSelectedSequence(); }
         Dispatcher.UIThread.Post(() =>
         {
-            if (current() && returnFocus is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true }) returnFocus.Focus();
+            if (current() && returnFocus is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true }) _ = returnFocus.Focus();
         }, DispatcherPriority.Loaded);
     }
     private int _nextIssue;

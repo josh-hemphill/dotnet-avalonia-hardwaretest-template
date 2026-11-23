@@ -73,7 +73,7 @@ public sealed class FormulaCompletionTests
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-complete-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();

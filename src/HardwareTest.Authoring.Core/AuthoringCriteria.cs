@@ -38,8 +38,8 @@ public static class AuthoringCriteria
     {
         var required = Requirements(metric);
         var limits = metric.Limits;
-        if (required?.RequiresThreshold == true && limits?.Threshold is null
-            || required?.RequiresBand == true && (limits?.Low is null || limits.High is null))
+        if ((required?.RequiresThreshold == true && limits?.Threshold is null)
+            || (required?.RequiresBand == true && (limits?.Low is null || limits.High is null)))
         {
             throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' requires {(required.RequiresThreshold ? "a threshold" : "low and high bounds")}.");
         }

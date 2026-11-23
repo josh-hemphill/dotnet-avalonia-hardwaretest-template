@@ -63,7 +63,7 @@ public sealed class AuthoringPackageDownloadTests : IDisposable
         Assert.False(AuthoringEnvironmentAssessment.Packages(manifest, home).Single(p => p.Optional).Satisfied);
         Assert.Contains(stages, stage => stage.Contains("Downloading Required fixture"));
         Assert.Empty(Directory.GetDirectories(home.Root, ".package-download-*"));
-        bootstrap.Bootstrap(workspace, options);
+        _ = bootstrap.Bootstrap(workspace, options);
         Assert.Equal(2, requested.Count);
     }
 
@@ -76,7 +76,7 @@ public sealed class AuthoringPackageDownloadTests : IDisposable
     public void Failed_download_preserves_selected_home_and_explains_manual_fallback(string failure)
     {
         var home = Path.Combine(root, "selected");
-        Directory.CreateDirectory(home);
+        _ = Directory.CreateDirectory(home);
         File.WriteAllText(Path.Combine(home, "marker.txt"), "preserved");
         var workspace = new AuthoringWorkspace(root, new() { Dependencies = [new() { Package = "Required fixture", Version = "^1.0.0" }] }, []);
         var bootstrap = new OpenTapHomeBootstrapper
@@ -103,7 +103,7 @@ public sealed class AuthoringPackageDownloadTests : IDisposable
         var workspace = new AuthoringWorkspace(root, new() { Dependencies = [new() { Package = "Required fixture", Version = "^1.0.0" }] }, []);
         var contacted = false;
         var bootstrap = new OpenTapHomeBootstrapper { DownloadPackage = (_, _, _) => contacted = true };
-        Assert.Throws<AuthoringWorkspaceException>(() => bootstrap.Bootstrap(workspace, new() { HomeDirectory = Path.Combine(root, "selected"), Offline = true }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => bootstrap.Bootstrap(workspace, new() { HomeDirectory = Path.Combine(root, "selected"), Offline = true }));
         Assert.False(contacted);
     }
 

@@ -15,7 +15,7 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
 
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, row.Criteria.Any(band => band.Id == "crossRailLeak")
+        _ = RequireRoutes(tables, row, row.Criteria.Any(band => band.Id == "crossRailLeak")
             ? ["V", "mA", "mA"] : ["V", "mA"]);
         RequireLevels(row, 1, 1);
     }
@@ -31,7 +31,7 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
         if (evidence.Passed)
             fixture.EnableSupply();
         var samples = Enumerable.Range(0, 5).Select(i => fixture.SupplyEnabled && evidence.Passed
-            ? routes[0].Nominal + (i - 2) * 0.002 : 0).ToArray();
+            ? routes[0].Nominal + ((i - 2) * 0.002) : 0).ToArray();
         evidence.Trace(routes[0].Id, "V", samples, 2, CompleteSimulatedCapture((samples.Length - 1) * 2));
         evidence.Evaluate("voltage", samples.Average(), "V");
         evidence.Evaluate("setpointError", samples.Average() - nominal, "V");
@@ -48,7 +48,7 @@ public sealed class HarnessResistanceStep : FixtureMeasurementStep
 
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "ohm");
+        _ = RequireRoutes(tables, row, "ohm");
         RequireLevels(row, 2, 2);
         ProcedureTables.Require(row.Levels[0] is >= 2 and <= 100 && row.Levels[0] == Math.Truncate(row.Levels[0])
             && row.Levels[1] > 0, $"Case '{row.Id}' must provide 2–100 samples and a positive interval.");
@@ -59,7 +59,7 @@ public sealed class HarnessResistanceStep : FixtureMeasurementStep
         if (fixture.SupplyEnabled)
             throw new InvalidOperationException("Disable simulated supplies before resistance checks.");
         var route = fixture.ActiveRoutes[0];
-        var samples = Enumerable.Range(0, (int)row.Levels[0]).Select(i => route.Nominal + 0.003 * Math.Sin(i)).ToArray();
+        var samples = Enumerable.Range(0, (int)row.Levels[0]).Select(i => route.Nominal + (0.003 * Math.Sin(i))).ToArray();
         evidence.Trace(route.Id, "ohm", samples, row.Levels[1], CompleteSimulatedCapture((samples.Length - 1) * row.Levels[1]));
         evidence.Evaluate("minResistance", samples.Min(), "ohm");
         evidence.Evaluate("maxResistance", samples.Max(), "ohm");
@@ -101,7 +101,7 @@ public sealed class DutSignalsStep : FixtureMeasurementStep
 
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "V", "V");
+        _ = RequireRoutes(tables, row, "V", "V");
         RequireLevels(row, 1, 1);
         ProcedureTables.Require(row.Levels[0] > 0, $"Case '{row.Id}' needs a positive clock interval.");
     }

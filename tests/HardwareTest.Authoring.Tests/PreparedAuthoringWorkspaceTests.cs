@@ -12,7 +12,7 @@ public sealed class PreparedAuthoringWorkspaceTests : IDisposable
 
     public PreparedAuthoringWorkspaceTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(_root, "plans"));
         File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Prepared source\"}");
         _vm.Open(_root);
         _vm.CreateDemoProgram("source");
@@ -62,7 +62,7 @@ public sealed class PreparedAuthoringWorkspaceTests : IDisposable
     public void Prepared_workspace_is_consumed_only_after_unsaved_guard_and_cannot_share_sessions_twice()
     {
         var prepared = _vm.PrepareOpen(_root);
-        Assert.Throws<AuthoringWorkspaceException>(() => _vm.CommitOpen(prepared));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => _vm.CommitOpen(prepared));
         _vm.CommitOpen(prepared, discardUnsavedChanges: true);
         var session = _vm.WorkspaceSessionId;
         var document = _vm.SelectedDocument;

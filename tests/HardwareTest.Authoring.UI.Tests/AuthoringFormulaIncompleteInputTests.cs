@@ -81,7 +81,7 @@ public sealed class AuthoringFormulaIncompleteInputTests
     }
     private static AuthoringUiFixture Open()
     {
-        var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(); fixture.OpenRememberedWorkspace();
+        var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         fixture.ViewModel.SelectMeasure(fixture.ViewModel.SelectedProgram!.Measure.Count - 1);
         fixture.ViewModel.ChannelKey = "VDC.incomplete-formula"; AuthoringUiFixture.Drain();

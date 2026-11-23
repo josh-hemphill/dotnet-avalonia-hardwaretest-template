@@ -41,7 +41,7 @@ public sealed class FocusedHardwareWorkflowTests
         Assert.Contains("Unapplied", fixture.Control<TextBlock>("Binding draft state").Text);
         AuthoringUiFixture.Click(review);
         var dialog = Assert.Single(window.OwnedWindows);
-        Assert.IsType<HardwareBindingReviewWindow>(dialog);
+        _ = Assert.IsType<HardwareBindingReviewWindow>(dialog);
         Assert.Contains("authoringPalette", dialog.Classes);
         ResponsiveShellTests.Inside(fixture.Control<Button>("Apply reviewed binding", dialog), dialog);
         ResponsiveShellTests.Inside(fixture.Control<Button>("Cancel destructive operation", dialog), dialog);

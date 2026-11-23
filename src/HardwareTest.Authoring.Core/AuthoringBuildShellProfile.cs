@@ -42,7 +42,7 @@ public static partial class AuthoringBuildService
         {
             current = Path.GetFullPath(current);
             if (!seen.Add(current)) continue;
-            EnsureContained(ownedRoot, ResolvedPath(current, false));
+            EnsureContained(ownedRoot, ResolvedPath(current));
             ValidateShellEvaluationFiles(current);
             foreach (var properties in ProfileProjections(profile))
             {

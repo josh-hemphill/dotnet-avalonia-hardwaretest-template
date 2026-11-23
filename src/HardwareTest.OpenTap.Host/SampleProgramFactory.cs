@@ -29,7 +29,7 @@ public static class SampleProgramFactory
             Dut = dut,
         };
         // Demo: Annotation mixin attached in-code (Editor attach is the production path).
-        OpenTapMixinAttach.AttachAnnotation(identity);
+        _ = OpenTapMixinAttach.AttachAnnotation(identity);
         identityGroup.ChildTestSteps.Add(identity);
 
         // Operator prompt lane (technician): confirm-only, then typed input (string + number).
@@ -62,7 +62,7 @@ public static class SampleProgramFactory
             SampleCount = 32,
             IntervalMs = 5,
         };
-        OpenTapMixinAttach.AttachPresentation(acquire, "VDC", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(acquire, "VDC", PresentationDisplayRoles.Timeseries, "V");
         measureGroup.ChildTestSteps.Add(acquire);
 
         var mean = new MeanGteStep
@@ -73,7 +73,7 @@ public static class SampleProgramFactory
             SampleCount = 8,
             Threshold = 0,
         };
-        OpenTapMixinAttach.AttachPresentation(mean, "VDC.mean", PresentationDisplayRoles.Scalar, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(mean, "VDC.mean", PresentationDisplayRoles.Scalar, "V");
         measureGroup.ChildTestSteps.Add(mean);
 
         var safety = new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument };
@@ -92,7 +92,7 @@ public static class SampleProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, EmbeddedName);
         OpenTapPluginSearch.SearchSerialized();
         var plan = Create();

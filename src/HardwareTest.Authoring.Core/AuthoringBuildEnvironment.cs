@@ -76,7 +76,7 @@ public static partial class AuthoringBuildService
             if (string.IsNullOrWhiteSpace(sdkRoot)) throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT: '{name}' requires a declared DOTNET_ROOT.");
             if (!Path.IsPathFullyQualified(value) || value.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]).Any(p => p is "." or ".."))
                 throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT: '{name}' must identify an unambiguous absolute path inside DOTNET_ROOT.");
-            EnsureContained(sdkRoot, ResolvedPath(value, Directory.Exists(value)));
+            EnsureContained(sdkRoot, ResolvedPath(value));
         }
         var values = BuildEnvironmentNames.ToDictionary(name => name, Environment.GetEnvironmentVariable, StringComparer.Ordinal);
         // MSBuild imports arbitrary environment variables as initial properties. Freeze all

@@ -26,8 +26,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string FormulaDeploymentRequirements => FormulaDeploymentStatus?.Requirements ?? string.Empty;
     public string FormulaDeploymentMessage => FormulaDeploymentStatus?.Message ?? string.Empty;
     public bool FormulaNeedsThreshold => HasFormula && ShowThreshold && (SelectedMetric?.Limits?.Threshold is null
-        || SelectedSequence?.NodeId is { } id && SelectedProgram?.AuthoringState.IncompleteNumericText.ContainsKey(
-            AuthoringDocumentState.FieldKey(id, nameof(Threshold))) == true);
+        || (SelectedSequence?.NodeId is { } id && SelectedProgram?.AuthoringState.IncompleteNumericText.ContainsKey(
+            AuthoringDocumentState.FieldKey(id, nameof(Threshold))) == true));
     public string FormulaDeploymentInclusion => FormulaExplorationOnly
         ? "Exploration: saved unchanged; explicitly excluded from deployment and build artifacts."
         : "Deployment: this expression must satisfy the recipe requirements before building.";

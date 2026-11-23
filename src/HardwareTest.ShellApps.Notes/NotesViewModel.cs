@@ -63,7 +63,7 @@ public sealed class NotesViewModel : INotifyPropertyChanged
         var directory = Path.GetDirectoryName(_path);
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         File.WriteAllText(_path, _body);

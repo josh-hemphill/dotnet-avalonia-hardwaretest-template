@@ -124,7 +124,7 @@ public sealed class RunTestViewModelTests
 
         Assert.Equal(1, openTap.SelectionRunCount);
         Assert.Equal((leaf.Path, false), openTap.LastStepEnabledPatch);
-        Assert.Equal((leaf.Path, (int?)7, (int?)3), openTap.LastAcquirePatch);
+        Assert.Equal((leaf.Path, 7, 3), openTap.LastAcquirePatch);
         Assert.Equal((leaf.Path, 1.5), openTap.LastThresholdPatch);
         Assert.Equal(savedOtherResource, openTap.Slots.Single(slot => slot.Name == "DMM-A").ResourceName);
         Assert.Equal(debugResource, openTap.Slots.Single(slot => slot.Name == "DMM-B").ResourceName);
@@ -262,7 +262,7 @@ public sealed class RunTestViewModelTests
             && !line.Contains("Pending", StringComparison.Ordinal));
         var stageWithStep = vm.StepTree.Stages.FirstOrDefault(s => s.Step is not null);
         Assert.NotNull(stageWithStep);
-        Assert.NotEqual("Pending", stageWithStep!.StatusText);
+        Assert.NotEqual("Pending", stageWithStep.StatusText);
     }
 
     [Fact]
@@ -305,7 +305,7 @@ public sealed class RunTestViewModelTests
         vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[1].Path, StatusText = "Running" });
         vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[1].Path, KeyValue = "Tektronix 1000000 Hz", Verdict = "Fail", StatusText = "Completed" });
         vm.IngestProgress(new OpenTapProgress { Message = "Progress", StepPath = leaves[2].Path, StatusText = "Running" });
-        Assert.Single(scheduled);
+        _ = Assert.Single(scheduled);
         scheduled.Dequeue()();
         Assert.Equal("Keysight 1.25 V", leaves[0].KeyValue);
         Assert.Equal("Pass", leaves[0].Verdict);
@@ -439,7 +439,7 @@ public sealed class RunTestViewModelTests
 
         Assert.True(vm.Interaction.IsAwaitingOperator);
         Assert.Same(powerRails, vm.StepTree.SelectedStage);
-        Assert.Equal(beforeItems, vm.StepTree.StepListItems.Select(i => i.DisplayName).ToList());
+        Assert.Equal(beforeItems, [.. vm.StepTree.StepListItems.Select(i => i.DisplayName)]);
         Assert.Equal("Awaiting", vm.HeroChipText);
         Assert.Equal(seat.Name, vm.HeroStepName);
     }
@@ -727,7 +727,7 @@ public sealed class RunTestViewModelTests
         Assert.True(vm.Interaction.IsAwaitingOperator);
         Assert.True(vm.Interaction.HasInteractionFields);
         Assert.Equal("Install Sweep Fixture", vm.Interaction.InteractionTitle);
-        Assert.Single(vm.Interaction.InteractionFields);
+        _ = Assert.Single(vm.Interaction.InteractionFields);
         vm.Interaction.InteractionFields[0].Value = "FIXTURE-9";
 
         await vm.ContinueOperatorCommand.ExecuteAsync();
@@ -736,7 +736,7 @@ public sealed class RunTestViewModelTests
         Assert.False(vm.Interaction.HasInteractionFields);
         Assert.False(openTap.IsAwaitingOperator);
         Assert.NotNull(openTap.LastInteractionResponse);
-        Assert.False(openTap.LastInteractionResponse!.Cancelled);
+        Assert.False(openTap.LastInteractionResponse.Cancelled);
         Assert.Equal("FIXTURE-9", openTap.LastInteractionResponse.Values["fixtureId"]);
     }
 
@@ -1045,7 +1045,7 @@ public sealed class RunTestViewModelTests
         Assert.NotNull(vm.StepTree.SelectedStep);
         Assert.Equal(
             "Fail",
-            StatusChip.FromStatus(vm.StepTree.SelectedStep!.StatusText, vm.StepTree.SelectedStep.Verdict));
+            StatusChip.FromStatus(vm.StepTree.SelectedStep.StatusText, vm.StepTree.SelectedStep.Verdict));
         Assert.True(vm.StepTree.IsSelectedStepVisible());
         Assert.Same(vm.StepTree.SelectedStep, vm.StepTree.SelectedStepListItem?.Step);
         Assert.True(scrolled >= 1);
@@ -1283,7 +1283,7 @@ public sealed class RunTestViewModelTests
 
         await vm.StepTree.NextFailCommand.ExecuteAsync();
         Assert.NotNull(vm.StepTree.SelectedStep);
-        Assert.Equal("Fail", StatusChip.FromStatus(vm.StepTree.SelectedStep!.StatusText, vm.StepTree.SelectedStep.Verdict));
+        Assert.Equal("Fail", StatusChip.FromStatus(vm.StepTree.SelectedStep.StatusText, vm.StepTree.SelectedStep.Verdict));
     }
 
     [Fact]
@@ -1296,7 +1296,7 @@ public sealed class RunTestViewModelTests
         await ConfirmReadyAsync(vm, "SN-INSP");
         await vm.Run.RunCommand.ExecuteAsync();
 
-        var inspect = new HardwareTest.Features.Inspect.InspectViewModel(openTap);
+        var inspect = new Features.Inspect.InspectViewModel(openTap);
         inspect.Refresh();
         var identity = Flatten(inspect.Hierarchy).First(s => s.Name == "Identity" || s.Path.EndsWith("/Identity", StringComparison.Ordinal));
         Assert.Equal("Pass", identity.ChipText);
@@ -1564,9 +1564,9 @@ public sealed class RunTestViewModelTests
     {
         var vm = CreateVm();
         Assert.False(vm.StepTree.CompactStepRows);
-        vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
+        _ = vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
         Assert.True(vm.StepTree.CompactStepRows);
-        vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
+        _ = vm.StepTree.ToggleCompactCommand.Execute().Subscribe();
         Assert.False(vm.StepTree.CompactStepRows);
     }
 
@@ -1777,7 +1777,7 @@ public sealed class RunTestViewModelTests
         await ConfirmReadyAsync(vm, "SN-OOB");
         var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             s.Name.Contains("Acquire", StringComparison.OrdinalIgnoreCase));
-        vm.Live.ApplySample(
+        _ = vm.Live.ApplySample(
             new MeasurementSampleEvent(
                 "VDC",
                 0,
@@ -1962,7 +1962,7 @@ public sealed class RunTestViewModelTests
         Assert.Contains(vm.StepTree.StepRows, r => r.Name == "Acquire VDC");
         Assert.Equal(2, vm.StepTree.SuitePassedCount);
 
-        var inspect = new HardwareTest.Features.Inspect.InspectViewModel(openTap);
+        var inspect = new Features.Inspect.InspectViewModel(openTap);
         inspect.Refresh();
         var identity = Flatten(inspect.Hierarchy)
             .First(s => s.Name == "Identity" || s.Path.EndsWith("/Identity", StringComparison.Ordinal));

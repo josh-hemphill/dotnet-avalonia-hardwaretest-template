@@ -131,9 +131,7 @@ internal static class PivCardIdentity
             return null;
         }
 
-        var cleaned = new string(Encoding.UTF8.GetString(nameBytes)
-            .Where(c => !char.IsControl(c) && c != '\0')
-            .ToArray()).Trim();
+        var cleaned = new string([.. Encoding.UTF8.GetString(nameBytes).Where(c => !char.IsControl(c) && c != '\0')]).Trim();
         if (!PivCertificateName.IsUsefulPersonName(cleaned))
         {
             return null;

@@ -60,7 +60,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (reset) _referenceCriterionOptions.Clear();
             foreach (var stale in _referenceCriterionOptions.Where(option => !rules.Any(rule => rule.RuleId == option.RuleId)).ToArray())
-                _referenceCriterionOptions.Remove(stale);
+                _ = _referenceCriterionOptions.Remove(stale);
             for (var index = 0; index < rules.Count; index++)
             {
                 var rule = rules[index];
@@ -198,12 +198,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (SelectedProgram is not { } program || SelectedReferenceRule is not { } rule) return;
         EnsureWritableWorkspace("remove a golden-reference criterion");
         var sidecar = PlanCompiler.CloneSidecar(program.Sidecar);
-        sidecar.ReferenceRules!.RemoveAll(item => item.RuleId == rule.RuleId);
+        _ = sidecar.ReferenceRules!.RemoveAll(item => item.RuleId == rule.RuleId);
         if (sidecar.ReferenceRules.Count == 0) sidecar.ReferenceRules = null;
         var state = program.AuthoringState.Clone();
-        state.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(rule.ProducerStepId, AuthoringReferenceRules.ToleranceField(rule)));
+        _ = state.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(rule.ProducerStepId, AuthoringReferenceRules.ToleranceField(rule)));
         if (SelectedReferenceRules.FirstOrDefault()?.RuleId == rule.RuleId)
-            state.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(rule.ProducerStepId, nameof(ReferenceTolerance)));
+            _ = state.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(rule.ProducerStepId, nameof(ReferenceTolerance)));
         ReplaceSelected(program with { Sidecar = sidecar, AuthoringState = state }, rebuildLists: false);
     }
 
@@ -250,7 +250,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             state = state.Clone();
             var prefix = AuthoringDocumentState.FieldKey(id, nameof(ReferenceTolerance));
             foreach (var key in state.IncompleteNumericText.Keys.Where(key => key == prefix || key.StartsWith(prefix + ":", StringComparison.Ordinal)).ToArray())
-                state.IncompleteNumericText.Remove(key);
+                _ = state.IncompleteNumericText.Remove(key);
         }
         ReplaceSelected(program with { Sidecar = sidecar, AuthoringState = state }, rebuildLists: false);
     }

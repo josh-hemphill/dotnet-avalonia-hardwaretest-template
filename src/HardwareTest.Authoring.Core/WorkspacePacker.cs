@@ -41,16 +41,14 @@ public sealed record ShipManifest(
     IReadOnlyList<string> Files,
     IReadOnlyList<ShipDependency> Dependencies)
 {
-    private IReadOnlyList<ShipDependency> _dependencies = Dependencies
-        ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
-
     [JsonRequired]
     public IReadOnlyList<ShipDependency> Dependencies
     {
-        get => _dependencies;
-        init => _dependencies = value
+        get;
+        init => field = value
             ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
-    }
+    } = Dependencies
+        ?? throw new JsonException("Ship manifest dependencies must be an explicit non-null list.");
 }
 
 /// Validates a workspace, writes package.xml, creates the program TapPackage, and writes ship-manifest.json.
@@ -81,7 +79,7 @@ public static partial class WorkspacePacker
 
         var home = preflight.Home!;
         options.Progress?.Invoke("Create package artifacts");
-        Directory.CreateDirectory(outputDirectory);
+        _ = Directory.CreateDirectory(outputDirectory);
 
         var plansDir = ResolvePlansDirectory(workspace);
         var packageXml = Path.Combine(plansDir, PackageXmlFileName);
@@ -162,13 +160,8 @@ public static partial class WorkspacePacker
                 $"{AuthoringPackCodes.TapCreateFailed}: tap package create exited {process.ExitCode}. {stderr} {stdout}");
         }
 
-        var created = FindCreatedTapPackage(plansDir, before, spec.Name);
-        if (created is null)
-        {
-            throw new AuthoringWorkspaceException(
+        var created = FindCreatedTapPackage(plansDir, before, spec.Name) ?? throw new AuthoringWorkspaceException(
                 $"{AuthoringPackCodes.TapCreateFailed}: no .TapPackage was produced in '{plansDir}'.");
-        }
-
         var dest = Path.Combine(outputDirectory, Path.GetFileName(created));
         File.Copy(created, dest, overwrite: true);
         try
@@ -238,7 +231,7 @@ public static partial class WorkspacePacker
         try
         {
             process.Kill(entireProcessTree: true);
-            process.WaitForExit(5_000);
+            _ = process.WaitForExit(5_000);
         }
         catch
         {
@@ -304,7 +297,7 @@ public static partial class WorkspacePacker
 
             var id = Path.GetFileNameWithoutExtension(csproj);
             var dest = Path.Combine(outputDirectory, "shell-apps", id);
-            Directory.CreateDirectory(dest);
+            _ = Directory.CreateDirectory(dest);
             var profile = AuthoringBuildService.ShellWriteProfile(
                 Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell-packages")),
                 Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell", "authoring-build-nuget.config")), publishDirectory: dest);
@@ -315,7 +308,7 @@ public static partial class WorkspacePacker
                     FileName = options.DotNetExecutable ?? "dotnet",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    WorkingDirectory = Path.GetDirectoryName(csproj)!,
+                    WorkingDirectory = Path.GetDirectoryName(csproj),
                     UseShellExecute = false,
                     CreateNoWindow = true,
                 };
@@ -323,7 +316,7 @@ public static partial class WorkspacePacker
                 FreezeProcessEnvironment(psi, options);
                 psi.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
                 psi.Environment["NUGET_PACKAGES"] = profile["RestorePackagesPath"];
-                psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");
+                _ = psi.Environment.Remove("NUGET_FALLBACK_PACKAGES");
                 AuthoringBuildService.ValidateShellWriteProfile(csproj, Path.GetFullPath(Path.Combine(workspace.Root, "..", "shell")),
                     profile, psi.Environment.ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal));
                 options.CancellationToken.ThrowIfCancellationRequested();

@@ -16,7 +16,7 @@ public sealed class AlphaDeviceWorkflowTests : IDisposable
     private OpenTapHome Home()
     {
         var root = Path.Combine(_root, "home");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         using var stream = PublishedInstrumentComponents.OpenArchive();
         using var zip = new ZipArchive(stream, ZipArchiveMode.Read);
         zip.ExtractToDirectory(root);
@@ -78,10 +78,10 @@ public sealed class AlphaDeviceWorkflowTests : IDisposable
         }
         connector.AssertComplete();
         var unopened = new StrictConnector();
-        Assert.Throws<DriverException>(() => DeviceDriverCatalog.Open(new("keysight.34461a", "MOCK::DMM"), unopened,
+        _ = Assert.Throws<DriverException>(() => DeviceDriverCatalog.Open(new("keysight.34461a", "MOCK::DMM"), unopened,
             new HashSet<Operation> { Operation.CatalogDcPowerSupplyReadVoltage }));
         Assert.Equal(0, unopened.Opens);
-        Assert.Throws<ArgumentException>(() => DeviceDriverCatalog.Open(new("keysight.34401a", "GPIB0::22::INSTR"), unopened));
+        _ = Assert.Throws<ArgumentException>(() => DeviceDriverCatalog.Open(new("keysight.34401a", "GPIB0::22::INSTR"), unopened));
         Assert.Equal(0, unopened.Opens);
     }
 
@@ -132,9 +132,9 @@ public sealed class AlphaDeviceWorkflowTests : IDisposable
     [Fact]
     public void Arguments_reject_duplicates_unknown_names_and_nonfinite_values()
     {
-        Assert.Throws<ArgumentException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "range=1;Range=2"));
-        Assert.Throws<ArgumentException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "unexpected=1"));
-        Assert.Throws<DriverException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "range=NaN"));
+        _ = Assert.Throws<ArgumentException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "range=1;Range=2"));
+        _ = Assert.Throws<ArgumentException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "unexpected=1"));
+        _ = Assert.Throws<DriverException>(() => DeviceOperationRequests.Create("DmmMeasureVoltageDc", "range=NaN"));
         Assert.Null(((DmmMeasureVoltageDcRequest)DeviceOperationRequests.Create("DmmMeasureVoltageDc", "")).Range);
     }
 
@@ -151,9 +151,9 @@ public sealed class AlphaDeviceWorkflowTests : IDisposable
             public string Query(string message)
             {
                 Assert.NotEmpty(owner._script);
-                var expected = owner._script.Dequeue();
-                Assert.Equal(expected.Command, message);
-                return expected.Reply;
+                var (Command, Reply) = owner._script.Dequeue();
+                Assert.Equal(Command, message);
+                return Reply;
             }
             public void Dispose() => owner.Closes++;
         }

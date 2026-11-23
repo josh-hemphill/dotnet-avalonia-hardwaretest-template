@@ -24,7 +24,7 @@ internal static class AuthoringInsertionFixture
         {
             Assert.Equal(vm.SelectedProgram!.Setup[^1].NodeId, vm.SelectedSequence!.NodeId);
         }
-        else if (recipeId == AuthoringRecipeIds.TestGroup || parent is null && recipeId is not (AuthoringRecipeIds.Repeat or AuthoringRecipeIds.Shutdown))
+        else if (recipeId == AuthoringRecipeIds.TestGroup || (parent is null && recipeId is not (AuthoringRecipeIds.Repeat or AuthoringRecipeIds.Shutdown)))
         {
             Assert.Equal(vm.SelectedProgram!.Measure[^1].NodeId, vm.SelectedSequence!.NodeId);
         }

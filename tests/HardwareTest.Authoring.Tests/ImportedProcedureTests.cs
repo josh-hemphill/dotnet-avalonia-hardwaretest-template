@@ -34,7 +34,7 @@ public sealed class ImportedProcedureTests
             Assert.False(editor.CanEdit);
             Assert.Equal(["Opaque fixture", "Unknown test"], editor.Steps().Select(step => step.Name));
             Assert.Contains("plugin", editor.InspectionReason, StringComparison.OrdinalIgnoreCase);
-            Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(restored, path));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(restored, path));
             Assert.Equal(xml, File.ReadAllText(path));
             Assert.False(File.Exists(PlanCompiler.SidecarPath(path)));
         }
@@ -66,7 +66,7 @@ public sealed class ImportedProcedureTests
             var workspace = AuthoringWorkspaceLoader.Load(directory.FullName);
             Assert.Equal(["first.TapPlan", "data/routes.json", "data/shared.json"], PackageXmlRenderer.EnumeratePackFiles(workspace));
             manifest.ProgramAssets["first"] = ["data/../private.json"];
-            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringProgramAssets.Validate(manifest));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringProgramAssets.Validate(manifest));
         }
         finally { directory.Delete(recursive: true); }
     }

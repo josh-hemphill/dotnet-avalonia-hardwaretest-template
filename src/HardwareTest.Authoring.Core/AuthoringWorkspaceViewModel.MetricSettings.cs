@@ -46,7 +46,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (_previewDispatch is not null) return CachedPreview.FormulaSave;
             if (_formulaSaveStamp == _formulaSaveGeneration)
             {
-                return _formulaSave;
+                return field;
             }
 
             _formulaSaveStamp = _formulaSaveGeneration;
@@ -54,12 +54,12 @@ public sealed partial class AuthoringWorkspaceViewModel
                 || SelectedMetric?.Source is not ExpressionAlgorithm expr
                 || !string.IsNullOrEmpty(FormulaError))
             {
-                _formulaSave = new FormulaSaveOutcome(FormulaSaveOutcomeKind.None, string.Empty);
-                return _formulaSave;
+                field = new FormulaSaveOutcome(FormulaSaveOutcomeKind.None, string.Empty);
+                return field;
             }
 
-            _formulaSave = FormulaLowerer.DescribeSaveOutcome(expr.Source, SelectedMetric.Limits);
-            return _formulaSave;
+            field = FormulaLowerer.DescribeSaveOutcome(expr.Source, SelectedMetric.Limits);
+            return field;
         }
     }
     public string TransferFunctionHelp =>
@@ -359,12 +359,12 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (!_metricFunctionIds.SequenceEqual(ids, StringComparer.Ordinal))
             {
                 _metricFunctionIds = ids;
-                _metricFunctionChoices = AuthoringInspectorCopy.DescribeFunctions(ids);
+                field = AuthoringInspectorCopy.DescribeFunctions(ids);
             }
 
-            return _metricFunctionChoices;
+            return field;
         }
-    }
+    } = [];
 
     public AuthoringFunctionDisplay? SelectedMetricFunction
     {

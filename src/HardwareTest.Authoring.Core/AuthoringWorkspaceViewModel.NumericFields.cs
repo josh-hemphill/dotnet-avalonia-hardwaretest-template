@@ -17,7 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (SelectedProgram is null) return;
         var state = SelectedProgram.AuthoringState.Clone();
         var key = AuthoringDocumentState.FieldKey(nodeId, field);
-        if (valid) state.IncompleteNumericText.Remove(key);
+        if (valid) _ = state.IncompleteNumericText.Remove(key);
         else state.IncompleteNumericText[key] = text;
         if (valid) apply(state);
         else ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);

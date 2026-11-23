@@ -31,7 +31,7 @@ public sealed class PdfPrintRenderer : IPdfPrintRenderer
         }
         public IPrintPage RenderPage(int zeroBasedPage)
         {
-            PrintGeometry.ValidateRasterSize(PageSizes[zeroBasedPage]);
+            _ = PrintGeometry.ValidateRasterSize(PageSizes[zeroBasedPage]);
             lock (SharedPdfRenderingGate.SyncRoot)
             {
                 _stream.Position = 0;

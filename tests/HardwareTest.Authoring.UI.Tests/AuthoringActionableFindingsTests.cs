@@ -14,7 +14,7 @@ public sealed class AuthoringActionableFindingsTests
     public async Task Issues_action_selects_program_node_and_focuses_actual_missing_threshold()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -24,7 +24,7 @@ public sealed class AuthoringActionableFindingsTests
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         Assert.Equal("Edit pass criterion", issue.RecoveryLabel);
         var program = vm.SelectedProgram.PlanId;
-        vm.InitializePlan(new("other") { Instruments = [] });
+        _ = vm.InitializePlan(new("other") { Instruments = [] });
         await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
@@ -43,7 +43,7 @@ public sealed class AuthoringActionableFindingsTests
     public async Task Unsupported_filter_limits_issue_opens_program_settings_without_a_field_error()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         var formula = Assert.IsType<MetricNode>(vm.SelectedProgram!.Measure.Last());
@@ -60,7 +60,7 @@ public sealed class AuthoringActionableFindingsTests
         var issue = Assert.Single(vm.EditingIssues, item => item.Code == AuthoringCompileCodes.MissingLimits);
         Assert.Equal("Open program settings", issue.NavigationLabel);
         var program = vm.SelectedProgram.PlanId;
-        vm.InitializePlan(new("other") { Instruments = [] });
+        _ = vm.InitializePlan(new("other") { Instruments = [] });
         await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
@@ -80,7 +80,7 @@ public sealed class AuthoringActionableFindingsTests
     public async Task Ordinary_editing_issue_opens_its_node_without_a_field_error()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.SelectMeasure(0);
         var channel = vm.ChannelKey;
@@ -93,7 +93,7 @@ public sealed class AuthoringActionableFindingsTests
         Assert.Null(issue.Field);
         Assert.Equal("Open location", issue.NavigationLabel);
         var program = vm.SelectedProgram!.PlanId;
-        vm.InitializePlan(new("other") { Instruments = [] });
+        _ = vm.InitializePlan(new("other") { Instruments = [] });
         await fixture.WaitForReadinessAsync();
         var tabs = fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!;
         tabs.SelectedIndex = 2;
@@ -115,7 +115,7 @@ public sealed class AuthoringActionableFindingsTests
     public async Task Queued_finding_focus_does_not_follow_a_changed_selection_or_revision(bool edit)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);
@@ -129,7 +129,7 @@ public sealed class AuthoringActionableFindingsTests
         await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Drain();
         Assert.True(fixture.Control<TextBox>("Formula expression").Focus());
-        typeof(MainWindow).GetMethod("OnOpenFindingProgram", BindingFlags.Instance | BindingFlags.NonPublic)!
+        _ = typeof(MainWindow).GetMethod("OnOpenFindingProgram", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(fixture.Window, [new Button { DataContext = issue }, new Avalonia.Interactivity.RoutedEventArgs()]);
         if (edit) vm.FormulaSource = "std(VDC)";
         else vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == otherNode));
@@ -147,9 +147,9 @@ public sealed class AuthoringActionableFindingsTests
         var acquisition = xml.Descendants("TestStep").Single(step => ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
         acquisition.Add(new XElement("SeriesCompliance", "allSamples"));
         xml.Save(path);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.Validate();
+        _ = vm.Validate();
         var row = Assert.Single(vm.FindingRows, item => item.Code == PlanContractValidator.Codes.ComplianceWithoutLimits);
         Assert.Equal("Open step section", row.NavigationLabel);
         Assert.Null(row.Finding.Target!.Field);
@@ -173,7 +173,7 @@ public sealed class AuthoringActionableFindingsTests
     public void Supported_destinations_open_the_actual_section_and_field(string? field, string requested, string sectionName, string? fieldName)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Formula);
         vm.SelectMeasure(vm.SelectedProgram!.Measure.Count - 1);

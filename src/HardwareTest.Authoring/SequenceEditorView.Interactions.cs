@@ -22,7 +22,7 @@ public partial class SequenceEditorView
         {
             if (_dragNode is null || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             var delta = e.GetPosition(this) - _dragStart;
-            if (delta.X * delta.X + delta.Y * delta.Y < 64) return;
+            if ((delta.X * delta.X) + (delta.Y * delta.Y) < 64) return;
             _dragging = true;
             Cursor = new Cursor(StandardCursorType.SizeAll);
         }, RoutingStrategies.Tunnel);
@@ -82,28 +82,28 @@ public partial class SequenceEditorView
             item.Click += (_, _) => action();
             return item;
         }
-        menu.Items.Add(Action(vm.HasSectionEditor ? "Edit section name…" : "Edit step name…", vm.CanRenameSequence,
+        _ = menu.Items.Add(Action(vm.HasSectionEditor ? "Edit section name…" : "Edit step name…", vm.CanRenameSequence,
             () => Inspector()?.FocusName()));
         if (vm.CanToggleSelectedSection)
-            menu.Items.Add(Action(vm.SelectedSectionToggleLabel, true, vm.ToggleSelectedSection));
-        menu.Items.Add(Action("Move to section…", vm.CanEditSequence && vm.SelectedSequence?.Section == SequenceSection.Measure,
+            _ = menu.Items.Add(Action(vm.SelectedSectionToggleLabel, true, vm.ToggleSelectedSection));
+        _ = menu.Items.Add(Action("Move to section…", vm.CanEditSequence && vm.SelectedSequence?.Section == SequenceSection.Measure,
             () => Inspector()?.FocusSectionDestination()));
-        menu.Items.Add(Action(vm.HasSectionEditor ? "Duplicate section" : "Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
+        _ = menu.Items.Add(Action(vm.HasSectionEditor ? "Duplicate section" : "Duplicate step", vm.CanDuplicateSequence, vm.DuplicateSelectedSequence));
         MenuItem MoveAction(string title, string enabled, string reason, int direction)
         {
             var explanation = new TextBlock { TextWrapping = TextWrapping.Wrap, MaxWidth = 280 };
-            explanation.Bind(TextBlock.TextProperty, new Binding(reason) { Source = vm });
+            _ = explanation.Bind(TextBlock.TextProperty, new Binding(reason) { Source = vm });
             var item = new MenuItem { Header = new StackPanel { Spacing = 3, Children = { new TextBlock { Text = title }, explanation } } };
-            item.Bind(IsEnabledProperty, new Binding(enabled) { Source = vm });
-            item.Bind(AutomationProperties.HelpTextProperty, new Binding(reason) { Source = vm });
+            _ = item.Bind(IsEnabledProperty, new Binding(enabled) { Source = vm });
+            _ = item.Bind(AutomationProperties.HelpTextProperty, new Binding(reason) { Source = vm });
             AutomationProperties.SetName(item, title);
             item.Click += (_, _) => vm.MoveSelectedSequence(direction);
             return item;
         }
-        menu.Items.Add(MoveAction("Move up", nameof(vm.CanMoveSequenceUp), nameof(vm.MoveSequenceUpReason), -1));
-        menu.Items.Add(MoveAction("Move down", nameof(vm.CanMoveSequenceDown), nameof(vm.MoveSequenceDownReason), 1));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Action(vm.RemoveSequenceActionTitle, vm.CanRemoveSelectedSequence,
+        _ = menu.Items.Add(MoveAction("Move up", nameof(vm.CanMoveSequenceUp), nameof(vm.MoveSequenceUpReason), -1));
+        _ = menu.Items.Add(MoveAction("Move down", nameof(vm.CanMoveSequenceDown), nameof(vm.MoveSequenceDownReason), 1));
+        _ = menu.Items.Add(new Separator());
+        _ = menu.Items.Add(Action(vm.RemoveSequenceActionTitle, vm.CanRemoveSelectedSequence,
             () => OnRemoveSequence(this, new RoutedEventArgs())));
         menu.Open(SequenceList);
     }

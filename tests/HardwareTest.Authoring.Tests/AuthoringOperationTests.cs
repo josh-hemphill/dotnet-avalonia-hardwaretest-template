@@ -21,7 +21,7 @@ public sealed class AuthoringOperationTests : IDisposable
         {
             Assert.Equal("partial", await child.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5)));
             Assert.False(File.Exists(Path.Combine(root, "partial-marker")));
-            Assert.Single(Directory.GetFiles(root, "partial-marker.*.tmp"));
+            _ = Assert.Single(Directory.GetFiles(root, "partial-marker.*.tmp"));
             await child.StandardInput.WriteLineAsync("release"); await child.StandardInput.FlushAsync();
             await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(0, child.ExitCode);
@@ -56,12 +56,12 @@ public sealed class AuthoringOperationTests : IDisposable
             var owned = child[1]; roots.Add(owned);
             var descendant = int.Parse(File.ReadAllText(Path.Combine(root, "fixture-descendant")));
             coordinator.Cancel();
-            await Assert.ThrowsAsync<IOException>(() => running);
+            _ = await Assert.ThrowsAsync<IOException>(() => running);
             Assert.False(Directory.Exists(owned));
             Assert.False(coordinator.IsBusy); Assert.True(coordinator.HasPendingCleanup); Assert.True(runner.HasPendingReap);
             for (var attempt = 0; attempt < 2; attempt++)
             {
-                await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+                _ = await Assert.ThrowsAsync<IOException>(coordinator.StopAsync);
                 Assert.True(coordinator.HasPendingCleanup); Assert.False(unrelated.HasExited);
             }
             blocked = false;
@@ -100,7 +100,7 @@ public sealed class AuthoringOperationTests : IDisposable
             var child = File.ReadAllLines(Path.Combine(root, "fixture-child.json"));
             var owned = child[1]; roots.Add(owned); originalScope = owned;
             // A directory occupying the stop-file path deterministically rejects the control write.
-            Directory.CreateDirectory(Path.Combine(owned, "host-stop"));
+            _ = Directory.CreateDirectory(Path.Combine(owned, "host-stop"));
             var descendant = int.Parse(File.ReadAllText(Path.Combine(root, "fixture-descendant")));
             coordinator.Cancel();
             var initialFailure = await Record.ExceptionAsync(() => running);
@@ -109,7 +109,7 @@ public sealed class AuthoringOperationTests : IDisposable
             Assert.False(coordinator.IsBusy); Assert.True(coordinator.HasPendingCleanup); Assert.True(runner.HasPendingReap);
             for (var attempt = 0; attempt < 2; attempt++)
             {
-                var failure = await Assert.ThrowsAnyAsync<IOException>(() => coordinator.StopAsync());
+                var failure = await Assert.ThrowsAnyAsync<IOException>(coordinator.StopAsync);
                 Assert.Equal("Injected original scope query failure", failure.Message);
                 Assert.True(coordinator.HasPendingCleanup); Assert.False(unrelated.HasExited);
             }
@@ -125,7 +125,7 @@ public sealed class AuthoringOperationTests : IDisposable
             if (!unrelated.HasExited) unrelated.Kill();
             await unrelated.WaitForExitAsync(); blocked = false;
             // Baseline cleanup can still need its original private control directory after the assertion.
-            if (runner.HasPendingReap && originalScope is not null) Directory.CreateDirectory(originalScope);
+            if (runner.HasPendingReap && originalScope is not null) _ = Directory.CreateDirectory(originalScope);
             await coordinator.StopAsync();
         }
     }
@@ -202,16 +202,16 @@ public sealed class AuthoringOperationTests : IDisposable
         await WaitFor(root, "fixture-child.json", operation: running);
         var owned = File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1];
         roots.Add(owned);
-        if (stopWhileBusy) await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+        if (stopWhileBusy) _ = await Assert.ThrowsAsync<IOException>(coordinator.StopAsync);
         else coordinator.Cancel();
-        await Assert.ThrowsAsync<IOException>(() => running);
+        _ = await Assert.ThrowsAsync<IOException>(() => running);
         Assert.False(coordinator.IsBusy);
         Assert.True(coordinator.HasPendingCleanup);
         if (!stopWhileBusy)
-            await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root));
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root));
         for (var attempt = 0; attempt < 2; attempt++)
         {
-            await Assert.ThrowsAsync<IOException>(() => coordinator.StopAsync());
+            _ = await Assert.ThrowsAsync<IOException>(coordinator.StopAsync);
             Assert.True(coordinator.HasPendingCleanup);
             Assert.True(Directory.Exists(owned));
         }
@@ -300,7 +300,7 @@ public sealed class AuthoringOperationTests : IDisposable
         File.WriteAllText(incoming, "replacement helper");
         File.SetUnixFileMode(incoming, mode);
         File.WriteAllText(Path.Combine(source, "z-fail"), "fail second move");
-        Assert.Throws<IOException>(() => AuthoringBuildService.Publish(source, output, default, move: (from, to) =>
+        _ = Assert.Throws<IOException>(() => AuthoringBuildService.Publish(source, output, default, move: (from, to) =>
         {
             if (Path.GetFileName(from) == "z-fail") throw new IOException("Injected publication failure");
             File.Move(from, to, true);
@@ -330,7 +330,7 @@ public sealed class AuthoringOperationTests : IDisposable
             {
                 if (stage.Stage == "Reaping operation processes" && cancelAtDrain) cancellation.Cancel();
             }, cancellation.Token);
-            if (cancelAtDrain) await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(15)));
+            if (cancelAtDrain) _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(15)));
             else Assert.Equal(7, await running.WaitAsync(TimeSpan.FromSeconds(15)));
             var child = File.ReadAllLines(Path.Combine(root, "fixture-child.json"));
             Assert.False(IsAlive(int.Parse(child[0])));
@@ -385,7 +385,7 @@ public sealed class AuthoringOperationTests : IDisposable
             progress: stage => { if (!OperatingSystem.IsWindows() && stage.Stage == "Publishing prepared home") File.SetUnixFileMode(helper, UnixFileMode.UserRead | UnixFileMode.UserWrite); }));
         Assert.Contains("BUILD_INPUT_CHANGED", error.Message);
         Assert.Equal("same bytes", File.ReadAllText(helper));
-        Assert.Equal(["unrelated-helper"], Directory.GetFiles(home).Select(path => Path.GetFileName(path)!).ToArray());
+        Assert.Equal(["unrelated-helper"], [.. Directory.GetFiles(home).Select(path => Path.GetFileName(path))]);
     }
 
     [Fact]
@@ -401,7 +401,7 @@ public sealed class AuthoringOperationTests : IDisposable
         for (var index = 0; index < 10; index++) { await Task.Delay(20); heartbeat++; }
         Assert.Equal(10, heartbeat);
         Assert.False(running.IsCompleted);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Validate, root));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => coordinator.RunAsync(AuthoringOperationKind.Validate, root));
         Assert.InRange(coordinator.Logs.Count, 1, 128);
         Assert.All(coordinator.Logs, log => Assert.InRange(log.Text.Length, 1, 1024));
         // Both pipes are independently drained; their bounded retained tails keep stream identity.
@@ -429,7 +429,7 @@ public sealed class AuthoringOperationTests : IDisposable
         var clock = Stopwatch.StartNew();
         if (replace) coordinator.ReplaceWorkspace(); else coordinator.Cancel();
         Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(200));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(10)));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running.WaitAsync(TimeSpan.FromSeconds(10)));
         Assert.Equal("previous", File.ReadAllText(Path.Combine(output, "existing.txt")));
         Assert.False(File.Exists(Path.Combine(output, AuthoringBuildService.ReceiptFileName)));
         Assert.False(Directory.Exists(child[1]));
@@ -445,7 +445,7 @@ public sealed class AuthoringOperationTests : IDisposable
         var output = Temp();
         File.WriteAllText(Path.Combine(output, "existing.txt"), "previous");
         using var coordinator = Coordinator();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.RunAsync(AuthoringOperationKind.Pack, root, output,
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.RunAsync(AuthoringOperationKind.Pack, root, output,
             progress: update => { if (update.Stage == "Publishing checked artifacts") coordinator.Cancel(); }));
         Assert.Equal("previous", File.ReadAllText(Path.Combine(output, "existing.txt")));
         Assert.False(File.Exists(Path.Combine(output, AuthoringBuildService.ReceiptFileName)));
@@ -458,10 +458,10 @@ public sealed class AuthoringOperationTests : IDisposable
         var home = Temp();
         File.WriteAllText(Path.Combine(home, "existing.txt"), "previous");
         using var coordinator = Coordinator();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: Path.GetRelativePath(Environment.CurrentDirectory, home),
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: Path.GetRelativePath(Environment.CurrentDirectory, home),
             progress: update => { if (update.Stage == "Publishing prepared home") coordinator.Cancel(); }));
         Assert.Equal("previous", File.ReadAllText(Path.Combine(home, "existing.txt")));
-        Assert.Equal(["existing.txt"], Directory.GetFiles(home).Select(path => Path.GetFileName(path)!).ToArray());
+        Assert.Equal(["existing.txt"], [.. Directory.GetFiles(home).Select(path => Path.GetFileName(path))]);
     }
 
     [Fact]
@@ -476,14 +476,14 @@ public sealed class AuthoringOperationTests : IDisposable
         foreach (var (home, name) in new[] { (firstHome, "EnvironmentOne"), (secondHome, "EnvironmentTwo") })
         {
             var directory = Path.Combine(home, "Packages", name);
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "package.xml"), $"<Package Name=\"{name}\" Version=\"1.0.0\" />");
         }
         using var coordinator = Coordinator();
-        await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, first, home: firstHome);
+        _ = await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, first, home: firstHome);
         Assert.Contains(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentOne", StringComparison.Ordinal));
         Assert.DoesNotContain(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentTwo", StringComparison.Ordinal));
-        await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, second, home: secondHome);
+        _ = await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, second, home: secondHome);
         Assert.Contains(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentTwo", StringComparison.Ordinal));
         Assert.DoesNotContain(coordinator.Logs, log => log.Text.Contains("home-package:EnvironmentOne", StringComparison.Ordinal));
         Assert.NotEqual(File.ReadAllLines(Path.Combine(first, "fixture-child.json"))[0], File.ReadAllLines(Path.Combine(second, "fixture-child.json"))[0]);
@@ -521,7 +521,7 @@ public sealed class AuthoringOperationTests : IDisposable
         Assert.NotNull(result.Validation);
         Assert.Equal(Path.Combine(root, "sample.TapPlan"), Assert.Single(result.Validation.Plans).TargetPath);
         Assert.Equal("previous", File.ReadAllText(Path.Combine(home, "existing.txt")));
-        Assert.Equal(["existing.txt"], Directory.GetFiles(home).Select(path => Path.GetFileName(path)!).ToArray());
+        Assert.Equal(["existing.txt"], [.. Directory.GetFiles(home).Select(path => Path.GetFileName(path))]);
         Assert.Null(result.Build);
     }
 
@@ -534,7 +534,7 @@ public sealed class AuthoringOperationTests : IDisposable
         var home = Temp();
         File.WriteAllText(Path.Combine(root, "fixture-corrupt-version"), "");
         using var coordinator = Coordinator(directExecutable);
-        await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home));
+        _ = await Assert.ThrowsAsync<InvalidDataException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home));
         Assert.Empty(Directory.EnumerateFiles(home));
     }
 
@@ -544,13 +544,13 @@ public sealed class AuthoringOperationTests : IDisposable
     private string Temp()
     {
         var root = Path.Combine(Path.GetTempPath(), "operation-test-" + Guid.NewGuid().ToString("N"));
-        roots.Add(root); Directory.CreateDirectory(root); return root;
+        roots.Add(root); _ = Directory.CreateDirectory(root); return root;
     }
     private string Workspace(bool isolatedPlans = false)
     {
         var root = Temp();
         var plans = isolatedPlans ? Path.Combine(root, "plans") : root;
-        Directory.CreateDirectory(plans);
+        _ = Directory.CreateDirectory(plans);
         var repository = AppContext.BaseDirectory;
         while (!File.Exists(Path.Combine(repository, "dirs.proj"))) repository = Path.GetDirectoryName(repository)!;
         File.Copy(Path.Combine(repository, "plans/opentap/sample.TapPlan"), Path.Combine(plans, "sample.TapPlan"));

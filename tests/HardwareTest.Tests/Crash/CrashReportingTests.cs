@@ -52,15 +52,15 @@ public sealed class CrashDossierWriterTests
         });
 
         Assert.NotNull(dir);
-        Assert.True(File.Exists(Path.Combine(dir!, "crash.json")));
-        Assert.True(File.Exists(Path.Combine(dir!, "log-tail.txt")));
-        Assert.True(File.Exists(Path.Combine(dir!, "config.json")));
-        Assert.True(File.Exists(Path.Combine(dir!, "session.json")));
+        Assert.True(File.Exists(Path.Combine(dir, "crash.json")));
+        Assert.True(File.Exists(Path.Combine(dir, "log-tail.txt")));
+        Assert.True(File.Exists(Path.Combine(dir, "config.json")));
+        Assert.True(File.Exists(Path.Combine(dir, "session.json")));
 
-        using var stream = File.OpenRead(Path.Combine(dir!, "crash.json"));
+        using var stream = File.OpenRead(Path.Combine(dir, "crash.json"));
         var loaded = System.Text.Json.JsonSerializer.Deserialize(stream, AppJsonContext.Default.CrashReportDocument);
         Assert.NotNull(loaded);
-        Assert.Equal(SchemaVersions.CrashReport, loaded!.SchemaVersion);
+        Assert.Equal(SchemaVersions.CrashReport, loaded.SchemaVersion);
         Assert.True(loaded.IsFatal);
         Assert.Equal(2, loaded.Exceptions.Count);
         Assert.Equal("run1", loaded.ActiveRunId);
@@ -76,7 +76,7 @@ public sealed class CrashDossierWriterTests
         var writer = new CrashDossierWriter(Path.Combine(temp.Path, "crashes"), retentionCount: 1);
         var captured = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var dir = Path.Combine(writer.CrashRoot, "20200101T000000Z-fixed");
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, "crash.json");
         File.WriteAllText(path, json);
         File.WriteAllText(Path.Combine(dir, "log-tail.txt"), "original");
@@ -243,7 +243,7 @@ public sealed class CrashDossierWriterTests
         });
 
         Assert.NotNull(dir);
-        foreach (var file in Directory.EnumerateFiles(dir!))
+        foreach (var file in Directory.EnumerateFiles(dir))
         {
             var text = File.ReadAllText(file);
             Assert.DoesNotContain(serial, text, StringComparison.OrdinalIgnoreCase);
@@ -282,10 +282,10 @@ public sealed class CrashDossierWriterTests
         });
 
         Assert.NotNull(dir);
-        var sessionJson = File.ReadAllText(Path.Combine(dir!, "session.json"));
+        var sessionJson = File.ReadAllText(Path.Combine(dir, "session.json"));
         Assert.DoesNotContain(serial, sessionJson, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("credentialSerialRedacted", sessionJson, StringComparison.Ordinal);
-        Assert.DoesNotContain(serial, File.ReadAllText(Path.Combine(dir!, "log-tail.txt")), StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(serial, File.ReadAllText(Path.Combine(dir, "log-tail.txt")), StringComparison.OrdinalIgnoreCase);
     }
 }
 
@@ -331,12 +331,12 @@ public sealed class DanglingRunReconcilerTests
             SchemaVersion = SchemaVersions.TestRunRecord,
         });
 
-        var clock = new HardwareTest.Tests.Time.FakeClock(new DateTimeOffset(2026, 6, 1, 10, 0, 0, TimeSpan.Zero));
+        var clock = new Time.FakeClock(new DateTimeOffset(2026, 6, 1, 10, 0, 0, TimeSpan.Zero));
         var count = await new DanglingRunReconciler(store, clock).ReconcileAsync("abc12345");
         Assert.Equal(1, count);
         var loaded = await store.LoadAsync("dangling-1");
         Assert.NotNull(loaded);
-        Assert.Equal(RunResult.Cancelled, loaded!.Result);
+        Assert.Equal(RunResult.Cancelled, loaded.Result);
         Assert.Equal(clock.UtcNow, loaded.CompletedAt);
         Assert.Contains(DanglingRunReconciler.ProcessInterruptedReason, loaded.ErrorMessage, StringComparison.Ordinal);
         Assert.Contains("abc12345", loaded.ErrorMessage, StringComparison.Ordinal);

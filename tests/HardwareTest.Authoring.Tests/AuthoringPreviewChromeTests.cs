@@ -62,7 +62,7 @@ public sealed class AuthoringPreviewChromeTests
                 new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())));
         var chrome = AuthoringPreviewChromeBuilder.From(
             preview,
-            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
+            [new Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
         Assert.True(chrome.IsChart);
         Assert.False(chrome.IsGauge);
         Assert.False(chrome.IsStrip);
@@ -88,7 +88,7 @@ public sealed class AuthoringPreviewChromeTests
                 new AlgorithmSource(AuthoringFunctionIds.BasicPublishTimedSample, [], new Dictionary<string, string>())));
         var chrome = AuthoringPreviewChromeBuilder.From(
             preview,
-            [new HardwareTest.Core.Runs.StoredEvent { Name = "bit", ElapsedMs = 2500, Label = "1" }]);
+            [new Core.Runs.StoredEvent { Name = "bit", ElapsedMs = 2500, Label = "1" }]);
         Assert.True(chrome.IsStrip);
         Assert.False(chrome.IsGauge);
         var mark = Assert.Single(chrome.Events);
@@ -112,7 +112,7 @@ public sealed class AuthoringPreviewChromeTests
             new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>()));
         var preview = MetricPreviewBuilder.From(
             metric,
-            recorded: new Dictionary<string, IReadOnlyList<HardwareTest.Core.Runs.StoredSample>>(StringComparer.OrdinalIgnoreCase)
+            recorded: new Dictionary<string, IReadOnlyList<Core.Runs.StoredSample>>(StringComparer.OrdinalIgnoreCase)
             {
                 ["VDC"] =
                 [
@@ -123,7 +123,7 @@ public sealed class AuthoringPreviewChromeTests
             });
         var chrome = AuthoringPreviewChromeBuilder.From(
             preview,
-            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1000, Label = "rise" }]);
+            [new Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1000, Label = "rise" }]);
         Assert.True(chrome.IsChart);
         Assert.True(chrome.UsesTimeAxis);
         Assert.Equal([0, 1, 2], chrome.Xs);
@@ -148,7 +148,7 @@ public sealed class AuthoringPreviewChromeTests
                 new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string>())));
         var chrome = AuthoringPreviewChromeBuilder.From(
             preview,
-            [new HardwareTest.Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
+            [new Core.Runs.StoredEvent { Name = "edge", ElapsedMs = 1500, Label = "rise" }]);
         Assert.False(chrome.UsesTimeAxis);
         Assert.Empty(chrome.Spans);
         var plan = AuthoringPreviewChromeBuilder.ChartPlan(chrome);

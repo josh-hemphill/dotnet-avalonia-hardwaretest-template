@@ -23,7 +23,7 @@ public static partial class AuthoringBuildService
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         Recheck(request);
-        Directory.CreateDirectory(staging);
+        _ = Directory.CreateDirectory(staging);
         try
         {
             foreach (var tree in request.Trees.Where(t => t.Materialize))
@@ -33,14 +33,14 @@ public static partial class AuthoringBuildService
                     cancellationToken.ThrowIfCancellationRequested();
                     var destination = Path.Combine(staging, tree.StageRelativePath, file.RelativePath);
                     EnsureContained(staging, destination);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                     Materialize(file, destination);
                 }
             }
 
             PrepareShellStage(staging, request.Trees);
             var root = Path.Combine(staging, "workspace");
-            Directory.CreateDirectory(Path.Combine(root, "plans"));
+            _ = Directory.CreateDirectory(Path.Combine(root, "plans"));
             var captured = JsonSerializer.Deserialize(File.ReadAllBytes(Path.Combine(root, AuthoringWorkspaceLoader.ManifestFileName)), AuthoringJsonContext.Default.AuthoringManifest)!;
             captured.PlansDirectory = "plans";
             File.WriteAllText(Path.Combine(root, AuthoringWorkspaceLoader.ManifestFileName), JsonSerializer.Serialize(captured, AuthoringJsonContext.Default.AuthoringManifest));
@@ -252,18 +252,25 @@ public static partial class AuthoringBuildService
             .Select(e => Guid.TryParse((string?)e.Attribute("Id"), out var id) ? id : Guid.Empty)
             .Where(id => id != Guid.Empty).Select(id => new AuthoringCompileMapEntry(id,
                 supported.Contains(id) && !opaque.Contains(id) ? id : null, opaque.Contains(id) ? "opaque" : supported.Contains(id) ? "authoring" : "generated")).ToArray());
-        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes)
+        {
+            return nodes.SelectMany(n => n switch
         {
             RepeatNode r => new[] { n.NodeId }.Concat(Nodes(r.Children)),
             SectionNode s => new[] { n.NodeId }.Concat(Nodes(s.Children)),
             _ => new[] { n.NodeId },
         });
-        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        }
+
+        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes)
         {
-            RepeatNode r => RawNodes(r.Children),
-            SectionNode s => RawNodes(s.Children),
-            RawStepNode => new[] { n.NodeId },
-            _ => [],
-        });
+            return nodes.SelectMany(n => n switch
+                {
+                    RepeatNode r => RawNodes(r.Children),
+                    SectionNode s => RawNodes(s.Children),
+                    RawStepNode => new[] { n.NodeId },
+                    _ => [],
+                });
+        }
     }
 }

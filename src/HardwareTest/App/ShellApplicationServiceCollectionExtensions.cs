@@ -21,7 +21,7 @@ public static class ShellApplicationServiceCollectionExtensions
                 throw new InvalidOperationException($"Duplicate shell app id '{application.Id}'.");
             }
 
-            services.AddSingleton<IShellApplication>(application);
+            _ = services.AddSingleton(application);
             application.Configure(services);
         }
 

@@ -25,7 +25,7 @@ public sealed class PresentationMetadataTests
     {
         var step = new AcquireVoltageStep();
         var unrelated = AddUnrelatedGetter(step);
-        Add(step, "Vendor.CustomContainer", typeof(PresentationMixin), () => new PresentationMixin
+        _ = Add(step, "Vendor.CustomContainer", typeof(PresentationMixin), () => new PresentationMixin
         {
             ChannelKey = " rail.mean ",
             DisplayRole = PresentationDisplayRoles.Passband,
@@ -61,12 +61,12 @@ public sealed class PresentationMetadataTests
     {
         var step = new AcquireVoltageStep();
         var unrelated = AddUnrelatedGetter(step);
-        Add(step, "Vendor.channelkey", typeof(string), () => " rail.mean ");
-        Add(step, "Vendor.displayrole", typeof(string), () => PresentationDisplayRoles.Passband);
-        Add(step, "Vendor.yunit", typeof(string), () => " V ");
-        Add(step, "Vendor.historyenabled", typeof(string), () => "False");
-        Add(step, "Vendor.historywatchpercent", typeof(decimal), () => 2.5m);
-        Add(step, "Vendor.historyalertpercent", typeof(int), () => 7);
+        _ = Add(step, "Vendor.channelkey", typeof(string), () => " rail.mean ");
+        _ = Add(step, "Vendor.displayrole", typeof(string), () => PresentationDisplayRoles.Passband);
+        _ = Add(step, "Vendor.yunit", typeof(string), () => " V ");
+        _ = Add(step, "Vendor.historyenabled", typeof(string), () => "False");
+        _ = Add(step, "Vendor.historywatchpercent", typeof(decimal), () => 2.5m);
+        _ = Add(step, "Vendor.historyalertpercent", typeof(int), () => 7);
 
         var hints = OpenTapPresentation.TryReadMixin(step);
         Assert.NotNull(hints);
@@ -84,10 +84,10 @@ public sealed class PresentationMetadataTests
     {
         var step = new AcquireVoltageStep();
         var unrelated = AddUnrelatedGetter(step);
-        Add(step, "ChannelKey", typeof(string), () => " rail.mean ");
-        Add(step, "DisplayRole", typeof(string), () => " ");
-        Add(step, "HistoryWatchPercent", typeof(double), () => double.NaN);
-        Add(step, "HistoryAlertPercent", typeof(string), () => "invalid");
+        _ = Add(step, "ChannelKey", typeof(string), () => " rail.mean ");
+        _ = Add(step, "DisplayRole", typeof(string), () => " ");
+        _ = Add(step, "HistoryWatchPercent", typeof(double), () => double.NaN);
+        _ = Add(step, "HistoryAlertPercent", typeof(string), () => "invalid");
         var throwingUnit = Add(step, "YUnit", typeof(string), () => throw new InvalidOperationException("unavailable hint"));
 
         var hints = OpenTapPresentation.TryReadMixin(step);

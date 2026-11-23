@@ -13,7 +13,7 @@ public static partial class AuthoringBuildService
             {
                 if (package.Value.TryGetProperty("type", out var kind) && kind.GetString() == "Project") continue;
                 if (!package.Value.TryGetProperty("resolved", out var version)) continue;
-                packages.Add(ShellPackageId(package.Name, version.GetString()!));
+                _ = packages.Add(ShellPackageId(package.Name, version.GetString()!));
             }
         }
     }
@@ -51,7 +51,7 @@ public static partial class AuthoringBuildService
         void Add(string name, string version)
         {
             var id = ShellPackageId(name, version);
-            packages.Add(id);
+            _ = packages.Add(id);
             if (payloads is null) return;
             var packagePath = document.RootElement.GetProperty("packageFolders").EnumerateObject()
                 .Select(folder => Path.Combine(Path.GetFullPath(folder.Name), id))
@@ -78,13 +78,13 @@ public static partial class AuthoringBuildService
         IEnumerable<string> projects, string packagesRoot, HashSet<string> packages, Dictionary<string, string> payloads, bool offline, IReadOnlyDictionary<string, string?>? environment)
     {
         var temporary = Path.Combine(Path.GetTempPath(), "authoring-shell-restore-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(temporary);
+        _ = Directory.CreateDirectory(temporary);
         try
         {
             foreach (var file in source.Files)
             {
                 var destination = Path.Combine(temporary, file.RelativePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 Materialize(file, destination);
             }
             CopyShellAncestors(temporary, ancestors);
@@ -99,7 +99,7 @@ public static partial class AuthoringBuildService
                 // Publication subsequently uses the exact package payloads captured below offline.
                 var profile = ShellWriteProfile(packagesRoot, offline ? config : null, createLock: true);
                 ValidateShellWriteProfile(staged, temporary, profile, environment);
-                RunShellDotNet(Path.GetDirectoryName(staged)!, ShellOperationArguments(staged, profile, "Restore"), environment);
+                _ = RunShellDotNet(Path.GetDirectoryName(staged)!, ShellOperationArguments(staged, profile, "Restore"), environment);
                 ReadShellAssets(Path.Combine(Path.GetDirectoryName(staged)!, "obj", "project.assets.json"), packages, payloads);
             }
         }

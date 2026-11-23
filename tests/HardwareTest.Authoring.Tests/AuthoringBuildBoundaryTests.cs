@@ -30,7 +30,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
             Assert.Contains("BUILD_ENVIRONMENT_CHANGED", Assert.Throws<AuthoringWorkspaceException>(() =>
                 AuthoringBuildService.Execute(request, output)).Message);
             Assert.Equal("old", File.ReadAllText(Path.Combine(output, "previous")));
-            Assert.Single(Directory.GetFiles(output));
+            _ = Assert.Single(Directory.GetFiles(output));
         }
         finally { Environment.SetEnvironmentVariable("SNAPSHOT_FLAG", previous); }
     }
@@ -56,7 +56,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
             AuthoringBuildService.Execute(request, output)).Message);
         Assert.True(checker.Changed);
         Assert.Equal("old", File.ReadAllText(Path.Combine(output, "previous")));
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
     }
 
     [Theory]
@@ -79,9 +79,9 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
         Assert.Equal("sample", result.Receipt.IncludedPlans.Single());
         Assert.Equal("authoring", result.Receipt.Compilation.Single().SourceMap.Single().Kind);
         Assert.Equal(7, result.Receipt.WorkspaceSavedRevision);
-        Assert.Throws<NotSupportedException>(() => ((IList<string>)result.Receipt.IncludedPlans)[0] = "mutable");
-        Assert.Throws<NotSupportedException>(() => ((IList<AuthoringCompileMapEntry>)result.Receipt.Compilation.Single().SourceMap).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<string>)result.Manifest.Files).Clear());
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<string>)result.Receipt.IncludedPlans)[0] = "mutable");
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<AuthoringCompileMapEntry>)result.Receipt.Compilation.Single().SourceMap).Clear());
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<string>)result.Manifest.Files).Clear());
     }
 
     [Theory]
@@ -90,7 +90,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
     public void Publication_retires_previous_owned_outputs_transactionally_and_preserves_unrelated_files(bool fail)
     {
         var output = AuthoringBuildSnapshotTests.Temp();
-        Directory.CreateDirectory(Path.Combine(output, "shell-apps", "removed"));
+        _ = Directory.CreateDirectory(Path.Combine(output, "shell-apps", "removed"));
         File.WriteAllText(Path.Combine(output, "old.TapPackage"), "old package");
         File.WriteAllText(Path.Combine(output, "shell-apps", "removed", "app.dll"), "old shell");
         File.WriteAllText(Path.Combine(output, "unrelated.txt"), "retain");
@@ -107,7 +107,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
         }
         if (fail)
         {
-            Assert.Throws<IOException>(() => AuthoringBuildService.Publish(staging, output, default, Move));
+            _ = Assert.Throws<IOException>(() => AuthoringBuildService.Publish(staging, output, default, Move));
             Assert.Equal("old package", File.ReadAllText(Path.Combine(output, "old.TapPackage")));
             Assert.Equal("old shell", File.ReadAllText(Path.Combine(output, "shell-apps", "removed", "app.dll")));
             Assert.Equal(oldReceipt, File.ReadAllBytes(Path.Combine(output, AuthoringBuildService.ReceiptFileName)));
@@ -188,7 +188,7 @@ public sealed class AuthoringBuildBoundaryTests : IDisposable
                 "intermediate" => Path.Combine(Path.GetDirectoryName(project)!, "obj", "injected.props"),
                 _ => Path.Combine(authoringHome.Root, "tap.dll")
             };
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             if (input == "home-mode" && !OperatingSystem.IsWindows())
                 File.SetUnixFileMode(path, File.GetUnixFileMode(path) ^ UnixFileMode.UserExecute);
             else File.AppendAllText(path, "\nmutation");

@@ -60,10 +60,10 @@ public sealed class ReportPrintCancellationTests : IDisposable
         var inScheduler = false;
         var violations = 0;
         vm.UiScheduler = action => { inScheduler = true; try { action(); } finally { inScheduler = false; } };
-        vm.PropertyChanged += (_, args) =>
+        vm.PropertyChanged += (sender, args) =>
         {
             if (args.PropertyName is nameof(vm.IsPrinting) or nameof(vm.PrintStatus) && !inScheduler)
-                Interlocked.Increment(ref violations);
+                _ = Interlocked.Increment(ref violations);
         };
         var print = vm.PrintCommand.ExecuteAsync();
         await printer.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -104,7 +104,7 @@ public sealed class ReportPrintCancellationTests : IDisposable
             Paths.Add(pdfPath);
             if (Paths.Count > 1) return "Submitted to printer.";
             Token = cancellationToken;
-            Started.TrySetResult();
+            _ = Started.TrySetResult();
             // Model a native call that retains its resources despite cancellation.
             return await Release.Task;
         }

@@ -15,15 +15,13 @@ public interface ILoggingBootstrap : IDisposable
 /// Configures Serilog sinks in code (AoT-safe) and bridges Activities.
 public sealed class LoggingBootstrap : ILoggingBootstrap
 {
-    private readonly IDisposable _activityListener;
+    private LoggingBootstrap(IDisposable activityListener) => ActivityListener = activityListener;
 
-    private LoggingBootstrap(IDisposable activityListener) => _activityListener = activityListener;
-
-    public IDisposable ActivityListener => _activityListener;
+    public IDisposable ActivityListener { get; }
 
     public static LoggingBootstrap Initialize(AppSettings settings, string logDirectory)
     {
-        Directory.CreateDirectory(logDirectory);
+        _ = Directory.CreateDirectory(logDirectory);
         var level = ParseLevel(settings.LogMinimumLevel);
         var ring = new RingBufferSink();
         RingBufferSink.Shared = ring;
@@ -49,7 +47,7 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
 
         if (settings.EnableOsEventSink && OperatingSystem.IsWindows())
         {
-            config.WriteTo.EventLog(
+            _ = config.WriteTo.EventLog(
                 source: "HardwareTest",
                 logName: "Application",
                 manageEventSource: false);
@@ -59,8 +57,8 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
             && !OperatingSystem.IsWindows()
             && !string.IsNullOrWhiteSpace(settings.SyslogHost))
         {
-            config.WriteTo.UdpSyslog(
-                settings.SyslogHost!,
+            _ = config.WriteTo.UdpSyslog(
+                settings.SyslogHost,
                 port: settings.SyslogPort,
                 appName: "HardwareTest",
                 format: Serilog.Sinks.Syslog.SyslogFormat.RFC5424);
@@ -77,7 +75,7 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
 
     public void Dispose()
     {
-        _activityListener.Dispose();
+        ActivityListener.Dispose();
         Log.CloseAndFlush();
     }
 
@@ -113,11 +111,11 @@ public static class TestTracing
     public static Activity? StartRun(string runId, string planName, string? dutSerial)
     {
         var activity = Source.StartActivity("TestRun", ActivityKind.Internal);
-        activity?.SetTag("run.id", runId);
-        activity?.SetTag("plan.name", planName);
+        _ = (activity?.SetTag("run.id", runId));
+        _ = (activity?.SetTag("plan.name", planName));
         if (!string.IsNullOrWhiteSpace(dutSerial))
         {
-            activity?.SetTag("dut.serial", dutSerial);
+            _ = (activity?.SetTag("dut.serial", dutSerial));
         }
 
         return activity;
@@ -126,16 +124,16 @@ public static class TestTracing
     public static Activity? StartStep(string stepId, string stepType)
     {
         var activity = Source.StartActivity("TestStep", ActivityKind.Internal);
-        activity?.SetTag("step.id", stepId);
-        activity?.SetTag("step.type", stepType);
+        _ = (activity?.SetTag("step.id", stepId));
+        _ = (activity?.SetTag("step.type", stepType));
         return activity;
     }
 
     public static Activity? StartVisa(string operation, string resource)
     {
         var activity = Source.StartActivity("VisaIo", ActivityKind.Client);
-        activity?.SetTag("visa.operation", operation);
-        activity?.SetTag("visa.resource", resource);
+        _ = (activity?.SetTag("visa.operation", operation));
+        _ = (activity?.SetTag("visa.resource", resource));
         return activity;
     }
 }

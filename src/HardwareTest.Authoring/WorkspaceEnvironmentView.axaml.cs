@@ -19,7 +19,7 @@ public partial class WorkspaceEnvironmentView : UserControl
         AttachedToVisualTree += (_, _) => ObserveEnvironment();
         DetachedFromVisualTree += (_, _) =>
         {
-            if (_observed is not null) _observed.PropertyChanged -= OnEnvironmentChanged;
+            _observed?.PropertyChanged -= OnEnvironmentChanged;
             _observed = null;
         };
         SizeChanged += (_, _) => ArrangeReadiness();
@@ -38,10 +38,10 @@ public partial class WorkspaceEnvironmentView : UserControl
 
     private void ObserveEnvironment()
     {
-        if (_observed is not null) _observed.PropertyChanged -= OnEnvironmentChanged;
+        _observed?.PropertyChanged -= OnEnvironmentChanged;
         _observed = DataContext as AuthoringWorkspaceViewModel;
         _sourceError = null;
-        if (_observed is not null) _observed.PropertyChanged += OnEnvironmentChanged;
+        _observed?.PropertyChanged += OnEnvironmentChanged;
         RevealSourceError();
         ArrangeReadiness();
     }
@@ -69,7 +69,7 @@ public partial class WorkspaceEnvironmentView : UserControl
         {
             if (!PackageSources.IsEffectivelyVisible || !PackageSources.IsExpanded) return;
             RepositoryBox.BringIntoView();
-            if (!RepositoryBox.Focus()) PackageSources.Focus();
+            if (!RepositoryBox.Focus()) _ = PackageSources.Focus();
         }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 

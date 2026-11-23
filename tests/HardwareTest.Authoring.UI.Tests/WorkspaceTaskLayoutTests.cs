@@ -22,8 +22,8 @@ public sealed class WorkspaceTaskLayoutTests
         var acquisition = xml.Descendants("TestStep").Single(step => ((string?)step.Attribute("type"))?.EndsWith("AcquireVoltageStep", StringComparison.Ordinal) == true);
         acquisition.Add(new System.Xml.Linq.XElement("SeriesCompliance", "allSamples")); xml.Save(path);
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "unavailable-home");
-        fixture.Show(960, 600); fixture.Window!.FontSize = fontSize; fixture.OpenRememberedWorkspace();
-        fixture.ViewModel.Validate(); AuthoringUiFixture.Drain();
+        _ = fixture.Show(960, 600); fixture.Window!.FontSize = fontSize; fixture.OpenRememberedWorkspace();
+        _ = fixture.ViewModel.Validate(); AuthoringUiFixture.Drain();
         await fixture.WaitForReadinessAsync();
         Assert.NotEmpty(fixture.ViewModel.EditingIssues); Assert.NotEmpty(fixture.ViewModel.FindingRows);
         fixture.Window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2; AuthoringUiFixture.Drain();
@@ -59,11 +59,11 @@ public sealed class WorkspaceTaskLayoutTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var home = Path.Combine(fixture.WorkspaceRoot, "selected-home");
-        var package = Path.Combine(home, "Packages", "HardwareTest Basic"); Directory.CreateDirectory(package);
+        var package = Path.Combine(home, "Packages", "HardwareTest Basic"); _ = Directory.CreateDirectory(package);
         var metadata = Path.Combine(package, "package.xml");
         File.WriteAllText(metadata, "<Package Name=\"HardwareTest Basic\" Version=\"0.3.0\"><Files><File Path=\"HardwareTest.OpenTap.Plugins.Basic.dll\"/></Files></Package>");
         fixture.ViewModel.OpenTapHomeOverride = home;
-        fixture.Show(960, 600); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(960, 600); fixture.OpenRememberedWorkspace();
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 2;
         AuthoringUiFixture.Drain();
         fixture.Control<Expander>("Editing findings").IsExpanded = true; AuthoringUiFixture.Drain();
@@ -72,7 +72,7 @@ public sealed class WorkspaceTaskLayoutTests
         Assert.NotEmpty(fixture.ViewModel.EditingIssues);
         MatchesCurrentIssues();
         // Real adapter payload appears without changing the selected path or editing the plan.
-        File.Copy(typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).Assembly.Location,
+        File.Copy(typeof(OpenTap.Plugins.Basic.MockDmmInstrument).Assembly.Location,
             Path.Combine(package, "HardwareTest.OpenTap.Plugins.Basic.dll"));
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(typeof(MainWindow).Assembly.Location), action => Avalonia.Threading.Dispatcher.UIThread.Post(action));
         AuthoringUiFixture.Click(fixture.Control<Button>("Validate workspace"));
@@ -332,17 +332,17 @@ public sealed class WorkspaceTaskLayoutTests
     private static AuthoringUiFixture Loaded()
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(960, 600); fixture.OpenRememberedWorkspace(); return fixture;
+        _ = fixture.Show(960, 600); fixture.OpenRememberedWorkspace(); return fixture;
     }
 
     private static void InstallLibrary(AuthoringUiFixture fixture)
     {
         var package = PublishedLibraryFixture.PackageRoot;
         var home = Path.Combine(fixture.WorkspaceRoot, "task-layout-library-home");
-        var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage); Directory.CreateDirectory(payload);
+        var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage); _ = Directory.CreateDirectory(payload);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
-            File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
-        File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
+            File.Copy(Path.Combine(package, file), Path.Combine(home, file));
+        File.Copy(Path.Combine(package, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;
     }
 }

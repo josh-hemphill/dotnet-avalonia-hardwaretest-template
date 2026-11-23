@@ -156,7 +156,7 @@ public sealed partial class PlanCompiler
             return;
         }
 
-        if (OpenTapStepKinds.IsIdentity(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "QueryIdentity", Parent: TestGroupStep { Name: SetupGroupName } })
+        if (OpenTapStepKinds.IsIdentity(step) || step is OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "QueryIdentity", Parent: TestGroupStep { Name: SetupGroupName } })
         {
             setup.Add(new IdentitySetup(ImportedInstrumentSlot(step, xmlById)) { NodeId = step.Id });
             return;
@@ -180,7 +180,7 @@ public sealed partial class PlanCompiler
             return;
         }
 
-        if (OpenTapStepKinds.IsKnownSafeShutdown(step) || step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: CleanupGroupName } })
+        if (OpenTapStepKinds.IsKnownSafeShutdown(step) || step is OpenTap.Plugins.Instruments.DeviceOperationStep { Operation: "Shutdown", Parent: TestGroupStep { Name: CleanupGroupName } })
         {
             var slots = cleanup.InstrumentSlots.ToList();
             var slot = ImportedInstrumentSlot(step, xmlById);
@@ -257,7 +257,7 @@ public sealed partial class PlanCompiler
         MetricSource source;
         if (spec.IsAlgorithm)
         {
-            var inputs = step is ChannelAverageStep average ? new[] { average.InputChannel } : Array.Empty<string>();
+            var inputs = step is ChannelAverageStep average ? new[] { average.InputChannel } : [];
             source = new AlgorithmSource(spec.Id, inputs, settings)
             {
                 InstrumentSlot = spec.NeedsInstrument ? slot : null,

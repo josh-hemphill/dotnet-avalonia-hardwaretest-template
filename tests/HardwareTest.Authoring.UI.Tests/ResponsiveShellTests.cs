@@ -123,7 +123,7 @@ public sealed class ResponsiveShellTests
         dialog.SetRenderScaling(1.5);
         var decisions = dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string content && new[] { "Cancel", "Discard", "Save all" }.Contains(content)).ToArray();
         var cancel = Assert.Single(decisions, b => Equals(b.Content, "Cancel"));
-        foreach (var button in decisions) button.Content = button.Content + " — keep this translated decision label completely visible";
+        foreach (var button in decisions) button.Content += " — keep this translated decision label completely visible";
         AuthoringUiFixture.Drain();
         var scroll = fixture.Control<ScrollViewer>("Unsaved program list", dialog);
         Inside(scroll, dialog);
@@ -152,7 +152,7 @@ public sealed class ResponsiveShellTests
         window.FontSize = 20;
         window.SetRenderScaling(1.5);
         fixture.OpenRememberedWorkspace();
-        fixture.ViewModel.Validate();
+        _ = fixture.ViewModel.Validate();
         var seed = Assert.Single(fixture.ViewModel.FindingRows, item => item.Code == PlanContractValidator.Codes.ComplianceWithoutLimits);
         Assert.False(seed.IsStale);
         Assert.NotNull(seed.CheckedIdentity);
@@ -218,14 +218,14 @@ public sealed class ResponsiveShellTests
         Assert.True(control.IsEffectivelyVisible, $"{control.GetType().Name} {Avalonia.Automation.AutomationProperties.GetName(control)} must be visible");
         Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0, $"{control.GetType().Name} {Avalonia.Automation.AutomationProperties.GetName(control)} must have positive bounds: {control.Bounds}");
         var origin = control.TranslatePoint(default, window);
-        Assert.NotNull(origin);
+        _ = Assert.NotNull(origin);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(origin.Value, control.Bounds.Size)),
             $"{control.GetType().Name}: {origin} / {control.Bounds.Size} outside {window.ClientSize}");
         foreach (var ancestor in control.GetVisualAncestors().OfType<Control>()
             .Where(ancestor => ancestor is ScrollContentPresenter || ancestor.ClipToBounds))
         {
             var point = control.TranslatePoint(default, ancestor);
-            Assert.NotNull(point);
+            _ = Assert.NotNull(point);
             // Layout at fractional DPI can round the viewport edge by less than one logical pixel.
             var clip = new Rect(ancestor.Bounds.Size).Inflate(0.75);
             Assert.True(clip.Contains(new Rect(point.Value, control.Bounds.Size)),

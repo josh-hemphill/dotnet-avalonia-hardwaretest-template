@@ -66,7 +66,7 @@ public sealed class MixinMemberNameTests
     {
         OpenTapPluginSearch.SearchSerialized();
         var step = new HardwareTest.OpenTap.Plugins.Basic.AcquireVoltageStep { Name = "Acquire" };
-        OpenTapMixinAttach.AttachPresentation(step, "VDC", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(step, "VDC", PresentationDisplayRoles.Timeseries, "V");
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(step);
         var path = Path.Combine(Path.GetTempPath(), "ht-mixin-" + Guid.NewGuid().ToString("N") + ".TapPlan");

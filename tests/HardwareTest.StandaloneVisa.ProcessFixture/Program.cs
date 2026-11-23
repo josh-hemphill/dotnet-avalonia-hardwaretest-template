@@ -75,7 +75,7 @@ if (args is [var replacementMode, var selectedHome] && replacementMode is "--rep
         .GetMethod("Load", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
     try
     {
-        loader.Invoke(null, [approved[index], origin]);
+        _ = loader.Invoke(null, [approved[index], origin]);
     }
     catch (System.Reflection.TargetInvocationException error) when (error.InnerException is InvalidOperationException rejected
         && rejected.Message.Contains("no longer matches its source payload", StringComparison.Ordinal))
@@ -165,7 +165,7 @@ if (args is ["--managed-custom-reuse", var customHome])
 
 if (args is ["--loaded-unsupported", var unsupportedHome])
 {
-    System.Reflection.Assembly.LoadFrom(Path.Combine(unsupportedHome, "replacement.dll"));
+    _ = System.Reflection.Assembly.LoadFrom(Path.Combine(unsupportedHome, "replacement.dll"));
     var catalog = new OpenTapHostCatalog(new AppSettings(), Serilog.Log.Logger, new FixtureBroker(), enablePhysicalExecution: true);
     try { catalog.EnsurePlugins(); throw new InvalidOperationException("Unsupported loaded library was accepted."); }
     catch (InvalidOperationException error) when (error.Message.Contains("current 0.3.0-alpha.1 broker-managed execution contract", StringComparison.Ordinal)) { }
@@ -219,8 +219,8 @@ return 1;
 static string[] ParseRoots(string json)
 {
     using var document = System.Text.Json.JsonDocument.Parse(json);
-    return document.RootElement.EnumerateArray().Select(element =>
-        element.GetString() ?? throw new InvalidOperationException("Execution root must be a string.")).ToArray();
+    return [.. document.RootElement.EnumerateArray().Select(element =>
+        element.GetString() ?? throw new InvalidOperationException("Execution root must be a string."))];
 }
 
 static int RunPublishedProbe(FixtureBroker broker)

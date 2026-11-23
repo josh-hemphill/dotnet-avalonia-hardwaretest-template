@@ -115,7 +115,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.Equal(8, detail.DetailLines.Count);
         Assert.Equal("line 7", detail.DetailLines[^1]);
 
-        detail.CloseDetailCommand.Execute().Subscribe();
+        _ = detail.CloseDetailCommand.Execute().Subscribe();
         Assert.False(detail.ShowDetailRegion);
     }
 
@@ -124,7 +124,7 @@ public sealed class RunBoardChildViewModelTests
     {
         var opened = 0;
         var detail = new StepDetailViewModel(() => opened++);
-        detail.OpenStepDetailCommand.Execute().Subscribe();
+        _ = detail.OpenStepDetailCommand.Execute().Subscribe();
         Assert.Equal(1, opened);
     }
 
@@ -154,7 +154,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(host.HasInteractionFields);
         Assert.Equal("Install fixture", host.InteractionTitle);
         Assert.False(host.TryCollectResponse(request, out _));
-        Assert.Contains("required", host.InteractionValidationError!, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("required", host.InteractionValidationError, StringComparison.OrdinalIgnoreCase);
 
         host.InteractionFields[0].Value = "FIXTURE-9";
         Assert.True(host.TryCollectResponse(request, out var values));
@@ -179,12 +179,12 @@ public sealed class RunBoardChildViewModelTests
 
         panel.DutSerialInput = "SN-CHILD";
         panel.OperatorInput = "Tech";
-        panel.ConfirmSessionCommand.Execute().Subscribe();
+        _ = panel.ConfirmSessionCommand.Execute().Subscribe();
 
         Assert.False(panel.SessionBlocked);
         Assert.Contains("SN-CHILD", panel.SessionSummary, StringComparison.Ordinal);
 
-        panel.ChangeSessionCommand.Execute().Subscribe();
+        _ = panel.ChangeSessionCommand.Execute().Subscribe();
         Assert.True(panel.SessionBlocked);
         Assert.Equal(string.Empty, panel.DutSerialInput);
         Assert.NotEmpty(statuses);
@@ -203,14 +203,14 @@ public sealed class RunBoardChildViewModelTests
             credentialBroker: new MockOperatorCredentialBroker());
         panel.RefreshRequirementFlags();
         panel.DutSerialInput = "SN-BADGE";
-        panel.ConfirmSessionCommand.Execute().Subscribe();
+        _ = panel.ConfirmSessionCommand.Execute().Subscribe();
         Assert.True(panel.SessionBlocked);
         Assert.Contains("badge", panel.OperatorError, StringComparison.OrdinalIgnoreCase);
 
         await panel.CaptureCredentialCommand.ExecuteAsync();
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, panel.OperatorInput);
         Assert.Equal(MockOperatorCredentialBroker.MockSerial, session.OperatorCredentialSerial);
-        panel.ConfirmSessionCommand.Execute().Subscribe();
+        _ = panel.ConfirmSessionCommand.Execute().Subscribe();
         Assert.False(panel.SessionBlocked);
         Assert.Equal(MockOperatorCredentialBroker.MockDisplayName, session.OperatorName);
     }
@@ -345,7 +345,7 @@ public sealed class RunBoardChildViewModelTests
         panel.RefreshRequirementFlags();
         Assert.False(panel.RequireOperator);
         Assert.Equal("Technician", panel.TechnicianPlaceholder);
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.True(session.CanRun);
         Assert.False(panel.SessionBlocked);
     }
@@ -373,11 +373,11 @@ public sealed class RunBoardChildViewModelTests
         panel.RefreshRequirementFlags();
         panel.RefreshSessionSummary();
         Assert.True(panel.ShowStaleTechnicianField);
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.False(session.CanRun);
 
         panel.OperatorInput = "Tech";
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.True(session.CanRun);
         Assert.Equal("Tech", session.OperatorName);
     }
@@ -406,14 +406,14 @@ public sealed class RunBoardChildViewModelTests
             credentialBroker: new MockOperatorCredentialBroker());
 
         panel.RefreshRequirementFlags();
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.True(panel.SessionBlocked);
         Assert.Contains("badge", panel.OperatorError, StringComparison.OrdinalIgnoreCase);
 
         await panel.CaptureCredentialCommand.ExecuteAsync();
         Assert.Equal(MockOperatorCredentialBroker.MockSerial, session.OperatorCredentialSerial);
         Assert.Equal(confirmedSession, session.SessionId);
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.False(panel.SessionBlocked);
         Assert.True(session.CanRun);
         Assert.Equal(confirmedSession, session.SessionId);
@@ -447,7 +447,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.False(panel.IsIdleWarningPrompt);
         Assert.False(panel.SessionBlocked);
 
-        panel.ChangeSessionCommand.Execute().Subscribe();
+        _ = panel.ChangeSessionCommand.Execute().Subscribe();
         Assert.Equal("SN-RUN", session.DutSerial);
         Assert.Equal(OperatorSessionState.Active, session.State);
 
@@ -501,7 +501,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.True(panel.IsIdleWarningPrompt);
         Assert.True(panel.SessionBlocked);
 
-        panel.ConfirmSameDutCommand.Execute().Subscribe();
+        _ = panel.ConfirmSameDutCommand.Execute().Subscribe();
         Assert.False(panel.IsIdleWarningPrompt);
         Assert.True(session.CanRun);
     }
@@ -550,9 +550,9 @@ public sealed class RunBoardChildViewModelTests
         Assert.NotNull(programs.SelectedProgram);
         Assert.Equal(1, loads);
 
-        var first = programs.SelectedProgram!;
+        var first = programs.SelectedProgram;
         await programs.RefreshProgramsAsync();
-        Assert.Equal(first.Id, programs.SelectedProgram!.Id);
+        Assert.Equal(first.Id, programs.SelectedProgram.Id);
         Assert.Contains(programs.SelectedProgram, programs.Programs);
         Assert.False(ReferenceEquals(first, programs.SelectedProgram));
         Assert.Equal(2, loads);
@@ -570,7 +570,7 @@ public sealed class RunBoardChildViewModelTests
                 return Task.CompletedTask;
             });
 
-        await Assert.ThrowsAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAsync<OperationCanceledException>(
             () => programs.RefreshProgramsAsync(new CancellationToken(canceled: true)));
 
         Assert.Equal(0, loads);
@@ -595,7 +595,7 @@ public sealed class RunBoardChildViewModelTests
         await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await cts.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => refresh.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.NotEmpty(programs.Programs);
         Assert.False(programs.IsBusy);
@@ -641,7 +641,7 @@ public sealed class RunBoardChildViewModelTests
         await programs.OpenPlanFileCommand.ExecuteAsync();
         Assert.Equal(1, loads);
         Assert.Same(existing, programs.SelectedProgram);
-        Assert.Single(programs.Programs);
+        _ = Assert.Single(programs.Programs);
         Assert.Contains("Cannot open this program", status, StringComparison.Ordinal);
         Assert.Contains("Restore the complete compiled plan and sidecar", status, StringComparison.Ordinal);
         Assert.False(programs.IsBusy);
@@ -803,7 +803,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.Equal(2, tree.StepRows.Count);
 
         tree.StepSearchText = "Acquire";
-        Assert.Single(tree.StepRows);
+        _ = Assert.Single(tree.StepRows);
         Assert.Equal("Acquire VDC", tree.StepRows[0].Name);
 
         tree.StepSearchText = string.Empty;
@@ -840,11 +840,11 @@ public sealed class RunBoardChildViewModelTests
         var identity = tree.Stages.First(s => s.DisplayName == "Identity");
         tree.SelectedStage = identity;
         Assert.NotNull(identity.Step);
-        tree.SetStepFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
+        _ = tree.SetStepFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
         Assert.Empty(tree.StepRows);
         Assert.Equal(1, tree.SuitePendingCount);
 
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pending).Subscribe();
         Assert.True(tree.SelectedStage?.Step is null);
         Assert.True(tree.IsFilterPending);
         Assert.True(tree.IsStatusFilterActive);
@@ -852,7 +852,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.Equal(tree.SuitePendingCount, tree.StepRows.Count);
         Assert.Equal("Acquire 5V", tree.StepRows[0].Name);
 
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
         Assert.True(tree.IsFilterPass);
         Assert.False(tree.IsFilterAll);
         Assert.Equal(tree.SuitePassedCount, tree.StepRows.Count);
@@ -860,21 +860,21 @@ public sealed class RunBoardChildViewModelTests
         Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 5V");
         Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
 
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
         Assert.True(tree.IsFilterFail);
         Assert.Equal(tree.SuiteFailedCount, tree.StepRows.Count);
         Assert.Equal("Acquire 12V", tree.StepRows[0].Name);
         Assert.True(tree.IsStatusFilterActive);
         Assert.Equal("Showing fails", tree.StatusFilterBannerText);
 
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
         Assert.True(tree.IsFilterAll);
         Assert.False(tree.IsStatusFilterActive);
         Assert.Equal(string.Empty, tree.StatusFilterBannerText);
 
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Pass).Subscribe();
         Assert.Equal("Showing passed", tree.StatusFilterBannerText);
-        tree.ClearStatusFilterCommand.Execute().Subscribe();
+        _ = tree.ClearStatusFilterCommand.Execute().Subscribe();
         Assert.True(tree.IsFilterAll);
         Assert.Equal(string.Empty, tree.StatusFilterBannerText);
     }
@@ -884,10 +884,10 @@ public sealed class RunBoardChildViewModelTests
     {
         var tree = new StepTreeViewModel(() => [HierarchicalStatusTree()]);
         tree.RebuildFromHost();
-        tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
+        _ = tree.SetSuiteFilterCommand.Execute(StepStatusFilter.Fail).Subscribe();
         Assert.True(tree.IsFilterFail);
 
-        tree.FilterFailCommand.Execute().Subscribe();
+        _ = tree.FilterFailCommand.Execute().Subscribe();
 
         Assert.True(tree.IsFilterFail);
         Assert.Equal("Showing fails", tree.StatusFilterBannerText);
@@ -908,7 +908,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.Contains("Identity", tree.ScopeButtonText, StringComparison.Ordinal);
         Assert.Contains("not Run", tree.ScopeToolTip, StringComparison.Ordinal);
 
-        tree.ClearScopeCommand.Execute().Subscribe();
+        _ = tree.ClearScopeCommand.Execute().Subscribe();
         Assert.True(tree.SelectedStage?.Step is null);
         Assert.False(tree.CanClearScope);
         Assert.Equal("Scope: Entire program", tree.ScopeButtonText);
@@ -925,7 +925,7 @@ public sealed class RunBoardChildViewModelTests
         failing.StatusText = "Fail";
         failing.Verdict = "Fail";
 
-        tree.NextFailCommand.Execute().Subscribe();
+        _ = tree.NextFailCommand.Execute().Subscribe();
 
         Assert.Same(failing, tree.SelectedStep);
         Assert.Equal(1, opened);
@@ -947,7 +947,7 @@ public sealed class RunBoardChildViewModelTests
         tree.StepSearchText = "Read";
         Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
 
-        tree.NextFailCommand.Execute().Subscribe();
+        _ = tree.NextFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
         Assert.Equal("Voltage Sweep", tree.SelectedStage?.DisplayName);
@@ -993,7 +993,7 @@ public sealed class RunBoardChildViewModelTests
         tree.StepStatusFilter = StepStatusFilter.Pass;
         Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
 
-        tree.NextFailCommand.Execute().Subscribe();
+        _ = tree.NextFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
         Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
@@ -1005,7 +1005,7 @@ public sealed class RunBoardChildViewModelTests
         tree.StepStatusFilter = StepStatusFilter.Pass;
         Assert.DoesNotContain(tree.StepRows, r => r.Name == "Acquire 12V");
         scrolled = 0;
-        tree.PrevFailCommand.Execute().Subscribe();
+        _ = tree.PrevFailCommand.Execute().Subscribe();
 
         Assert.Equal("Acquire 12V", tree.SelectedStep?.Name);
         Assert.Same(tree.SelectedStep, tree.SelectedStepListItem?.Step);
@@ -1137,7 +1137,7 @@ public sealed class RunBoardChildViewModelTests
         Assert.False(panel.RequireSerial);
         Assert.Equal("DUT serial", panel.DutSerialPlaceholder);
         panel.DutSerialInput = string.Empty;
-        panel.ConfirmSessionCommand.Execute().Subscribe();
+        _ = panel.ConfirmSessionCommand.Execute().Subscribe();
 
         Assert.True(session.CanRun);
         Assert.False(panel.SessionBlocked);
@@ -1539,7 +1539,7 @@ public sealed class RunBoardChildViewModelTests
 
         public void CompletePresence()
         {
-            _presence.TrySetResult(new CredentialCaptureResult
+            _ = _presence.TrySetResult(new CredentialCaptureResult
             {
                 Credential = new OperatorCredential
                 {

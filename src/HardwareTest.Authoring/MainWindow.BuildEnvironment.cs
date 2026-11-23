@@ -23,9 +23,13 @@ public partial class MainWindow
         var session = vm.WorkspaceSessionId;
         var homeSetting = vm.OpenTapHomeOverride;
         var outputIntent = vm.PackPreview.LastOutputDirectory;
-        bool CurrentOwner() => !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
+        bool CurrentOwner()
+        {
+            return !_ownerClosed && IsVisible && ReferenceEquals(DataContext, vm)
             && ReferenceEquals(vm.Workspace, workspace) && vm.WorkspaceSessionId == session
             && vm.OpenTapHomeOverride == homeSetting && vm.PackPreview.LastOutputDirectory == outputIntent && !vm.OperationBusy;
+        }
+
         string? path;
         _buildPickerInFlight = true;
         try

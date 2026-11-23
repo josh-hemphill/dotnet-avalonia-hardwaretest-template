@@ -26,7 +26,7 @@ public sealed class TimingStripView : UserControl
         Height = 36;
     }
 
-    protected override void OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs e)
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         HookEvents(Events, null);
         base.OnDetachedFromVisualTree(e);
@@ -88,8 +88,8 @@ public sealed class TimingStripView : UserControl
         {
             foreach (var (t0, t1) in Spans)
             {
-                var x0 = left + (Math.Min(t0, t1) / duration) * width;
-                var x1 = left + (Math.Max(t0, t1) / duration) * width;
+                var x0 = left + (Math.Min(t0, t1) / duration * width);
+                var x1 = left + (Math.Max(t0, t1) / duration * width);
                 if (x1 <= x0)
                 {
                     x1 = x0 + 2;
@@ -107,7 +107,7 @@ public sealed class TimingStripView : UserControl
 
         foreach (var mark in Events)
         {
-            var x = left + (mark.ElapsedMs / 1000.0 / duration) * width;
+            var x = left + (mark.ElapsedMs / 1000.0 / duration * width);
             context.DrawLine(tick, new Point(x, 8), new Point(x, bounds.Height - 6));
         }
     }

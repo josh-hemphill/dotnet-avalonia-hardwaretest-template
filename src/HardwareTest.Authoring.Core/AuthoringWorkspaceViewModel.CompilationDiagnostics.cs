@@ -7,7 +7,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private void RecordSavedCompilationDiagnostic(string planId, string? diagnostic, AuthoringDocumentStore store)
     {
-        _savedCompilationDiagnostics.Remove(planId);
+        _ = _savedCompilationDiagnostics.Remove(planId);
         if (diagnostic is not null && AuthoringDocumentStore.ComputeHash(store.GetDocumentPath(planId)) is { } hash)
             _savedCompilationDiagnostics[planId] = new(hash, diagnostic);
     }
@@ -20,7 +20,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (!_sourceDocuments.TryGetValue(planId, out var source) || !source.RequiresCompilation
                 || diagnostic.SourceHash != AuthoringDocumentStore.ComputeHash(store.GetDocumentPath(planId)))
             {
-                _savedCompilationDiagnostics.Remove(planId);
+                _ = _savedCompilationDiagnostics.Remove(planId);
                 continue;
             }
             yield return $"{planId}: {diagnostic.Message}";

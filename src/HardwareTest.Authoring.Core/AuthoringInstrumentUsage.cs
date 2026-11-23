@@ -81,10 +81,10 @@ public static class AuthoringInstrumentUsage
         => slots.Select(s => string.Equals(s, from, StringComparison.OrdinalIgnoreCase) ? to : s)
             .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
 
-    private static HardwareTest.OpenTap.Host.ProgramSidecar RetargetSidecar(HardwareTest.OpenTap.Host.ProgramSidecar original, string from, string to)
+    private static OpenTap.Host.ProgramSidecar RetargetSidecar(OpenTap.Host.ProgramSidecar original, string from, string to)
     {
         var sidecar = PlanCompiler.CloneSidecar(original);
-        if (sidecar.CleanupInstrumentSlots is { } slots) sidecar.CleanupInstrumentSlots = RetargetList(slots, from, to).ToArray();
+        if (sidecar.CleanupInstrumentSlots is { } slots) sidecar.CleanupInstrumentSlots = [.. RetargetList(slots, from, to)];
         return sidecar;
     }
 

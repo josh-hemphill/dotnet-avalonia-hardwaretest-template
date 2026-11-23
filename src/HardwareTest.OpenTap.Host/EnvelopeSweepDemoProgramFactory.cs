@@ -30,7 +30,7 @@ public static class EnvelopeSweepDemoProgramFactory
             ScriptedValues = "3.30,3.32,3.60,3.31",
             PublishSummaries = false,
         };
-        OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
 
         var summaries = new PublishSeriesComplianceStep
         {
@@ -51,7 +51,7 @@ public static class EnvelopeSweepDemoProgramFactory
             LimitLow = 100,
             FailWhenOutOfBand = false,
         };
-        OpenTapMixinAttach.AttachPresentation(inBand, "series.inband.pct", PresentationDisplayRoles.Passband, "%");
+        _ = OpenTapMixinAttach.AttachPresentation(inBand, "series.inband.pct", PresentationDisplayRoles.Passband, "%");
 
         var measure = new TestGroupStep { Name = "Bit walk" };
         measure.ChildTestSteps.Add(sweep);
@@ -72,7 +72,7 @@ public static class EnvelopeSweepDemoProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         OpenTapPluginSearch.SearchSerialized();
         Create().Save(Path.Combine(directory, FixtureFileName));
     }

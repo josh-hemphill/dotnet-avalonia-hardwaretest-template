@@ -57,6 +57,6 @@ public partial class ReportPreviewView : UserControl
         _details = dialog;
         try { await dialog.ShowDialog(owner); }
         finally { _details = null; }
-        if (sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) trigger.Focus();
+        if (sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) _ = trigger.Focus();
     }
 }

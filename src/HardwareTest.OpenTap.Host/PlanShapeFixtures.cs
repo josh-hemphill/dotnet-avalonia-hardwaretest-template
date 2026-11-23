@@ -141,8 +141,8 @@ public static class PlanShapeFixtures
         var instrument = SharedInstrument();
         var a = new AcquireVoltageStep { Name = "A", Instrument = instrument, SampleCount = 2 };
         var b = new AcquireVoltageStep { Name = "B", Instrument = instrument, SampleCount = 2 };
-        OpenTapMixinAttach.AttachPresentation(a, "dup", PresentationDisplayRoles.Timeseries, "V");
-        OpenTapMixinAttach.AttachPresentation(b, "dup", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(a, "dup", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(b, "dup", PresentationDisplayRoles.Timeseries, "V");
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(a);
         plan.ChildTestSteps.Add(b);
@@ -164,7 +164,7 @@ public static class PlanShapeFixtures
             ScriptedValues = "1,2",
             PublishSummaries = false,
         };
-        OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(sweep, "rail.x", PresentationDisplayRoles.Timeseries, "V");
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(sweep);
         plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
@@ -180,7 +180,7 @@ public static class PlanShapeFixtures
             MetricName = "rail.mean",
             FailWhenOutOfBand = false,
         };
-        OpenTapMixinAttach.AttachPresentation(scalar, "rail.mean", PresentationDisplayRoles.Passband, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(scalar, "rail.mean", PresentationDisplayRoles.Passband, "V");
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(scalar);
         plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
@@ -206,7 +206,7 @@ public static class PlanShapeFixtures
     {
         var instrument = SharedInstrument();
         var acquire = new AcquireVoltageStep { Name = "Acquire", Instrument = instrument, SampleCount = 2 };
-        OpenTapMixinAttach.AttachPresentation(acquire, string.Empty, PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(acquire, string.Empty, PresentationDisplayRoles.Timeseries, "V");
         var plan = new TestPlan();
         plan.ChildTestSteps.Add(acquire);
         plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });
@@ -229,7 +229,7 @@ public static class PlanShapeFixtures
 
     public static void SaveAllBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         EnsurePlugins();
         foreach (var (fileName, create) in All)
         {

@@ -17,17 +17,21 @@ internal static class ProcedureWorkspace
         const string planId = "advanced-procedure";
         var assets = new[] { tableDirectory + "/station.json", tableDirectory + "/tests.json" };
         var plans = Path.Combine(workspace, "plans");
-        Directory.CreateDirectory(Path.Combine(plans, tableDirectory));
+        _ = Directory.CreateDirectory(Path.Combine(plans, tableDirectory));
         foreach (var file in assets.Concat([planId + ".TapPlan", planId + ".program.json"]))
             File.Copy(Path.Combine(sourceDirectory, file), Path.Combine(plans, file));
 
-        static string Version(Type type) => type.Assembly.GetName().Version!.ToString(3);
+        static string Version(Type type)
+        {
+            return type.Assembly.GetName().Version!.ToString(3);
+        }
+
         var version = Version(typeof(FixtureProcedureStep));
         var dependencies = new[]
         {
             new { package = "OpenTAP", version = Version(typeof(TestPlan)) },
             new { package = "HardwareTest Basic", version = Version(typeof(MockDmmInstrument)) },
-            new { package = "HardwareTest Mixins", version = Version(typeof(HardwareTest.OpenTap.Plugins.Mixins.PresentationMixinBuilder)) },
+            new { package = "HardwareTest Mixins", version = Version(typeof(OpenTap.Plugins.Mixins.PresentationMixinBuilder)) },
             new { package = packName, version }
         };
         var fileName = $"{packName.Replace(' ', '.')}.{version}.TapPackage";
@@ -60,7 +64,7 @@ internal static class ProcedureWorkspace
                 new XAttribute("Package", dep.package), new XAttribute("Version", dep.version)))),
             new XElement(xml + "Files", payload.Select(file => new XElement(xml + "File", new XAttribute("Path", file.Entry))))));
         using var archive = ZipFile.Open(Path.Combine(workspace, fileName), ZipArchiveMode.Create);
-        foreach (var file in payload) archive.CreateEntryFromFile(file.Path, file.Entry);
+        foreach (var file in payload) _ = archive.CreateEntryFromFile(file.Path, file.Entry);
         using var stream = archive.CreateEntry($"Packages/{packName}/package.xml").Open();
         metadata.Save(stream);
     }

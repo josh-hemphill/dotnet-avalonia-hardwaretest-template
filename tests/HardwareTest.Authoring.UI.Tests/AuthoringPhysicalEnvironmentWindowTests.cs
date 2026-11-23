@@ -47,35 +47,35 @@ public sealed class AuthoringPhysicalEnvironmentWindowTests
         fixture.ViewModel.OpenTapHomeOverride = home.Root; AuthoringUiFixture.Drain();
         await SettleReadiness(fixture.ViewModel);
         var source = Path.Combine(workspace.Root, "sample.TapPlan"); var sourceBytes = File.ReadAllBytes(source);
-        var outside = Path.Combine(workspace.Root, "outside-home"); Directory.CreateDirectory(outside);
+        var outside = Path.Combine(workspace.Root, "outside-home"); _ = Directory.CreateDirectory(outside);
         var selected = home.Root;
         if (kind == "missing-linked-child")
         {
-            var link = Path.Combine(workspace.Root, "linked-home"); Directory.CreateSymbolicLink(link, outside);
+            var link = Path.Combine(workspace.Root, "linked-home"); _ = Directory.CreateSymbolicLink(link, outside);
             selected = Path.Combine(link, "absent-home"); Assert.False(Directory.Exists(selected)); Assert.False(File.Exists(selected));
         }
         else if (kind is "cycle" or "cycle-ancestor" or "dangling" or "dangling-ancestor")
         {
             var link = Path.Combine(workspace.Root, "linked-home");
-            Directory.CreateSymbolicLink(link, kind.StartsWith("cycle", StringComparison.Ordinal) ? link : Path.Combine(outside, "absent-target"));
+            _ = Directory.CreateSymbolicLink(link, kind.StartsWith("cycle", StringComparison.Ordinal) ? link : Path.Combine(outside, "absent-target"));
             selected = kind.EndsWith("ancestor", StringComparison.Ordinal) ? Path.Combine(link, "child") : link;
             Assert.False(Directory.Exists(selected));
         }
         else if (kind == "home")
         {
-            selected = Path.Combine(workspace.Root, "linked-home"); Directory.CreateSymbolicLink(selected, home.Root);
+            selected = Path.Combine(workspace.Root, "linked-home"); _ = Directory.CreateSymbolicLink(selected, home.Root);
         }
         else if (kind is "metadata" or "runtime")
         {
             var file = kind == "metadata" ? Path.Combine(home.Root, "Packages", "OpenTAP", "package.xml") : Path.Combine(home.Root, "OpenTap.dll");
-            var target = Path.Combine(outside, Path.GetFileName(file)); File.Move(file, target); File.CreateSymbolicLink(file, target);
+            var target = Path.Combine(outside, Path.GetFileName(file)); File.Move(file, target); _ = File.CreateSymbolicLink(file, target);
         }
         else
         {
             var package = Path.Combine(home.Root, "Packages", "OpenTAP"); var metadata = Path.Combine(package, "package.xml");
             var document = XDocument.Load(metadata); var ns = document.Root!.Name.Namespace;
             document.Root.Add(new XElement(ns + "Files", new XElement(ns + "File", new XAttribute("Path", "escaped.dll")))); document.Save(metadata);
-            var target = Path.Combine(outside, "escaped.dll"); File.Copy(Path.Combine(home.Root, "OpenTap.dll"), target); File.CreateSymbolicLink(Path.Combine(package, "escaped.dll"), target);
+            var target = Path.Combine(outside, "escaped.dll"); File.Copy(Path.Combine(home.Root, "OpenTap.dll"), target); _ = File.CreateSymbolicLink(Path.Combine(package, "escaped.dll"), target);
         }
         fixture.ViewModel.OpenTapHomeOverride = selected + Path.DirectorySeparatorChar; AuthoringUiFixture.Drain();
         await SettleReadiness(fixture.ViewModel);

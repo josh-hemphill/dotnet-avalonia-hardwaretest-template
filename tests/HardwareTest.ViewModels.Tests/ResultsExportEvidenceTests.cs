@@ -33,8 +33,8 @@ public sealed class ResultsExportEvidenceTests
         // Append order does not select the issue: the older artifact is deliberately last.
         (run.Reports[1], run.Reports[2]) = (run.Reports[2], run.Reports[1]);
         var files = ResultsViewModel.CollectExportReportFiles(run).ToList();
-        var evidence = Assert.Single(files, f => f.RelativeName == "certification.attestation.json");
-        Assert.Equal(current.SidecarPath, evidence.SourcePath);
+        var (SourcePath, RelativeName) = Assert.Single(files, f => f.RelativeName == "certification.attestation.json");
+        Assert.Equal(current.SidecarPath, SourcePath);
         Assert.DoesNotContain(files, f => f.SourcePath == stray);
         Assert.DoesNotContain(files, f => f.SourcePath == first.SidecarPath && f.RelativeName == "certification.attestation.json");
         Assert.Contains(files, f => f.SourcePath == first.SidecarPath && f.RelativeName.StartsWith("history", StringComparison.Ordinal));
@@ -43,7 +43,7 @@ public sealed class ResultsExportEvidenceTests
         try
         {
             Assert.Equal(await File.ReadAllBytesAsync(current.SidecarPath!),
-                await File.ReadAllBytesAsync(Path.Combine(destination, evidence.RelativeName)));
+                await File.ReadAllBytesAsync(Path.Combine(destination, RelativeName)));
         }
         finally
         {
@@ -110,7 +110,7 @@ public sealed class ResultsExportEvidenceTests
     {
         const string runId = "reused-certification";
         var pdf = Path.Combine(store.GetRunDirectory(runId), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {

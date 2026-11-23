@@ -12,7 +12,7 @@ public sealed class AuthoringEditingIssueProcessingTests : IDisposable
 
     public AuthoringEditingIssueProcessingTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(_root, "plans"));
         File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Issues\"}");
         _vm.Open(_root);
         _vm.CreateDemoProgram("issues");
@@ -59,7 +59,7 @@ public sealed class AuthoringEditingIssueProcessingTests : IDisposable
             for (var i = 0; i < 20; i++) Assert.Empty(_vm.EditingIssues);
             Assert.Equal(1, calls);
             var heartbeat = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            queue.Post(() => heartbeat.SetResult());
+            queue.Post(heartbeat.SetResult);
             queue.Complete(heartbeat.Task);
             _vm.DisplayName = "intermediate";
             _vm.DisplayName = "latest";
@@ -71,7 +71,7 @@ public sealed class AuthoringEditingIssueProcessingTests : IDisposable
             Assert.DoesNotContain("intermediate", published);
             Assert.Equal(2, calls);
             Assert.False(_vm.EditingIssuesBusy);
-            for (var i = 0; i < 20; i++) Assert.Single(_vm.EditingIssues);
+            for (var i = 0; i < 20; i++) _ = Assert.Single(_vm.EditingIssues);
             Assert.Equal(2, calls);
         }
         finally { release.Set(); }
@@ -114,7 +114,7 @@ public sealed class AuthoringEditingIssueProcessingTests : IDisposable
             Assert.DoesNotContain("obsolete", published);
             Assert.NotEqual(captured[0].Session, captured[^1].Session);
             Assert.NotEqual(captured[0].HomeOverride, captured[^1].HomeOverride);
-            Assert.Single(captured[^1].Documents, document => document.PlanId == "replacement");
+            _ = Assert.Single(captured[^1].Documents, document => document.PlanId == "replacement");
             Assert.Equal("replacement", Assert.Single(_vm.EditingIssues).PlanId);
         }
         finally { release.Set(); }
@@ -180,7 +180,7 @@ public sealed class AuthoringEditingIssueProcessingTests : IDisposable
 
     private sealed class OwnerQueue : IDisposable
     {
-        private readonly BlockingCollection<Action> _queue = new();
+        private readonly BlockingCollection<Action> _queue = [];
         public void Post(Action callback) => _queue.Add(callback);
         public void RunOne()
         {

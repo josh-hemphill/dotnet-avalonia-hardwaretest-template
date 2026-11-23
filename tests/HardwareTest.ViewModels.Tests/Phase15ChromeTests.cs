@@ -135,7 +135,7 @@ public sealed class Phase15ChromeTests
         var raised = false;
         vm.NavigateToRunRequested += (_, _) => raised = true;
 
-        vm.NavigateToRunCommand.Execute().Subscribe();
+        _ = vm.NavigateToRunCommand.Execute().Subscribe();
 
         Assert.True(raised);
     }
@@ -148,7 +148,7 @@ public sealed class Phase15ChromeTests
 
         var raised = false;
         vm.NavigateToResultsRequested += (_, _) => raised = true;
-        vm.NavigateToResultsCommand.Execute().Subscribe();
+        _ = vm.NavigateToResultsCommand.Execute().Subscribe();
         Assert.True(raised);
     }
 
@@ -188,11 +188,11 @@ public sealed class Phase15ChromeTests
             runControl,
             openTap);
 
-        instruments.NavigateToRunCommand.Execute().Subscribe();
+        _ = instruments.NavigateToRunCommand.Execute().Subscribe();
         Assert.Equal("RunTest", main.SelectedItem?.Id);
 
         main.NavigateToPageId("Home");
-        preview.NavigateToResultsCommand.Execute().Subscribe();
+        _ = preview.NavigateToResultsCommand.Execute().Subscribe();
         Assert.Equal("Results", main.SelectedItem?.Id);
     }
 
@@ -210,8 +210,8 @@ public sealed class Phase15ChromeTests
             typeof(IBrush),
             null,
             culture);
-        Assert.IsAssignableFrom<IBrush>(pass);
-        Assert.IsAssignableFrom<IBrush>(fail);
+        _ = Assert.IsAssignableFrom<IBrush>(pass);
+        _ = Assert.IsAssignableFrom<IBrush>(fail);
         var failFill = ChipBrushConverter.BannerFill.Convert(
             "Fail",
             typeof(IBrush),
@@ -222,8 +222,8 @@ public sealed class Phase15ChromeTests
             typeof(IBrush),
             null,
             culture);
-        Assert.IsAssignableFrom<IBrush>(failFill);
-        Assert.IsAssignableFrom<IBrush>(passFill);
+        _ = Assert.IsAssignableFrom<IBrush>(failFill);
+        _ = Assert.IsAssignableFrom<IBrush>(passFill);
         Assert.NotEqual(((ISolidColorBrush)failFill!).Color, ((ISolidColorBrush)passFill!).Color);
         Assert.Equal(Color.Parse("#FFCDD2"), ((ISolidColorBrush)failFill).Color);
         Assert.Equal(Color.Parse("#C8E6C9"), ((ISolidColorBrush)passFill).Color);
@@ -247,7 +247,7 @@ public sealed class Phase15ChromeTests
     [Fact]
     public void Settings_AboutVersion_uses_short_product_version()
     {
-        var build = new HardwareTest.Core.Diagnostics.BuildInfo
+        var build = new Core.Diagnostics.BuildInfo
         {
             Version = "1.2.3",
             InformationalVersion = "1.2.3+deadbeef.20260101",

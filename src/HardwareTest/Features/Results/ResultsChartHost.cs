@@ -112,7 +112,7 @@ public sealed class ResultsChartHost : UserControl
         _cursorReadout.IsVisible = true;
         void Apply()
         {
-            var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit!;
+            var unit = string.IsNullOrWhiteSpace(tile.Unit) ? "Value" : tile.Unit;
             _plot.SetLabels(tile.MetricKey, unit, tile.MetricKey);
             _plot.SetLimits(tile.LimitLow, tile.LimitHigh);
             var paused = _plot.CursorX is not null;

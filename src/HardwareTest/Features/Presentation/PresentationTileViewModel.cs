@@ -7,27 +7,18 @@ using ReactiveUI.SourceGenerators;
 namespace HardwareTest.Features.Presentation;
 
 /// Role-mapped tile for Run gauges and Results charts.
-public partial class PresentationTileViewModel : ReactiveObject, IMetricGaugeSource
+public partial class PresentationTileViewModel(
+    string metricKey,
+    PresentationTileKind kind,
+    string? displayRole,
+    string? unit,
+    string? stepPath) : ReactiveObject, IMetricGaugeSource
 {
-    public PresentationTileViewModel(
-        string metricKey,
-        PresentationTileKind kind,
-        string? displayRole,
-        string? unit,
-        string? stepPath)
-    {
-        MetricKey = metricKey;
-        Kind = kind;
-        DisplayRole = displayRole;
-        Unit = unit;
-        StepPath = stepPath ?? string.Empty;
-    }
-
-    public string MetricKey { get; }
-    public PresentationTileKind Kind { get; }
-    public string? DisplayRole { get; }
-    public string? Unit { get; }
-    public string StepPath { get; set; }
+    public string MetricKey { get; } = metricKey;
+    public PresentationTileKind Kind { get; } = kind;
+    public string? DisplayRole { get; } = displayRole;
+    public string? Unit { get; } = unit;
+    public string StepPath { get; set; } = stepPath ?? string.Empty;
 
     [Reactive] private double _value;
     [Reactive] private double? _limitLow;

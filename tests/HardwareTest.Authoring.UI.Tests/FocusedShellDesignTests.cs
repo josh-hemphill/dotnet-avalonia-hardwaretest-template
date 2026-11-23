@@ -51,13 +51,13 @@ public sealed class FocusedShellDesignTests
         AuthoringUiFixture.Drain();
         Assert.Single(results.GetVisualDescendants().OfType<ScrollViewer>()).ScrollToEnd();
         AuthoringUiFixture.Drain();
-        var lastRow = (Control)results.ContainerFromIndex(results.ItemCount - 1)!;
+        var lastRow = results.ContainerFromIndex(results.ItemCount - 1)!;
         ResponsiveShellTests.Inside(lastRow, palette);
         var lastBottom = lastRow.TranslatePoint(new Point(0, lastRow.Bounds.Height), results)!.Value.Y;
         Assert.True(results.Bounds.Height - lastBottom >= 15.25, $"Last row gap {results.Bounds.Height - lastBottom}; padding {results.Padding}");
         search.Text = "Open saved plan";
         AuthoringUiFixture.Drain();
-        Assert.Single(results.Items.Cast<object>());
+        _ = Assert.Single(results.Items.Cast<object>());
         Assert.Contains(palette.GetVisualDescendants().OfType<TextBlock>(), text => text.Text?.Contains("workspace", StringComparison.OrdinalIgnoreCase) == true);
         var run = palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Run command"));
         Assert.False(run.IsEnabled);

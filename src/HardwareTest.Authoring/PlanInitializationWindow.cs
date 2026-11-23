@@ -75,7 +75,7 @@ public sealed partial class PlanInitializationWindow : Window
         { Settings = new Dictionary<string, string>(definition.Settings) }, Origin: "Workspace definition " + definition.Name))
             .Concat(vm.Programs.SelectMany(program => program.Instruments.Select(resource => (Resource: CopyResource(resource), Origin: "Program " + program.PlanId))))
             .Where(candidate => AuthoringInstrumentCatalog.TryGet(candidate.Resource.TypeId, out _)).ToList();
-        _reusable = candidates.Select(candidate => candidate.Resource).ToList();
+        _reusable = [.. candidates.Select(candidate => candidate.Resource)];
         _resourceOrigins.AddRange(candidates.Select(candidate => candidate.Origin));
         ShowHardwareChoices();
         _destination.IsReadOnly = false;
@@ -130,7 +130,7 @@ public sealed partial class PlanInitializationWindow : Window
             try
             {
                 EnsureSession();
-                vm.InitializePlan(Request());
+                _ = vm.InitializePlan(Request());
                 Close(true);
             }
             catch (Exception error) { PresentFormError(error); }
@@ -139,7 +139,7 @@ public sealed partial class PlanInitializationWindow : Window
         KeyDown += (_, e) => { if (e.Key == Key.Escape) { Close(false); e.Handled = true; } };
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         foreach (var button in new[] { cancel, _back, _next, _create }) { button.Margin = new Thickness(4); buttons.Children.Add(button); }
-        _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError")); AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
+        _ = _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError")); AutomationProperties.SetLiveSetting(_error, AutomationLiveSetting.Assertive);
         var content = new StackPanel { Spacing = 20, Margin = new Thickness(0, 16, 0, 16) };
         foreach (var stage in _stages) content.Children.Add(stage);
         if (guided)
@@ -253,7 +253,7 @@ public sealed partial class PlanInitializationWindow : Window
         Dispatcher.UIThread.Post(() =>
         {
             if (!IsVisible || _ownerIsCurrent?.Invoke() == false) return;
-            target.BringIntoView(); target.Focus();
+            target.BringIntoView(); _ = target.Focus();
         }, DispatcherPriority.Loaded);
     }
 
@@ -278,7 +278,7 @@ public sealed partial class PlanInitializationWindow : Window
                     && (control is TextBox { IsReadOnly: false } or ComboBox or CheckBox));
             var target = field ?? (stage == 5 ? _create : _next);
             target.BringIntoView();
-            target.Focus();
+            _ = target.Focus();
         }, DispatcherPriority.Loaded);
     }
 

@@ -27,7 +27,7 @@ internal static class AuthoringAdapterPayloadInspection
             if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId))
             {
                 RejectAlternateLibraryPayloads(home.Root);
-                ValidateLibraryMetadata(home.Root, document.Root!);
+                _ = ValidateLibraryMetadata(home.Root, document.Root);
                 return new(true, null);
             }
             var files = document.Root?.Elements().Where(element => element.Name.LocalName == "Files")
@@ -50,8 +50,11 @@ internal static class AuthoringAdapterPayloadInspection
             return Unavailable($"package payload cannot be read: {error.Message}");
         }
 
-        AuthoringInstrumentAvailability Unavailable(string reason) => new(false,
+        AuthoringInstrumentAvailability Unavailable(string reason)
+        {
+            return new(false,
             $"'{adapter.RequiredPackage}' is unavailable in selected OpenTAP home '{home.Root}': {reason}. Open Environment to prepare or import the declared package; compatible installed packages are reused.");
+        }
     }
 
     internal static string LibraryPayloadPath(OpenTapHome home, string file)
@@ -74,7 +77,7 @@ internal static class AuthoringAdapterPayloadInspection
         var issue = FileIssue(home.Root, metadata);
         if (issue is not null) throw new IOException($"Library package metadata {issue}.");
         RejectAlternateLibraryPayloads(home.Root);
-        CaptureLibraryMetadata(home.Root, XDocument.Load(metadata).Root ?? throw new IOException("Library package metadata has no root element."), out var payloads);
+        _ = CaptureLibraryMetadata(home.Root, XDocument.Load(metadata).Root ?? throw new IOException("Library package metadata has no root element."), out var payloads);
         return payloads;
     }
 
@@ -199,7 +202,7 @@ internal static class AuthoringAdapterPayloadInspection
                     // directory symlink has been resolved, as it does for File.Open.
                     current = Resolve(target);
                 }
-                finally { activeLinks.Remove(link); }
+                finally { _ = activeLinks.Remove(link); }
             }
             return Path.GetFullPath(current);
         }

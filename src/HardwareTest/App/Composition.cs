@@ -36,14 +36,14 @@ public static class Composition
     {
         var services = new ServiceCollection();
         var buildInfo = OpenTapBuildInfo.Attach(BuildInfo.FromEntryAssembly());
-        services.AddSingleton(buildInfo);
-        services.AddHardwareTestCore(settingsStore);
-        services.AddSingleton<IBenchReferenceStore>(sp => new FileBenchReferenceStore(settingsStore.RootDirectory, sp.GetRequiredService<IClock>()));
-        services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
-        services.AddShellApplications(new NotesApplication());
-        services.AddSingleton(sp =>
+        _ = services.AddSingleton(buildInfo);
+        _ = services.AddHardwareTestCore(settingsStore);
+        _ = services.AddSingleton<IBenchReferenceStore>(sp => new FileBenchReferenceStore(settingsStore.RootDirectory, sp.GetRequiredService<IClock>()));
+        _ = services.AddSingleton<IShellHost>(_ => new ShellHost(settingsStore));
+        _ = services.AddShellApplications(new NotesApplication());
+        _ = services.AddSingleton(sp =>
             CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory));
-        services.AddSingleton<OpenTapWorkerClient>(sp =>
+        _ = services.AddSingleton(sp =>
             new OpenTapWorkerClient(
                 sp.GetRequiredService<AppSettings>(),
                 Log.Logger,
@@ -54,40 +54,40 @@ public static class Composition
                 clock: sp.GetRequiredService<IClock>()));
         // Same singleton instance for the aggregate and each focused surface (Phase 14).
         // UI process talks to the killable worker; in-process OpenTapSession is the test-only host.
-        services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
-        services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
+        _ = services.AddSingleton<IOpenTapSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        _ = services.AddSingleton<IOpenTapPlanSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        _ = services.AddSingleton<IOpenTapRunSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        _ = services.AddSingleton<IOpenTapStationSession>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        _ = services.AddSingleton<IOpenTapHostCatalog>(sp => sp.GetRequiredService<OpenTapWorkerClient>());
+        _ = services.AddSingleton(sp => new OperatorSession(sp.GetRequiredService<IClock>()));
 
-        services.AddSingleton<IViewRegistrar>(_ => ViewRegistry.Shared);
-        services.AddSingleton<ShellNotificationViewModel>();
-        services.AddSingleton<HomeViewModel>(sp =>
+        _ = services.AddSingleton<IViewRegistrar>(_ => ViewRegistry.Shared);
+        _ = services.AddSingleton<ShellNotificationViewModel>();
+        _ = services.AddSingleton(sp =>
             new HomeViewModel(
                 settingsStore,
-                sp.GetRequiredService<HardwareTest.Core.Storage.IExportTargetService>(),
+                sp.GetRequiredService<Core.Storage.IExportTargetService>(),
                 sp.GetRequiredService<ShellNotificationViewModel>(),
                 guestTiles: sp.GetServices<IShellApplication>().SelectMany(app => app.HomeTiles)));
-        services.AddSingleton<RunTestViewModel>();
-        services.AddSingleton<InspectViewModel>();
-        services.AddSingleton<ResultsViewModel>();
-        services.AddSingleton(_ => new NativeDialogOwner(
+        _ = services.AddSingleton<RunTestViewModel>();
+        _ = services.AddSingleton<InspectViewModel>();
+        _ = services.AddSingleton<ResultsViewModel>();
+        _ = services.AddSingleton(_ => new NativeDialogOwner(
             () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow));
-        services.AddSingleton<INativeSigningDialogOwner>(sp => sp.GetRequiredService<NativeDialogOwner>());
-        services.AddSingleton<IReportPrintService>(sp => OperatingSystem.IsWindows()
+        _ = services.AddSingleton<INativeSigningDialogOwner>(sp => sp.GetRequiredService<NativeDialogOwner>());
+        _ = services.AddSingleton<IReportPrintService>(sp => OperatingSystem.IsWindows()
             ? new WindowsReportPrintService(sp.GetRequiredService<NativeDialogOwner>().GetHandleAsync,
                 new WindowsPrintBackend(), new PdfPrintRenderer(), new StaPrintWorker())
             : new LpReportPrintService(new SystemLpPrintBackend()));
-        services.AddSingleton<IReportDesktopActions>(sp => new ReportDesktopActions(
+        _ = services.AddSingleton<IReportDesktopActions>(sp => new ReportDesktopActions(
             () => (Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow,
             settingsStore.RunsDirectory,
             OperatingSystem.IsWindows() ? new PdfViewerLauncher(sp.GetRequiredService<NativeDialogOwner>().GetHandleAsync,
                 new WindowsPdfViewerBackend(), new StaPrintWorker()) : null));
-        services.AddSingleton<ReportPreviewViewModel>();
-        services.AddSingleton<InstrumentsViewModel>();
-        services.AddSingleton<SettingsViewModel>();
-        services.AddSingleton(sp =>
+        _ = services.AddSingleton<ReportPreviewViewModel>();
+        _ = services.AddSingleton<InstrumentsViewModel>();
+        _ = services.AddSingleton<SettingsViewModel>();
+        _ = services.AddSingleton(sp =>
             new MainWindowViewModel(
                 settingsStore,
                 sp.GetRequiredService<HomeViewModel>(),
@@ -105,7 +105,7 @@ public static class Composition
                     sp.GetServices<IShellApplication>(),
                     sp,
                     sp.GetRequiredService<IViewRegistrar>())));
-        services.AddSingleton<MainWindow>(sp =>
+        _ = services.AddSingleton(sp =>
             new MainWindow(
                 sp.GetRequiredService<MainWindowViewModel>(),
                 settingsStore,

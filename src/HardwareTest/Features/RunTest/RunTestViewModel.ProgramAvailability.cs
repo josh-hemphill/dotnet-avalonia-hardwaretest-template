@@ -9,33 +9,35 @@ public partial class RunTestViewModel
     private ProgramItemViewModel? _readyProgram;
     private int _programSelectionVersion;
     private int _readyProgramVersion = -1;
-    private bool _isProgramLoading;
     private bool _hasAttemptedProgramLoad;
-    private string _programLoadError = string.Empty;
-    private string _programLoadDetails = string.Empty;
 
-    public bool IsProgramLoading => _isProgramLoading;
+    public bool IsProgramLoading { get; private set; }
     public bool IsSelectedProgramReady => ProgramSelection.SelectedProgram is { } program && IsProgramLoadedFor(program);
-    public bool ShowProgramRecovery => !_isProgramLoading && !ProgramSelection.IsBusy && !IsSelectedProgramReady;
-    public string ProgramDetailsText => ProgramSelection.SelectedProgram?.DetailsText
-        + (string.IsNullOrWhiteSpace(_programLoadDetails) ? string.Empty : $"\n\nLoad details: {_programLoadDetails}");
+    public bool ShowProgramRecovery => !IsProgramLoading && !ProgramSelection.IsBusy && !IsSelectedProgramReady;
+    public string ProgramDetailsText
+    {
+        get => ProgramSelection.SelectedProgram?.DetailsText
+        + (string.IsNullOrWhiteSpace(field) ? string.Empty : $"\n\nLoad details: {field}"); private set;
+    } = string.Empty;
 
     public string ProgramAvailabilityMessage
     {
         get
         {
-            if (_isProgramLoading || ProgramSelection.IsBusy)
+            if (IsProgramLoading || ProgramSelection.IsBusy)
                 return "Loading the selected test program. Run stays disabled until loading finishes.";
-            if (!string.IsNullOrWhiteSpace(_programLoadError)) return _programLoadError;
+            if (!string.IsNullOrWhiteSpace(field)) return field;
             return "Choose the assigned test program, then confirm DUT. If it is missing, ask a station technician to install it, then Reload programs.";
         }
-    }
+
+        private set;
+    } = string.Empty;
 
     internal bool IsProgramReadyFor(ProgramItemViewModel program)
         => !ProgramSelection.IsBusy && IsProgramLoadedFor(program);
 
     private bool IsProgramLoadedFor(ProgramItemViewModel program)
-        => !_isProgramLoading && ReferenceEquals(program, ProgramSelection.SelectedProgram)
+        => !IsProgramLoading && ReferenceEquals(program, ProgramSelection.SelectedProgram)
             && ReferenceEquals(program, _readyProgram)
             && _programSelectionVersion == _readyProgramVersion
             && string.Equals(_plan.LoadedPlanPath, program.Path, StringComparison.OrdinalIgnoreCase);
@@ -45,9 +47,9 @@ public partial class RunTestViewModel
         _programSelectionVersion++;
         _readyProgram = null;
         _readyProgramVersion = -1;
-        _isProgramLoading = false;
-        _programLoadError = string.Empty;
-        _programLoadDetails = string.Empty;
+        IsProgramLoading = false;
+        ProgramAvailabilityMessage = string.Empty;
+        ProgramDetailsText = string.Empty;
         RaiseProgramAvailability();
     }
 
@@ -67,12 +69,16 @@ public partial class RunTestViewModel
         if (program is null) return;
         var version = _programSelectionVersion;
         var wasReady = IsProgramLoadedFor(program);
-        bool IsCurrent() => version == _programSelectionVersion && ReferenceEquals(program, ProgramSelection.SelectedProgram);
+        bool IsCurrent()
+        {
+            return version == _programSelectionVersion && ReferenceEquals(program, ProgramSelection.SelectedProgram);
+        }
+
         await RunOnUiAsync(() =>
         {
             if (!IsCurrent()) return;
             _readyProgram = null;
-            _isProgramLoading = true;
+            IsProgramLoading = true;
             RaiseProgramAvailability();
         }).ConfigureAwait(false);
         var held = false;
@@ -117,8 +123,8 @@ public partial class RunTestViewModel
                 StationOverrides.RefreshParameterFields();
                 SessionPanel.RefreshSessionSummary();
                 if (!alreadyLoaded) Workspace.ResetToSteps();
-                _programLoadError = string.Empty;
-                _programLoadDetails = string.Empty;
+                ProgramAvailabilityMessage = string.Empty;
+                ProgramDetailsText = string.Empty;
                 _readyProgram = program;
                 _readyProgramVersion = version;
                 _loadedReferenceArtifacts = afterArtifacts;
@@ -141,23 +147,26 @@ public partial class RunTestViewModel
         }
         finally
         {
-            if (held) _programLoadGate.Release();
+            if (held) _ = _programLoadGate.Release();
             await RunOnUiAsync(() =>
             {
                 if (!IsCurrent()) return;
-                _isProgramLoading = false;
+                IsProgramLoading = false;
                 RaiseProgramAvailability();
             }).ConfigureAwait(false);
         }
 
-        Task SetProgramLoadErrorAsync(string message, string details) => RunOnUiAsync(() =>
+        Task SetProgramLoadErrorAsync(string message, string details)
+        {
+            return RunOnUiAsync(() =>
         {
             if (!IsCurrent()) return;
             _readyProgram = null;
             _readyProgramVersion = -1;
-            _programLoadError = message;
-            _programLoadDetails = details;
+            ProgramAvailabilityMessage = message;
+            ProgramDetailsText = details;
             Status = message;
         });
+        }
     }
 }

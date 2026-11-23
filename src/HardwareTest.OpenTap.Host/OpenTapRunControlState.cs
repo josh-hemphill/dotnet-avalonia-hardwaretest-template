@@ -9,17 +9,20 @@ public sealed class OpenTapRunControlState : IDisposable
     private readonly object _sync = new();
     private readonly Dictionary<string, TaskCompletionSource<OperatorInteractionResponse>> _interactions = new(StringComparer.Ordinal);
     private CancellationTokenSource? _cts;
-    private bool _paused;
-    private bool _awaitingOperator;
     private readonly ManualResetEventSlim _pauseGate = new(true);
     private bool _disposed;
 
-    public bool IsPaused { get { lock (_sync) return _paused; } }
+    public bool IsPaused
+    {
+        get { lock (_sync) return field; }
+
+        private set;
+    }
 
     public bool IsAwaitingOperator
     {
-        get { lock (_sync) return _awaitingOperator; }
-        set { lock (_sync) _awaitingOperator = value; }
+        get { lock (_sync) return field; }
+        set { lock (_sync) field = value; }
     }
 
     public string? OperatorPromptMessage { get; set; }
@@ -71,7 +74,7 @@ public sealed class OpenTapRunControlState : IDisposable
             OperatorPromptMessage = null;
             PendingInteraction = null;
             LastInteractionResponse = null;
-            _cts.Token.Register(OnRunCancelled);
+            _ = _cts.Token.Register(OnRunCancelled);
         }
 
         RaiseOperatorState();
@@ -81,7 +84,7 @@ public sealed class OpenTapRunControlState : IDisposable
     {
         lock (_sync)
         {
-            _paused = true;
+            IsPaused = true;
             _pauseGate.Reset();
         }
     }
@@ -102,7 +105,7 @@ public sealed class OpenTapRunControlState : IDisposable
             IsAwaitingOperator = false;
             OperatorPromptMessage = null;
             PendingInteraction = null;
-            _paused = false;
+            IsPaused = false;
             _pauseGate.Set();
         }
 
@@ -123,7 +126,7 @@ public sealed class OpenTapRunControlState : IDisposable
             IsAwaitingOperator = false;
             OperatorPromptMessage = null;
             PendingInteraction = null;
-            _paused = false;
+            IsPaused = false;
             _pauseGate.Set();
             cancellation = _cts;
         }
@@ -149,7 +152,7 @@ public sealed class OpenTapRunControlState : IDisposable
                 return;
             }
 
-            _pauseGate.Wait(50);
+            _ = _pauseGate.Wait(50);
         }
     }
 
@@ -163,7 +166,7 @@ public sealed class OpenTapRunControlState : IDisposable
                 throw new InvalidOperationException("An operator interaction with this ID is already outstanding.");
             PendingInteraction = request;
             LastInteractionResponse = null;
-            _paused = true;
+            IsPaused = true;
             _pauseGate.Reset();
             IsAwaitingOperator = true;
             OperatorPromptMessage = request.Message;
@@ -189,7 +192,7 @@ public sealed class OpenTapRunControlState : IDisposable
         var stateChanged = false;
         lock (_sync)
         {
-            _interactions.Remove(requestId);
+            _ = _interactions.Remove(requestId);
             stateChanged = response.Cancelled && PendingInteraction is null;
             if (PendingInteraction?.Id == requestId)
             {
@@ -226,7 +229,7 @@ public sealed class OpenTapRunControlState : IDisposable
             IsAwaitingOperator = false;
             OperatorPromptMessage = null;
             PendingInteraction = null;
-            _paused = false;
+            IsPaused = false;
             _pauseGate.Set();
             DisposeCts_NoLock();
         }
@@ -255,7 +258,7 @@ public sealed class OpenTapRunControlState : IDisposable
                 IsAwaitingOperator = false;
                 OperatorPromptMessage = null;
                 PendingInteraction = null;
-                _paused = false;
+                IsPaused = false;
                 _pauseGate.Set();
             }
         }
@@ -274,13 +277,13 @@ public sealed class OpenTapRunControlState : IDisposable
     private void CompleteInteraction_NoLock(OperatorInteractionResponse response)
     {
         if (_interactions.TryGetValue(response.RequestId, out var completion))
-            completion.TrySetResult(response);
+            _ = completion.TrySetResult(response);
     }
 
     private void CancelInteractions_NoLock()
     {
         foreach (var interaction in _interactions)
-            interaction.Value.TrySetResult(OperatorInteractionResponse.Cancel(interaction.Key));
+            _ = interaction.Value.TrySetResult(OperatorInteractionResponse.Cancel(interaction.Key));
     }
 
     private void RaiseOperatorState() => OperatorStateChanged?.Invoke();

@@ -106,7 +106,7 @@ public sealed class ReportActionTests : IDisposable
             Assert.Equal(issuedBytes, await File.ReadAllBytesAsync(actions.Prints[0]));
         }
         var persisted = (await new FileRunStore(_root).LoadAsync(run.RunId))!;
-        Assert.Single(persisted.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+        _ = Assert.Single(persisted.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
         Assert.Equal("changed unsigned working bytes", await File.ReadAllTextAsync(working));
     }
 
@@ -114,7 +114,7 @@ public sealed class ReportActionTests : IDisposable
     public async Task Saving_copy_to_distinct_case_name_on_linux_preserves_source_and_exact_bytes()
     {
         if (!OperatingSystem.IsLinux()) return;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         var source = Path.Combine(_root, "report.pdf");
         var destination = Path.Combine(_root, "REPORT.pdf");
         var bytes = "original report bytes"u8.ToArray();
@@ -123,7 +123,7 @@ public sealed class ReportActionTests : IDisposable
         await ReportDesktopActions.CopyToLocalPathAsync(source, destination);
         Assert.Equal(bytes, await File.ReadAllBytesAsync(source));
         Assert.Equal(bytes, await File.ReadAllBytesAsync(destination));
-        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
+        _ = await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
     }
 
     [Theory]
@@ -155,7 +155,7 @@ public sealed class ReportActionTests : IDisposable
         Assert.Empty(actions.Saves);
         Assert.Empty(actions.Prints);
         Assert.Equal(cancelOnly ? run.Reports[0].PdfPath : other.Reports[0].PdfPath, vm.PdfPath);
-        Assert.Single((await store.LoadAsync(run.RunId))!.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
+        _ = Assert.Single((await store.LoadAsync(run.RunId))!.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
     }
 
     [Fact]
@@ -177,7 +177,7 @@ public sealed class ReportActionTests : IDisposable
         vm.UiScheduler = action =>
         {
             if (Interlocked.Increment(ref scheduled) == 1) action(); // BeginAction owns the shared gate.
-            else queuedCapture.TrySetResult(action);
+            else _ = queuedCapture.TrySetResult(action);
         };
         var signing = vm.SignAndContinueCommand.ExecuteAsync();
         var capture = await queuedCapture.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -230,7 +230,7 @@ public sealed class ReportActionTests : IDisposable
         Assert.Equal(1, desktop.SaveCalls);
         vm.CancelPendingAction();
         Assert.True(vm.IsBusy);
-        desktop.Release.TrySetResult();
+        _ = desktop.Release.TrySetResult();
         await signing;
         Assert.False(vm.IsBusy);
         Assert.Equal(1, desktop.SaveCalls);
@@ -267,7 +267,7 @@ public sealed class ReportActionTests : IDisposable
         Assert.False(vm.ShowSigningPrompt);
         Assert.Empty(actions.Prints);
         Assert.Contains("Verification failed", vm.ReportSummary);
-        Assert.Single((await new FileRunStore(_root).LoadAsync(run.RunId))!.Attestations);
+        _ = Assert.Single((await new FileRunStore(_root).LoadAsync(run.RunId))!.Attestations);
     }
 
     [Theory]
@@ -280,15 +280,17 @@ public sealed class ReportActionTests : IDisposable
         var other = await SeedAsync(store, "other");
         var delayed = new DelayedAttestation();
         var actions = new Actions(Path.Combine(_root, "saved.pdf"));
-        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: delayed, printer: actions, desktop: actions);
-        vm.UiScheduler = action => action();
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: delayed, printer: actions, desktop: actions)
+        {
+            UiScheduler = action => action()
+        };
         await vm.LoadFromPathAsync(original.Reports[0].PdfPath);
         await vm.PrintCommand.ExecuteAsync();
         var signing = vm.SignAndContinueCommand.ExecuteAsync();
         await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         if (cancel) vm.CancelPendingAction();
         else await vm.LoadFromPathAsync(other.Reports[0].PdfPath);
-        delayed.Release.TrySetResult();
+        _ = delayed.Release.TrySetResult();
         await signing;
         Assert.Equal(original.RunId, delayed.CapturedRunId);
         Assert.Empty(actions.Prints);
@@ -315,7 +317,7 @@ public sealed class ReportActionTests : IDisposable
     [Fact]
     public async Task Atomic_save_overwrites_longer_destination_with_exact_bytes_and_preserves_source()
     {
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         var source = Path.Combine(_root, "source.pdf");
         var destination = Path.Combine(_root, "copy.pdf");
         byte[] bytes = [0, 255, 5, 10, 13, 128];
@@ -324,7 +326,7 @@ public sealed class ReportActionTests : IDisposable
         await ReportDesktopActions.CopyToLocalPathAsync(source, destination);
         Assert.Equal(bytes, await File.ReadAllBytesAsync(destination));
         Assert.Equal(bytes, await File.ReadAllBytesAsync(source));
-        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
+        _ = await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, source));
         Assert.Equal(bytes, await File.ReadAllBytesAsync(source));
     }
 
@@ -338,9 +340,11 @@ public sealed class ReportActionTests : IDisposable
         var other = await SeedAsync(store, "results-other");
         var delayed = new DelayedAttestation();
         var vm = new ResultsViewModel(store, new FakeReportService(), attestation: delayed,
-            settings: new AppSettings { RequireAttestationBeforeExport = true });
-        vm.UiScheduler = action => action();
-        vm.OpenedRun = first;
+            settings: new AppSettings { RequireAttestationBeforeExport = true })
+        {
+            UiScheduler = action => action(),
+            OpenedRun = first
+        };
         var prints = new List<string>();
         vm.CertifiedPrintReady += (_, path) => prints.Add(path);
         await vm.RequestCertifiedPrintAsync(first.Reports[0].PdfPath);
@@ -349,7 +353,7 @@ public sealed class ReportActionTests : IDisposable
         await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         if (cancel) vm.CancelPendingReportAction();
         else vm.OpenedRun = other;
-        delayed.Release.TrySetResult();
+        _ = delayed.Release.TrySetResult();
         await capture;
         Assert.Equal(first.RunId, delayed.CapturedRunId);
         Assert.Empty(prints);
@@ -365,8 +369,10 @@ public sealed class ReportActionTests : IDisposable
         var settings = new AppSettings { RequireAttestationBeforeExport = true, AllowPresenceInLieuOfSigning = true };
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: false), store, settings);
         var actions = new Actions(Path.Combine(_root, "unused.pdf")) { CancelSave = true };
-        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: actions, desktop: actions, settings: settings);
-        vm.UiScheduler = action => action();
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: actions, desktop: actions, settings: settings)
+        {
+            UiScheduler = action => action()
+        };
         await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
         Assert.Contains("Unsigned", vm.ReportSummary);
         await vm.SaveCopyCommand.ExecuteAsync();
@@ -397,7 +403,7 @@ public sealed class ReportActionTests : IDisposable
         Assert.Empty(actions.Prints);
         Assert.Empty(actions.Saves);
         Assert.False(vm.ShowSigningPrompt);
-        delayed.Release.TrySetResult();
+        _ = delayed.Release.TrySetResult();
         await loading;
         await vm.PrintCommand.ExecuteAsync();
         Assert.Equal(second.Reports[0].PdfPath, Assert.Single(actions.Prints));
@@ -413,9 +419,9 @@ public sealed class ReportActionTests : IDisposable
         var vm = new ReportPreviewViewModel(store, new FakeReportService())
         {
             UiScheduler = action => action(),
-            PreviewRenderer = _ =>
+            PreviewRenderer = unused =>
             {
-                started.TrySetResult();
+                _ = started.TrySetResult();
                 release.Task.GetAwaiter().GetResult();
                 throw new IOException("stale rendering error");
             },
@@ -426,7 +432,7 @@ public sealed class ReportActionTests : IDisposable
         vm.CancelPendingAction();
         Assert.False(vm.IsBusy);
         var status = vm.Status;
-        release.TrySetResult();
+        _ = release.TrySetResult();
         await loading;
         Assert.False(vm.IsBusy);
         Assert.Equal(status, vm.Status);
@@ -449,8 +455,8 @@ public sealed class ReportActionTests : IDisposable
         await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var queue = new System.Collections.Concurrent.ConcurrentQueue<Action>();
         var queued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        vm.UiScheduler = action => { queue.Enqueue(action); queued.TrySetResult(); };
-        delayed.Release.TrySetResult();
+        vm.UiScheduler = action => { queue.Enqueue(action); _ = queued.TrySetResult(); };
+        _ = delayed.Release.TrySetResult();
         await queued.Task.WaitAsync(TimeSpan.FromSeconds(5));
         vm.CancelPendingAction();
         vm.UiScheduler = action => action();
@@ -485,7 +491,7 @@ public sealed class ReportActionTests : IDisposable
             if (runId == delayedId)
             {
                 if (FailLookup) throw new IOException("Store unavailable");
-                Started.TrySetResult();
+                _ = Started.TrySetResult();
                 await Release.Task;
             }
             return await inner.LoadAsync(runId, cancellationToken);
@@ -501,11 +507,11 @@ public sealed class ReportActionTests : IDisposable
         var managed = Path.Combine(_root, "runs");
         var first = Path.Combine(managed, "first", "issued", "certification", "rev1", "certification.pdf");
         var second = Path.Combine(managed, "second", "issued", "certification", "rev2", "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(first)!);
-        Directory.CreateDirectory(Path.GetDirectoryName(second)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(first)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(second)!);
         await File.WriteAllBytesAsync(first, [1, 2, 3]);
         await File.WriteAllBytesAsync(second, [9, 8, 7]);
-        await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(first, second,
+        _ = await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(first, second,
             managedRunsDirectory: managed));
         Assert.Equal(new byte[] { 9, 8, 7 }, await File.ReadAllBytesAsync(second));
         Assert.Equal(new byte[] { 1, 2, 3 }, await File.ReadAllBytesAsync(first));
@@ -521,7 +527,7 @@ public sealed class ReportActionTests : IDisposable
         var issued = Path.Combine(managed, "run", "issued", "rev1", "report.pdf");
         var source = Path.Combine(_root, "source.pdf");
         var alias = Path.Combine(_root, "outside-alias");
-        Directory.CreateDirectory(Path.GetDirectoryName(issued)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(issued)!);
         await File.WriteAllBytesAsync(issued, [9, 8, 7]);
         await File.WriteAllBytesAsync(source, [1, 2, 3]);
         if (OperatingSystem.IsWindows())
@@ -535,13 +541,13 @@ public sealed class ReportActionTests : IDisposable
         }
         else
         {
-            Directory.CreateSymbolicLink(alias, managed);
+            _ = Directory.CreateSymbolicLink(alias, managed);
         }
 
         try
         {
             var destination = Path.Combine(alias, "run", "issued", "rev1", "report.pdf");
-            await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, destination,
+            _ = await Assert.ThrowsAsync<IOException>(() => ReportDesktopActions.CopyToLocalPathAsync(source, destination,
                 managedRunsDirectory: managed));
             Assert.Equal(new byte[] { 9, 8, 7 }, await File.ReadAllBytesAsync(issued));
         }
@@ -567,7 +573,7 @@ public sealed class ReportActionTests : IDisposable
         await vm.UsePresenceCommand.ExecuteAsync();
         Assert.Equal(1, delayed.Calls);
         Assert.Contains("still finishing", vm.SigningPromptStatus);
-        delayed.Release.TrySetResult();
+        _ = delayed.Release.TrySetResult();
         await oldAttempt;
         await vm.SignCommand.ExecuteAsync();
         await vm.SignAndContinueCommand.ExecuteAsync();
@@ -600,7 +606,7 @@ public sealed class ReportActionTests : IDisposable
             await preview.UsePresenceCommand.ExecuteAsync();
             Assert.Equal(1, delayed.Calls);
             Assert.Contains("still finishing", preview.SigningPromptStatus);
-            delayed.Release.TrySetResult();
+            _ = delayed.Release.TrySetResult();
             await oldAttempt;
             await preview.SignAndContinueCommand.ExecuteAsync();
         }
@@ -610,7 +616,7 @@ public sealed class ReportActionTests : IDisposable
             await results.UsePresenceAttestationCommand.ExecuteAsync();
             Assert.Equal(1, delayed.Calls);
             Assert.Contains("still finishing", results.AttestationPromptStatus);
-            delayed.Release.TrySetResult();
+            _ = delayed.Release.TrySetResult();
             await oldAttempt;
             await results.UsePresenceAttestationCommand.ExecuteAsync();
         }
@@ -648,7 +654,7 @@ public sealed class ReportActionTests : IDisposable
             Assert.Equal(statusWhileExportIsHeld, results.Status);
             Assert.True(results.IsBusy);
         }
-        finally { exports.Release.TrySetResult(); }
+        finally { _ = exports.Release.TrySetResult(); }
         await export.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(results.IsBusy);
         Assert.Contains("Exported package", results.Status, StringComparison.Ordinal);
@@ -664,7 +670,7 @@ public sealed class ReportActionTests : IDisposable
             => throw new NotSupportedException();
         public string ExportPackage(ExportTarget target, string packageFolderName, IEnumerable<(string SourcePath, string RelativeName)> files)
         {
-            Started.TrySetResult();
+            _ = Started.TrySetResult();
             Release.Task.WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
             return Path.Combine(root, packageFolderName);
         }
@@ -677,8 +683,10 @@ public sealed class ReportActionTests : IDisposable
         var settings = new AppSettings { RequireAttestationBeforeExport = true, AllowPresenceInLieuOfSigning = true };
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
         var actions = new Actions(Path.Combine(_root, "saved.pdf"));
-        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: actions, desktop: actions, settings: settings);
-        vm.UiScheduler = action => action();
+        var vm = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service, printer: actions, desktop: actions, settings: settings)
+        {
+            UiScheduler = action => action()
+        };
         await vm.LoadFromPathAsync(run.Reports[0].PdfPath);
         return (run, vm, actions, service);
     }
@@ -767,7 +775,7 @@ public sealed class ReportActionTests : IDisposable
         public async Task<string?> SaveCopyAsync(string path, CancellationToken cancellationToken = default)
         {
             SaveCalls++;
-            Started.TrySetResult();
+            _ = Started.TrySetResult();
             await Release.Task;
             cancellationToken.ThrowIfCancellationRequested();
             return "saved.pdf";
@@ -793,7 +801,7 @@ public sealed class ReportActionTests : IDisposable
         {
             CapturedRunId = run.RunId;
             Calls++;
-            Started.TrySetResult();
+            _ = Started.TrySetResult();
             await Release.Task;
             // Simulate a provider completing late despite cancellation; it must never resume the old action.
             return Result;

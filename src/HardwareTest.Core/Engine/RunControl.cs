@@ -33,15 +33,13 @@ public interface IRunControl : INotifyPropertyChanged
 }
 
 /// Coordinates pause, soft cancel, and prioritized safety stop across engines and UI.
-public sealed class RunControl : IRunControl
+public sealed class RunControl(VisaSessionGate gate) : IRunControl
 {
-    private readonly VisaSessionGate _gate;
+    private readonly VisaSessionGate _gate = gate;
     private readonly ManualResetEventSlim _pauseEvent = new(initialState: true);
     private readonly object _sync = new();
     private CancellationTokenSource? _runCts;
     private CancellationTokenSource? _safetyCts;
-
-    public RunControl(VisaSessionGate gate) => _gate = gate;
 
     public bool IsRunning { get; private set; }
     public bool IsPaused { get; private set; }
@@ -178,7 +176,7 @@ public sealed class RunControl : IRunControl
         while (!_pauseEvent.IsSet)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await Task.Run(() => _pauseEvent.Wait(millisecondsTimeout: 50), cancellationToken).ConfigureAwait(false);
+            _ = await Task.Run(() => _pauseEvent.Wait(millisecondsTimeout: 50), cancellationToken).ConfigureAwait(false);
         }
     }
 

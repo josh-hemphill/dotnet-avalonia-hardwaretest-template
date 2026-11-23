@@ -145,14 +145,14 @@ public static class ReportKinds
             {
                 if (builder.Length > 0 && builder[^1] != ' ')
                 {
-                    builder.Append(' ');
+                    _ = builder.Append(' ');
                 }
 
                 capitalize = true;
                 continue;
             }
 
-            builder.Append(capitalize ? char.ToUpperInvariant(ch) : ch);
+            _ = builder.Append(capitalize ? char.ToUpperInvariant(ch) : ch);
             capitalize = false;
         }
 

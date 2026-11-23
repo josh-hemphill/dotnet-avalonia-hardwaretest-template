@@ -69,7 +69,7 @@ public sealed class RecordingSessionSelectionTests : IDisposable
     private string Workspace(string name)
     {
         var workspace = Path.Combine(_root, name);
-        Directory.CreateDirectory(workspace);
+        _ = Directory.CreateDirectory(workspace);
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "dirs.proj"))) repo = repo.Parent;
         Assert.NotNull(repo);
@@ -86,7 +86,7 @@ public sealed class RecordingSessionSelectionTests : IDisposable
     private static void Recording(string workspace, string planId, string folder, string runId, double value)
     {
         var destination = Path.Combine(workspace, "recordings", folder);
-        Directory.CreateDirectory(destination);
+        _ = Directory.CreateDirectory(destination);
         File.WriteAllText(Path.Combine(destination, "run.json"), JsonSerializer.Serialize(new TestRunRecord
         { PlanId = planId, RunId = runId, Samples = [new StoredSample { MetricKey = "VDC", Value = value }] }, AppJsonContext.Default.TestRunRecord));
     }

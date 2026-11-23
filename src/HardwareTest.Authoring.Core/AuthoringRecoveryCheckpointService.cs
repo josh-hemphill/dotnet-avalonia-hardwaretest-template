@@ -25,7 +25,7 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
     internal Task DrainStoppedWritersAsync()
     {
         Task[] owned;
-        lock (gate) { disposed = true; CancelAllCore(); owned = writers.ToArray(); }
+        lock (gate) { disposed = true; CancelAllCore(); owned = [.. writers]; }
         return Task.WhenAll(owned);
     }
 
@@ -61,8 +61,8 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
             var checkpoint = new PendingCheckpoint(snapshot);
             pending.Add(key, checkpoint);
             var writer = Task.Run(() => SaveAfterDelayAsync(key, checkpoint));
-            writers.Add(writer);
-            _ = writer.ContinueWith(completedWriter => { lock (gate) writers.Remove(completedWriter); },
+            _ = writers.Add(writer);
+            _ = writer.ContinueWith(completedWriter => { lock (gate) _ = writers.Remove(completedWriter); },
                 CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         }
     }
@@ -113,14 +113,14 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
                 lock (gate) if (!IsCurrent(key, checkpoint)) return;
                 // Slow durable writes use a private candidate. Only the final rename holds the session gate.
                 stagingDirectory = Path.Combine(Path.GetDirectoryName(path)!, ".checkpoint-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(stagingDirectory);
+                _ = Directory.CreateDirectory(stagingDirectory);
                 var candidate = Path.Combine(stagingDirectory, Path.GetFileName(path));
                 if (write is null) store.SaveAtPath(candidate, checkpoint.Document);
                 else write(candidate, checkpoint.Document);
                 candidateWritten = true;
                 // Reads and schema/path checks remain outside the session gate. The gate protects
                 // service generations; as with durable source saves, it cannot lock out external editors.
-                store.ValidatePath(path);
+                _ = store.ValidatePath(path);
                 var backupPath = store.ValidatePath(path + ".bak");
                 var existing = store.LoadAtPath(path);
                 if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error);
@@ -169,7 +169,7 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
                 lock (gate)
                 {
                     if (!IsCurrent(key, checkpoint)) return;
-                    pending.Remove(key);
+                    _ = pending.Remove(key);
                     completed(result);
                 }
             });

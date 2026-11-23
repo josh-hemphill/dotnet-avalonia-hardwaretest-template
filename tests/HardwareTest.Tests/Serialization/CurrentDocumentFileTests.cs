@@ -30,9 +30,9 @@ public sealed class CurrentDocumentFileTests
         File.WriteAllText(path, primary);
         File.WriteAllBytes(path + ".bak", backup);
 
-        var loaded = await Read(path);
-        Assert.Equal("backup", loaded.Document?.RunId);
-        Assert.Equal(DocumentSchemaKind.Current, loaded.Status.Kind);
+        var (Document, Status) = await Read(path);
+        Assert.Equal("backup", Document?.RunId);
+        Assert.Equal(DocumentSchemaKind.Current, Status.Kind);
         Assert.Equal(backup, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
         Assert.Equal(2, Directory.GetFiles(temp.Path).Length);
@@ -45,8 +45,8 @@ public sealed class CurrentDocumentFileTests
         var path = Path.Combine(temp.Path, "run.json");
         var backup = CurrentBytes();
         File.WriteAllBytes(path + ".bak", backup);
-        var loaded = await Read(path);
-        Assert.Equal("backup", loaded.Document?.RunId);
+        var (Document, Status) = await Read(path);
+        Assert.Equal("backup", Document?.RunId);
         Assert.Equal(backup, File.ReadAllBytes(path));
     }
 
@@ -63,8 +63,8 @@ public sealed class CurrentDocumentFileTests
         var before = File.ReadAllBytes(path);
         var backup = CurrentBytes();
         File.WriteAllBytes(path + ".bak", backup);
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Read(path));
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Read(path));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
         Assert.Equal(before, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
     }
@@ -78,11 +78,11 @@ public sealed class CurrentDocumentFileTests
         var before = File.ReadAllBytes(path);
         var backup = CurrentBytes();
         File.WriteAllBytes(path + ".bak", backup);
-        var loaded = await Read(path);
-        Assert.Equal("future", loaded.Document?.RunId);
-        Assert.Equal(999, loaded.Document?.SchemaVersion);
-        Assert.True(loaded.Status.IsReadOnly);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
+        var (Document, Status) = await Read(path);
+        Assert.Equal("future", Document?.RunId);
+        Assert.Equal(999, Document?.SchemaVersion);
+        Assert.True(Status.IsReadOnly);
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
         Assert.Equal(before, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
     }
@@ -101,9 +101,9 @@ public sealed class CurrentDocumentFileTests
         File.WriteAllText(path + ".bak", backup);
         var primaryBytes = File.ReadAllBytes(path);
         var backupBytes = File.ReadAllBytes(path + ".bak");
-        if (failure == "unsupported") await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Read(path));
-        else if (failure == "future") await Assert.ThrowsAsync<SchemaReadOnlyException>(() => Read(path));
-        else await Assert.ThrowsAnyAsync<JsonException>(() => Read(path));
+        if (failure == "unsupported") _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => Read(path));
+        else if (failure == "future") _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => Read(path));
+        else _ = await Assert.ThrowsAnyAsync<JsonException>(() => Read(path));
         Assert.Equal(primaryBytes, File.ReadAllBytes(path));
         Assert.Equal(backupBytes, File.ReadAllBytes(path + ".bak"));
     }
@@ -132,9 +132,13 @@ public sealed class CurrentDocumentFileTests
         Assert.Equal(SchemaVersions.CrashReport, new CrashReportDocument().SchemaVersion);
         File.WriteAllText(path, json);
         var before = File.ReadAllBytes(path);
-        Task ReadCrash() => CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.CrashReportDocument, SchemaDocumentTypes.CrashReport, SchemaVersions.CrashReport);
-        if (unsupported) await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(ReadCrash);
-        else await Assert.ThrowsAnyAsync<JsonException>(ReadCrash);
+        Task ReadCrash()
+        {
+            return CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.CrashReportDocument, SchemaDocumentTypes.CrashReport, SchemaVersions.CrashReport);
+        }
+
+        if (unsupported) _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(ReadCrash);
+        else _ = await Assert.ThrowsAnyAsync<JsonException>(ReadCrash);
         Assert.Equal(before, File.ReadAllBytes(path));
     }
     [Theory]
@@ -157,12 +161,12 @@ public sealed class CurrentDocumentFileTests
         ];
         foreach (var action in actions)
         {
-            if (future) await Assert.ThrowsAsync<SchemaReadOnlyException>(action);
-            else await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(action);
+            if (future) _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(action);
+            else _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(action);
             Assert.False(File.Exists(path));
             Assert.Equal(before, File.ReadAllBytes(path + ".bak"));
         }
-        Assert.Single(Directory.GetFiles(temp.Path));
+        _ = Assert.Single(Directory.GetFiles(temp.Path));
     }
 
     [Theory]
@@ -174,12 +178,12 @@ public sealed class CurrentDocumentFileTests
         var path = Path.Combine(temp.Path, "run.json");
         File.WriteAllText(path + ".bak", backup);
         var before = File.ReadAllBytes(path + ".bak");
-        await Assert.ThrowsAnyAsync<JsonException>(() => CurrentDocumentFile.ValidateWriteDestinationAsync(path,
+        _ = await Assert.ThrowsAnyAsync<JsonException>(() => CurrentDocumentFile.ValidateWriteDestinationAsync(path,
             AppJsonContext.Default.TestRunRecord, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
-        await Assert.ThrowsAnyAsync<JsonException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
+        _ = await Assert.ThrowsAnyAsync<JsonException>(() => Write(path, new TestRunRecord { RunId = "replacement" }));
         Assert.False(File.Exists(path));
         Assert.Equal(before, File.ReadAllBytes(path + ".bak"));
-        Assert.Single(Directory.GetFiles(temp.Path));
+        _ = Assert.Single(Directory.GetFiles(temp.Path));
     }
 
     [Fact]

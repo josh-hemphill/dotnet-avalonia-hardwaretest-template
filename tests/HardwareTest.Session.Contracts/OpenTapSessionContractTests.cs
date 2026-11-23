@@ -78,18 +78,9 @@ public abstract class OpenTapSessionContractTests
         var runTask = session.RunAsync().ContinueWith(
             t =>
             {
-                if (t.IsCompletedSuccessfully)
-                {
-                    completed.TrySetResult(t.Result);
-                }
-                else if (t.IsFaulted)
-                {
-                    completed.TrySetException(t.Exception!.InnerExceptions);
-                }
-                else
-                {
-                    completed.TrySetCanceled();
-                }
+                _ = t.IsCompletedSuccessfully
+                    ? completed.TrySetResult(t.Result)
+                    : t.IsFaulted ? completed.TrySetException(t.Exception.InnerExceptions) : completed.TrySetCanceled();
             },
             TaskScheduler.Default);
 
@@ -196,11 +187,11 @@ public abstract class OpenTapSessionContractTests
         await ApplyDefaultStationAsync(session);
 
         var changed = new HashSet<string>(StringComparer.Ordinal);
-        session.PropertyChanged += (_, e) =>
+        session.PropertyChanged += (sender, e) =>
         {
             if (!string.IsNullOrEmpty(e.PropertyName))
             {
-                changed.Add(e.PropertyName);
+                _ = changed.Add(e.PropertyName);
             }
         };
 
@@ -230,7 +221,7 @@ public abstract class OpenTapSessionContractTests
                 if (firstPromptId is null)
                 {
                     firstPromptId = request.Id;
-                    awaiting.TrySetResult(true);
+                    _ = awaiting.TrySetResult(true);
                     return;
                 }
 
@@ -284,7 +275,7 @@ public abstract class OpenTapSessionContractTests
                 session.Abort(safetyStop: true);
                 try
                 {
-                    await runTask.WaitAsync(TimeSpan.FromSeconds(5));
+                    _ = await runTask.WaitAsync(TimeSpan.FromSeconds(5));
                 }
                 catch
                 {
@@ -341,17 +332,10 @@ public abstract class OpenTapSessionContractTests
         var keys = listed.Select(p => p.MemberKey).ToList();
         Assert.Equal(keys.Count, keys.Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
-        var original = writable!.Value;
-        string next;
-        if (writable.Kind == OperatorInteractionFieldKind.Boolean)
-        {
-            next = string.Equals(original, "true", StringComparison.OrdinalIgnoreCase) ? "false" : "true";
-        }
-        else
-        {
-            next = string.Equals(original, "1", StringComparison.Ordinal) ? "2" : "1";
-        }
-
+        var original = writable.Value;
+        var next = writable.Kind == OperatorInteractionFieldKind.Boolean
+            ? string.Equals(original, "true", StringComparison.OrdinalIgnoreCase) ? "false" : "true"
+            : string.Equals(original, "1", StringComparison.Ordinal) ? "2" : "1";
         Assert.True(session.TrySetParameter(writable.MemberKey, next));
         Assert.True(session.TryGetParameter(writable.MemberKey, out var got));
         Assert.Equal(next, got);
@@ -464,14 +448,14 @@ public abstract class OpenTapSessionContractTests
     public static string FormatApprovedSurface(Type type)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"# Approved surface: {type.FullName}");
-        sb.AppendLine("# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.");
+        _ = sb.AppendLine($"# Approved surface: {type.FullName}");
+        _ = sb.AppendLine("# Update this file in the same commit when IOpenTapSession (or a focused surface) changes.");
 
         // IOpenTapSession is an empty aggregate of focused surfaces — flatten DeclaredOnly
         // members from the type and every Host IOpenTap* interface it implements.
         var members = SurfacesToScan(type)
             .SelectMany(t => t.GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
-            .GroupBy(m => MemberKey(m), StringComparer.Ordinal)
+            .GroupBy(MemberKey, StringComparer.Ordinal)
             .Select(g => g.First())
             .OrderBy(m => m.MemberType)
             .ThenBy(m => m.Name, StringComparer.Ordinal);
@@ -481,21 +465,21 @@ public abstract class OpenTapSessionContractTests
             switch (member)
             {
                 case PropertyInfo prop:
-                    sb.Append("prop ").Append(TypeName(prop.PropertyType)).Append(' ').Append(prop.Name);
-                    sb.Append(" {");
-                    if (prop.CanRead) sb.Append(" get;");
-                    if (prop.CanWrite) sb.Append(" set;");
-                    sb.AppendLine(" }");
+                    _ = sb.Append("prop ").Append(TypeName(prop.PropertyType)).Append(' ').Append(prop.Name);
+                    _ = sb.Append(" {");
+                    if (prop.CanRead) _ = sb.Append(" get;");
+                    if (prop.CanWrite) _ = sb.Append(" set;");
+                    _ = sb.AppendLine(" }");
                     break;
                 case MethodInfo method when method.IsSpecialName:
                     break;
                 case MethodInfo method:
-                    sb.Append("method ").Append(TypeName(method.ReturnType)).Append(' ').Append(method.Name).Append('(');
-                    sb.Append(string.Join(", ", method.GetParameters().Select(FormatParam)));
-                    sb.AppendLine(")");
+                    _ = sb.Append("method ").Append(TypeName(method.ReturnType)).Append(' ').Append(method.Name).Append('(');
+                    _ = sb.Append(string.Join(", ", method.GetParameters().Select(FormatParam)));
+                    _ = sb.AppendLine(")");
                     break;
                 case EventInfo evt:
-                    sb.Append("event ").Append(TypeName(evt.EventHandlerType!)).Append(' ').AppendLine(evt.Name);
+                    _ = sb.Append("event ").Append(TypeName(evt.EventHandlerType!)).Append(' ').AppendLine(evt.Name);
                     break;
             }
         }
@@ -503,7 +487,7 @@ public abstract class OpenTapSessionContractTests
         // INotifyPropertyChanged.PropertyChanged is inherited — include it when applicable.
         if (typeof(System.ComponentModel.INotifyPropertyChanged).IsAssignableFrom(type))
         {
-            sb.AppendLine("event System.ComponentModel.PropertyChangedEventHandler PropertyChanged");
+            _ = sb.AppendLine("event System.ComponentModel.PropertyChangedEventHandler PropertyChanged");
         }
 
         return sb.ToString();

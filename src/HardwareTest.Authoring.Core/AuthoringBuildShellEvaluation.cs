@@ -38,7 +38,7 @@ public static partial class AuthoringBuildService
 
                 paths.Add(path);
             }
-            return paths.ToArray();
+            return [.. paths];
         }
         var properties = document.RootElement.GetProperty("Properties");
         foreach (var name in ShellOutputIdentityProperties)
@@ -51,13 +51,13 @@ public static partial class AuthoringBuildService
         foreach (var property in new[] { "DirectoryBuildPropsPath", "DirectoryBuildTargetsPath", "DirectoryPackagesPropsPath" })
         {
             var value = ShellJsonProperty(properties, property).GetString();
-            if (!string.IsNullOrWhiteSpace(value) && File.Exists(value)) imports.Add(Path.GetFullPath(value));
+            if (!string.IsNullOrWhiteSpace(value) && File.Exists(value)) _ = imports.Add(Path.GetFullPath(value));
         }
         // Preprocessing expands imports without invoking targets, including imports from central configs.
         var temporary = Path.Combine(Path.GetTempPath(), "authoring-shell-evaluation-" + Guid.NewGuid().ToString("N") + ".xml");
         try
         {
-            RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary], environment);
+            _ = RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary], environment);
             foreach (var line in File.ReadLines(temporary))
             {
                 var path = line.Trim();
@@ -66,7 +66,7 @@ public static partial class AuthoringBuildService
                 if (!ShellContains(sdkRoot, path) && !packageFolders.Any(f => ShellContains(f, path))
                     && !path.Split(Path.DirectorySeparatorChar).Contains("obj", StringComparer.Ordinal))
                 {
-                    imports.Add(path);
+                    _ = imports.Add(path);
                 }
             }
         }
@@ -92,13 +92,13 @@ public static partial class AuthoringBuildService
         foreach (var reference in ShellJsonProperty(items, "Reference").EnumerateArray())
         {
             if (TryShellJsonProperty(reference, "HintPath", out var hint) && !string.IsNullOrWhiteSpace(hint.GetString()))
-                inputs = inputs.Append(Resolve(Path.GetDirectoryName(project)!, hint.GetString()!)).ToArray();
+                inputs = [.. inputs, Resolve(Path.GetDirectoryName(project)!, hint.GetString()!)];
         }
 
         var references = Paths("ProjectReference").Concat(projectFiles.SelectMany(p => XDocument.Load(p).Descendants().Where(e => ShellIdentifierIs(e.Name.LocalName, "ProjectReference")))
             .Select(e => Resolve(Path.GetDirectoryName(project)!, ((string?)e.Attribute("Include") ?? "").Replace('\\', Path.DirectorySeparatorChar))))
             .Distinct(StringComparer.Ordinal).ToArray();
-        return new(references, imports.ToArray(), inputs,
+        return new(references, [.. imports], inputs,
             ShellJsonProperty(properties, "MSBuildProjectExtensionsPath").GetString()!, ShellJsonProperty(items, "PackageReference").GetArrayLength() > 0);
     }
 

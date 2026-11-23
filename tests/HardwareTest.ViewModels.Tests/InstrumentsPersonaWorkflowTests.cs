@@ -271,7 +271,7 @@ public sealed class InstrumentsPersonaWorkflowTests
         else
         {
             Assert.True(second.HasLastIdn);
-            Assert.Equal("Serial-42", VisaResourceParser.FormatIdn(Assert.Single(fixture.Identities.List()).IdnRaw).Item3);
+            Assert.Equal("Serial-42", VisaResourceParser.FormatIdn(Assert.Single(fixture.Identities.List()).IdnRaw).Serial);
             Assert.Equal(second.PlanId, Assert.Single(fixture.Identities.List()).PlanId);
         }
     }
@@ -457,7 +457,7 @@ public sealed class InstrumentsPersonaWorkflowTests
             try
             {
                 var programs = Path.Combine(AppContext.BaseDirectory, "Programs");
-                Directory.CreateDirectory(programs);
+                _ = Directory.CreateDirectory(programs);
                 foreach (var id in new[] { FirstPlanId, SecondPlanId })
                 {
                     var path = Path.Combine(programs, id + ".TapPlan");
@@ -490,8 +490,7 @@ public sealed class InstrumentsPersonaWorkflowTests
     private sealed class FailingSettingsStore : ISettingsStore
     {
         private readonly FakeSettingsStore _inner = new();
-        private bool _writable = true;
-        private string? _failure;
+
         internal bool FailSave { get; set; } = true;
         internal bool ThrowOnFailure { get; init; }
         public AppSettings AppSettings => _inner.AppSettings;
@@ -500,8 +499,8 @@ public sealed class InstrumentsPersonaWorkflowTests
         public string RunsDirectory => _inner.RunsDirectory;
         public string SettingsPath => _inner.SettingsPath;
         public IReadOnlyList<SettingProvenance> Provenance => _inner.Provenance;
-        public bool IsSettingsWritable => _writable;
-        public string? LastPersistenceError => _failure;
+        public bool IsSettingsWritable { get; private set; } = true;
+        public string? LastPersistenceError { get; private set; }
         public string? SettingsSchemaWarning => null;
         public bool IsOverridden(string key) => false;
         public event EventHandler? AppSettingsSaved { add { } remove { } }
@@ -511,9 +510,9 @@ public sealed class InstrumentsPersonaWorkflowTests
             CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task SaveAppSettingsAsync(CancellationToken cancellationToken = default)
         {
-            _writable = !FailSave;
-            _failure = FailSave ? "Review disk full" : null;
-            return FailSave && ThrowOnFailure ? Task.FromException(new IOException(_failure)) : Task.CompletedTask;
+            IsSettingsWritable = !FailSave;
+            LastPersistenceError = FailSave ? "Review disk full" : null;
+            return FailSave && ThrowOnFailure ? Task.FromException(new IOException(LastPersistenceError)) : Task.CompletedTask;
         }
         public Task SaveUiStateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }

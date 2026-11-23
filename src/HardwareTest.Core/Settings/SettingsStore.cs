@@ -32,8 +32,6 @@ public interface ISettingsStore
 /// Effective values = defaults → settings.json → environment → command line.
 public sealed class SettingsStore : ISettingsStore
 {
-    private readonly string _rootDirectory;
-    private readonly string _settingsPath;
     private readonly string _uiStatePath;
     private AppSettings _fileBaseline;
     private List<SettingProvenance> _provenance = [];
@@ -43,21 +41,19 @@ public sealed class SettingsStore : ISettingsStore
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     private bool _settingsWriteBlocked;
     private bool _uiStateWriteBlocked;
-    private string? _settingsSchemaWarning;
-    private string? _uiStateSchemaWarning;
 
     public SettingsStore(string? rootDirectory = null, string? settingsFilePath = null)
     {
-        _rootDirectory = rootDirectory
+        RootDirectory = rootDirectory
             ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "HardwareTest");
-        Directory.CreateDirectory(_rootDirectory);
-        _settingsPath = string.IsNullOrWhiteSpace(settingsFilePath)
-            ? Path.Combine(_rootDirectory, "settings.json")
+        _ = Directory.CreateDirectory(RootDirectory);
+        SettingsPath = string.IsNullOrWhiteSpace(settingsFilePath)
+            ? Path.Combine(RootDirectory, "settings.json")
             : Path.GetFullPath(settingsFilePath);
-        _uiStatePath = Path.Combine(_rootDirectory, "ui-state.json");
-        _fileBaseline = CreateDefaultAppSettings(_rootDirectory);
+        _uiStatePath = Path.Combine(RootDirectory, "ui-state.json");
+        _fileBaseline = CreateDefaultAppSettings(RootDirectory);
         AppSettings = CloneSettings(_fileBaseline);
         UiState = new UiState { SchemaVersion = SchemaVersions.UiState };
         SeedDefaultProvenance();
@@ -66,16 +62,16 @@ public sealed class SettingsStore : ISettingsStore
 
     public AppSettings AppSettings { get; private set; }
     public UiState UiState { get; private set; }
-    public string RootDirectory => _rootDirectory;
-    public string RunsDirectory => Path.Combine(_rootDirectory, "runs");
-    public string SettingsPath => _settingsPath;
+    public string RootDirectory { get; }
+    public string RunsDirectory => Path.Combine(RootDirectory, "runs");
+    public string SettingsPath { get; }
     public IReadOnlyList<SettingProvenance> Provenance => _provenance;
     public bool IsSettingsWritable { get; private set; }
     public string? LastPersistenceError { get; private set; }
     /// In-panel warning when settings.json cannot be written.
-    public string? SettingsSchemaWarning => _settingsSchemaWarning;
+    public string? SettingsSchemaWarning { get; private set; }
     /// In-panel warning when ui-state.json cannot be written.
-    public string? UiStateSchemaWarning => _uiStateSchemaWarning;
+    public string? UiStateSchemaWarning { get; private set; }
 
     public bool IsOverridden(string key)
         => AppSettingsEnvironmentBinder.IsOverridden(_provenance, key)
@@ -95,37 +91,37 @@ public sealed class SettingsStore : ISettingsStore
         _commandLineOverlays = commandLineOverlays
             ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        Directory.CreateDirectory(RunsDirectory);
+        _ = Directory.CreateDirectory(RunsDirectory);
 
         _settingsWriteBlocked = false;
         _uiStateWriteBlocked = false;
-        _settingsSchemaWarning = null;
-        _uiStateSchemaWarning = null;
+        SettingsSchemaWarning = null;
+        UiStateSchemaWarning = null;
         CopyOnto(new UiState(), UiState);
         LastPersistenceError = null;
         IsSettingsWritable = true;
-        _fileBaseline = CreateDefaultAppSettings(_rootDirectory);
+        _fileBaseline = CreateDefaultAppSettings(RootDirectory);
         var provenance = new List<SettingProvenance>();
         SeedDefaultProvenance(provenance, _fileBaseline);
 
         try
         {
-            var (loaded, status) = await CurrentDocumentFile.ReadAsync(_settingsPath, AppJsonContext.Default.AppSettings,
+            var (loaded, status) = await CurrentDocumentFile.ReadAsync(SettingsPath, AppJsonContext.Default.AppSettings,
                 SchemaDocumentTypes.AppSettings, SchemaVersions.AppSettings, cancellationToken).ConfigureAwait(false);
             if (loaded is not null)
             {
                 if (!HasReadableReferenceSelections(loaded))
                     throw new JsonException("Saved golden-reference choices are malformed. Preserve settings.json, correct its benchReferenceSelections and reload settings. No saved choices were restored.");
                 _settingsWriteBlocked = status.IsReadOnly;
-                _settingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                SettingsSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
                 if (status.IsReadOnly)
                 {
                     IsSettingsWritable = false;
-                    warn?.Invoke(_settingsSchemaWarning!);
+                    warn?.Invoke(SettingsSchemaWarning!);
                 }
                 else
                 {
-                    if (string.IsNullOrWhiteSpace(loaded.DataDirectory)) loaded.DataDirectory = _rootDirectory;
+                    if (string.IsNullOrWhiteSpace(loaded.DataDirectory)) loaded.DataDirectory = RootDirectory;
                     OperatorSessionIdle.Normalize(loaded);
                 }
                 _fileBaseline = loaded;
@@ -137,7 +133,7 @@ public sealed class SettingsStore : ISettingsStore
         {
             _settingsWriteBlocked = true;
             IsSettingsWritable = false;
-            _settingsSchemaWarning = ex.Message;
+            SettingsSchemaWarning = ex.Message;
             LastPersistenceError = ex.Message;
             warn?.Invoke($"Failed to read settings.json ({ex.Message}); using defaults. Saving is blocked.");
         }
@@ -168,8 +164,8 @@ public sealed class SettingsStore : ISettingsStore
             if (loaded is not null)
             {
                 _uiStateWriteBlocked = status.IsReadOnly;
-                _uiStateSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
-                if (status.IsReadOnly) warn?.Invoke(_uiStateSchemaWarning!);
+                UiStateSchemaWarning = status.IsReadOnly ? status.FormatOperatorWarning() : null;
+                if (status.IsReadOnly) warn?.Invoke(UiStateSchemaWarning!);
                 CopyOnto(loaded, UiState);
             }
         }
@@ -177,7 +173,7 @@ public sealed class SettingsStore : ISettingsStore
                                    or UnsupportedDocumentSchemaException or SchemaReadOnlyException)
         {
             _uiStateWriteBlocked = true;
-            _uiStateSchemaWarning = ex.Message;
+            UiStateSchemaWarning = ex.Message;
             LastPersistenceError = ex.Message;
             warn?.Invoke($"Failed to read ui-state.json ({ex.Message}); saving is blocked.");
         }
@@ -190,7 +186,7 @@ public sealed class SettingsStore : ISettingsStore
         if (_settingsWriteBlocked)
         {
             IsSettingsWritable = false;
-            LastPersistenceError = _settingsSchemaWarning
+            LastPersistenceError = SettingsSchemaWarning
                 ?? "settings.json document cannot be written; refusing to overwrite.";
             return;
         }
@@ -214,15 +210,15 @@ public sealed class SettingsStore : ISettingsStore
 
         try
         {
-            DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.AppSettings, AppSettings.SchemaVersion, SchemaVersions.AppSettings, _settingsPath);
-            var directory = Path.GetDirectoryName(_settingsPath);
+            DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.AppSettings, AppSettings.SchemaVersion, SchemaVersions.AppSettings, SettingsPath);
+            var directory = Path.GetDirectoryName(SettingsPath);
             if (!string.IsNullOrWhiteSpace(directory))
             {
-                Directory.CreateDirectory(directory);
+                _ = Directory.CreateDirectory(directory);
             }
 
             await CurrentDocumentFile.WriteAsync(
-                    _settingsPath, toWrite, AppJsonContext.Default.AppSettings,
+                    SettingsPath, toWrite, AppJsonContext.Default.AppSettings,
                     SchemaDocumentTypes.AppSettings, toWrite.SchemaVersion, SchemaVersions.AppSettings, cancellationToken)
                 .ConfigureAwait(false);
             _fileBaseline = CloneSettings(toWrite);
@@ -246,7 +242,7 @@ public sealed class SettingsStore : ISettingsStore
     {
         if (_uiStateWriteBlocked)
         {
-            LastPersistenceError = _uiStateSchemaWarning
+            LastPersistenceError = UiStateSchemaWarning
                 ?? "ui-state.json document cannot be written; refusing to overwrite.";
             return;
         }
@@ -304,7 +300,7 @@ public sealed class SettingsStore : ISettingsStore
             }
 
             // Re-apply formatted value through the binder for a consistent copy.
-            binding.TryApply(to, binding.Format(from), out _, out _);
+            _ = binding.TryApply(to, binding.Format(from), out _, out _);
         }
 
         if (!IsOverridden("PlanSlotOverrides")
@@ -355,7 +351,7 @@ public sealed class SettingsStore : ISettingsStore
         foreach (var binding in AppSettingsEnvironmentBinder.Bindings)
         {
             var effective = binding.Format(file);
-            var defaults = CreateDefaultAppSettings(_rootDirectory);
+            var defaults = CreateDefaultAppSettings(RootDirectory);
             var defaultValue = binding.Format(defaults);
             if (string.Equals(effective, defaultValue, StringComparison.Ordinal))
             {
@@ -368,7 +364,7 @@ public sealed class SettingsStore : ISettingsStore
                 EffectiveValue = effective,
                 Source = SettingSource.SettingsFile,
                 RawValue = effective,
-                SourceDetail = _settingsPath,
+                SourceDetail = SettingsPath,
             });
         }
     }
@@ -494,5 +490,5 @@ public sealed class SettingsStore : ISettingsStore
     }
 
     private static List<T> CloneList<T>(IEnumerable<T> source, Func<T, T> clone)
-        => source.Select(clone).ToList();
+        => [.. source.Select(clone)];
 }

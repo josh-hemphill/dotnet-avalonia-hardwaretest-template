@@ -22,11 +22,11 @@ internal static class AlphaDevicePlanFixture
     {
         var plan = new TestPlan();
         var group = new TestGroupStep { Name = "Mixed vendor measurements" };
-        foreach (var item in Cases)
+        foreach (var (Driver, Operation, Arguments, _, _, _) in Cases)
         {
-            var instrument = new RegisteredInstrument { Name = item.Driver, DriverId = item.Driver, VisaAddress = "MOCK::" + item.Driver };
-            var step = new DeviceOperationStep { Name = item.Driver + " measurement", Instrument = instrument, Operation = item.Operation, Arguments = item.Arguments, Channel = item.Driver };
-            OpenTapMixinAttach.AttachPresentation(step, item.Driver, PresentationDisplayRoles.Scalar, "");
+            var instrument = new RegisteredInstrument { Name = Driver, DriverId = Driver, VisaAddress = "MOCK::" + Driver };
+            var step = new DeviceOperationStep { Name = Driver + " measurement", Instrument = instrument, Operation = Operation, Arguments = Arguments, Channel = Driver };
+            _ = OpenTapMixinAttach.AttachPresentation(step, Driver, PresentationDisplayRoles.Scalar, "");
             group.ChildTestSteps.Add(step);
         }
         plan.ChildTestSteps.Add(group);
@@ -105,7 +105,7 @@ internal static class AlphaDevicePlanFixture
         }
         public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref Opens);
+            _ = Interlocked.Increment(ref Opens);
             return Task.FromResult<IVisaSession>(new Lease(this, resourceName));
         }
         private sealed class Lease(HeldReplyBroker owner, string resource) : IVisaSession
@@ -119,19 +119,19 @@ internal static class AlphaDevicePlanFixture
                 if (Interlocked.Increment(ref owner.Queries) == 1)
                 {
                     if (command != ":MEAS:VOLT:DC?") throw new InvalidOperationException("Unexpected first query: " + command);
-                    owner.Entered.TrySetResult();
+                    _ = owner.Entered.TrySetResult();
                     await owner.Release.Task.WaitAsync(cancellationToken);
-                    owner.Returned.TrySetResult();
+                    _ = owner.Returned.TrySetResult();
                     return "1.25";
                 }
-                owner.Following.TrySetResult();
+                _ = owner.Following.TrySetResult();
                 if (command != ":MEAS:CURR:DC?") throw new InvalidOperationException("Unexpected following query: " + command);
                 return "0.005";
             }
             public ValueTask DisposeAsync()
             {
                 if (Interlocked.Exchange(ref _disposed, 1) != 0) throw new InvalidOperationException("Lease closed twice.");
-                Interlocked.Increment(ref owner.Closes); return ValueTask.CompletedTask;
+                _ = Interlocked.Increment(ref owner.Closes); return ValueTask.CompletedTask;
             }
         }
     }

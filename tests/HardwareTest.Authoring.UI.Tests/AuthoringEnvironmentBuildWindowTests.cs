@@ -38,7 +38,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         var blockedPath = store.GetDocumentPath("blocked");
         if (sourceKind != "formula") File.WriteAllText(blockedPath, sourceKind == "corrupt" ? "{" : "{\"schemaVersion\":999,\"planId\":\"blocked\"}");
         var excludedBytes = File.ReadAllBytes(blockedPath);
-        var selectedHome = Path.Combine(fixture.WorkspaceRoot, "selected-home"); Directory.CreateDirectory(selectedHome);
+        var selectedHome = Path.Combine(fixture.WorkspaceRoot, "selected-home"); _ = Directory.CreateDirectory(selectedHome);
         File.WriteAllText(Path.Combine(selectedHome, "selected-home.marker"), "distinct rendered home");
         fixture.ViewModel.OpenTapHomeOverride = selectedHome;
         await fixture.WaitForReadinessAsync();
@@ -140,14 +140,14 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         var engineRequirement = fixture.ViewModel.Workspace!.Manifest.Dependencies.Single(dependency => dependency.Package == "OpenTAP");
         var requiredEngine = engineRequirement.Version; engineRequirement.Version = "99.0.0";
         var homeBeforeRejection = Directory.GetFiles(selectedHome, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
-        Assert.Throws<AuthoringWorkspaceException>(() => fixture.ViewModel.Bootstrap(new() { Offline = true }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => fixture.ViewModel.Bootstrap(new() { Offline = true }));
         Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt);
         Assert.Equal(homeBeforeRejection.Keys.Order(), Directory.GetFiles(selectedHome, "*", SearchOption.AllDirectories).Order());
         foreach (var file in homeBeforeRejection) Assert.Equal(file.Value, File.ReadAllBytes(file.Key));
         engineRequirement.Version = requiredEngine;
         AuthoringUiFixture.Click(fixture.Control<Button>("Prepare selected authoring environment"));
         await Until(() => !fixture.ViewModel.OperationBusy); await fixture.WaitForReadinessAsync();
-        Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.Single(fixture.ViewModel.BuildHistory);
+        Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); _ = Assert.Single(fixture.ViewModel.BuildHistory);
         SelectTab(window, 1); fixture.ViewModel.SelectProgram("sample"); fixture.ViewModel.DisplayName = "Edited after receipt";
         Assert.False(fixture.ViewModel.CanPack); Assert.Contains("needs a new build", fixture.ViewModel.BuildReadinessText);
         Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.True(fixture.ViewModel.SaveAll().Succeeded);
@@ -158,7 +158,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         File.AppendAllText(Path.Combine(selectedHome, "selected-home.marker"), "external edit after checking");
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-release"), "");
         await Until(() => !fixture.ViewModel.OperationBusy); await fixture.WaitForReadinessAsync();
-        Assert.NotNull(fixture.ViewModel.Error); Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.Single(fixture.ViewModel.BuildHistory);
+        Assert.NotNull(fixture.ViewModel.Error); Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); _ = Assert.Single(fixture.ViewModel.BuildHistory);
         File.WriteAllText(Path.Combine(selectedHome, "selected-home.marker"), "distinct rendered home");
         File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-result-wait")); File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-prepared")); File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-release"));
         Assert.True(fixture.ViewModel.CanPack, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; busy: {fixture.ViewModel.OperationBusy}; guard: {fixture.ViewModel.PackGuardText}");
@@ -168,7 +168,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         await Until(() => File.Exists(Path.Combine(fixture.WorkspaceRoot, "fixture-prepared")));
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel authoring operation"));
         await Until(() => !fixture.ViewModel.OperationBusy); await fixture.WaitForReadinessAsync();
-        Assert.Contains("cancelled", fixture.ViewModel.Status); Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); Assert.Single(fixture.ViewModel.BuildHistory);
+        Assert.Contains("cancelled", fixture.ViewModel.Status); Assert.Same(receipt, fixture.ViewModel.LastBuildReceipt); _ = Assert.Single(fixture.ViewModel.BuildHistory);
         foreach (var file in previousFiles) Assert.Equal(file.Value, File.ReadAllBytes(Path.Combine(output, file.Key!)));
         File.Delete(Path.Combine(fixture.WorkspaceRoot, "fixture-result-wait"));
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
@@ -188,7 +188,7 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         var picker = new CountingOutputPicker(output);
         var window = fixture.Show(packOutputPicker: picker); fixture.OpenRememberedWorkspace();
         Assert.True(fixture.ViewModel.SaveAll().Succeeded);
-        fixture.ViewModel.Bootstrap(new() { Offline = true });
+        _ = fixture.ViewModel.Bootstrap(new() { Offline = true });
         await fixture.WaitForReadinessAsync();
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")), action => Dispatcher.UIThread.Post(action));
         SelectTab(window, 4);
@@ -211,8 +211,8 @@ public sealed class AuthoringEnvironmentBuildWindowTests
         AuthoringUiFixture.Click(fixture.Control<Button>("Pack workspace"));
         await Until(() => transition.Task.IsCompleted || (!requestedNext && !fixture.ViewModel.OperationBusy && !fixture.ViewModel.BuildInspectionBusy && !fixture.ViewModel.EnvironmentInspectionPending));
         Assert.True(transition.Task.IsCompleted, $"Error: {fixture.ViewModel.Error}; status: {fixture.ViewModel.Status}; guard: {fixture.ViewModel.PackGuardText}");
-        var observed = await transition.Task;
-        Assert.True(observed.Enabled); Assert.Equal(2, observed.PickerCalls); Assert.True(observed.Started);
+        var (Enabled, PickerCalls, Started) = await transition.Task;
+        Assert.True(Enabled); Assert.Equal(2, PickerCalls); Assert.True(Started);
         await Until(() => !fixture.ViewModel.OperationBusy); await fixture.WaitForReadinessAsync();
         Assert.Null(fixture.ViewModel.Error); Assert.Equal(2, fixture.ViewModel.BuildHistory.Count);
         Assert.Equal(2, fixture.ViewModel.BuildHistory.Select(build => build.Result.Receipt.BuildId).Distinct().Count());

@@ -92,7 +92,7 @@ public sealed class OperatorResultsLayoutTests
         OperatorWorkflowUiTests.Click(close);
         var search = view.FindControl<TextBox>("ResultsSearchBox")!;
         Assert.NotNull(AutomationProperties.GetLabeledBy(search));
-        search.Focus(); search.SelectAll(); window.KeyTextInput("no-matching-run-identifier");
+        _ = search.Focus(); search.SelectAll(); window.KeyTextInput("no-matching-run-identifier");
         await E2EHarness.WaitUntilAsync(() => vm.Runs.Count == 0);
         Assert.Equal("No matching runs", vm.EmptyResultsTitle);
         var clear = ByName<Button>(view, "Clear unmatched results search and filters");
@@ -126,8 +126,8 @@ public sealed class OperatorResultsLayoutTests
         run.SessionPanel.DutRevisionInput = "B"; run.SessionPanel.OperatorInput = "Chart operator";
         await run.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
         Assert.False(run.SessionPanel.SessionBlocked);
-        run.Live.ApplySample(new MeasurementSampleEvent("VDC", 0, 5, DateTimeOffset.UtcNow, DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
-        run.Live.ApplySample(new MeasurementSampleEvent("VDC", 1, 5.1, DateTimeOffset.UtcNow.AddSeconds(1), DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
+        _ = run.Live.ApplySample(new MeasurementSampleEvent("VDC", 0, 5, DateTimeOffset.UtcNow, DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
+        _ = run.Live.ApplySample(new MeasurementSampleEvent("VDC", 1, 5.1, DateTimeOffset.UtcNow.AddSeconds(1), DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
         run.Workspace.Refresh(); run.Workspace.OpenChart();
         await E2EHarness.PumpUiAsync();
         var chart = window.GetVisualDescendants().OfType<RunChartWorkspaceView>().Single(control => control.IsEffectivelyVisible);
@@ -170,7 +170,7 @@ public sealed class OperatorResultsLayoutTests
             interaction.IsChecked = true; Dispatcher.UIThread.RunJobs();
             Assert.True(plot.IsHitTestVisible);
             plot.SetCursor(1);
-            Assert.NotNull(plot.CursorX);
+            _ = Assert.NotNull(plot.CursorX);
             interaction.IsChecked = false; Dispatcher.UIThread.RunJobs();
             Assert.False(plot.IsHitTestVisible);
             Assert.Null(plot.CursorX);

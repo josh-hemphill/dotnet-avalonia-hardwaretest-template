@@ -11,7 +11,11 @@ internal sealed partial class ProgressResultListener
 
     private void PublishMeasurementOutcome(ResultTable table, Guid runId)
     {
-        string Read(string name) => Convert.ToString(table.Columns.Single(column => column.Name == name).Data.GetValue(0)) ?? "";
+        string Read(string name)
+        {
+            return Convert.ToString(table.Columns.Single(column => column.Name == name).Data.GetValue(0)) ?? "";
+        }
+
         var status = Read("Status");
         if (status != "Overload") return;
         var producer = ResultProducer(runId);

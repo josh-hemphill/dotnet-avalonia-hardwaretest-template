@@ -67,7 +67,7 @@ public sealed class OperatorShellReportUxTests
         var text = dialog.GetVisualDescendants().OfType<TextBox>()
             .Single(control => AutomationProperties.GetName(control) == "Full report details");
         Assert.True(text.IsReadOnly);
-        Assert.Contains(report.Status, text.Text!);
+        Assert.Contains(report.Status, text.Text);
         Assert.True(text.Focus()); text.SelectAll();
         Assert.Contains("Complete diagnostic line 11", text.SelectedText);
         var close = dialog.GetVisualDescendants().OfType<Button>()
@@ -117,7 +117,7 @@ public sealed class OperatorShellReportUxTests
     private static void Inside(Control control, TopLevel window)
     {
         var point = control.TranslatePoint(default, window);
-        Assert.NotNull(point);
+        _ = Assert.NotNull(point);
         Assert.True(new Rect(window.ClientSize).Inflate(.75).Contains(new Rect(point.Value, control.Bounds.Size)),
             $"{control.GetType().Name} {control.Bounds} must fit inside {window.ClientSize}.");
     }
@@ -125,7 +125,11 @@ public sealed class OperatorShellReportUxTests
     private static double Contrast(Color left, Color right)
     {
         static double Channel(byte value) { var n = value / 255d; return n <= .04045 ? n / 12.92 : Math.Pow((n + .055) / 1.055, 2.4); }
-        static double Luminance(Color color) => .2126 * Channel(color.R) + .7152 * Channel(color.G) + .0722 * Channel(color.B);
+        static double Luminance(Color color)
+        {
+            return (.2126 * Channel(color.R)) + (.7152 * Channel(color.G)) + (.0722 * Channel(color.B));
+        }
+
         var a = Luminance(left); var b = Luminance(right);
         return (Math.Max(a, b) + .05) / (Math.Min(a, b) + .05);
     }

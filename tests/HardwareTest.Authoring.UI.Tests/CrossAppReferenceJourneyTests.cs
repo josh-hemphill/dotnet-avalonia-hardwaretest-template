@@ -28,18 +28,18 @@ public sealed class CrossAppReferenceJourneyTests
         var shared = Environment.GetEnvironmentVariable("HT_CROSS_APP_REVIEW_DIRECTORY");
         Assert.SkipUnless(!string.IsNullOrWhiteSpace(shared), "Set HT_CROSS_APP_REVIEW_DIRECTORY for joined application evidence.");
         Assert.True(Path.IsPathFullyQualified(shared!));
-        Directory.CreateDirectory(shared!);
+        _ = Directory.CreateDirectory(shared!);
         Assert.False(File.Exists(Path.Combine(shared!, "plan-id.txt")), "Use a fresh joined evidence directory for initial authoring.");
         using var theme = new ThemeScope(ThemeVariant.Light);
         using var fixture = new AuthoringUiFixture();
         var workspace = Path.Combine(shared!, "authoring-workspace");
-        Directory.CreateDirectory(workspace);
+        _ = Directory.CreateDirectory(workspace);
         foreach (var file in Directory.EnumerateFiles(fixture.WorkspaceRoot))
             File.Copy(file, Path.Combine(workspace, Path.GetFileName(file)));
         var window = fixture.Show(1280, 800);
         var vm = fixture.ViewModel;
         vm.Open(workspace);
-        vm.InitializePlan(new PlanInitializationRequest(PlanId)
+        _ = vm.InitializePlan(new PlanInitializationRequest(PlanId)
         {
             StartingPoint = PlanStartingPoint.Empty,
             DisplayName = "Cross-application golden voltage acceptance",
@@ -156,7 +156,7 @@ public sealed class CrossAppReferenceJourneyTests
     private sealed class ThemeScope : IDisposable
     {
         private readonly ThemeVariant? _previous = Application.Current!.RequestedThemeVariant;
-        public ThemeScope(ThemeVariant theme) => Application.Current!.RequestedThemeVariant = theme;
+        public ThemeScope(ThemeVariant theme) => Application.Current.RequestedThemeVariant = theme;
         public void Dispose() => Application.Current!.RequestedThemeVariant = _previous;
     }
 
@@ -194,7 +194,7 @@ public sealed class CrossAppReferenceJourneyTests
     {
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") != "1") return;
         var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY") ?? Path.Combine(shared, "captures");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         Dispatcher.UIThread.RunJobs();
         using var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);

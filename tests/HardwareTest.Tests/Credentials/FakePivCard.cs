@@ -147,11 +147,9 @@ internal sealed class FakePivCard : IApduChannel, IDisposable
 }
 
 /// Routes public GET DATA to the slot that owns the certificate object.
-internal sealed class CompositePivCard : IApduChannel, IDisposable
+internal sealed class CompositePivCard(params FakePivCard[] slots) : IApduChannel, IDisposable
 {
-    private readonly FakePivCard[] _slots;
-
-    public CompositePivCard(params FakePivCard[] slots) => _slots = slots;
+    private readonly FakePivCard[] _slots = slots;
 
     public byte[]? Transmit(byte[] command)
     {

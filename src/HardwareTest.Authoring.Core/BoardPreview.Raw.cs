@@ -16,8 +16,7 @@ public static partial class BoardPreviewBuilder
             var step = PlanCompiler.PreviewRawStep(raw);
             if (!step.Enabled) return;
             var hints = OpenTapPresentation.TryReadMixin(step);
-            var channel = step switch { PublishTimedSampleStep timed => timed.Channel, PublishBandScalarStep scalar => scalar.MetricName, _ => null };
-            if (channel is null) throw new AuthoringWorkspaceException("This imported step does not expose a supported preview publisher.");
+            var channel = step switch { PublishTimedSampleStep timed => timed.Channel, PublishBandScalarStep scalar => scalar.MetricName, _ => null } ?? throw new AuthoringWorkspaceException("This imported step does not expose a supported preview publisher.");
             var key = string.IsNullOrWhiteSpace(hints?.ChannelKey) ? channel : hints.ChannelKey;
             publisherKey = key;
             IReadOnlyList<IReadOnlyList<StoredSample>> groups;
@@ -31,8 +30,8 @@ public static partial class BoardPreviewBuilder
                 var (value, elapsed, unit) = step switch
                 {
                     PublishTimedSampleStep timed => (timed.Value, timed.ElapsedMs, hints?.YUnit ?? string.Empty),
-                    PublishBandScalarStep scalar => (scalar.Value, (double?)null, hints?.YUnit ?? scalar.Unit),
-                    _ => (0d, (double?)null, string.Empty),
+                    PublishBandScalarStep scalar => (scalar.Value, null, hints?.YUnit ?? scalar.Unit),
+                    _ => (0d, null, string.Empty),
                 };
                 if (!double.IsFinite(value)) throw new AuthoringWorkspaceException("Imported publisher requires a finite value.");
                 groups = [new[] { new StoredSample { Channel = channel, MetricKey = key, Value = value, ElapsedMs = elapsed, Unit = unit } }];

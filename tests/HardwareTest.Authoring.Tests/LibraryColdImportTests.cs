@@ -15,7 +15,7 @@ public sealed class LibraryColdImportTests
     {
         var package = PublishedLibraryFixture.PackageRoot;
         var root = Path.Combine(Path.GetTempPath(), "ht-library-cold-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var home = new OpenTapHome(Path.Combine(root, "actual-home"));
@@ -24,7 +24,7 @@ public sealed class LibraryColdImportTests
                 Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }],
                 InstrumentComponentsPackage = package
             }, []);
-            new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+            _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
             var supply = AuthoringInstrumentCatalog.Discover(home).Single(adapter => adapter.DisplayName == "DC Power Supply");
             var binding = new InstrumentRef("Supply", supply.TypeId, "TCPIP0::192.0.2.8::inst0::INSTR")
             { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "8123" } };
@@ -54,10 +54,10 @@ public sealed class LibraryColdImportTests
             Assert.Equal(["Supply", "Vendor"], imported.Cleanup.InstrumentSlots);
             var store = new AuthoringDocumentStore(root); store.Save(AuthoringDocumentDto.FromDraft(imported));
             var sourcePath = store.GetDocumentPath("mixed"); var sourceBytes = File.ReadAllBytes(sourcePath);
-            Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(imported, path));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(imported, path));
             Assert.Equal(original, File.ReadAllBytes(path)); Assert.Equal(sourceBytes, File.ReadAllBytes(sourcePath));
 
-            var coldRoot = Path.Combine(root, "cold"); Directory.CreateDirectory(coldRoot);
+            var coldRoot = Path.Combine(root, "cold"); _ = Directory.CreateDirectory(coldRoot);
             var coldPath = Path.Combine(coldRoot, "mixed.authoring.json");
             var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll"));

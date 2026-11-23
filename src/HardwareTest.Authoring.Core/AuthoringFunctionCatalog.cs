@@ -78,7 +78,7 @@ public static class AuthoringFunctionCatalog
     public static bool TryGetByStep(ITestStep step, out AuthoringFunctionSpec spec)
     {
         ArgumentNullException.ThrowIfNull(step);
-        if (step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep operation)
+        if (step is OpenTap.Plugins.Instruments.DeviceOperationStep operation)
             return TryGet("Device." + operation.Operation, out spec);
         var typeName = step.GetType().Name;
         foreach (var candidate in All)
@@ -112,7 +112,7 @@ public static class AuthoringFunctionCatalog
 
         if (functionId.StartsWith("Device.", StringComparison.Ordinal))
         {
-            return new global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
+            return new OpenTap.Plugins.Instruments.DeviceOperationStep
             {
                 Operation = functionId[7..],
                 Arguments = global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationRequests.Template(functionId[7..])
@@ -132,14 +132,8 @@ public static class AuthoringFunctionCatalog
             AuthoringFunctionIds.BasicIdentityCheck => new IdentityCheckStep(),
             AuthoringFunctionIds.BasicReportStationHealth => new ReportStationHealthStep(),
             _ => TryCreateFromPluginManager(spec.TypeName),
-        };
-
-        if (created is null)
-        {
-            throw new AuthoringWorkspaceException(
+        } ?? throw new AuthoringWorkspaceException(
                 $"{AuthoringCompileCodes.UnknownFunction}: '{functionId}' ({spec.TypeName}) is not loaded.");
-        }
-
         return created;
     }
 

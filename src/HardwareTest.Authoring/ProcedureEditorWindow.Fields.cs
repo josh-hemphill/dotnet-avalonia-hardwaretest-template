@@ -19,7 +19,7 @@ public partial class ProcedureEditorWindow
             row.Children.Add(flag);
             _fields[field.Definition.Key] = () => flag.IsChecked == true ? "true" : "false";
         }
-        else if (field.Definition.Kind == ProcedureFieldKind.Instrument || field.Definition.ReferenceTable is not null && field.Definition.Kind == ProcedureFieldKind.Text)
+        else if (field.Definition.Kind == ProcedureFieldKind.Instrument || (field.Definition.ReferenceTable is not null && field.Definition.Kind == ProcedureFieldKind.Text))
         {
             var options = field.Choices.Append(field.Value).Distinct(StringComparer.Ordinal).Select(value => new FieldChoice(value, field.Definition.Kind == ProcedureFieldKind.Instrument ? _session.ChoiceLabel(field, value) : value.Length == 0 ? "None" : value)).ToArray();
             var select = new ComboBox

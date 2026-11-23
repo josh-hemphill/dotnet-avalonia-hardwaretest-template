@@ -55,7 +55,7 @@ public sealed class Phase17ShellNotificationTests
             if (e.PropertyName is nameof(ShellNotificationViewModel.LiveSetting)
                 or nameof(ShellNotificationViewModel.Message))
             {
-                order.Add(e.PropertyName!);
+                order.Add(e.PropertyName);
             }
         };
 
@@ -88,7 +88,7 @@ public sealed class Phase17ShellNotificationTests
                 or nameof(ShellNotificationViewModel.HasContent)
                 or nameof(ShellNotificationViewModel.Message))
             {
-                order.Add(e.PropertyName!);
+                order.Add(e.PropertyName);
             }
         };
 

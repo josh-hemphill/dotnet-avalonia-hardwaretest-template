@@ -32,7 +32,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 64,
             IntervalMs = 15,
         };
-        OpenTapMixinAttach.AttachPresentation(acquire3v3, "rail.3v3", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(acquire3v3, "rail.3v3", PresentationDisplayRoles.Timeseries, "V");
         rail3v3.ChildTestSteps.Add(acquire3v3);
 
         var mean3v3 = new MeanGteStep
@@ -43,7 +43,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 12,
             Threshold = 0,
         };
-        OpenTapMixinAttach.AttachPresentation(mean3v3, "rail.3v3.mean", PresentationDisplayRoles.Passband, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(mean3v3, "rail.3v3.mean", PresentationDisplayRoles.Passband, "V");
         rail3v3.ChildTestSteps.Add(mean3v3);
 
         var rail5v = new TestGroupStep { Name = "5V Rail" };
@@ -55,7 +55,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 48,
             IntervalMs = 20,
         };
-        OpenTapMixinAttach.AttachPresentation(acquire5v, "rail.5v", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(acquire5v, "rail.5v", PresentationDisplayRoles.Timeseries, "V");
         rail5v.ChildTestSteps.Add(acquire5v);
 
         var mean5v = new MeanGteStep
@@ -65,7 +65,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 10,
             Threshold = 0,
         };
-        OpenTapMixinAttach.AttachPresentation(mean5v, "rail.5v.mean", PresentationDisplayRoles.Scalar, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(mean5v, "rail.5v.mean", PresentationDisplayRoles.Scalar, "V");
         rail5v.ChildTestSteps.Add(mean5v);
 
         var powerRails = new TestGroupStep { Name = "Power Rails" };
@@ -89,7 +89,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 120,
             IntervalMs = 25,
         };
-        OpenTapMixinAttach.AttachPresentation(longAcquire, "bus.vdc", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(longAcquire, "bus.vdc", PresentationDisplayRoles.Timeseries, "V");
         busStress.ChildTestSteps.Add(longAcquire);
 
         var meanBus = new MeanGteStep
@@ -99,7 +99,7 @@ public static class BoardDemoProgramFactory
             SampleCount = 16,
             Threshold = 0,
         };
-        OpenTapMixinAttach.AttachPresentation(meanBus, "bus.vdc.mean", PresentationDisplayRoles.Passband, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(meanBus, "bus.vdc.mean", PresentationDisplayRoles.Passband, "V");
         busStress.ChildTestSteps.Add(meanBus);
 
         var communications = new TestGroupStep { Name = "Communications" };
@@ -143,7 +143,7 @@ public static class BoardDemoProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, EmbeddedName);
         OpenTapPluginSearch.SearchSerialized();
         Create().Save(path);

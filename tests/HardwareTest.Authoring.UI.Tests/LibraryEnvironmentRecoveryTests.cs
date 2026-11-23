@@ -12,7 +12,7 @@ public sealed class LibraryEnvironmentRecoveryTests
     public async Task Missing_library_environment_route_retains_raw_inputs_and_resumes_without_installing()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.OpenTapHomeOverride = Path.Combine(fixture.WorkspaceRoot, "missing-library-home");
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
@@ -50,10 +50,10 @@ public sealed class LibraryEnvironmentRecoveryTests
     {
         var package = PublishedLibraryFixture.PackageRoot;
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var home = Path.Combine(fixture.WorkspaceRoot, "library-home");
         var payload = Path.Combine(home, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        Directory.CreateDirectory(payload);
+        _ = Directory.CreateDirectory(payload);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" }) File.Copy(Path.Combine(package!, file), Path.Combine(home, file));
         File.Copy(Path.Combine(package!, "package.xml"), Path.Combine(payload, "package.xml"));
         fixture.ViewModel.OpenTapHomeOverride = home;

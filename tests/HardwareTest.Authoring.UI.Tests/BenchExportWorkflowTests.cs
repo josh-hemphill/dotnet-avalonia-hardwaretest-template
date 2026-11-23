@@ -26,7 +26,7 @@ public sealed class BenchExportWorkflowTests
         try
         {
             var owner = fixture.Show(width, height); owner.FontSize = font;
-            Assert.Equal((double)width, owner.ClientSize.Width);
+            Assert.Equal(width, owner.ClientSize.Width);
             Assert.True(owner.Bounds.Width <= width);
             app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
             fixture.OpenRememberedWorkspace();
@@ -219,7 +219,7 @@ public sealed class BenchExportWorkflowTests
         Assert.NotNull(frame);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(Path.GetTempPath(), "hardwaretest-cross-app-ui");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         frame.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),
             Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }

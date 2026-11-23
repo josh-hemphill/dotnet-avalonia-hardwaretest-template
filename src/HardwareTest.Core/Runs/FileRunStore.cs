@@ -38,13 +38,13 @@ public sealed class FileRunStore : IRunStore
     public FileRunStore(string runsDirectory)
     {
         _runsDirectory = runsDirectory;
-        Directory.CreateDirectory(_runsDirectory);
+        _ = Directory.CreateDirectory(_runsDirectory);
     }
 
     public string GetRunDirectory(string runId)
     {
         var dir = PathContainment.CombineUnderRoot(_runsDirectory, Sanitize(runId));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 
@@ -87,7 +87,7 @@ public sealed class FileRunStore : IRunStore
 
     public async Task<IReadOnlyList<TestRunSummary>> ListAsync(CancellationToken cancellationToken = default)
     {
-        Directory.CreateDirectory(_runsDirectory);
+        _ = Directory.CreateDirectory(_runsDirectory);
         var results = new List<TestRunSummary>();
         foreach (var dir in Directory.EnumerateDirectories(_runsDirectory))
         {
@@ -101,13 +101,13 @@ public sealed class FileRunStore : IRunStore
             TestRunRecord? run;
             try
             {
-                var loaded = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
+                var (Document, Status) = await CurrentDocumentFile.ReadAsync(path, AppJsonContext.Default.TestRunRecord,
                     SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, cancellationToken).ConfigureAwait(false);
-                run = loaded.Document;
+                run = Document;
                 if (run is not null)
                 {
                     RequireReadableReferenceEvidence(run, path);
-                    ApplySchemaStatus(run, loaded.Status);
+                    ApplySchemaStatus(run, Status);
                 }
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or UnsupportedDocumentSchemaException or SchemaReadOnlyException)

@@ -43,7 +43,7 @@ public sealed class BuildInfoTests
         {
             Assert.False(string.IsNullOrWhiteSpace(commitDate?.Value),
                 "CommitDate metadata missing; Windows cmd.exe likely ate git %cI");
-            Assert.NotNull(info.BuildTimestampUtc);
+            _ = Assert.NotNull(info.BuildTimestampUtc);
             Assert.DoesNotContain("unknown", info.FormatSupportBlock(), StringComparison.Ordinal);
         }
     }

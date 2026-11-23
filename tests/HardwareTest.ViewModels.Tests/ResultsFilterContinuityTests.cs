@@ -22,8 +22,11 @@ public sealed class ResultsFilterContinuityTests
             var secondPath = Path.Combine(store.GetRunDirectory(second.RunId), "run.json");
             var firstBytes = File.ReadAllBytes(firstPath);
             var secondBytes = File.ReadAllBytes(secondPath);
-            var vm = new ResultsViewModel(store, new FakeReportService()) { UiScheduler = action => action() };
-            vm.SearchText = first.RunId;
+            var vm = new ResultsViewModel(store, new FakeReportService())
+            {
+                UiScheduler = action => action(),
+                SearchText = first.RunId
+            };
             await vm.OpenRunByIdAsync(first.RunId);
             Assert.True(vm.ShowDetail);
             await vm.CloseDetailCommand.ExecuteAsync();
@@ -53,16 +56,16 @@ public sealed class ResultsFilterContinuityTests
             await vm.ClearFiltersCommand.ExecuteAsync();
             AssertClosedSelection(first.RunId);
             vm.SearchText = second.RunId;
-            Assert.Single(vm.Runs);
+            _ = Assert.Single(vm.Runs);
             Assert.Null(vm.SelectedRun);
             Assert.False(vm.ShowDetail);
             Assert.Equal(readsBeforeFiltering, store.LoadCount);
 
             // A subsequent genuine selection still opens the intended record.
             var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            vm.PropertyChanged += (_, args) =>
+            vm.PropertyChanged += (sender, args) =>
             {
-                if (args.PropertyName == nameof(vm.ShowDetail) && vm.ShowDetail) opened.TrySetResult();
+                if (args.PropertyName == nameof(vm.ShowDetail) && vm.ShowDetail) _ = opened.TrySetResult();
             };
             vm.SelectedRun = Assert.Single(vm.Runs);
             await opened.Task.WaitAsync(TimeSpan.FromSeconds(5));

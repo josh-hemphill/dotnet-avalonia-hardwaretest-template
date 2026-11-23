@@ -112,11 +112,9 @@ file sealed class RecordingVisaBroker : IVisaBroker
     }
 }
 
-file sealed class RecordingVisaSession : IVisaSession
+file sealed class RecordingVisaSession(string resourceName) : IVisaSession
 {
-    public RecordingVisaSession(string resourceName) => ResourceName = resourceName;
-
-    public string ResourceName { get; }
+    public string ResourceName { get; } = resourceName;
     public int IoTimeoutMilliseconds { get; set; }
     public List<string> Writes { get; } = [];
     public List<string> Queries { get; } = [];

@@ -13,7 +13,7 @@ public partial class RunTestViewModel
         {
             Interaction.IsAwaitingOperator = true;
             Interaction.Apply(request, fallbackMessage: null);
-            PinWaitingStep();
+            _ = PinWaitingStep();
             RefreshHero();
         }
     }
@@ -34,7 +34,7 @@ public partial class RunTestViewModel
     /// Reveals the waiting step under the docked operator prompt.
     private void ShowCurrentStep()
     {
-        PinWaitingStep();
+        _ = PinWaitingStep();
         Workspace.OpenSteps();
         StepTree.JumpToCurrent(changeScope: true);
     }
@@ -46,7 +46,7 @@ public partial class RunTestViewModel
         if (!Interaction.TryCollectResponse(request, out var values))
         {
             Status = Interaction.InteractionValidationError!;
-            PinWaitingStep();
+            _ = PinWaitingStep();
             RefreshHero();
             return;
         }
@@ -60,7 +60,7 @@ public partial class RunTestViewModel
         Interaction.IsAwaitingOperator = false;
         Interaction.OperatorPromptMessage = null;
         Status = "Continuing…";
-        _session.TouchActivity();
+        Session.TouchActivity();
         _runControl.Resume();
         _runSession.Resume(response);
         ScheduleScrollToCurrentStep(changeScope: false);

@@ -17,7 +17,7 @@ public sealed class RecoveryAndRecordingIdentityUiTests
     public async Task Environment_finding_offers_the_named_recovery_before_complete_technical_details()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         var rejectedPath = "invalid\0home";
         vm.OpenTapHomeOverride = rejectedPath;
@@ -56,7 +56,7 @@ public sealed class RecoveryAndRecordingIdentityUiTests
         for (var i = 0; i < 2; i++)
         {
             var directory = Path.Combine(fixture.WorkspaceRoot, "recordings", i.ToString());
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "run.json"), JsonSerializer.Serialize(new TestRunRecord
             {
                 PlanId = "sample",
@@ -66,7 +66,7 @@ public sealed class RecoveryAndRecordingIdentityUiTests
                 Samples = [new StoredSample { Channel = "VDC", MetricKey = "VDC", Value = i + 1 }]
             }, AppJsonContext.Default.TestRunRecord));
         }
-        fixture.Show(width: 960); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(width: 960); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
         vm.SelectDataset(0);
@@ -94,7 +94,7 @@ public sealed class RecoveryAndRecordingIdentityUiTests
         Assert.Same(original, vm.SelectedDataset);
         if (confirm)
         {
-            fixture.Control<Button>("Use recording", dialog).Focus();
+            _ = fixture.Control<Button>("Use recording", dialog).Focus();
             dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         }
         else

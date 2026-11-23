@@ -22,7 +22,7 @@ public sealed class TaskBasedWorkspaceTests
         var routes = window.FindControl<TabControl>("WorkspaceTabs")!;
         Assert.Equal(8, routes.SelectedIndex);
         Assert.Equal(AutomationControlType.Pane, ControlAutomationPeer.CreatePeerForElement(routes)!.GetAutomationControlType());
-        Assert.IsType<TaskPageHost>(routes);
+        _ = Assert.IsType<TaskPageHost>(routes);
         Assert.Empty(window.GetVisualDescendants().OfType<TabItem>());
         Assert.Null(window.FindControl<Control>("ProgramsRail"));
         var cards = window.GetVisualDescendants().OfType<Button>().Where(button => button.Classes.Contains("taskCard")).ToArray();
@@ -44,7 +44,7 @@ public sealed class TaskBasedWorkspaceTests
     public void Plan_selection_and_task_navigation_retain_incomplete_drafts_without_writing_saved_files()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("other"); Assert.True(vm.SaveAll().Succeeded);
         vm.SelectProgram("sample"); vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.Label == "Mean GTE"));
@@ -76,7 +76,7 @@ public sealed class TaskBasedWorkspaceTests
         Assert.Equal(0, window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
         var palette = Assert.Single(window.OwnedWindows);
         Assert.Equal(AuthoringRecipeIds.Prompt, fixture.ViewModel.SelectedRecipeId);
-        Assert.Single(fixture.Control<ListBox>("Recipe", palette).Items);
+        _ = Assert.Single(fixture.Control<ListBox>("Recipe", palette).Items);
         await fixture.ViewModel.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
         Assert.Empty(window.OwnedWindows);

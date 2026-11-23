@@ -53,7 +53,7 @@ internal static class OwnedInstrumentLibrary
                 throw new InvalidOperationException("The loaded execution library has no verified load provenance. Restart the process before loading the selected library.");
             if (!SHA256.HashData(File.ReadAllBytes(payload.Origin)).SequenceEqual(payload.Hash))
                 throw new InvalidOperationException("The loaded execution library no longer matches its source payload. Restart the executing process.");
-            return payload.Hash.ToArray();
+            return [.. payload.Hash];
         }
     }
 

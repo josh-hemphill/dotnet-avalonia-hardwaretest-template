@@ -244,7 +244,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
                     await RunOnUiAsync(() => { if (version == _selectionVersion) Status = "This run is read-only; its working report is unavailable."; }).ConfigureAwait(false);
                     return;
                 }
-                await _reportService.GenerateReportsAsync(run, ProgramCatalog.ResolveReportKinds(run.PlanId)).ConfigureAwait(false);
+                _ = await _reportService.GenerateReportsAsync(run, ProgramCatalog.ResolveReportKinds(run.PlanId)).ConfigureAwait(false);
                 path = ReportAttestationService.ResolveDefaultWorkingPdfPath(run, ProgramCatalog.ResolveDefaultReportKind(run.PlanId));
             }
             if (string.IsNullOrWhiteSpace(path))
@@ -253,7 +253,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 return;
             }
 
-            await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
+            _ = await LoadFromPathCoreAsync(path, version).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

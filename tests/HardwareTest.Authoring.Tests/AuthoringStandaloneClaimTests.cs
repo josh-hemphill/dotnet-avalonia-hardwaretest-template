@@ -21,7 +21,7 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
     {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows()) Assert.Skip("Production launcher supports Linux and Windows.");
         var (workspace, home, plan) = PrepareMockHome();
-        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         if (claim == "nested-wrapper")
         {
             CopyPayload(StandaloneVisaPackage.OpenArchive(), StandaloneVisaPackage.WrapperFileName, Path.Combine(custom, StandaloneVisaPackage.WrapperFileName));
@@ -59,11 +59,11 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
             Assert.Skip("Distinct case-alias entries require a case-sensitive filesystem.");
         var (workspace, home, plan) = PrepareMockHome();
         workspace.Manifest.Dependencies.Add(new() { Package = PublishedInstrumentComponents.PackageName, Version = PublishedInstrumentComponents.Version });
-        new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         Assert.True(StandaloneVisaReadiness.Assess(home).Available);
-        workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase));
+        _ = workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase));
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
-        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         var metadata = Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName, "package.xml");
         if (alias is "nested" or "case")
         {
@@ -80,7 +80,7 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
             var target = alias == "metadata-nested" ? Path.Combine(custom, "package.xml")
                 : alias == "metadata-file-case" ? Path.Combine(Path.GetDirectoryName(metadata)!, "PACKAGE.XML")
                 : Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName.ToLowerInvariant(), "package.xml");
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(metadata, target);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(metadata, target);
         }
         var before = Snapshot(home);
         await AssertBlocked(workspace, home, plan);
@@ -94,11 +94,11 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
     {
         if (!OperatingSystem.IsLinux()) Assert.Skip("Link fixtures require Linux; production Windows link privileges are environment dependent.");
         var (workspace, home, plan) = PrepareMockHome();
-        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         var before = Snapshot(home);
         var link = Path.Combine(custom, "linked");
         var target = kind == "cycle" ? home.Root : AuthoringBuildSnapshotTests.Temp();
-        Directory.CreateSymbolicLink(link, target);
+        _ = Directory.CreateSymbolicLink(link, target);
         var entries = Directory.GetFileSystemEntries(custom).Order(StringComparer.Ordinal).ToArray();
         await AssertBlocked(workspace, home, plan);
         Assert.Equal(target, new DirectoryInfo(link).LinkTarget);
@@ -111,7 +111,7 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
     {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsWindows()) Assert.Skip("Production launcher supports Linux and Windows.");
         var (workspace, home, plan) = PrepareMockHome();
-        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         var metadata = Path.Combine(custom, "package.xml");
         File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"><Files /></Package>");
         var before = Snapshot(home);
@@ -137,10 +137,10 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
     {
         Assert.True(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         var assessment = StandaloneVisaReadiness.Assess(home); Assert.False(assessment.Available);
-        Assert.DoesNotContain("optional", assessment.Reason!, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("optional", assessment.Reason, StringComparison.OrdinalIgnoreCase);
         var blocker = AuthoringExternalTuiLauncher.Prerequisite(home.Root, plan, requiresInstrumentLibrary: false);
         Assert.False(string.IsNullOrWhiteSpace(blocker));
-        Assert.True(blocker!.Contains("Prepare", StringComparison.OrdinalIgnoreCase) || blocker.Contains("repair", StringComparison.OrdinalIgnoreCase), blocker);
+        Assert.True(blocker.Contains("Prepare", StringComparison.OrdinalIgnoreCase) || blocker.Contains("repair", StringComparison.OrdinalIgnoreCase), blocker);
         var preferences = new AuthoringPreferencesStore(Path.Combine(workspace.Root, "preferences.json")); preferences.Load();
         var vm = new AuthoringWorkspaceViewModel(preferences: preferences) { OpenTapHomeOverride = home.Root }; vm.Open(workspace.Root);
         Assert.False(vm.RequiresInstrumentLibrary);

@@ -14,15 +14,15 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         workspace.Manifest.Package.Name = "Compilation diagnostics"; AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.CreateDemoProgram("no-limits"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
         vm.OpenTapHomeOverride = "invalid\0home"; vm.Apply();
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
-        Assert.Contains("OpenTAP home setting is invalid", vm.SavePreviewWarning!);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning);
+        Assert.Contains("OpenTAP home setting is invalid", vm.SavePreviewWarning);
         var source = new AuthoringDocumentStore(root).GetDocumentPath("no-limits"); var bytes = File.ReadAllBytes(source);
         vm.OpenTapHomeOverride = Path.Combine(root, "valid-missing-directory");
         Assert.Null(vm.EnvironmentPathError); Assert.True(vm.HasUncompiledSources);
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
-        Assert.DoesNotContain("OpenTAP home setting is invalid", vm.SavePreviewWarning!);
-        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error!);
-        Assert.DoesNotContain("OpenTAP home setting is invalid", vm.Error!);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning);
+        Assert.DoesNotContain("OpenTAP home setting is invalid", vm.SavePreviewWarning);
+        Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error);
+        Assert.DoesNotContain("OpenTAP home setting is invalid", vm.Error);
         Assert.Equal(bytes, File.ReadAllBytes(source)); Assert.False(vm.HasUnsavedChanges);
     }
 
@@ -35,7 +35,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         Assert.True(vm.SaveAll().Succeeded); // Persist imported configurable sections before testing build readiness.
         vm.OpenTapHomeOverride = original.Root;
         var callbacks = 0;
-        vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = original, Offline = true, PreflightCompleted = _ => { callbacks++; vm.OpenTapHomeOverride = replacement.Root; } });
+        _ = vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = original, Offline = true, PreflightCompleted = _ => { callbacks++; vm.OpenTapHomeOverride = replacement.Root; } });
         Assert.True(callbacks > 0); Assert.False(vm.HasUnsavedChanges); Assert.Equal(replacement.Root, vm.OpenTapHomeOverride);
         var receipt = Assert.IsType<AuthoringBuildReceipt>(vm.LastBuildReceipt);
         Assert.Contains(receipt.RequiredChecks, check => check.Code == "BUILD_COMPATIBILITY_PASS");
@@ -43,7 +43,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         Assert.Contains(receipt.Inputs, input => input.Path.StartsWith(original.Root + Path.DirectorySeparatorChar, StringComparison.Ordinal));
         Assert.DoesNotContain(receipt.Inputs, input => input.Path.StartsWith(replacement.Root + Path.DirectorySeparatorChar, StringComparison.Ordinal));
         Assert.Contains("needs a new build", vm.BuildReadinessText);
-        Assert.Single(vm.BuildHistory); Assert.True(File.Exists(Path.Combine(vm.LastCompletedBuild!.OutputDirectory, AuthoringBuildService.ReceiptFileName)));
+        _ = Assert.Single(vm.BuildHistory); Assert.True(File.Exists(Path.Combine(vm.LastCompletedBuild!.OutputDirectory, AuthoringBuildService.ReceiptFileName)));
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         Assert.True(vm.SaveAll().Succeeded); // Persist imported configurable sections before testing home identity.
         vm.OpenTapHomeOverride = rendered.Root;
-        vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions
+        _ = vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions
         {
             Home = selection == "home" ? actual : null,
             BootstrapHomeDirectory = selection == "bootstrap" ? actual.Root : null,
@@ -86,7 +86,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.SelectProgram("sample"); vm.OpenTapHomeOverride = home.Root;
         vm.DisplayName = "Supported saved source"; Assert.True(vm.SaveAll().Succeeded);
-        vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = home, Offline = true });
+        _ = vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Home = home, Offline = true });
         var receipt = vm.LastBuildReceipt;
         var sourcePath = new AuthoringDocumentStore(root).GetDocumentPath("sample"); var sourceBytes = File.ReadAllBytes(sourcePath);
         var blocker = Path.Combine(root, "file-home"); File.WriteAllText(blocker, "preserve this file");
@@ -95,7 +95,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         Assert.Contains(selected, error!); Assert.Contains("file", error!, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(selected, vm.AuthoringHomeText); Assert.NotNull(vm.EnvironmentPathError); Assert.False(vm.CanPack);
         Assert.All(vm.EnvironmentPackages, package => Assert.False(package.Satisfied));
-        Assert.Throws<PackPreflightException>(() => vm.Pack(AuthoringBuildSnapshotTests.Temp()));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(AuthoringBuildSnapshotTests.Temp()));
         Assert.Equal(sourceBytes, File.ReadAllBytes(sourcePath)); Assert.Same(receipt, vm.LastBuildReceipt);
         vm.DisplayName = "Dirty supported edit"; Assert.True(vm.HasUnsavedChanges); Assert.Equal(sourceBytes, File.ReadAllBytes(sourcePath));
         Assert.True(vm.SaveAll().Succeeded); Assert.Contains("OpenTAP home setting", vm.SavePreviewWarning!);
@@ -111,7 +111,7 @@ public sealed class AuthoringHomeReadinessTests : IDisposable
         var path = Path.Combine(root, "missing-parent", "missing-home"); vm.OpenTapHomeOverride = path;
         Assert.True(WorkspacePackPlan.TryResolveHomePath(vm.Workspace!, path, out var resolved, out var error));
         Assert.Equal(path, resolved); Assert.Null(error); Assert.Null(vm.EnvironmentPathError); Assert.Equal(path, vm.AuthoringHomeText); Assert.True(vm.CanPack);
-        vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Offline = true });
+        _ = vm.Pack(AuthoringBuildSnapshotTests.Temp(), new PackOptions { Offline = true });
         Assert.True(Directory.Exists(path));
         Assert.Contains(vm.LastBuildReceipt!.RequiredChecks, check => check.Code == "BUILD_COMPATIBILITY_PASS");
         Assert.Contains(vm.LastBuildReceipt.RequiredChecks, check => check.Code == "BUILD_COMPAT_PROVIDER" && check.Message.Contains("Production in-process TuiCompatChecker"));

@@ -52,7 +52,7 @@ public sealed class StationHealthHostTests
 
         var record = store.TryRead("default");
         Assert.NotNull(record);
-        Assert.Equal(StationHealthVerdicts.Pass, record!.Verdict);
+        Assert.Equal(StationHealthVerdicts.Pass, record.Verdict);
         Assert.Equal(StationHealthSources.Queried, record.Source);
         Assert.Equal(clock.UtcNow, record.MeasuredAt);
         Assert.Equal(2, record.Metrics.Count);

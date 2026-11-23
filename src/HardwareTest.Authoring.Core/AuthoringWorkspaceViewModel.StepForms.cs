@@ -57,7 +57,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                         if (instrument?.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId)
                             global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.ValidateRequest(AuthoringInstrumentCatalog.DeviceBindingFor(instrument), request);
                     }
-                    catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException) { errors.Add(error.Message); }
+                    catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or InstrumentComponents.Drivers.DriverException) { errors.Add(error.Message); }
                 }
                 if (NeedsMetricInstrument && InstrumentBindingIssue(MetricInstrumentSlot, MetricFunctionId) is { } issue)
                     errors.Add(issue);
@@ -149,7 +149,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                      key.StartsWith($"{nodeId:D}/MetricSetting:", StringComparison.Ordinal)
                      && !settings.ContainsKey(key[(key.IndexOf("MetricSetting:", StringComparison.Ordinal) + "MetricSetting:".Length)..])).ToArray())
         {
-            state.IncompleteNumericText.Remove(key);
+            _ = state.IncompleteNumericText.Remove(key);
         }
 
         _pendingNumericState = state;

@@ -13,9 +13,9 @@ public sealed class WindowsReportPrintingTests
         IPrintWorker worker = new StaPrintWorker();
         var caller = Environment.CurrentManagedThreadId;
         var observed = await worker.RunAsync(() => (Environment.CurrentManagedThreadId, Thread.CurrentThread.GetApartmentState()));
-        Assert.NotEqual(caller, observed.Item1);
+        Assert.NotEqual(caller, observed.CurrentManagedThreadId);
         Assert.Equal(ApartmentState.STA, observed.Item2);
-        await Assert.ThrowsAsync<IOException>(() => worker.RunAsync<int>(() => throw new IOException("renderer failure")));
+        _ = await Assert.ThrowsAsync<IOException>(() => worker.RunAsync<int>(() => throw new IOException("renderer failure")));
         Assert.Equal(42, await worker.RunAsync(() => 42));
     }
 
@@ -47,7 +47,7 @@ public sealed class WindowsReportPrintingTests
         Assert.True(fixture.Document.Disposed);
         Assert.True(fixture.Session.Disposed);
         Assert.All(fixture.Document.Pages, page => Assert.True(page.Disposed));
-        Assert.Equal((nint)42, fixture.Backend.Owner);
+        Assert.Equal(42, fixture.Backend.Owner);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class WindowsReportPrintingTests
         var printer = new PrinterMetrics(4800, 3150, 600, 300, 150, 75);
         var fit = PrintGeometry.Fit(paper, printer);
         var physicalRatio = fit.Width / (double)printer.DpiX / (fit.Height / (double)printer.DpiY);
-        Assert.InRange(Math.Abs(physicalRatio - 612d / 792), 0, 0.001);
+        Assert.InRange(Math.Abs(physicalRatio - (612d / 792)), 0, 0.001);
         Assert.True(fit.X >= 0 && fit.Y >= 0);
         Assert.True(fit.X + fit.Width <= printer.WidthPixels);
         Assert.True(fit.Y + fit.Height <= printer.HeightPixels);
@@ -155,7 +155,7 @@ public sealed class WindowsReportPrintingTests
         var fixture = new Fixture(1);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var release = new ManualResetEventSlim();
-        fixture.Session.OnDraw = () => { entered.TrySetResult(); release.Wait(TimeSpan.FromSeconds(10)); };
+        fixture.Session.OnDraw = () => { _ = entered.TrySetResult(); _ = release.Wait(TimeSpan.FromSeconds(10)); };
         var active = fixture.Service.PrintJobAsync("first.pdf", cancellation.Token);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         cancellation.Cancel();

@@ -48,8 +48,8 @@ public static class PackageXmlRenderer
         ArgumentNullException.ThrowIfNull(workspace);
         if (string.Equals(workspace.Manifest.Package.Name, TemplatePackageName, StringComparison.Ordinal))
         {
-            return TemplatePackFiles.Where(file => !file.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase)
-                && !file.EndsWith(".program.json", StringComparison.OrdinalIgnoreCase)
+            return TemplatePackFiles.Where(file => (!file.EndsWith(".TapPlan", StringComparison.OrdinalIgnoreCase)
+                && !file.EndsWith(".program.json", StringComparison.OrdinalIgnoreCase))
                 || !workspace.Manifest.ExcludedProgramIds.Contains(file[..file.IndexOf('.')], StringComparer.OrdinalIgnoreCase)).Concat(AuthoringProgramAssets.Included(workspace)).ToArray();
         }
 

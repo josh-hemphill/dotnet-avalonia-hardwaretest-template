@@ -15,7 +15,7 @@ internal sealed class AuthoringUiFixture : IDisposable
     public AuthoringUiFixture(bool rememberWorkspace = false, IPlanCompiler? compiler = null)
     {
         WorkspaceRoot = Path.Combine(_root, "workspace");
-        Directory.CreateDirectory(WorkspaceRoot);
+        _ = Directory.CreateDirectory(WorkspaceRoot);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(AppContext.BaseDirectory, "fixtures", "workspace")))
         {
             File.Copy(file, Path.Combine(WorkspaceRoot, Path.GetFileName(file)));
@@ -78,7 +78,7 @@ internal sealed class AuthoringUiFixture : IDisposable
         var trigger = Window!.FindControl<Button>("TaskMenuButton")!;
         var menu = (Flyout)trigger.Flyout!;
         menu.ShowAt(trigger); Drain();
-        var action = ((Avalonia.Controls.Control)menu.Content!).GetVisualDescendants().OfType<Button>()
+        var action = ((Control)menu.Content!).GetVisualDescendants().OfType<Button>()
             .Single(button => Equals(button.Tag, route.ToString()));
         Click(action);
     }
@@ -104,7 +104,7 @@ internal sealed class AuthoringUiFixture : IDisposable
         }
     }
 
-    public T Control<T>(string automationName, Avalonia.Controls.Control? root = null) where T : Avalonia.Controls.Control
+    public T Control<T>(string automationName, Control? root = null) where T : Control
     {
         var scope = root ?? Window ?? throw new InvalidOperationException("Show the window first.");
         var matches = scope.GetVisualDescendants().OfType<T>()
@@ -118,7 +118,7 @@ internal sealed class AuthoringUiFixture : IDisposable
                 palette = owner.OwnedWindows.Single(child => child.Title == "Add a step");
             }
             if (palette is not null)
-                matches = palette.GetVisualDescendants().OfType<T>().Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+                matches = [.. palette.GetVisualDescendants().OfType<T>().Where(control => AutomationProperties.GetName(control) == automationName)];
         }
         if (matches.Length == 0 && scope is MainWindow)
         {
@@ -129,8 +129,7 @@ internal sealed class AuthoringUiFixture : IDisposable
                 var flyout = (Flyout)menu.Flyout!;
                 flyout.ShowAt(menu);
                 Drain();
-                matches = ((Avalonia.Controls.Control)flyout.Content!).GetVisualDescendants().OfType<T>()
-                    .Where(control => AutomationProperties.GetName(control) == automationName).ToArray();
+                matches = [.. ((Control)flyout.Content!).GetVisualDescendants().OfType<T>().Where(control => AutomationProperties.GetName(control) == automationName)];
                 if (matches.Length > 0) break;
                 flyout.Hide();
             }
@@ -153,7 +152,7 @@ internal sealed class AuthoringUiFixture : IDisposable
         foreach (var menu in Window!.GetVisualDescendants().OfType<Button>().Where(button => button.Flyout is Flyout))
         {
             var flyout = (Flyout)menu.Flyout!;
-            if (flyout.Content is Avalonia.Controls.Control content && content.GetVisualDescendants().Contains(box))
+            if (flyout.Content is Control content && content.GetVisualDescendants().Contains(box))
             {
                 if (!flyout.IsOpen) flyout.ShowAt(menu);
                 Drain();
@@ -199,8 +198,8 @@ internal sealed class AuthoringUiFixture : IDisposable
             var pendingPicker = Picker.Pending;
             Interaction.Pending = null;
             Picker.Pending = null;
-            pendingChoice?.TrySetResult(UnsavedChangesChoice.Cancel);
-            pendingPicker?.TrySetResult(null);
+            _ = (pendingChoice?.TrySetResult(UnsavedChangesChoice.Cancel));
+            _ = (pendingPicker?.TrySetResult(null));
             Interaction.Choice = UnsavedChangesChoice.Discard;
             var frame = new DispatcherFrame();
             async Task CloseAndStopFrameAsync()

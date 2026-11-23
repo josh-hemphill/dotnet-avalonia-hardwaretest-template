@@ -22,8 +22,8 @@ public sealed partial class PlanInitializationWindow
     private TextBox[] GuidedText => [_name, _id, _family, _destination, _slot, _address, _fields, _confirmation, _fixture, _channel, _unit, _samples, _interval, _threshold];
     private CheckBox[] GuidedToggles => [_serial, _identity, _shutdown, _measurement, _criterion];
 
-    public GuidedFormState CaptureGuidedForm() => new(_stage, GuidedText.Select(box => box.Text).ToArray(),
-        [_starting.SelectedIndex, _hardware.SelectedIndex], GuidedToggles.Select(box => box.IsChecked).ToArray())
+    public GuidedFormState CaptureGuidedForm() => new(_stage, [.. GuidedText.Select(box => box.Text)],
+        [_starting.SelectedIndex, _hardware.SelectedIndex], [.. GuidedToggles.Select(box => box.IsChecked)])
     {
         ReusedInstrument = SelectedHardware?.Resource is { } resource ? CopyResource(resource) : null,
         HardwareTypeId = SelectedHardware?.Adapter?.TypeId,

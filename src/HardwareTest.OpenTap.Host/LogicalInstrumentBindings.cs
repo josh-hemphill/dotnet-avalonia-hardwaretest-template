@@ -74,9 +74,11 @@ internal static class LogicalInstrumentBindings
         var resources = source.Elements().Where(element => element.Name.LocalName == binding.Property.Name
             && element.Attribute("type") is not null).ToArray();
         if (resources.Length != 1) throw Conflict(slot);
-        var owned = new XElement(resources[0]);
-        // The binding property's name does not describe the instrument's configuration.
-        owned.Name = "InstrumentConfiguration";
+        var owned = new XElement(resources[0])
+        {
+            // The binding property's name does not describe the instrument's configuration.
+            Name = "InstrumentConfiguration"
+        };
         foreach (var attribute in owned.DescendantsAndSelf().Attributes().Where(attribute => attribute.Name.LocalName == "type"))
             if (attribute.Value.StartsWith("emb:", StringComparison.Ordinal)) attribute.Value = attribute.Value[4..];
         return owned;

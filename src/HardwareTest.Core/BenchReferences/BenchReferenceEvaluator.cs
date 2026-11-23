@@ -30,7 +30,7 @@ public static class BenchReferenceEvaluator
     public static BenchReferenceUse CloneUse(BenchReferenceUse use)
         => use with { Rule = use.Rule with { }, ReferenceValue = use.ReferenceValue with { }, Context = use.Context with { } };
     public static BenchReferenceProfile CloneProfile(BenchReferenceProfile profile)
-        => profile with { Context = profile.Context with { }, Values = profile.Values.Select(value => value with { }).ToList() };
+        => profile with { Context = profile.Context with { }, Values = [.. profile.Values.Select(value => value with { })] };
 
     public static BenchReferenceProfile Capture(
         string name,
@@ -110,7 +110,7 @@ public static class BenchReferenceEvaluator
             SourceOperator = source.OperatorName,
             SourceStartedAt = source.StartedAt.ToUniversalTime(),
             SourceCompletedAt = source.CompletedAt.Value.ToUniversalTime(),
-            SourceScope = source.ExecutionScope!,
+            SourceScope = source.ExecutionScope,
             SourceSelectedStepPath = source.SelectedStepPath,
             Context = context with { },
             Values = values,
@@ -275,7 +275,7 @@ public static class BenchReferenceEvaluator
                         // Opposite finite extremes can overflow subtraction although their
                         // relative difference is representable (for example, +Max vs -Max).
                         var scale = Math.Max(Math.Abs(mean), Math.Abs(use.ReferenceValue.Value));
-                        deviation = Math.Abs(mean / scale - use.ReferenceValue.Value / scale)
+                        deviation = Math.Abs((mean / scale) - (use.ReferenceValue.Value / scale))
                             / (Math.Abs(use.ReferenceValue.Value) / scale) * 100;
                     }
                 }

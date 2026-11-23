@@ -122,7 +122,7 @@ public sealed class OperatorRunIdentityWorkflowTests
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_OPERATOR_UI") != "1") return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "operator-ui-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         using (var settled = window.CaptureRenderedFrame()) Assert.NotNull(settled);
         Dispatcher.UIThread.RunJobs();
         using (var frame = window.CaptureRenderedFrame())

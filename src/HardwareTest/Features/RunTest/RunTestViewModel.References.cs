@@ -16,19 +16,18 @@ public partial class RunTestViewModel
     public string ReferenceReadinessSummary => References.IsReady && !References.IsAcquisition
         ? References.SelectionSummary : References.ReadinessText;
     public string ReferenceRunLabel => References.IsAcquisition ? "Acquire reference" : "Run";
-    private string _referenceOutcomeSummary = string.Empty;
-    private string _referenceOutcomeDetails = string.Empty;
-    public string ReferenceOutcomeSummary => _referenceOutcomeSummary;
-    public string ReferenceOutcomeDetails => _referenceOutcomeDetails;
-    public bool HasReferenceOutcome => !string.IsNullOrWhiteSpace(_referenceOutcomeSummary);
-    internal void SetReferenceOutcome(BenchReferenceRunSnapshot? snapshot, IReadOnlyList<BenchReferenceEvaluation> evaluations, HardwareTest.Core.Runs.RunResult backend)
+
+    public string ReferenceOutcomeSummary { get; private set; } = string.Empty;
+    public string ReferenceOutcomeDetails { get; private set; } = string.Empty;
+    public bool HasReferenceOutcome => !string.IsNullOrWhiteSpace(ReferenceOutcomeSummary);
+    internal void SetReferenceOutcome(BenchReferenceRunSnapshot? snapshot, IReadOnlyList<BenchReferenceEvaluation> evaluations, Core.Runs.RunResult backend)
     {
-        _referenceOutcomeDetails = snapshot is null || (!snapshot.IsAcquisition && snapshot.Rules.Count == 0) ? string.Empty : snapshot.IsAcquisition
+        ReferenceOutcomeDetails = snapshot is null || (!snapshot.IsAcquisition && snapshot.Rules.Count == 0) ? string.Empty : snapshot.IsAcquisition
             ? $"Reference acquisition: {backend}; reference acceptance unevaluated — not production acceptance."
             : evaluations.Count == 0 ? "Reference acceptance was not completed."
             : $"Reference acceptance: {evaluations.Count(evaluation => evaluation.Passed)}/{evaluations.Count} passed. "
                 + (evaluations.FirstOrDefault(evaluation => !evaluation.Passed)?.Message ?? evaluations[0].Message);
-        _referenceOutcomeSummary = string.IsNullOrWhiteSpace(_referenceOutcomeDetails) ? string.Empty
+        ReferenceOutcomeSummary = string.IsNullOrWhiteSpace(ReferenceOutcomeDetails) ? string.Empty
             : snapshot!.IsAcquisition ? "Last run: acquisition only — not a production pass."
             : evaluations.Count == 0 ? "Last run: reference acceptance was not completed."
             : $"Last run: reference acceptance {(evaluations.All(evaluation => evaluation.Passed) ? "Passed" : "Failed")} ({evaluations.Count(evaluation => evaluation.Passed)}/{evaluations.Count} passed).";
@@ -42,7 +41,7 @@ public partial class RunTestViewModel
         _referenceStation = station;
         References = new BenchReferencePanelViewModel(store, _settings, settingsStore, _clock,
             () => IsRunning || _runControl.IsRunning, () => IsEngineerDebugMode, RunOnUiAsync,
-            () => SessionPanel.RequireContextConfirmation());
+            SessionPanel.RequireContextConfirmation);
         References.StateChanged += (_, _) =>
         {
             RaiseStartGates();
@@ -55,7 +54,7 @@ public partial class RunTestViewModel
     private static (string Plan, string Sidecar)? ReadReferenceArtifactHashes(ProgramItemViewModel program)
     {
         if (program.LoadKind != ProgramLoadKind.TapPlanFile) return null;
-        BenchProgramHandoff.ValidateProgram(program.Path);
+        _ = BenchProgramHandoff.ValidateProgram(program.Path);
         var sidecar = System.IO.Path.ChangeExtension(program.Path, ".program.json");
         var hashes = (Plan: BenchReferenceIdentity.Sha256(System.IO.File.ReadAllBytes(program.Path)),
             Sidecar: System.IO.File.Exists(sidecar) ? BenchReferenceIdentity.Sha256(System.IO.File.ReadAllBytes(sidecar)) : string.Empty);
@@ -130,7 +129,7 @@ public partial class RunTestViewModel
         var ids = new HashSet<Guid>();
         void Add(HierarchyStepViewModel node)
         {
-            if (Guid.TryParse(node.Id, out var id)) ids.Add(id);
+            if (Guid.TryParse(node.Id, out var id)) _ = ids.Add(id);
             foreach (var child in node.Children) Add(child);
         }
         Add(selected);

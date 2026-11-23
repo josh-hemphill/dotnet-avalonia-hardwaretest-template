@@ -16,7 +16,7 @@ public sealed class PackProtectionTests : IDisposable
     public PackProtectionTests()
     {
         _workspace = Path.Combine(_root, "workspace");
-        Directory.CreateDirectory(_workspace);
+        _ = Directory.CreateDirectory(_workspace);
         var source = new DirectoryInfo(AppContext.BaseDirectory);
         while (source is not null && !File.Exists(Path.Combine(source.FullName, "dirs.proj"))) source = source.Parent;
         foreach (var file in Directory.EnumerateFiles(Path.Combine(source!.FullName, "plans", "opentap")))
@@ -31,7 +31,7 @@ public sealed class PackProtectionTests : IDisposable
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_workspace);
-        if (create) vm.InitializePlan(new("unsaved") { Instruments = [] });
+        if (create) _ = vm.InitializePlan(new("unsaved") { Instruments = [] });
         vm.DisplayName = "edited";
         var output = Path.Combine(_root, "dist");
         var home = Path.Combine(_root, "home");
@@ -55,11 +55,11 @@ public sealed class PackProtectionTests : IDisposable
         var configured = Path.Combine(_root, "configured");
         vm.OpenTapHomeOverride = configured;
         var checker = new RecordingBlocker();
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Compat = checker }));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Compat = checker }));
         Assert.NotEqual(configured, checker.Home!.Root); // Compatibility checks use the captured home in staging.
         Assert.Equal(configured, vm.LastPackPreflight!.Home!.Root);
         var explicitHome = new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new BootstrapOptions { HomeDirectory = Path.Combine(_root, "explicit"), Offline = true });
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Home = explicitHome, Compat = checker }));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "dist"), new PackOptions { Home = explicitHome, Compat = checker }));
         Assert.NotEqual(explicitHome.Root, checker.Home.Root);
         Assert.Equal(explicitHome.Root, vm.LastPackPreflight!.Home!.Root);
     }
@@ -70,7 +70,7 @@ public sealed class PackProtectionTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
         var home = Bootstrap(workspace);
         var output = Path.Combine(_root, "dist");
-        Directory.CreateDirectory(output);
+        _ = Directory.CreateDirectory(output);
         File.WriteAllText(Path.Combine(output, "ship-manifest.json"), "sentinel");
         File.WriteAllText(Path.Combine(_workspace, "package.xml"), "existing xml");
         var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home, Compat = new RecordingBlocker() }));
@@ -173,7 +173,7 @@ public sealed class PackProtectionTests : IDisposable
         var home = Bootstrap(workspace);
         File.WriteAllText(Path.Combine(home.Root, file), contents);
         var output = Path.Combine(_root, "dist");
-        Directory.CreateDirectory(output);
+        _ = Directory.CreateDirectory(output);
         var existing = Path.Combine(output, "ship-manifest.json");
         File.WriteAllText(existing, "sentinel");
         var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home }));
@@ -207,7 +207,7 @@ public sealed class PackProtectionTests : IDisposable
         var home = Bootstrap(workspace);
         File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), $"{{\"runtimeOptions\":{{\"includedFrameworks\":{includedFrameworks}}}}}");
         var output = Path.Combine(_root, "dist");
-        Directory.CreateDirectory(output);
+        _ = Directory.CreateDirectory(output);
         var existing = Path.Combine(output, "ship-manifest.json");
         File.WriteAllText(existing, "sentinel");
         var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home }));
@@ -223,7 +223,7 @@ public sealed class PackProtectionTests : IDisposable
         if (OperatingSystem.IsWindows()) return;
         var workspace = AuthoringWorkspaceLoader.Load(_workspace);
         var plans = Path.Combine(_workspace, "plans");
-        Directory.CreateDirectory(plans);
+        _ = Directory.CreateDirectory(plans);
         foreach (var file in Directory.EnumerateFiles(_workspace).Where(f => Path.GetFileName(f) != "authoring.json"))
             File.Move(file, Path.Combine(plans, Path.GetFileName(file)));
         workspace.Manifest.PlansDirectory = "plans";
@@ -301,7 +301,7 @@ public sealed class PackProtectionTests : IDisposable
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = Bootstrap(workspace);
         var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
-        Directory.CreateDirectory(package);
+        _ = Directory.CreateDirectory(package);
         File.WriteAllText(Path.Combine(package, "package.xml"),
             """<Package Name="OpenTAP TUI" Version="1.0.0"><Files><File Path="OpenTap.TUI.dll" /></Files></Package>""");
         if (corrupt) File.WriteAllText(Path.Combine(package, "OpenTap.TUI.dll"), "corrupt");
@@ -346,7 +346,7 @@ public sealed class PackProtectionTests : IDisposable
         WriteSyntheticTuiAssembly(outside);
         var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
         var declaredPath = absolute ? outside : Path.GetRelativePath(package, outside);
-        InstallSyntheticTuiManifest(home, declaredPath);
+        _ = InstallSyntheticTuiManifest(home, declaredPath);
         var output = Path.Combine(_root, "dist");
         var ex = Assert.Throws<PackPreflightException>(() => WorkspacePacker.Pack(workspace, output,
             new PackOptions { Home = home, Compat = new PrerequisiteChecker() }));
@@ -358,7 +358,7 @@ public sealed class PackProtectionTests : IDisposable
     private static string InstallSyntheticTuiManifest(OpenTapHome home, string declaredPath)
     {
         var package = Path.Combine(home.Root, "Packages", "OpenTAP TUI");
-        Directory.CreateDirectory(package);
+        _ = Directory.CreateDirectory(package);
         var ns = PackageXmlRenderer.PackageNs;
         new XDocument(new XElement(ns + "Package", new XAttribute("Name", "OpenTAP TUI"), new XAttribute("Version", "1.0.0"),
             new XElement(ns + "Files", new XElement(ns + "File", new XAttribute("Path", declaredPath)))))
@@ -368,10 +368,10 @@ public sealed class PackProtectionTests : IDisposable
 
     private static void WriteSyntheticTuiAssembly(string path)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var assembly = new PersistedAssemblyBuilder(new AssemblyName("OpenTap.TUI"), typeof(object).Assembly);
         var module = assembly.DefineDynamicModule("OpenTap.TUI");
-        module.DefineType("OpenTap.TUI.PrerequisiteFixture", TypeAttributes.Public).CreateType();
+        _ = module.DefineType("OpenTap.TUI.PrerequisiteFixture", TypeAttributes.Public).CreateType();
         assembly.Save(path);
     }
 

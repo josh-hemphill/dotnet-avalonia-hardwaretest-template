@@ -35,7 +35,11 @@ public static class AuthoringReferenceRules
                 findings.Add(new("A reference criterion is empty. Remove it or configure its measurement.", Guid.Empty, "ReferenceKey"));
                 continue;
             }
-            void Add(string message, Guid nodeId, string field) => findings.Add(new(message, nodeId, field) { RuleId = rule.RuleId });
+            void Add(string message, Guid nodeId, string field)
+            {
+                findings.Add(new(message, nodeId, field) { RuleId = rule.RuleId });
+            }
+
             var matching = metrics.Where(metric => metric.NodeId == rule.ProducerStepId).ToArray();
             var node = matching.Length == 1 ? matching[0] : null;
             if (node is null || excluded.Contains(rule.ProducerStepId))

@@ -109,14 +109,14 @@ public sealed class OperatorResultsRowDiscoveryTests
         window.Content = list;
         Settle(window);
         var peer = ControlAutomationPeer.CreatePeerForElement(list);
-        Assert.Single(ListItems(peer), item => item.GetName() == items[0]);
+        _ = Assert.Single(ListItems(peer), item => item.GetName() == items[0]);
         var changes = 0;
         peer.ChildrenChanged += (_, _) => changes++;
         list.ScrollIntoView(items[^1]);
         Settle(window);
         Assert.True(changes > 0);
-        Assert.Single(ListItems(peer), item => item.GetName() == items[^1]);
-        Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
+        _ = Assert.Single(ListItems(peer), item => item.GetName() == items[^1]);
+        _ = Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
         Assert.InRange(list.GetRealizedContainers().Count(), 1, 30);
         var beforeReplace = changes;
         items.Clear(); items.Add("Replacement saved run");

@@ -52,8 +52,8 @@ public sealed class BoardPreviewFinalParityTests : IDisposable
         }
         var outerSamples = recording.Samples.Where(sample => sample.ProducerStepId == first.NodeId).ToArray();
         Assert.Equal(new int?[] { 1, 2 }, outerSamples.Select(sample => sample.IterationIndex));
-        Assert.Single(outerSamples.Select(sample => sample.LoopRunId).Distinct());
-        Assert.All(outerSamples, sample => { Assert.NotNull(sample.LoopRunId); Assert.NotNull(sample.StepRunId); });
+        _ = Assert.Single(outerSamples.Select(sample => sample.LoopRunId).Distinct());
+        Assert.All(outerSamples, sample => { _ = Assert.NotNull(sample.LoopRunId); _ = Assert.NotNull(sample.StepRunId); });
         var innerSamples = recording.Samples.Where(sample => sample.ProducerStepId == innerFirst.NodeId).ToArray();
         Assert.Equal(new int?[] { 1, 2, 1, 2 }, innerSamples.Select(sample => sample.IterationIndex));
         Assert.Equal(2, innerSamples.Select(sample => sample.LoopRunId).Distinct().Count());

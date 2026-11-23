@@ -13,7 +13,6 @@ namespace HardwareTest.OpenTap.Host;
 /// Production <see cref="OpenTapSession"/> still single-flights; unit tests may construct two contexts.
 public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptanceRuntime, IDisposable
 {
-    private readonly OpenTapRunControlState _control = new();
     private readonly List<StoredSample> _samples = [];
     private readonly List<StoredEvent> _events = [];
     private readonly List<StepResultRecord> _steps = [];
@@ -38,10 +37,10 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
         _clock = clock ?? SystemClock.Instance;
         IsOperatorReferenceAcceptancePrepared = referenceAcceptancePrepared;
         IsReferenceAcquisition = referenceAcceptancePrepared && referenceAcquisition;
-        _control.OperatorStateChanged += () => OperatorStateChanged?.Invoke();
+        Control.OperatorStateChanged += () => OperatorStateChanged?.Invoke();
     }
 
-    public OpenTapRunControlState Control => _control;
+    public OpenTapRunControlState Control { get; } = new();
     public bool IsOperatorReferenceAcceptancePrepared { get; }
     public bool IsReferenceAcquisition { get; }
 
@@ -51,27 +50,27 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
 
     public IReadOnlyList<StepResultRecord> Steps => _steps;
 
-    public bool IsAwaitingOperator => _control.IsAwaitingOperator;
+    public bool IsAwaitingOperator => Control.IsAwaitingOperator;
 
-    public string? OperatorPromptMessage => _control.OperatorPromptMessage;
+    public string? OperatorPromptMessage => Control.OperatorPromptMessage;
 
-    public OperatorInteractionRequest? PendingInteraction => _control.PendingInteraction;
+    public OperatorInteractionRequest? PendingInteraction => Control.PendingInteraction;
 
     public event Action? OperatorStateChanged;
 
-    public void BeginRun(CancellationToken cancellationToken) => _control.BeginRun(cancellationToken);
+    public void BeginRun(CancellationToken cancellationToken) => Control.BeginRun(cancellationToken);
 
-    public void Pause() => _control.Pause();
+    public void Pause() => Control.Pause();
 
-    public void Resume(OperatorInteractionResponse? response = null) => _control.Resume(response);
+    public void Resume(OperatorInteractionResponse? response = null) => Control.Resume(response);
 
-    public void Abort() => _control.Abort();
+    public void Abort() => Control.Abort();
 
-    public void WaitIfPaused() => _control.WaitIfPaused();
+    public void WaitIfPaused() => Control.WaitIfPaused();
 
     public OperatorInteractionResponse RequestInteraction(OperatorInteractionRequest request)
     {
-        _control.BeginPendingInteraction(request);
+        Control.BeginPendingInteraction(request);
         _progress?.Report(new OpenTapProgress
         {
             Message = request.Message,
@@ -82,7 +81,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
             InteractionRequest = request,
             StatusText = "Awaiting operator",
         });
-        return _control.WaitForInteractionResponse(request.Id);
+        return Control.WaitForInteractionResponse(request.Id);
     }
 
     public async Task<OpenTapRunSummary> ExecuteAsync(
@@ -104,15 +103,19 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
         _events.Clear();
         _steps.Clear();
         _stepStarted.Clear();
-        _control.BeginRun(cancellationToken);
+        Control.BeginRun(cancellationToken);
 
         var started = _clock.UtcNow;
         runId = string.IsNullOrWhiteSpace(runId) ? Guid.NewGuid().ToString("N") : runId.Trim();
         progress?.Report(new OpenTapProgress { Message = $"Starting '{planDisplayName ?? plan.Name}'", OverallPercent = 0 });
 
         var deviceFailures = new System.Collections.Concurrent.ConcurrentQueue<string>();
-        string DeviceFailureText() => deviceFailures.IsEmpty ? string.Empty
+        string DeviceFailureText()
+        {
+            return deviceFailures.IsEmpty ? string.Empty
             : "Device I/O failed: " + string.Join("; ", deviceFailures) + ". Check Instruments bindings, timeout and device state before retrying.";
+        }
+
         try
         {
             var listener = new ProgressResultListener(
@@ -125,7 +128,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 resolvePath,
                 plan,
                 _clock,
-                () => _control.IsCancellationRequested);
+                () => Control.IsCancellationRequested);
             OpenTapFileResultExportListener? exportListener = null;
             if (_settings.ExportOpenTapResults)
             {
@@ -155,11 +158,11 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                     global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.WaitForExecution = WaitIfPaused;
                     global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredDevices.OperationFailure = (operation, error) =>
                     {
-                        if (error.GetBaseException() is OperationCanceledException && _control.IsCancellationRequested) return;
+                        if (error.GetBaseException() is OperationCanceledException && Control.IsCancellationRequested) return;
                         deviceFailures.Enqueue(operation + ": " + error.Message);
                     };
                     BrokerDeviceConnector.OnDeviceFailure = deviceFailures.Enqueue;
-                    BrokerDeviceConnector.RunCancellation = _control.Token;
+                    BrokerDeviceConnector.RunCancellation = Control.Token;
                     StepRuntimeBinder.Attach(plan, this);
                     try
                     {
@@ -173,7 +176,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                                     listeners,
                                     Array.Empty<ResultParameter>(),
                                     stepsOverride: null,
-                                    _control.Token)
+                                    Control.Token)
                                 .ConfigureAwait(false);
                         }
 
@@ -200,7 +203,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
 
             var verdict = planRun.Verdict;
             if (!deviceFailures.IsEmpty) verdict = Verdict.Error;
-            var result = MapVerdict(verdict, cancelled: _control.IsCancellationRequested);
+            var result = MapVerdict(verdict, cancelled: Control.IsCancellationRequested);
             var summary = BuildSummary(
                 runId,
                 planDisplayName ?? plan.Name,
@@ -210,7 +213,7 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
                 started,
                 verdict.ToString(),
                 result == RunResult.Cancelled
-                    ? (_control.IsCancellationRequested ? "Safety stop" : "Cancelled") + (deviceFailures.IsEmpty ? "" : ". " + DeviceFailureText())
+                    ? (Control.IsCancellationRequested ? "Safety stop" : "Cancelled") + (deviceFailures.IsEmpty ? "" : ". " + DeviceFailureText())
                     : (!deviceFailures.IsEmpty ? DeviceFailureText()
                         : verdict == Verdict.Fail ? "One or more steps failed" : verdict == Verdict.Error ? guidance : null));
 
@@ -248,11 +251,11 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
         finally
         {
             _progress = null;
-            _control.CompleteRun();
+            Control.CompleteRun();
         }
     }
 
-    public void Dispose() => _control.Dispose();
+    public void Dispose() => Control.Dispose();
 
     private void MergePreservedSamples(
         IReadOnlyList<StoredSample>? preservedSamples,
@@ -321,9 +324,9 @@ public sealed class OpenTapRunContext : IStepRuntime, IOperatorReferenceAcceptan
             DutRevision = dutIdentity?.Revision ?? dut?.Revision,
             StartedAt = started,
             CompletedAt = _clock.UtcNow,
-            Samples = _samples.ToList(),
-            Events = _events.ToList(),
-            Steps = _steps.ToList(),
+            Samples = [.. _samples],
+            Events = [.. _events],
+            Steps = [.. _steps],
             Verdict = verdict,
         };
 

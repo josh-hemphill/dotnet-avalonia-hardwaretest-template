@@ -9,7 +9,7 @@ internal static class EcdsaSignatureEncoding
         if (raw.IsEmpty || raw.Length % 2 != 0)
             throw new ArgumentException("Expected two fixed-width ECDSA components.", nameof(raw));
         var writer = new AsnWriter(AsnEncodingRules.DER);
-        writer.PushSequence();
+        _ = writer.PushSequence();
         writer.WriteIntegerUnsigned(MinimalUnsigned(raw[..(raw.Length / 2)]));
         writer.WriteIntegerUnsigned(MinimalUnsigned(raw[(raw.Length / 2)..]));
         writer.PopSequence();

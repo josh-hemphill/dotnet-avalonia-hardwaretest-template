@@ -46,7 +46,7 @@ public sealed class WorkspacePackPlanTests
     public void ViewModel_open_exposes_pack_preview_and_raw_banner()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-packprev-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
@@ -57,7 +57,7 @@ public sealed class WorkspacePackPlanTests
         Assert.Contains("Raw", vm.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.DoesNotContain("TUI", vm.AddRecipeToolTip, StringComparison.Ordinal);
         Assert.False(vm.HasRawSteps);
-        vm.InitializePlan(new("raw-banner") { Instruments = [] });
+        _ = vm.InitializePlan(new("raw-banner") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<HangForever />")],
@@ -72,7 +72,7 @@ public sealed class WorkspacePackPlanTests
     public void TryReadShipManifest_round_trips_dependencies_and_fail_softs_bad_json()
     {
         var dist = Path.Combine(Path.GetTempPath(), "ht-ship-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dist);
+        _ = Directory.CreateDirectory(dist);
         var written = new ShipManifest(
             "Demo",
             "1.0.0",
@@ -118,10 +118,10 @@ public sealed class WorkspacePackPlanTests
     [InlineData("{\"packageName\":\"Demo\",\"version\":\"1.0.0\",\"files\":[],\"resolvedDependencies\":[]}")]
     public void Ship_manifest_invalid_dependencies_reject_deserialization_and_fail_soft_without_rewriting(string json)
     {
-        Assert.Throws<System.Text.Json.JsonException>(() =>
+        _ = Assert.Throws<System.Text.Json.JsonException>(() =>
             System.Text.Json.JsonSerializer.Deserialize(json, AuthoringJsonContext.Default.ShipManifest));
         var dist = Path.Combine(Path.GetTempPath(), "ht-ship-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dist);
+        _ = Directory.CreateDirectory(dist);
         try
         {
             var path = Path.Combine(dist, WorkspacePacker.ShipManifestFileName);
@@ -139,9 +139,9 @@ public sealed class WorkspacePackPlanTests
     [Fact]
     public void Ship_manifest_cannot_construct_or_replace_dependencies_with_null()
     {
-        Assert.Throws<System.Text.Json.JsonException>(() => new ShipManifest("Demo", "1.0.0", [], null!));
+        _ = Assert.Throws<System.Text.Json.JsonException>(() => new ShipManifest("Demo", "1.0.0", [], null!));
         var manifest = new ShipManifest("Demo", "1.0.0", [], []);
-        Assert.Throws<System.Text.Json.JsonException>(() => manifest with { Dependencies = null! });
+        _ = Assert.Throws<System.Text.Json.JsonException>(() => manifest with { Dependencies = null! });
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class WorkspacePackPlanTests
     {
         var root = CopyTemplateWorkspace();
         var dist = Path.Combine(root, WorkspacePackPlan.DistDirectoryName);
-        Directory.CreateDirectory(dist);
+        _ = Directory.CreateDirectory(dist);
         File.WriteAllText(
             Path.Combine(dist, WorkspacePacker.ShipManifestFileName),
             System.Text.Json.JsonSerializer.Serialize(
@@ -203,7 +203,7 @@ public sealed class WorkspacePackPlanTests
     private static string CopyTemplateWorkspace()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-packplan-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         foreach (var file in Directory.EnumerateFiles(src))
         {

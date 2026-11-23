@@ -16,7 +16,7 @@ public static partial class OfflineBenchBundle
     public static string CurrentOS => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsLinux() ? "Linux" : "MacOS";
     public static string CurrentArchitecture => RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant();
     public static bool IsSupportedTarget(string os, string architecture)
-        => os == "Windows" && architecture == "x64" || os == "Linux" && architecture is "x64" or "arm64";
+        => (os == "Windows" && architecture == "x64") || (os == "Linux" && architecture is "x64" or "arm64");
     public static bool IsRuntimeProvidedPackage(string name)
         => new[] { "OpenTAP", "HardwareTest Basic", "HardwareTest Mixins", PublishedInstrumentComponents.PackageName, StandaloneVisaPackage.PackageName }
             .Contains(name, StringComparer.OrdinalIgnoreCase);
@@ -55,13 +55,16 @@ public static partial class OfflineBenchBundle
         {
             if (allowedAction is not null && (element == allowedAction || element.Parent == allowedAction)) continue;
             static bool Unsupported(string name)
-                => name.Contains("Action", StringComparison.OrdinalIgnoreCase)
-                    || name.StartsWith("ExternalDependenc", StringComparison.OrdinalIgnoreCase)
-                    || name.StartsWith("Prerequisit", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("SystemDependencies", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("RequiresAdministrator", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("RequireAdministrator", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("Eula", StringComparison.OrdinalIgnoreCase);
+            {
+                return name.Contains("Action", StringComparison.OrdinalIgnoreCase)
+                                || name.StartsWith("ExternalDependenc", StringComparison.OrdinalIgnoreCase)
+                                || name.StartsWith("Prerequisit", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("SystemDependencies", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("RequiresAdministrator", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("RequireAdministrator", StringComparison.OrdinalIgnoreCase)
+                                || name.Equals("Eula", StringComparison.OrdinalIgnoreCase);
+            }
+
             if (Unsupported(element.Name.LocalName) || element.Attributes().Any(attribute => Unsupported(attribute.Name.LocalName)))
                 throw new InvalidDataException("Offline packages with actions, external prerequisites or administrator/OS installation requirements are unsupported. Resolve them through station deployment before exporting.");
         }
@@ -92,7 +95,7 @@ public static partial class OfflineBenchBundle
             && ((string?)package.Attribute("Version") ?? "").Split('+')[0] == typeof(global::OpenTap.TestPlan).Assembly.GetName().Version!.ToString(3)
             && (string?)package.Attribute("OS") == (chmod ? "Linux" : "Windows")
             && container.Name == ns + "PackageActionExtensions" && !container.Attributes().Any(attribute => !attribute.IsNamespaceDeclaration)
-            && container.Nodes().All(node => node is XElement || node is XText text && string.IsNullOrWhiteSpace(text.Value))
+            && container.Nodes().All(node => node is XElement || (node is XText text && string.IsNullOrWhiteSpace(text.Value)))
             && step is not null && step.Name == ns + "ActionStep" && !step.HasElements && string.IsNullOrWhiteSpace(step.Value)
             && attributes.Length == expected.Count && attributes.All(attribute => attribute.Name.Namespace == XNamespace.None
                 && expected.TryGetValue(attribute.Name.LocalName, out var value) && value == attribute.Value)

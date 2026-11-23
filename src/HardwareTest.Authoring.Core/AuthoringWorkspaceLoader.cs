@@ -148,7 +148,7 @@ public static class AuthoringWorkspaceLoader
                 $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
         }
 
-        Directory.CreateDirectory(fullRoot);
+        _ = Directory.CreateDirectory(fullRoot);
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
         var temporaryPath = paths.ValidatePath(manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving");

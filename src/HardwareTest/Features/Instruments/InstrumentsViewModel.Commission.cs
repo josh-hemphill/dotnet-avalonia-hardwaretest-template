@@ -25,20 +25,13 @@ public partial class InstrumentsViewModel
         SelectedSlot = string.IsNullOrWhiteSpace(slotName)
             ? programSlots.FirstOrDefault()
             : programSlots.FirstOrDefault(slot => string.Equals(slot.SlotName, slotName, StringComparison.OrdinalIgnoreCase));
-        if (programSlots.Count == 0)
-        {
-            Status = $"Program {planId} was not found. Refresh slots or choose another program; no binding target is selected.";
-        }
-        else if (SelectedSlot is null)
-        {
-            Status = $"Slot {slotName} was not found in program {planId}. Refresh slots or choose a slot in this program; no binding target is selected.";
-        }
-        else
-        {
-            Status = string.IsNullOrWhiteSpace(slotName)
+        Status = programSlots.Count == 0
+            ? $"Program {planId} was not found. Refresh slots or choose another program; no binding target is selected."
+            : SelectedSlot is null
+                ? $"Slot {slotName} was not found in program {planId}. Refresh slots or choose a slot in this program; no binding target is selected."
+                : string.IsNullOrWhiteSpace(slotName)
                 ? $"Commission program {planId}."
                 : $"Bind slot {slotName} for {planId}.";
-        }
         RefreshCommission();
     }
 

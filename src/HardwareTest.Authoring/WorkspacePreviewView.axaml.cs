@@ -42,7 +42,7 @@ public partial class WorkspacePreviewView : UserControl
         }
 
         if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
-        if (!vm.CanInspectPreviewDetails || reference && !vm.HasRecordedReferences) return;
+        if (!vm.CanInspectPreviewDetails || (reference && !vm.HasRecordedReferences)) return;
         var details = new TextBox
         {
             Text = reference ? vm.RecordingReferenceReview : string.Join(Environment.NewLine + Environment.NewLine,
@@ -108,10 +108,14 @@ public partial class WorkspacePreviewView : UserControl
         var session = vm.WorkspaceSessionId;
         var datasets = vm.Datasets;
         var labels = vm.DatasetItems;
-        bool Current() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+        bool Current()
+        {
+            return owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
             && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
             && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(program, vm.SelectedProgram)
             && session == vm.WorkspaceSessionId;
+        }
+
         var descriptions = datasets.Select((dataset, index) => dataset.Identity?.DisplayDetails ?? labels[index]).ToArray();
         var dialog = new RecordingPickerWindow(labels, vm.SelectedDatasetIndex, descriptions)
         {
@@ -145,7 +149,7 @@ public partial class WorkspacePreviewView : UserControl
         if (owner.IsVisible && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
             && sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger)
         {
-            trigger.Focus();
+            _ = trigger.Focus();
         }
     }
 
@@ -164,9 +168,13 @@ public partial class WorkspacePreviewView : UserControl
         var workspace = vm.Workspace;
         var program = vm.SelectedProgram;
         var session = vm.WorkspaceSessionId;
-        bool CurrentSession() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+        bool CurrentSession()
+        {
+            return owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
             && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm) && ReferenceEquals(workspace, vm.Workspace)
             && ReferenceEquals(program, vm.SelectedProgram) && session == vm.WorkspaceSessionId && vm.CanImportRecording;
+        }
+
         try
         {
             var path = await _recordingPicker.PickAsync(owner);
@@ -184,8 +192,12 @@ public partial class WorkspacePreviewView : UserControl
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm || TopLevel.GetTopLevel(this) is not { IsVisible: true } owner) return;
         var session = vm.WorkspaceSessionId;
-        bool Current() => owner.IsVisible && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
-        try { await vm.RefreshRecordingsAsync(Current); }
+        bool Current()
+        {
+            return owner.IsVisible && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
+        }
+
+        try { _ = await vm.RefreshRecordingsAsync(Current); }
         catch (Exception error) when (error is AuthoringWorkspaceException or IOException or UnauthorizedAccessException)
         { if (Current()) vm.ReportError(error.Message); }
     }
@@ -198,8 +210,12 @@ public partial class WorkspacePreviewView : UserControl
         var ownerDataContext = owner.DataContext;
         if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return;
         var session = vm.WorkspaceSessionId;
-        bool Current() => owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
+        bool Current()
+        {
+            return owner.IsVisible && ReferenceEquals(owner.DataContext, ownerDataContext)
             && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(workspace, vm.Workspace) && ReferenceEquals(DataContext, vm) && session == vm.WorkspaceSessionId;
+        }
+
         try
         {
             var path = RunDatasetCatalog.ResolveRecordingsRoot(workspace);

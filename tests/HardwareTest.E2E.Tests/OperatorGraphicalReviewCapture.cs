@@ -378,7 +378,7 @@ public sealed class OperatorGraphicalReviewCapture
         Assert.NotNull(bitmap);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "operator-ui-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         bitmap.Save(Path.Combine(directory, name + ".png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
 

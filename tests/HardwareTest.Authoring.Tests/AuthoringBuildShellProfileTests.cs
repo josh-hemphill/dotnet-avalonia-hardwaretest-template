@@ -86,7 +86,7 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
             Assert.Contains("write profile", error.Message);
             Assert.Equal("old", File.ReadAllText(external));
             Assert.Equal("keep", File.ReadAllText(Path.Combine(output, "previous")));
-            Assert.Single(Directory.GetFiles(output));
+            _ = Assert.Single(Directory.GetFiles(output));
             Assert.False(Directory.Exists(Path.Combine(Path.GetDirectoryName(project)!, "obj")));
         }
         finally { Environment.SetEnvironmentVariable("SDK_ESCAPE_IDENTITY", previous); }

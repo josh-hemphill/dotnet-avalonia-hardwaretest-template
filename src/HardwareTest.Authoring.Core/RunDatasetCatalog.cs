@@ -178,13 +178,13 @@ public static class RunDatasetCatalog
         for (var directory = new DirectoryInfo(root); directory is not null && PathContainment.IsUnderRoot(workspace.Root, directory.FullName); directory = directory.Parent)
             if (directory.Exists && directory.LinkTarget is not null) throw new AuthoringWorkspaceException("Recording imports cannot traverse linked folders.");
         var destination = PathContainment.CombineUnderRoot(root, destinationName);
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         if (Directory.Exists(destination) || File.Exists(destination))
             throw new AuthoringWorkspaceException($"Recording destination already exists: {destinationName}");
         var temporary = Path.Combine(root, ".import-" + Guid.NewGuid().ToString("N"));
         try
         {
-            Directory.CreateDirectory(temporary);
+            _ = Directory.CreateDirectory(temporary);
             beforeCopy?.Invoke();
             File.Copy(source.Path, Path.Combine(temporary, "run.json"));
             var validated = Load(Path.Combine(temporary, "run.json"));

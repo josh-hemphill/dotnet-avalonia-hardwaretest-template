@@ -37,7 +37,7 @@ public sealed class FormulaDeploymentStatusTests : IDisposable
         var preview = MetricPreviewBuilder.From(metric, recorded: series);
         Assert.Equal(FormulaDeploymentStatusKind.DeployableRecipe, status.Kind);
         Assert.Contains(lower.Message, status.RecordingEvidence);
-        Assert.Contains(lower.Message, preview.Note!);
+        Assert.Contains(lower.Message, preview.Note);
         Assert.Contains(AuthoringCompileCodes.TfGrid, status.RecordingEvidence);
     }
 
@@ -113,7 +113,7 @@ public sealed class FormulaDeploymentStatusTests : IDisposable
         draft.AuthoringState.FormulaIntent[node.NodeId] = FormulaDeploymentIntent.Explore;
         var original = AuthoringDocumentSnapshot.Capture(draft);
         Assert.Empty(AuthoringFormulaDeployment.Project(draft).Measure);
-        Assert.Single(draft.Measure);
+        _ = Assert.Single(draft.Measure);
         Assert.True(original.ContentEquals(AuthoringDocumentSnapshot.Capture(draft)));
     }
 

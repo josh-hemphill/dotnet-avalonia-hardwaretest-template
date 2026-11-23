@@ -22,15 +22,15 @@ public sealed class SettingsUiThreadTests
             try { action(); }
             finally { inScheduler = false; }
         };
-        vm.PropertyChanged += (_, args) =>
+        vm.PropertyChanged += (sender, args) =>
         {
             if (args.PropertyName is nameof(vm.IsBusy) or nameof(vm.Status) or nameof(vm.AllowOsFolderBrowse))
-                if (!inScheduler) Interlocked.Increment(ref outsideScheduler);
+                if (!inScheduler) _ = Interlocked.Increment(ref outsideScheduler);
         };
         ((INotifyCollectionChanged)vm.ProvenanceRows).CollectionChanged += (_, _) =>
         {
-            Interlocked.Increment(ref publishedCollections);
-            if (!inScheduler) Interlocked.Increment(ref outsideScheduler);
+            _ = Interlocked.Increment(ref publishedCollections);
+            if (!inScheduler) _ = Interlocked.Increment(ref outsideScheduler);
         };
 
         await vm.SaveCommand.ExecuteAsync();

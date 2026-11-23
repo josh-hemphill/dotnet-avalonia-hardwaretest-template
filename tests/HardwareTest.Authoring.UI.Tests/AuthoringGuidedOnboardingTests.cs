@@ -17,7 +17,7 @@ public sealed class AuthoringGuidedOnboardingTests
     [InlineData(true)]
     public void Explicit_mock_voltage_task_uses_shared_document_preview_save_reopen_and_completion(bool demo)
     {
-        using var fixture = new AuthoringUiFixture(); fixture.Show();
+        using var fixture = new AuthoringUiFixture(); _ = fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "first-success");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace from welcome"));
         var workspace = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -44,7 +44,7 @@ public sealed class AuthoringGuidedOnboardingTests
         Next(fixture, dialog); AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(fixture.Window.OwnedWindows);
         var draft = fixture.ViewModel.SelectedProgram!;
-        Assert.Equal("first-voltage", draft.PlanId); Assert.Single(draft.Setup.OfType<IdentitySetup>());
+        Assert.Equal("first-voltage", draft.PlanId); _ = Assert.Single(draft.Setup.OfType<IdentitySetup>());
         Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots); Assert.True(draft.Cleanup.IncludeSafeShutdown);
         var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
         var metric = Measurement(draft); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
@@ -164,12 +164,12 @@ public sealed class AuthoringGuidedOnboardingTests
         using var fixture = Loaded(); var window = fixture.Window!;
         window.Width = 960; window.Height = 600; window.FontSize = 20; window.SetRenderScaling(1.5);
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
-        fixture.ViewModel.InitializePlan(new PlanInitializationRequest("viewport-demo") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        _ = fixture.ViewModel.InitializePlan(new PlanInitializationRequest("viewport-demo") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.Contains("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
         var guidance = window.FindControl<Border>("GuidanceHost")!;
-        Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
+        _ = Assert.Single(guidance.GetVisualDescendants().OfType<ScrollViewer>());
         ResponsiveShellTests.Inside(fixture.Control<Button>("Close guidance"), window);
         ResponsiveShellTests.Inside(fixture.Control<Button>("Guidance next action"), window);
         Assert.True(window.FindControl<TabControl>("WorkspaceTabs")!.Bounds.Height > 150);
@@ -298,13 +298,13 @@ public sealed class AuthoringGuidedOnboardingTests
     private static void PreparePackage(AuthoringUiFixture fixture, AuthoringInstrumentAdapter adapter)
     {
         var home = Path.Combine(fixture.ViewModel.Workspace!.Root, "available-home");
-        var package = Path.Combine(home, "Packages", adapter.RequiredPackage); Directory.CreateDirectory(package);
+        var package = Path.Combine(home, "Packages", adapter.RequiredPackage); _ = Directory.CreateDirectory(package);
         var files = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).ToArray();
         new XDocument(new XElement("Package", new XAttribute("Name", adapter.RequiredPackage), new XElement("Files", files.Select(file => new XElement("File", new XAttribute("Path", file)))))).Save(Path.Combine(package, "package.xml"));
         foreach (var file in files) File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(package, file));
         fixture.ViewModel.OpenTapHomeOverride = home;
     }
-    private static AuthoringUiFixture Loaded() { var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture; }
+    private static AuthoringUiFixture Loaded() { var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture; }
     private static PlanInitializationWindow Start(AuthoringUiFixture fixture) { AuthoringUiFixture.Click(fixture.Control<Button>("Start guided voltage test")); return Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows)); }
     private static void Next(AuthoringUiFixture fixture, Window dialog) => AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
     private static void Set(AuthoringUiFixture fixture, Window dialog, string name, string value) { fixture.Control<TextBox>(name, dialog).Text = value; AuthoringUiFixture.Drain(); }

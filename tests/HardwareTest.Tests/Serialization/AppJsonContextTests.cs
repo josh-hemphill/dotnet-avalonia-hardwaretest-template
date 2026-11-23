@@ -23,9 +23,9 @@ public sealed class AppJsonContextTests
         var json = JsonSerializer.Serialize(record, AppJsonContext.Default.TestRunRecord);
         var loaded = JsonSerializer.Deserialize(json, AppJsonContext.Default.TestRunRecord);
         Assert.NotNull(loaded);
-        Assert.Equal(record.RunId, loaded!.RunId);
+        Assert.Equal(record.RunId, loaded.RunId);
         Assert.Equal(RunResult.Passed, loaded.Result);
-        Assert.Single(loaded.Samples);
+        _ = Assert.Single(loaded.Samples);
     }
 
     [Fact]

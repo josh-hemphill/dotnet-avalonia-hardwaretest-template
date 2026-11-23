@@ -66,7 +66,7 @@ public sealed class MockVisaSession : IVisaSession
                 || key.StartsWith("READ?", StringComparison.OrdinalIgnoreCase))
             {
                 _phase += 0.2;
-                var value = 1.0 + Math.Sin(_phase) * 0.25;
+                var value = 1.0 + (Math.Sin(_phase) * 0.25);
                 return Task.FromResult(value.ToString("F6", CultureInfo.InvariantCulture));
             }
         }
@@ -77,11 +77,9 @@ public sealed class MockVisaSession : IVisaSession
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }
 
-public sealed class MockVisaSessionFactory : IVisaSessionFactory
+public sealed class MockVisaSessionFactory(VisaSessionGate gate) : IVisaSessionFactory
 {
-    private readonly VisaSessionGate _gate;
-
-    public MockVisaSessionFactory(VisaSessionGate gate) => _gate = gate;
+    private readonly VisaSessionGate _gate = gate;
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
     {
@@ -92,28 +90,22 @@ public sealed class MockVisaSessionFactory : IVisaSessionFactory
 }
 
 /// Opens real IVI VISA message-based sessions when a vendor runtime is installed.
-public sealed class IviVisaSessionFactory : IVisaSessionFactory
+public sealed class IviVisaSessionFactory(VisaSessionGate gate, int ioTimeoutMilliseconds = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds) : IVisaSessionFactory
 {
     public const int DefaultIoTimeoutMilliseconds = 5000;
     public const int MinIoTimeoutMilliseconds = 100;
     public const int MaxIoTimeoutMilliseconds = 120_000;
 
-    private readonly VisaSessionGate _gate;
-    private readonly int _ioTimeoutMilliseconds;
-
-    public IviVisaSessionFactory(VisaSessionGate gate, int ioTimeoutMilliseconds = DefaultIoTimeoutMilliseconds)
-    {
-        _gate = gate;
-        _ioTimeoutMilliseconds = Math.Clamp(ioTimeoutMilliseconds, MinIoTimeoutMilliseconds, MaxIoTimeoutMilliseconds);
-    }
+    private readonly VisaSessionGate _gate = gate;
+    private readonly int _ioTimeoutMilliseconds = Math.Clamp(ioTimeoutMilliseconds, MinIoTimeoutMilliseconds, MaxIoTimeoutMilliseconds);
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            var raw = global::Ivi.Visa.GlobalResourceManager.Open(resourceName);
-            if (raw is not global::Ivi.Visa.IMessageBasedSession messageSession)
+            var raw = Ivi.Visa.GlobalResourceManager.Open(resourceName);
+            if (raw is not Ivi.Visa.IMessageBasedSession messageSession)
             {
                 raw.Dispose();
                 throw new InvalidOperationException(
@@ -144,17 +136,11 @@ public sealed class IviVisaSessionFactory : IVisaSessionFactory
     }
 }
 
-internal sealed class IviMessageVisaSession : IVisaSession
+internal sealed class IviMessageVisaSession(Ivi.Visa.IMessageBasedSession session) : IVisaSession
 {
-    private readonly global::Ivi.Visa.IMessageBasedSession _session;
+    private readonly Ivi.Visa.IMessageBasedSession _session = session;
 
-    public IviMessageVisaSession(global::Ivi.Visa.IMessageBasedSession session)
-    {
-        _session = session;
-        ResourceName = session.ResourceName;
-    }
-
-    public string ResourceName { get; }
+    public string ResourceName { get; } = session.ResourceName;
 
     public int IoTimeoutMilliseconds
     {
@@ -184,7 +170,7 @@ internal sealed class IviMessageVisaSession : IVisaSession
         // A count-limited formatted ReadString stops at whitespace and can split an IDN.
         const int maximumResponseBytes = 1_048_576;
         var bytes = _session.RawIO.Read(maximumResponseBytes + 1L, out var status);
-        if (bytes.Length > maximumResponseBytes || status is not (global::Ivi.Visa.ReadStatus.EndReceived or global::Ivi.Visa.ReadStatus.TerminationCharacterEncountered))
+        if (bytes.Length > maximumResponseBytes || status is not (Ivi.Visa.ReadStatus.EndReceived or Ivi.Visa.ReadStatus.TerminationCharacterEncountered))
             throw new IOException("VISA response exceeded the complete-message bound. Close the connection and resynchronize before retrying.");
         var response = new System.Text.UTF8Encoding(false, true).GetString(bytes).TrimEnd('\r', '\n');
         cancellationToken.ThrowIfCancellationRequested();
@@ -199,16 +185,11 @@ internal sealed class IviMessageVisaSession : IVisaSession
 }
 
 /// Chooses mock or real VISA based on settings.
-public sealed class ConfigurableVisaSessionFactory : IVisaSessionFactory
+public sealed class ConfigurableVisaSessionFactory(bool useMock, VisaSessionGate gate) : IVisaSessionFactory
 {
-    private readonly IVisaSessionFactory _inner;
-
-    public ConfigurableVisaSessionFactory(bool useMock, VisaSessionGate gate)
-    {
-        _inner = useMock
+    private readonly IVisaSessionFactory _inner = useMock
             ? new MockVisaSessionFactory(gate)
             : new IviVisaSessionFactory(gate);
-    }
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
         => _inner.OpenAsync(resourceName, cancellationToken);

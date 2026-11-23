@@ -64,7 +64,7 @@ public sealed class StationIdnStoreTests
     public void Upsert_round_trips_without_settings_schema()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileStationIdnStore(dir);

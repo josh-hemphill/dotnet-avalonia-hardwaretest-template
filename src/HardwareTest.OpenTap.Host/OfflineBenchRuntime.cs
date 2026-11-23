@@ -30,7 +30,7 @@ public static partial class OfflineBenchRuntime
         if (receipt.SchemaVersion != 1 || receipt.Capability != OfflineBenchBundle.InstallerCapability
             || !OfflineBenchPaths.IsHash(receipt.OperatorSha256) || !OfflineBenchPaths.IsHash(receipt.HostSha256)
             || receipt.RuntimeIdentifier is not ("win-x64" or "linux-x64" or "linux-arm64")
-            || expectedRuntimeIdentifier is not null && receipt.RuntimeIdentifier != expectedRuntimeIdentifier)
+            || (expectedRuntimeIdentifier is not null && receipt.RuntimeIdentifier != expectedRuntimeIdentifier))
         {
             throw new InvalidDataException("Operator offline-install capability, schema or target does not match this installation.");
         }
@@ -55,7 +55,7 @@ public static partial class OfflineBenchRuntime
         out IReadOnlyDictionary<string, UnixFileMode> executableModes)
     {
         var rid = RuntimeIdentifier(bundle.Manifest.TargetOS, bundle.Manifest.TargetArchitecture);
-        ValidateCapability(directory, rid);
+        _ = ValidateCapability(directory, rid);
         var tree = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         bool TryPath(string relative, out string path)
         {
@@ -67,13 +67,13 @@ public static partial class OfflineBenchRuntime
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Add(string relative, bool required = false)
         {
-            OfflineBenchPaths.Relative(relative);
+            _ = OfflineBenchPaths.Relative(relative);
             if (!TryPath(relative, out _))
             {
                 if (required) throw new InvalidDataException($"Operator release is missing '{relative}'. Use a complete published operator runtime.");
                 return;
             }
-            paths.Add(relative);
+            _ = paths.Add(relative);
         }
         foreach (var name in new[] { "HardwareTest.dll", "HardwareTest.OpenTap.Host.dll", "HardwareTest.deps.json", "HardwareTest.runtimeconfig.json", CapabilityFileName }) Add(name, true);
         foreach (var name in new[] { OperatingSystem.IsWindows() ? "HardwareTest.OpenTap.Worker.exe" : "HardwareTest.OpenTap.Worker", "HardwareTest.OpenTap.Worker.dll", "HardwareTest.OpenTap.Worker.deps.json", "HardwareTest.OpenTap.Worker.runtimeconfig.json" }) Add(name, true);
@@ -163,16 +163,16 @@ public static partial class OfflineBenchRuntime
                 var expected = archive.Name.ToLowerInvariant() switch
                 {
                     "opentap" => typeof(TestPlan).Assembly.GetName().Version!.ToString(3),
-                    "hardwaretest basic" => typeof(HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep).Assembly.GetName().Version!.ToString(3),
-                    "hardwaretest mixins" => typeof(HardwareTest.OpenTap.Plugins.Mixins.PresentationMixin).Assembly.GetName().Version!.ToString(3),
+                    "hardwaretest basic" => typeof(Plugins.Basic.IdentityCheckStep).Assembly.GetName().Version!.ToString(3),
+                    "hardwaretest mixins" => typeof(Plugins.Mixins.PresentationMixin).Assembly.GetName().Version!.ToString(3),
                     "instrumentcomponents.opentap" => PublishedInstrumentComponents.Version,
                     _ => StandaloneVisaPackage.Version,
                 };
                 var anchor = archive.Name.ToLowerInvariant() switch
                 {
                     "opentap" => typeof(TestPlan).Assembly,
-                    "hardwaretest basic" => typeof(HardwareTest.OpenTap.Plugins.Basic.IdentityCheckStep).Assembly,
-                    "hardwaretest mixins" => typeof(HardwareTest.OpenTap.Plugins.Mixins.PresentationMixin).Assembly,
+                    "hardwaretest basic" => typeof(Plugins.Basic.IdentityCheckStep).Assembly,
+                    "hardwaretest mixins" => typeof(Plugins.Mixins.PresentationMixin).Assembly,
                     _ => null,
                 };
                 if (anchor is not null)

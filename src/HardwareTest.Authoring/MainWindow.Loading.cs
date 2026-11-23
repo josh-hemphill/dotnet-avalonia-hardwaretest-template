@@ -26,7 +26,7 @@ public partial class MainWindow
         try
         {
             CommitFocusedEditor();
-            await _viewModel.SelectProgramAsync(planId, current);
+            _ = await _viewModel.SelectProgramAsync(planId, current);
         }
         catch (Exception error) { if (current()) _viewModel.ReportError(error.Message); }
         finally { _transitionInFlight = false; }

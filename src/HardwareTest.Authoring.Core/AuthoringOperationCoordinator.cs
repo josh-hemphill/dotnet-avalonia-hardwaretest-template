@@ -35,7 +35,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             lock (gate) { stopping = true; generation++; active?.Cancel(); pending = active is null ? null : running; }
             if (pending is not null)
             {
-                try { await pending.ConfigureAwait(false); }
+                try { _ = await pending.ConfigureAwait(false); }
                 catch (OperationCanceledException) { }
             }
             await Task.Run(runner.ReapPendingAsync).ConfigureAwait(false);
@@ -50,7 +50,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         finally
         {
             lock (gate) stopping = false;
-            stopGate.Release();
+            _ = stopGate.Release();
         }
     }
 
@@ -96,8 +96,9 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
             var inheritedEnvironment = AuthoringBuildService.CaptureEnvironment();
             var request = new AuthoringChildRequest(1, id, kind, Path.GetFullPath(workspaceRoot), owned, string.IsNullOrWhiteSpace(home) ? null : Path.GetFullPath(home), offline,
                 PackageRepositoryUrl: packageRepositoryUrl);
-            if (OperatingSystem.IsWindows()) Directory.CreateDirectory(owned);
-            else Directory.CreateDirectory(owned, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            _ = OperatingSystem.IsWindows()
+                ? Directory.CreateDirectory(owned)
+                : Directory.CreateDirectory(owned, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             if (offlinePackagePath is not null)
             {
                 if (!offlinePackagePath.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase) && !offlinePackagePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
@@ -151,7 +152,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                 if (prepared.ReceiptSha256 != result.ReceiptHash) throw new InvalidDataException("Child receipt changed before publication.");
                 Report(new("Publishing checked artifacts"));
                 // Synchronous publication is off the UI thread. Generation invalidation cancels its transactional token.
-                await Task.Run(() => { CheckCurrent(); AuthoringBuildService.Publish(prepared, outputDirectory!, token); }, token).ConfigureAwait(false);
+                await Task.Run(() => { CheckCurrent(); _ = AuthoringBuildService.Publish(prepared, outputDirectory!, token); }, token).ConfigureAwait(false);
             }
             else if (kind == AuthoringOperationKind.Validate)
             {
@@ -193,7 +194,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         }
         finally
         {
-            if (entered) Lane.Release();
+            if (entered) _ = Lane.Release();
             try
             {
                 if (token.IsCancellationRequested)
@@ -257,7 +258,7 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
         lock (gate)
         {
             logs.Enqueue(log with { Text = log.Text.Length > 1024 ? log.Text[..1024] : log.Text });
-            while (logs.Count > 128) logs.Dequeue();
+            while (logs.Count > 128) _ = logs.Dequeue();
             var now = Environment.TickCount64;
             if (now >= nextLogNotification)
             {

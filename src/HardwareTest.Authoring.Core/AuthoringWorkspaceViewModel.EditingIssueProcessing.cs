@@ -10,17 +10,15 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Action<Action>? _editingIssueDispatch;
     private Func<bool>? _editingIssueOwner;
     private Func<AuthoringEditingIssueInput, IReadOnlyList<AuthoringEditingIssue>> _editingIssueEvaluate = EvaluateEditingIssues;
-    private IReadOnlyList<AuthoringEditingIssue> _editingIssueCache = [];
     private long _editingIssueGeneration;
     private bool _editingIssueQueued;
     private bool _editingIssueRunning;
     private bool _editingIssuePending;
     private bool _editingIssueStopped;
     private bool _editingIssuePublishing;
-    private bool _editingIssuesBusy;
     private TaskCompletionSource _editingIssueIdle = CompletedEditingIssues();
 
-    public bool EditingIssuesBusy { get => _editingIssuesBusy; private set => SetField(ref _editingIssuesBusy, value); }
+    public bool EditingIssuesBusy { get; private set => SetField(ref field, value); }
     public Task WaitForEditingIssuesAsync(CancellationToken cancellationToken = default)
         => _editingIssueIdle.Task.WaitAsync(cancellationToken);
 
@@ -43,9 +41,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         _editingIssueStopped = true;
         _editingIssueGeneration++;
         _editingIssuePending = false;
-        _editingIssueCache = [];
+        EditingIssues = [];
         EditingIssuesBusy = false;
-        _editingIssueIdle.TrySetResult();
+        _ = _editingIssueIdle.TrySetResult();
     }
 
     private void RequestEditingIssueRefresh()
@@ -53,7 +51,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_editingIssueDispatch is null || _editingIssueStopped || _editingIssuePublishing) return;
         _editingIssueGeneration++;
         _editingIssuePending = true;
-        _editingIssueCache = [];
+        EditingIssues = [];
         if (_editingIssueIdle.Task.IsCompleted) _editingIssueIdle = new(TaskCreationOptions.RunContinuationsAsynchronously);
         EditingIssuesBusy = true;
         if (_editingIssueQueued || _editingIssueRunning) return;
@@ -68,7 +66,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             _editingIssuePending = false;
             EditingIssuesBusy = false;
-            _editingIssueIdle.TrySetResult();
+            _ = _editingIssueIdle.TrySetResult();
             return;
         }
         _editingIssuePending = false;
@@ -76,7 +74,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         // Snapshots are immutable owned values. Clone and filesystem inspection belong
         // to the worker; capture only session references and small configuration values here.
         var workspace = Workspace;
-        var input = new AuthoringEditingIssueInput(_workspaceSession, _editingIssueGeneration, workspace,
+        var input = new AuthoringEditingIssueInput(WorkspaceSessionId, _editingIssueGeneration, workspace,
             workspace is null ? null : new(workspace.Root, new AuthoringManifest(), []), Prefs.OpenTapHomeOverride,
             workspace?.Manifest.Dependencies.Select(dependency => (dependency.Package, dependency.Version)).ToArray() ?? [],
             _documents.Select(pair => (pair.Key, pair.Value.Revision, pair.Value.Snapshot)).ToArray());
@@ -84,7 +82,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     private bool EditingIssueInputCurrent(AuthoringEditingIssueInput input)
-        => input.Session == _workspaceSession && input.Generation == _editingIssueGeneration
+        => input.Session == WorkspaceSessionId && input.Generation == _editingIssueGeneration
             && ReferenceEquals(input.Owner, Workspace) && input.HomeOverride == Prefs.OpenTapHomeOverride
             && input.Dependencies.SequenceEqual(Workspace?.Manifest.Dependencies.Select(dependency => (dependency.Package, dependency.Version)) ?? [])
             && input.Documents.Count == _documents.Count
@@ -106,13 +104,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (_editingIssueStopped || _editingIssueOwner?.Invoke() != true)
             {
                 EditingIssuesBusy = false;
-                _editingIssueIdle.TrySetResult();
+                _ = _editingIssueIdle.TrySetResult();
                 return;
             }
             var current = EditingIssueInputCurrent(input);
             if (current)
             {
-                _editingIssueCache = issues;
+                EditingIssues = issues;
                 _editingIssuePublishing = true;
                 try
                 {
@@ -128,7 +126,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 RequestEditingIssueRefresh();
             }
-            else { EditingIssuesBusy = false; _editingIssueIdle.TrySetResult(); }
+            else { EditingIssuesBusy = false; _ = _editingIssueIdle.TrySetResult(); }
         });
     }
 

@@ -149,7 +149,7 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         await File.WriteAllTextAsync(sidecarPath, "{ malformed evidence");
         var settings = new AppSettings { RequireAttestationBeforeExport = required };
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
-        Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
+        _ = Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
         var actions = new CapturingActions();
         var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
             desktop: actions, printer: actions, settings: settings)

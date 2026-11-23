@@ -24,16 +24,16 @@ public sealed class AuthoringLegacyGuidanceMigrationTests
         var planBytes = File.ReadAllBytes(path);
         var adapter = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM");
         var package = Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath, "Packages", adapter.RequiredPackage);
-        Directory.CreateDirectory(package);
+        _ = Directory.CreateDirectory(package);
         new XElement("Package", new XAttribute("Name", adapter.RequiredPackage),
             new XElement("Files", new XElement("File", new XAttribute("Path", adapter.AssemblyFile))))
             .Save(Path.Combine(package, "package.xml"));
         File.Copy(Path.Combine(AppContext.BaseDirectory, adapter.AssemblyFile), Path.Combine(package, adapter.AssemblyFile));
 
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.SelectProgram(draft.PlanId);
         await fixture.WaitForReadinessAsync();
-        Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
+        _ = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure));
         AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         var feedback = GuidanceUiActions.Feedback(fixture).Text!;
         Assert.DoesNotContain("Saved source differs", feedback);

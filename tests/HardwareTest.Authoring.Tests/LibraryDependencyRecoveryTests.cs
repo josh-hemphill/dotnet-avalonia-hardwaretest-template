@@ -11,7 +11,7 @@ public sealed class LibraryDependencyRecoveryTests : IDisposable
     [Fact]
     public void Declaration_is_staged_undoable_and_saved_with_workspace_sources()
     {
-        new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
+        _ = new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
         var manifestPath = Path.Combine(_root, "authoring.json");
         var original = File.ReadAllBytes(manifestPath);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root);
@@ -34,14 +34,14 @@ public sealed class LibraryDependencyRecoveryTests : IDisposable
     [Fact]
     public void Failed_import_keeps_declared_dependency_and_saved_workspace_bytes()
     {
-        new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
+        _ = new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.DeclareLibraryDependency();
         Assert.True(vm.SaveAll().Succeeded);
         var manifest = File.ReadAllBytes(Path.Combine(_root, "authoring.json"));
         var package = Path.Combine(_root, "wrong.zip");
         using (var zip = ZipFile.Open(package, ZipArchiveMode.Create))
         using (var writer = new StreamWriter(zip.CreateEntry("package.xml").Open())) writer.Write("<Package Name=\"InstrumentComponents.OpenTap\" Version=\"2.0.0\"><Files/></Package>");
-        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new()
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new()
         { HomeDirectory = Path.Combine(_root, "home"), Offline = true, OfflinePackagePath = package }));
         Assert.Equal(manifest, File.ReadAllBytes(Path.Combine(_root, "authoring.json")));
         Assert.False(vm.HasUnsavedChanges);
@@ -51,7 +51,7 @@ public sealed class LibraryDependencyRecoveryTests : IDisposable
     [Fact]
     public void Failed_save_retains_the_staged_declaration_and_dirty_state()
     {
-        new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
+        _ = new AuthoringWorkspaceInitializer().Create(new(_root, "Library workspace", "Library workspace"));
         var path = Path.Combine(_root, "authoring.json"); var original = File.ReadAllBytes(path);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.DeclareLibraryDependency();
         vm.WorkspaceManifestReplacement = (_, _) => throw new IOException("Simulated write failure");

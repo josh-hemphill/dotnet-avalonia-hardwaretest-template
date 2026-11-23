@@ -81,7 +81,7 @@ public sealed class AuthoringFormulaSourcePreviewTests
             compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)));
         document.RequiresCompilation = true;
         new AuthoringDocumentStore(fixture.WorkspaceRoot).Save(document);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.SelectSequence(fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.NodeId == selected.NodeId));
         await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();

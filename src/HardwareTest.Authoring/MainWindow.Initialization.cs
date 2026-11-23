@@ -66,7 +66,7 @@ public partial class MainWindow
                     if (!current()) return;
                     var target = returnFocus is { IsEffectivelyVisible: true, IsEffectivelyEnabled: true }
                         ? returnFocus : this.FindControl<Button>("PlanActionsButton");
-                    target?.Focus();
+                    _ = (target?.Focus());
                 }, DispatcherPriority.Loaded);
             }
         }

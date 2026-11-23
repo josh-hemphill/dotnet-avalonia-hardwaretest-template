@@ -62,7 +62,7 @@ public sealed class OperatorSigningWorkflowTests
             Result = RunResult.Passed,
         };
         await store.SaveAsync(run);
-        await reports.GenerateReportsAsync(run, [ReportKinds.Certification]);
+        _ = await reports.GenerateReportsAsync(run, [ReportKinds.Certification]);
         var originalWorking = await File.ReadAllBytesAsync(Assert.Single(run.Reports).PdfPath);
         var broker = new PinBroker();
         var attestation = new ReportAttestationService(broker, store, settings,
@@ -168,7 +168,7 @@ public sealed class OperatorSigningWorkflowTests
         Dispatcher.UIThread.RunJobs();
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")!;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         using var image = window.CaptureRenderedFrame();
         Assert.NotNull(image);
         image.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),

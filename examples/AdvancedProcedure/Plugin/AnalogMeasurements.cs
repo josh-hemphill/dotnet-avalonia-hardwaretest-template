@@ -30,7 +30,7 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
             $"Case '{row.Id}' needs a positive response time constant.");
         ProcedureTables.Require(CaptureSamples is >= 24 and <= 4096, $"Case '{row.Id}' needs 24–4096 samples per capture channel.");
         var routes = tables.Routes(row);
-        RequireRoutes(tables, row, "V", "V", routes.LastOrDefault()?.Unit == "ratio" ? "ratio" : "V");
+        _ = RequireRoutes(tables, row, "V", "V", routes.LastOrDefault()?.Unit == "ratio" ? "ratio" : "V");
         ProcedureTables.Require(routes.All(route => route.Nominal > 0), $"Case '{row.Id}' needs positive differential amplitudes and load scaling.");
         RequireLevels(row, 3, 20);
         var reference = tables.Reference(row);
@@ -69,8 +69,8 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
             var positive = Waveforms.Sine(target / 2, nSamples, 3);
             var negative = Waveforms.Sine(-level * routes[1].Nominal / 2, nSamples, 3);
             var differential = positive.Zip(negative, (p, n) => p - n).ToArray();
-            var loaded = differential.Select((sample, n) => sample * routes[2].Nominal
-                + level * 0.002 * Math.Sin(2 * Math.PI * 6 * n / nSamples)).ToArray();
+            var loaded = differential.Select((sample, n) => (sample * routes[2].Nominal)
+                + (level * 0.002 * Math.Sin(2 * Math.PI * 6 * n / nSamples))).ToArray();
             evidence.Trace($"{coordinate}.positive", "V", positive, WaveformIntervalMs, capturedAt);
             evidence.Trace($"{coordinate}.negative", "V", negative, WaveformIntervalMs, capturedAt);
             evidence.Trace($"{coordinate}.loaded", "V", loaded, WaveformIntervalMs, capturedAt);
@@ -96,8 +96,8 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
             }
         }
 
-        evidence.Evaluate("spanDelta", (reference[^1] - reference[0]) - (loadedValues[^1] - loadedValues[0]), "V");
-        evidence.Evaluate("curveScore", Math.Clamp(100 * (1 - Waveforms.Rms(errors) / Waveforms.Rms(reference)), 0, 100), "pts");
+        evidence.Evaluate("spanDelta", reference[^1] - reference[0] - (loadedValues[^1] - loadedValues[0]), "V");
+        evidence.Evaluate("curveScore", Math.Clamp(100 * (1 - (Waveforms.Rms(errors) / Waveforms.Rms(reference))), 0, 100), "pts");
     }
 }
 
@@ -140,7 +140,7 @@ public sealed class ClampAndSensorStep : FixtureMeasurementStep
                 return nominal;
             }).ToArray();
             var command = Enumerable.Range(0, data.Length)
-                .Select(i => i * dt >= commandStart && i * dt < commandStart + 10 ? 1.0 : 0).ToArray();
+                .Select(i => i * dt is >= commandStart and < (commandStart + 10) ? 1.0 : 0).ToArray();
             var capturedAt = CompleteSimulatedCapture((data.Length - 1) * dt);
             evidence.Trace(coordinate, "A", data, dt, capturedAt);
             evidence.Trace($"{coordinate}.loadCommand", "check", command, dt, capturedAt);
@@ -160,7 +160,7 @@ public sealed class ClampAndSensorStep : FixtureMeasurementStep
             evidence.Evaluate("peakCurrent", data.Max(), "A", coordinate);
             var external = data[reclamp..end].Average();
             evidence.Evaluate("sensorDelta", sensor - external, "A", coordinate);
-            evidence.EvaluateOptional("responseDelay", onset * dt - commandStart, "ms", coordinate);
+            evidence.EvaluateOptional("responseDelay", (onset * dt) - commandStart, "ms", coordinate);
             evidence.EvaluateOptional("externalCurrent", external, "A", coordinate);
             evidence.EvaluateOptional("dutCurrent", sensor, "A", coordinate);
         }
@@ -222,7 +222,7 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
                     var signal = Waveforms.Sine(measuredVrms * Math.Sqrt(2), sampleCount, 4, path * 0.12);
                     evidence.Trace($"{coord}.{route.Id}", "V", signal, intervalMs, captured);
                     var vrms = Waveforms.Rms(signal);
-                    measured[path] = -20 * Math.Log10(vrms / referenceVrms) + calibration.CorrectionDb;
+                    measured[path] = (-20 * Math.Log10(vrms / referenceVrms)) + calibration.CorrectionDb;
                     evidence.Evaluate("vrms", vrms, "VRMS", $"{coord}.{route.Id}");
                     evidence.Evaluate("referenceDelta", target - measured[path], "dB", $"{coord}.{route.Id}");
                 }
@@ -237,10 +237,10 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
                 {
                     var observedChange = previous - current;
                     evidence.EvaluateOptional("previousChange", observedChange, "dB", coord);
-                    evidence.Evaluate("previousDelta", (ladder[i - 1] - target) - observedChange, "dB", coord);
+                    evidence.Evaluate("previousDelta", ladder[i - 1] - target - observedChange, "dB", coord);
                 }
                 if (i == ladder.Length - 1)
-                    evidence.Evaluate("spanDelta", (target - ladder[0]) - (current - first), "dB", impedanceId);
+                    evidence.Evaluate("spanDelta", target - ladder[0] - (current - first), "dB", impedanceId);
                 previous = current;
             }
         }
@@ -250,7 +250,7 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
 internal static class Waveforms
 {
     public static double[] Sine(double amplitude, int samples, int cycles, double phase = 0)
-        => [.. Enumerable.Range(0, samples).Select(n => amplitude * Math.Sin(2 * Math.PI * cycles * n / samples + phase))];
+        => [.. Enumerable.Range(0, samples).Select(n => amplitude * Math.Sin((2 * Math.PI * cycles * n / samples) + phase))];
 
     public static double Rms(double[] samples) => Math.Sqrt(samples.Average(value => value * value));
 
@@ -265,6 +265,6 @@ internal static class Waveforms
             imaginary -= samples[n] * Math.Sin(phase);
         }
 
-        return 2 * Math.Sqrt(real * real + imaginary * imaginary) / samples.Length;
+        return 2 * Math.Sqrt((real * real) + (imaginary * imaginary)) / samples.Length;
     }
 }

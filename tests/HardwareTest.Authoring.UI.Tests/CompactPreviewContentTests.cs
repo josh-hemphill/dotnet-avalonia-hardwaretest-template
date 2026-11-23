@@ -21,7 +21,7 @@ public sealed class CompactPreviewContentTests
         var viewport = fixture.Control<ScrollViewer>("Operator board viewport");
         var plot = window.GetVisualDescendants().OfType<MeasurementPlotView>().First(view => view.IsEffectivelyVisible);
         var origin = plot.TranslatePoint(default, viewport);
-        Assert.NotNull(origin);
+        _ = Assert.NotNull(origin);
         var visibleHeight = Math.Min(origin.Value.Y + plot.Bounds.Height, viewport.Viewport.Height) - Math.Max(0, origin.Value.Y);
         Assert.True(visibleHeight >= 90, $"The initial preview should show useful plotted data, received {visibleHeight}px.");
         Assert.False(plot.IsHitTestVisible);

@@ -41,7 +41,7 @@ public sealed partial class ProcedureEditorSession
             foreach (var profile in profiles)
             {
                 if (profile.Version != 1) throw new AuthoringWorkspaceException($"Procedure editor contract {profile.Version} requires a compatible Authoring release.");
-                foreach (var step in profile.Steps) _steps.TryAdd(step.Type, step);
+                foreach (var step in profile.Steps) _ = _steps.TryAdd(step.Type, step);
                 _files.AddRange(profile.DataFiles.Where(file => !_files.Any(known => known.Path == file.Path)));
             }
             foreach (var file in _files)
@@ -148,7 +148,7 @@ public sealed partial class ProcedureEditorSession
         {
             var entry = DataEntries().Single(row => row.Item.Id == item.Id);
             foreach (var (definition, value) in changes) entry.Node[definition.Key] = value;
-            _changedData.Add(entry.Path);
+            _ = _changedData.Add(entry.Path);
         }
     }
 
@@ -161,7 +161,7 @@ public sealed partial class ProcedureEditorSession
         var xml = _changedPlan ? _xml.Declaration + "\n" + _xml.ToString(SaveOptions.DisableFormatting) : _original.ImportedPlanXml!;
         if (validate)
         {
-            PlanCompiler.WithProcedureSnapshot(xml, _directory, data, (_, plan) =>
+            _ = PlanCompiler.WithProcedureSnapshot(xml, _directory, data, (_, plan) =>
             {
                 foreach (var plugin in plan.ChildTestSteps.OfType<IProcedureAuthoring>()) plugin.ValidateAuthoring();
                 return true;
@@ -230,8 +230,8 @@ public sealed partial class ProcedureEditorSession
             ProcedureFieldKind.Boolean when bool.TryParse(text, out var flag) => JsonValue.Create(flag),
             ProcedureFieldKind.Integer when int.TryParse(text, CultureInfo.InvariantCulture, out var integer) => JsonValue.Create(integer),
             ProcedureFieldKind.Number => JsonValue.Create(Number(field, text)),
-            ProcedureFieldKind.TextList => new JsonArray(parts.Select(part => (JsonNode?)JsonValue.Create(part)).ToArray()),
-            ProcedureFieldKind.NumberList => new JsonArray(parts.Select(part => (JsonNode?)JsonValue.Create(Number(field, part))).ToArray()),
+            ProcedureFieldKind.TextList => new JsonArray([.. parts.Select(part => (JsonNode?)JsonValue.Create(part))]),
+            ProcedureFieldKind.NumberList => new JsonArray([.. parts.Select(part => (JsonNode?)JsonValue.Create(Number(field, part)))]),
             _ => throw new InvalidDataException($"Enter {field.Label} as {field.Kind.ToString().ToLowerInvariant()}.")
         };
     }

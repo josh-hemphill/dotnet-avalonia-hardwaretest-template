@@ -139,15 +139,15 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         ClearReferencePreparation();
         cancellationToken.ThrowIfCancellationRequested();
         _catalog.EnsurePlugins();
-        var match = PlanShapeFixtures.All.FirstOrDefault(f =>
+        var (FileName, Create) = PlanShapeFixtures.All.FirstOrDefault(f =>
             string.Equals(f.FileName, fixtureFileName, StringComparison.OrdinalIgnoreCase));
-        if (match.Create is null)
+        if (Create is null)
         {
             throw new ArgumentException($"Unknown plan-shape fixture '{fixtureFileName}'.", nameof(fixtureFileName));
         }
 
         var display = Path.GetFileNameWithoutExtension(fixtureFileName);
-        BindPlan(match.Create(), fixtureFileName, display);
+        BindPlan(Create(), fixtureFileName, display);
         return Task.CompletedTask;
     }
 
@@ -210,7 +210,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             LoadedPlanPath = path;
             LoadedPlanName = displayName;
             _stepTree = OpenTapStepTree.Build(plan);
-            _slots = InstrumentSlotCollector.FromPlan(plan).ToList();
+            _slots = [.. InstrumentSlotCollector.FromPlan(plan)];
         }
 
         Raise(nameof(LoadedPlanPath));
@@ -243,7 +243,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                 if (station.SlotToResource.TryGetValue(slot.Name, out var resource)
                     && !string.IsNullOrWhiteSpace(resource))
                 {
-                    TryBindSlotResource_NoLock(slot.Name, resource);
+                    _ = TryBindSlotResource_NoLock(slot.Name, resource);
                 }
             }
             _referenceAcceptancePrepared = station.ReferenceAcceptancePrepared;
@@ -288,7 +288,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                 continue;
             }
 
-            resetStepIds.Add(step.Id.ToString());
+            _ = resetStepIds.Add(step.Id.ToString());
             var node = OpenTapStepTree.FindNode(_stepTree, step.Id.ToString());
             if (node is not null && !string.IsNullOrWhiteSpace(node.Path))
             {
@@ -319,7 +319,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                 {
                     if (ReferenceEquals(step, cleanup) || OpenTapStepTree.IsAncestorOf(step, cleanup))
                     {
-                        resetStepIds.Add(step.Id.ToString());
+                        _ = resetStepIds.Add(step.Id.ToString());
                     }
                 }
             }
@@ -382,7 +382,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         }
         finally
         {
-            Interlocked.Exchange(ref _runGate, 0);
+            _ = Interlocked.Exchange(ref _runGate, 0);
             Raise(nameof(IsExecuting));
             benchLease?.Dispose();
         }
@@ -414,8 +414,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
 
             if (sampleScopePaths is not null)
             {
-                preservedSamples = _lastSamples.ToList();
-                preservedEvents = _lastEvents.ToList();
+                preservedSamples = [.. _lastSamples];
+                preservedEvents = [.. _lastEvents];
             }
 
             OpenTapStepTree.ResetLiveState(_stepTree, resetStepIds);
@@ -437,7 +437,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
         RaiseOperatorState();
         try
         {
-            var deviceIssues = OpenTapStepTree.Flatten(plan).OfType<global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>()
+            var deviceIssues = OpenTapStepTree.Flatten(plan).OfType<Plugins.Instruments.DeviceOperationStep>()
                 .Where(step => step.Enabled).Select(step => (Step: step.Name, Issue: step.ValidationIssue())).Where(item => item.Issue is not null).ToArray();
             if (deviceIssues.Length > 0)
             {
@@ -467,8 +467,8 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                     preservedEvents,
                     sampleScopePaths)
                 .ConfigureAwait(false);
-            _lastSamples = summary.Samples.ToList();
-            _lastEvents = summary.Events.ToList();
+            _lastSamples = [.. summary.Samples];
+            _lastEvents = [.. summary.Events];
             return summary;
         }
         finally
@@ -578,7 +578,7 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             return;
         }
 
-        void Sync(OpenTapStepNode node, ITestStep step)
+        static void Sync(OpenTapStepNode node, ITestStep step)
         {
             node.Enabled = step.Enabled;
             for (var i = 0; i < Math.Min(node.Children.Count, step.ChildTestSteps.Count); i++)

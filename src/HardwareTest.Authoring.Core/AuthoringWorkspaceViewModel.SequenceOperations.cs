@@ -2,29 +2,28 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private string _recipeSearch = string.Empty;
     private string _sequenceRename = string.Empty;
     private Guid? _renameSourceId;
     private string? _renameSourceLabel;
-    private string _insertionPosition = "After selected";
+
     public IReadOnlyList<string> InsertionPositions { get; } = ["End of matching phase", "Before selected", "After selected", "End of section", "End of test steps"];
     public string InsertionPosition
     {
-        get => _insertionPosition;
-        set { if (SetField(ref _insertionPosition, value)) RaiseSequenceOperations(); }
-    }
+        get;
+        set { if (SetField(ref field, value)) RaiseSequenceOperations(); }
+    } = "After selected";
     public string RecipeSearch
     {
-        get => _recipeSearch;
+        get;
         set
         {
-            if (!SetField(ref _recipeSearch, value)) return;
+            if (!SetField(ref field, value)) return;
             OnPropertyChanged(nameof(Recipes));
             OnPropertyChanged(nameof(NoMatchingRecipes));
             OnPropertyChanged(nameof(SelectedRecipe));
             RaiseSequenceOperations();
         }
-    }
+    } = string.Empty;
     public bool NoMatchingRecipes => Recipes.Count == 0;
     public string SequenceRename
     {
@@ -59,7 +58,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private SequenceRow? InsertionTarget => SelectedRecipe?.Id == AuthoringRecipeIds.Repeat ? SelectedSequence
         : IsSequenceEmpty ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
-            ? null : _sequenceItems.FirstOrDefault(row => row.IsSection)
+            ? null : SequenceItems.FirstOrDefault(row => row.IsSection)
         : InsertionPosition is "End of matching phase" or "End of test steps" or "End of Measure" ? null
         : InsertionPosition == "End of section"
             ? SelectedRecipe?.Id is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input
@@ -94,11 +93,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                 Error = blocker ?? "Choose a recipe and wait for its prerequisites to be checked.";
                 return;
             }
-            if (InsertionTarget is { IsSection: true, NodeId: { } sectionId }) _collapsedSectionIds.Remove(sectionId);
+            if (InsertionTarget is { IsSection: true, NodeId: { } sectionId }) _ = _collapsedSectionIds.Remove(sectionId);
             SequenceTransaction(_ => prepared, "Recipe inserted");
             return;
         }
-        if (InsertionTarget is { IsSection: true, NodeId: { } id }) _collapsedSectionIds.Remove(id);
+        if (InsertionTarget is { IsSection: true, NodeId: { } id }) _ = _collapsedSectionIds.Remove(id);
         SequenceTransaction(draft => AuthoringSequenceOperations.Insert(draft,
         SelectedRecipe?.Id ?? throw new AuthoringWorkspaceException("Choose a recipe."),
         InsertionTarget,
@@ -115,7 +114,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     private long _sequenceDropGeneration;
-    private Func<Func<ProgramDraft>, Task<ProgramDraft>> _evaluateSequenceDrop = evaluate => Task.Run(evaluate);
+    private readonly Func<Func<ProgramDraft>, Task<ProgramDraft>> _evaluateSequenceDrop = evaluate => Task.Run(evaluate);
     public Task SequenceMoveTask { get; private set; } = Task.CompletedTask;
     public void ReorderSequence(Guid sourceId, Guid destinationId)
         => SequenceMoveTask = ReorderSequenceAsync(sourceId, destinationId);
@@ -133,17 +132,25 @@ public sealed partial class AuthoringWorkspaceViewModel
         var snapshot = session.Snapshot;
         var revision = session.Revision;
         var owner = WorkspaceSessionId;
-        bool Current() => !_movementStopped && _movementOwner?.Invoke() != false
+        bool Current()
+        {
+            return !_movementStopped && _movementOwner?.Invoke() != false
             && movementGeneration == _movementGeneration && generation == _sequenceDropGeneration && owner == WorkspaceSessionId
             && ReferenceEquals(session, SelectedDocument) && ReferenceEquals(snapshot, session.Snapshot) && revision == session.Revision
             && SelectedSequence?.NodeId == sourceId;
+        }
+
         Status = "Checking drop order and dependencies…";
         var dispatch = _movementDispatch;
         ProgramDraft? updated = null;
         Exception? failure = null;
         try
         {
-            ProgramDraft Evaluate() => AuthoringSequenceOperations.Reorder(snapshot.Restore(), source, destination);
+            ProgramDraft Evaluate()
+            {
+                return AuthoringSequenceOperations.Reorder(snapshot.Restore(), source, destination);
+            }
+
             updated = dispatch is null ? Evaluate() : await _evaluateSequenceDrop(Evaluate).ConfigureAwait(false);
         }
         catch (Exception error) { failure = error; }
@@ -177,14 +184,14 @@ public sealed partial class AuthoringWorkspaceViewModel
             dispatch(() =>
             {
                 try { Publish(); }
-                finally { published.TrySetResult(); }
+                finally { _ = published.TrySetResult(); }
             });
             await published.Task.ConfigureAwait(false);
         }
         catch
         {
             // A stopped dispatcher cannot accept UI publication. Leave the current owner untouched.
-            published.TrySetResult();
+            _ = published.TrySetResult();
         }
     }
 
@@ -231,7 +238,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_renameSourceId == id && _renameSourceLabel == label) return;
         _renameSourceId = id;
         _renameSourceLabel = label;
-        SetField(ref _sequenceRename, label ?? string.Empty, nameof(SequenceRename));
+        _ = SetField(ref _sequenceRename, label ?? string.Empty, nameof(SequenceRename));
     }
 
     private void RaiseSequenceOperations()

@@ -132,7 +132,7 @@ public sealed class AuthoringReferenceRecoveryWorkflowTests
         var popupRoot = TopLevel.GetTopLevel(choice);
         Assert.NotNull(popupRoot);
         var point = choice.TranslatePoint(new Point(choice.Bounds.Width / 2, choice.Bounds.Height / 2), popupRoot);
-        Assert.NotNull(point);
+        _ = Assert.NotNull(point);
         popupRoot.MouseDown(point.Value, MouseButton.Left);
         popupRoot.MouseUp(point.Value, MouseButton.Left);
         AuthoringUiFixture.Drain();
@@ -187,7 +187,7 @@ public sealed class AuthoringReferenceRecoveryWorkflowTests
                 AuthoringUiFixture.Drain();
                 Assert.Equal(rule.RuleId, vm.SelectedReferenceCriterion?.RuleId);
                 Assert.Equal(rule.ReferenceKey, fixture.Control<TextBox>("Reference input key").Text);
-                Assert.Single(vm.ReferenceCriterionOptions);
+                _ = Assert.Single(vm.ReferenceCriterionOptions);
             }
             Assert.True(notifications >= 8);
         }
@@ -234,7 +234,7 @@ public sealed class AuthoringReferenceRecoveryWorkflowTests
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         vm.ConfigurePreviewProcessing(action => Dispatcher.UIThread.Post(action), () => window.IsVisible, input =>
         {
-            entered.TrySetResult();
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview-details test did not release its worker.");
             return AuthoringWorkspaceViewModel.EvaluatePreview(input);
         });
@@ -285,7 +285,7 @@ public sealed class AuthoringReferenceRecoveryWorkflowTests
         Assert.Equal(dark ? ThemeVariant.Dark : ThemeVariant.Light, window.ActualThemeVariant);
         var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY");
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") != "1" || string.IsNullOrWhiteSpace(root)) return;
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         AuthoringUiFixture.Drain();
         using var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);

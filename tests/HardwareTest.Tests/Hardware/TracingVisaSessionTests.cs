@@ -35,8 +35,10 @@ public sealed class TracingVisaSessionTests
     public void Forwards_io_timeout_to_inner_session()
     {
         var inner = new MockVisaSession("MOCK::1");
-        var session = new TracingVisaSession(inner, new VisaSessionGate());
-        session.IoTimeoutMilliseconds = 12_000;
+        var session = new TracingVisaSession(inner, new VisaSessionGate())
+        {
+            IoTimeoutMilliseconds = 12_000
+        };
         Assert.Equal(12_000, inner.IoTimeoutMilliseconds);
         Assert.Equal(12_000, session.IoTimeoutMilliseconds);
     }
@@ -53,7 +55,7 @@ public sealed class TracingVisaSessionTests
         var gate = new VisaSessionGate();
         IVisaSession session = new TracingVisaSession(new FailingVisaSession(), gate, capture);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.WriteAsync("X"));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.WriteAsync("X"));
         Assert.Contains(InMemorySink.Instance.LogEvents,
             e => e.Level == LogEventLevel.Error && e.MessageTemplate.Text.Contains("VISA WRITE failed"));
     }

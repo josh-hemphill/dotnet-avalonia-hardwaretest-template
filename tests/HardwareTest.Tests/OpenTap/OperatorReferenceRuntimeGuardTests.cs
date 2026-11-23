@@ -81,7 +81,7 @@ public sealed class OperatorReferenceRuntimeGuardTests
         var guarded = SaveGuardedPlan(temp);
         var plan = TestPlan.Load(guarded);
         var guard = StepRuntimeBinder.Flatten(plan).OfType<RequireOperatorReferenceAcceptanceStep>().Single();
-        Assert.IsType<TestGroupStep>(plan.ChildTestSteps[0]).ChildTestSteps.Remove(guard);
+        _ = Assert.IsType<TestGroupStep>(plan.ChildTestSteps[0]).ChildTestSteps.Remove(guard);
         var unguarded = Path.Combine(temp.Path, "unguarded-reference.TapPlan");
         plan.Save(unguarded);
         File.WriteAllText(Path.ChangeExtension(unguarded, ".program.json"), JsonSerializer.Serialize(new ProgramSidecar
@@ -141,7 +141,7 @@ public sealed class OperatorReferenceRuntimeGuardTests
         var summary = await session.RunAsync();
         Assert.Equal(RunResult.Passed, summary.Result);
         Assert.Contains(summary.Samples, sample => sample.Channel == "guard.measurement");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunAsync());
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunAsync());
         Assert.False(session.IsExecuting);
     }
 
@@ -154,12 +154,12 @@ public sealed class OperatorReferenceRuntimeGuardTests
         var measurement = Flatten(session.StepTree).Single(node => node.Name == "Observed reference measurement");
         var guard = Flatten(session.StepTree).Single(node => node.Name == "Check reference inputs");
         Assert.False(session.TrySetStepEnabled(guard.Path, false));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync(measurement.Path, includeCleanup: false));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync(measurement.Path, includeCleanup: false));
         await Prepare(session, acquisition: true);
         var selected = await session.RunSelectionAsync(measurement.Path, includeCleanup: false);
         Assert.Equal(RunResult.Passed, selected.Result);
         Assert.Contains(selected.Steps, step => step.StepId == guard.Id && step.Passed);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync(measurement.Path, includeCleanup: false));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync(measurement.Path, includeCleanup: false));
     }
 
     [Theory]
@@ -183,25 +183,25 @@ public sealed class OperatorReferenceRuntimeGuardTests
         {
             case "reload": await session.LoadPlanAsync(path); break;
             case "failed-load":
-                await Assert.ThrowsAsync<FileNotFoundException>(() => session.LoadPlanAsync(Path.Combine(temp.Path, "absent.TapPlan")));
+                _ = await Assert.ThrowsAsync<FileNotFoundException>(() => session.LoadPlanAsync(Path.Combine(temp.Path, "absent.TapPlan")));
                 break;
             case "cancelled-load":
                 using (var cancel = new CancellationTokenSource())
                 {
                     cancel.Cancel();
-                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.LoadPlanAsync(path, cancel.Token));
+                    _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.LoadPlanAsync(path, cancel.Token));
                 }
                 break;
             case "cancelled-apply":
                 using (var cancel = new CancellationTokenSource())
                 {
                     cancel.Cancel();
-                    await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.ApplyStationAndDutAsync(
+                    _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.ApplyStationAndDutAsync(
                         new StationProfile(new Dictionary<string, string>()), new DutIdentity("CANCELLED"), cancel.Token));
                 }
                 break;
             case "invalid-selection":
-                await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync("not-a-step"));
+                _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunSelectionAsync("not-a-step"));
                 break;
             case "step-setting": Assert.True(session.TrySetStepEnabled(measurement.Path, true)); break;
             case "parameter":
@@ -209,7 +209,7 @@ public sealed class OperatorReferenceRuntimeGuardTests
                 break;
             default: session.Abort(); break;
         }
-        await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunAsync());
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => session.RunAsync());
         await Prepare(session, acquisition: false);
         Assert.Equal(RunResult.Passed, (await session.RunAsync()).Result);
     }
@@ -226,12 +226,12 @@ public sealed class OperatorReferenceRuntimeGuardTests
             DataDirectory = temp.Path,
         });
         await worker.LoadPlanAsync(path);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync());
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync());
         await Prepare(worker, acquisition: true);
         var acquired = await worker.RunAsync();
         Assert.Equal(RunResult.Passed, acquired.Result);
         Assert.Contains(acquired.Samples, sample => sample.Channel == "guard.measurement");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync());
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync());
         await Prepare(worker, acquisition: false);
         Assert.Equal(RunResult.Passed, (await worker.RunAsync()).Result);
     }

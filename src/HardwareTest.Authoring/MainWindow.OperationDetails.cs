@@ -56,6 +56,6 @@ public partial class MainWindow
         _operationDetails = dialog;
         try { await dialog.ShowDialog(this); }
         finally { _operationDetails = null; }
-        if (IsVisible && sender is Control { IsEffectivelyVisible: true } target) target.Focus();
+        if (IsVisible && sender is Control { IsEffectivelyVisible: true } target) _ = target.Focus();
     }
 }

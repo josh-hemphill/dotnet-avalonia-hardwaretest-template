@@ -30,12 +30,12 @@ public sealed class DeferredStartupTests
             cts.Token,
             () =>
             {
-                Interlocked.Increment(ref complete);
+                _ = Interlocked.Increment(ref complete);
                 return Task.CompletedTask;
             },
-            _ =>
+            unused =>
             {
-                Interlocked.Increment(ref unexpected);
+                _ = Interlocked.Increment(ref unexpected);
                 return Task.CompletedTask;
             });
 
@@ -60,7 +60,7 @@ public sealed class DeferredStartupTests
             CancellationToken.None,
             () =>
             {
-                Interlocked.Increment(ref complete);
+                _ = Interlocked.Increment(ref complete);
                 return Task.CompletedTask;
             },
             ex =>
@@ -90,12 +90,12 @@ public sealed class DeferredStartupTests
             cts.Token,
             () =>
             {
-                Interlocked.Increment(ref complete);
+                _ = Interlocked.Increment(ref complete);
                 return Task.CompletedTask;
             },
-            _ =>
+            unused =>
             {
-                Interlocked.Increment(ref unexpected);
+                _ = Interlocked.Increment(ref unexpected);
                 return Task.CompletedTask;
             }).WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -124,12 +124,12 @@ public sealed class DeferredStartupTests
             cts.Token,
             () =>
             {
-                Interlocked.Increment(ref complete);
+                _ = Interlocked.Increment(ref complete);
                 return Task.CompletedTask;
             },
-            _ =>
+            unused =>
             {
-                Interlocked.Increment(ref unexpected);
+                _ = Interlocked.Increment(ref unexpected);
                 return Task.CompletedTask;
             });
 
@@ -142,17 +142,11 @@ public sealed class DeferredStartupTests
         Assert.Equal(0, unexpected);
     }
 
-    private sealed class TokenWarmupStub : IShellApplication
+    private sealed class TokenWarmupStub(string id, Func<CancellationToken, Task> warm) : IShellApplication
     {
-        private readonly Func<CancellationToken, Task> _warm;
+        private readonly Func<CancellationToken, Task> _warm = warm;
 
-        public TokenWarmupStub(string id, Func<CancellationToken, Task> warm)
-        {
-            Id = id;
-            _warm = warm;
-        }
-
-        public string Id { get; }
+        public string Id { get; } = id;
         public string Title => Id;
         public string Version => "0.0.0";
         public int MinHostAbi => ShellHostAbi.Current;

@@ -48,11 +48,11 @@ public sealed class AuthoringDependencyIndex
                 case MetricNode metric:
                     var (inputs, instruments) = metric.Metric.Source switch
                     {
-                        MeasureSource source => (PlanCompiler.AuthoringInputChannels(source).ToArray(),
-                            string.IsNullOrWhiteSpace(source.InstrumentSlot) ? Array.Empty<string>() : new[] { source.InstrumentSlot! }),
-                        AlgorithmSource source => (PlanCompiler.AuthoringInputChannels(source).ToArray(),
-                            !AuthoringFunctionCatalog.HasInstrumentDependency(source.AlgorithmId) || string.IsNullOrWhiteSpace(source.InstrumentSlot) ? Array.Empty<string>() : new[] { source.InstrumentSlot! }),
-                        ExpressionAlgorithm source => (PlanCompiler.AuthoringInputChannels(source).ToArray(), Array.Empty<string>()),
+                        MeasureSource source => ([.. PlanCompiler.AuthoringInputChannels(source)],
+                            string.IsNullOrWhiteSpace(source.InstrumentSlot) ? [] : [source.InstrumentSlot]),
+                        AlgorithmSource source => ([.. PlanCompiler.AuthoringInputChannels(source)],
+                            !AuthoringFunctionCatalog.HasInstrumentDependency(source.AlgorithmId) || string.IsNullOrWhiteSpace(source.InstrumentSlot) ? [] : [source.InstrumentSlot]),
+                        ExpressionAlgorithm source => ([.. PlanCompiler.AuthoringInputChannels(source)], []),
                         TransferFunctionAlgorithm source => (new[] { source.InputChannelKey }, Array.Empty<string>()),
                         _ => throw Unsupported(metric.Metric.Source)
                     };

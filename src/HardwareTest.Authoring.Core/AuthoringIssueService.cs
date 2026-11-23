@@ -4,7 +4,7 @@ namespace HardwareTest.Authoring;
 
 public sealed record AuthoringEditingIssue(string Code, string Message, string PlanId, Guid NodeId)
 {
-    public HardwareTest.OpenTap.Host.PlanContractSeverity Severity { get; init; } = HardwareTest.OpenTap.Host.PlanContractSeverity.Error;
+    public PlanContractSeverity Severity { get; init; } = HardwareTest.OpenTap.Host.PlanContractSeverity.Error;
     public string? Section { get; init; }
     public string? Field { get; init; }
     public string NavigationLabel => Section == "ProgramSettings" ? "Open program settings" : Field is null ? "Open location" : "Go to field";
@@ -151,7 +151,7 @@ public static class AuthoringIssueService
                         settings.GetValueOrDefault("Channels") ?? string.Empty, settings.GetValueOrDefault("Outputs") ?? string.Empty,
                         settings.GetValueOrDefault("Commissioning") ?? string.Empty));
                 }
-                catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+                catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or InstrumentComponents.Drivers.DriverException)
                 { issues.Add(new("INSTRUMENT_CONFIGURATION", instrument.SlotName + ": " + error.Message, draft.PlanId, Guid.Empty)); }
             }
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId) && declaredPackages is not null
@@ -190,7 +190,9 @@ public static class AuthoringIssueService
         }).ToArray();
 
         void Add(string code, string message, AuthoringNodeDependency node)
-            => issues.Add(new(code, message, draft.PlanId, node.NodeId));
+        {
+            issues.Add(new(code, message, draft.PlanId, node.NodeId));
+        }
     }
     private static bool UsesCompilerInputValidation(MetricSource source) => source switch
     {

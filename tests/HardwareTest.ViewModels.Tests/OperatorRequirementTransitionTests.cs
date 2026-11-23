@@ -16,9 +16,11 @@ public sealed class OperatorRequirementTransitionTests
         var selected = Program("first", "controller", new() { RequireSerial = true, RequireOperator = true });
         var session = new OperatorSession();
         session.SelectProgram(selected.Id, selected.Path, selected.DisplayName, selected.DutFamily);
-        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected);
-        panel.DutSerialInput = "CONFIRMED-DUT";
-        panel.OperatorInput = "Confirmed technician";
+        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected)
+        {
+            DutSerialInput = "CONFIRMED-DUT",
+            OperatorInput = "Confirmed technician"
+        };
         await panel.ConfirmSessionCommand.ExecuteAsync();
         Assert.False(panel.SessionBlocked);
         var sessionId = session.SessionId;
@@ -74,8 +76,10 @@ public sealed class OperatorRequirementTransitionTests
     {
         var selected = Program("anonymous", "controller", new() { RequireSerial = true, RequireOperator = false });
         var session = new OperatorSession();
-        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected);
-        panel.DutSerialInput = "ANONYMOUS-DUT";
+        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected)
+        {
+            DutSerialInput = "ANONYMOUS-DUT"
+        };
         await panel.ConfirmSessionCommand.ExecuteAsync();
         Assert.False(panel.SessionBlocked);
         selected = Program("named", "controller", new() { RequireSerial = true, RequireOperator = true });
@@ -99,9 +103,11 @@ public sealed class OperatorRequirementTransitionTests
         var settings = new AppSettings();
         var session = new OperatorSession();
         var panel = new OperatorSessionPanelViewModel(session, settings, _ => { }, () => selected,
-            credentialBroker: new MockOperatorCredentialBroker());
-        panel.DutSerialInput = "BADGE-POLICY-DUT";
-        panel.OperatorInput = "Typed technician";
+            credentialBroker: new MockOperatorCredentialBroker())
+        {
+            DutSerialInput = "BADGE-POLICY-DUT",
+            OperatorInput = "Typed technician"
+        };
         await panel.ConfirmSessionCommand.ExecuteAsync();
         Assert.False(panel.SessionBlocked);
         Assert.Null(session.OperatorCredentialSerial);

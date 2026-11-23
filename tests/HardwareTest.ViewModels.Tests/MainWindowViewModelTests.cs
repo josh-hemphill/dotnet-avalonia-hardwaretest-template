@@ -28,7 +28,7 @@ public sealed class MainWindowViewModelTests
         ResultsViewModel? results = null,
         FakeRunStore? runStore = null,
         SettingsViewModel? settings = null,
-        IReadOnlyList<HardwareTest.Shell.ShellPage>? extraPages = null,
+        IReadOnlyList<Shell.ShellPage>? extraPages = null,
         HomeViewModel? home = null)
     {
         runStore ??= new FakeRunStore();
@@ -109,7 +109,7 @@ public sealed class MainWindowViewModelTests
             store,
             guestTiles:
             [
-                new HardwareTest.Shell.ShellHomeTile
+                new Shell.ShellHomeTile
                 {
                     Title = "Notes",
                     Body = "Engineer notes",
@@ -131,9 +131,9 @@ public sealed class MainWindowViewModelTests
     public async Task Guest_engineer_page_stays_off_operator_nav_until_engineer_mode()
     {
         var extraVm = new object();
-        var extra = new HardwareTest.Shell.ShellPage
+        var extra = new Shell.ShellPage
         {
-            Descriptor = new HardwareTest.Shell.ShellPageDescriptor
+            Descriptor = new Shell.ShellPageDescriptor
             {
                 Id = "vendor.planning",
                 Title = "Plan",
@@ -274,7 +274,7 @@ public sealed class MainWindowViewModelTests
         var store = new FakeSettingsStore();
         store.UiState.SelectedPageId = "Home";
         var runStore = new FakeRunStore();
-        await runStore.SaveAsync(new HardwareTest.Core.Runs.TestRunRecord
+        await runStore.SaveAsync(new Core.Runs.TestRunRecord
         {
             RunId = "run-nav-1",
             PlanId = "sample",

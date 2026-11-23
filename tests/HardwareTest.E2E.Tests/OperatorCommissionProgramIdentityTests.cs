@@ -113,7 +113,7 @@ public sealed class OperatorCommissionProgramIdentityTests
         Settle(window);
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")!;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var suffix = $"{(dark ? "dark" : "light")}-{width}x{height}-font{font}";
         using (var bitmap = window.CaptureRenderedFrame())
         {

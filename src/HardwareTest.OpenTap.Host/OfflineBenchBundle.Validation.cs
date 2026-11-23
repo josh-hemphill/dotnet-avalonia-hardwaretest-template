@@ -20,21 +20,21 @@ public static partial class OfflineBenchBundle
     public static string Describe(OfflineBenchBundleManifest manifest)
     {
         var text = new StringBuilder();
-        text.AppendLine($"Program: {manifest.PlanId}; export {manifest.ExportId}");
-        text.AppendLine($"Target: {manifest.TargetOS}/{manifest.TargetArchitecture}; created {manifest.CreatedAt:O}");
-        text.AppendLine($"Required operator build: {manifest.RequiredOperatorBuild}; capability {manifest.InstallerCapability}");
-        text.AppendLine($"Verified inventory: {manifest.Files.Count} files; {manifest.Packages.Count} exact package archives.");
+        _ = text.AppendLine($"Program: {manifest.PlanId}; export {manifest.ExportId}");
+        _ = text.AppendLine($"Target: {manifest.TargetOS}/{manifest.TargetArchitecture}; created {manifest.CreatedAt:O}");
+        _ = text.AppendLine($"Required operator build: {manifest.RequiredOperatorBuild}; capability {manifest.InstallerCapability}");
+        _ = text.AppendLine($"Verified inventory: {manifest.Files.Count} files; {manifest.Packages.Count} exact package archives.");
         foreach (var requirement in manifest.Requirements)
-            text.AppendLine($"Requirement: {requirement.Name} {requirement.VersionRange}");
+            _ = text.AppendLine($"Requirement: {requirement.Name} {requirement.VersionRange}");
         foreach (var package in manifest.Packages)
         {
-            text.AppendLine($"Package: {package.Name} {package.Version} ({package.OS}/{package.Architecture}){(IsRuntimeProvidedPackage(package.Name) ? " — runtime baseline; never replaced" : string.Empty)}");
-            text.AppendLine($"  Archive: {package.Path}; SHA-256 {package.Sha256}");
+            _ = text.AppendLine($"Package: {package.Name} {package.Version} ({package.OS}/{package.Architecture}){(IsRuntimeProvidedPackage(package.Name) ? " — runtime baseline; never replaced" : string.Empty)}");
+            _ = text.AppendLine($"  Archive: {package.Path}; SHA-256 {package.Sha256}");
             foreach (var dependency in package.Dependencies)
-                text.AppendLine($"  Requires {dependency.Name} {dependency.VersionRange}");
+                _ = text.AppendLine($"  Requires {dependency.Name} {dependency.VersionRange}");
         }
-        if (manifest.TargetOS == "Windows") text.AppendLine("The engine is verified against the matching release, not upgraded. Its known in-place Windows upgrader is never invoked for this fresh same-version copy.");
-        text.AppendLine("Inspection verifies package bytes and dependency closure. It does not install packages, execute actions or certify hardware.");
+        if (manifest.TargetOS == "Windows") _ = text.AppendLine("The engine is verified against the matching release, not upgraded. Its known in-place Windows upgrader is never invoked for this fresh same-version copy.");
+        _ = text.AppendLine("Inspection verifies package bytes and dependency closure. It does not install packages, execute actions or certify hardware.");
         return text.ToString().TrimEnd();
     }
 
@@ -53,8 +53,8 @@ public static partial class OfflineBenchBundle
             throw new InvalidDataException($"Offline bundle requires operator build '{manifest.RequiredOperatorBuild}'. This build is '{CurrentOperatorBuild}'. Use the matching operator release.");
         if (!IsSupportedTarget(manifest.TargetOS, manifest.TargetArchitecture))
             throw new InvalidDataException("Offline bundles currently support win-x64, linux-x64 and linux-arm64 only.");
-        if (targetOS is not null && !manifest.TargetOS.Equals(targetOS, StringComparison.OrdinalIgnoreCase)
-            || targetArchitecture is not null && !manifest.TargetArchitecture.Equals(targetArchitecture, StringComparison.OrdinalIgnoreCase))
+        if ((targetOS is not null && !manifest.TargetOS.Equals(targetOS, StringComparison.OrdinalIgnoreCase))
+            || (targetArchitecture is not null && !manifest.TargetArchitecture.Equals(targetArchitecture, StringComparison.OrdinalIgnoreCase)))
         {
             throw new InvalidDataException($"Bundle target {manifest.TargetOS}/{manifest.TargetArchitecture} does not match this operator. Inspect it on its intended target.");
         }
@@ -131,8 +131,8 @@ public static partial class OfflineBenchBundle
             Require(new() { Name = (string?)dependency.Attribute("Name") ?? string.Empty, VersionRange = (string?)dependency.Attribute("Version") ?? string.Empty });
         var allowed = new HashSet<string>(manifest.Packages.Select(package => package.Path), StringComparer.Ordinal);
         var program = ProgramDirectory(manifest.PlanId) + "/";
-        foreach (var name in new[] { manifest.PlanId + ".TapPlan", manifest.PlanId + ".program.json", BenchProgramHandoff.ReceiptFileName }) allowed.Add(program + name);
-        foreach (var helper in new[] { "install-offline-bundle.sh", "check-offline-bundle.sh", "install-offline-bundle.cmd", "check-offline-bundle.cmd", "offline-bench-helper.ps1", "README.txt" }) allowed.Add(helper);
+        foreach (var name in new[] { manifest.PlanId + ".TapPlan", manifest.PlanId + ".program.json", BenchProgramHandoff.ReceiptFileName }) _ = allowed.Add(program + name);
+        foreach (var helper in new[] { "install-offline-bundle.sh", "check-offline-bundle.sh", "install-offline-bundle.cmd", "check-offline-bundle.cmd", "offline-bench-helper.ps1", "README.txt" }) _ = allowed.Add(helper);
         if (files.Keys.Any(path => !allowed.Contains(path))) throw new InvalidDataException("Offline bundle contains unsupported files outside its checked program, package closure and installation helpers.");
         if (reached.Count != archives.Count) throw new InvalidDataException("Offline bundle contains unrelated package archives outside its required closure.");
         cancellationToken.ThrowIfCancellationRequested();
@@ -142,8 +142,12 @@ public static partial class OfflineBenchBundle
     private static void ValidateProgramPair(OfflineBenchBundleManifest manifest, IReadOnlyDictionary<string, byte[]> files)
     {
         var directory = ProgramDirectory(manifest.PlanId);
-        byte[] Read(string name) => files.TryGetValue(directory + "/" + name, out var bytes) ? bytes
+        byte[] Read(string name)
+        {
+            return files.TryGetValue(directory + "/" + name, out var bytes) ? bytes
             : throw new InvalidDataException("Offline bundle is missing the checked compiled program pair and receipt.");
+        }
+
         var planBytes = Read(manifest.PlanId + ".TapPlan");
         var sidecarBytes = Read(manifest.PlanId + ".program.json");
         var receipt = JsonSerializer.Deserialize(Read(BenchProgramHandoff.ReceiptFileName), BenchHandoffJsonContext.Default.BenchProgramReceipt)
@@ -164,9 +168,9 @@ public static partial class OfflineBenchBundle
         var plan = OfflineBenchArchive.ReadXml(planBytes);
         var guards = plan.Descendants().Where(element => element.Name.LocalName == "TestStep"
             && ((string?)element.Attribute("type") ?? string.Empty).Replace("emb:", string.Empty, StringComparison.Ordinal)
-                .Split(',')[0].Trim() == typeof(HardwareTest.OpenTap.Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName).ToArray();
-        if (rules.Count > 0 && (receipt.RequiredOperatorCapability != "bench-references-v1" || guards.Length != 1)
-            || rules.Count == 0 && (receipt.RequiredOperatorCapability != string.Empty || guards.Length != 0))
+                .Split(',')[0].Trim() == typeof(Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName).ToArray();
+        if ((rules.Count > 0 && (receipt.RequiredOperatorCapability != "bench-references-v1" || guards.Length != 1))
+            || (rules.Count == 0 && (receipt.RequiredOperatorCapability != string.Empty || guards.Length != 0)))
         {
             throw new InvalidDataException("Offline reference criteria and runtime compatibility guard do not match. Compile and prepare the complete program again.");
         }
@@ -186,8 +190,12 @@ public static partial class OfflineBenchBundle
             .SequenceEqual(right.Select(value => value.Name.ToLowerInvariant() + "\0" + value.VersionRange.Trim()).Order(StringComparer.Ordinal));
     private static bool SamePlatform(string left, string right, bool architecture)
     {
-        string Normalize(string value) => string.IsNullOrWhiteSpace(value) ? architecture ? "anycpu" : string.Empty
+        string Normalize(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? architecture ? "anycpu" : string.Empty
             : string.Join(',', value.Split(',', StringSplitOptions.TrimEntries).Select(part => part.ToLowerInvariant()).Order(StringComparer.Ordinal));
+        }
+
         return Normalize(left) == Normalize(right);
     }
     private static byte[] ReadOwned(string path, long maximum, CancellationToken cancellationToken)
@@ -202,7 +210,7 @@ public static partial class OfflineBenchBundle
     private static void RequireUniqueJson(byte[] bytes)
     {
         using var document = JsonDocument.Parse(bytes);
-        void Check(JsonElement element)
+        static void Check(JsonElement element)
         {
             if (element.ValueKind == JsonValueKind.Object)
             {

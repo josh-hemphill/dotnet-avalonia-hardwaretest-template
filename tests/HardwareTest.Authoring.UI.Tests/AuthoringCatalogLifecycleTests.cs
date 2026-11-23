@@ -78,9 +78,9 @@ public sealed class AuthoringCatalogLifecycleTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Warning feedback programs";
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
-        fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        _ = fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
         vm.CreateDemoProgram("a-invalid"); vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte); vm.Threshold = string.Empty;
-        vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited"; vm.OpenTapHomeOverride = "invalid\0home";
+        _ = vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.DisplayName += " edited"; vm.OpenTapHomeOverride = "invalid\0home";
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         Assert.True(vm.LastSaveAllResult!.Succeeded); Assert.Equal(["a-invalid", "z-valid"], vm.LastSaveAllResult.SavedProgramIds);
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, fixture.Control<TextBlock>("Authoring error").Text);
@@ -108,20 +108,20 @@ public sealed class AuthoringCatalogLifecycleTests
         await fixture.WaitForReadinessAsync();
         for (var i = 0; i < 35; i++)
         {
-            fixture.ViewModel.InitializePlan(new($"global-{i:00}-{new string('x', 110)}") { Instruments = [] });
+            _ = fixture.ViewModel.InitializePlan(new($"global-{i:00}-{new string('x', 110)}") { Instruments = [] });
             fixture.ViewModel.DisplayName += " edited";
         }
         fixture.Window!.Close(); AuthoringUiFixture.Drain(); var dialog = Assert.Single(fixture.Window!.OwnedWindows);
         var scroll = fixture.Control<ScrollViewer>("Unsaved program list", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);
-        var point = scroll.TranslatePoint(new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog); Assert.NotNull(point);
+        var point = scroll.TranslatePoint(new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog); _ = Assert.NotNull(point);
         dialog.MouseWheel(point.Value, new Vector(0, -1000), RawInputModifiers.None); AuthoringUiFixture.Drain(); Assert.True(scroll.Offset.Y > 0);
         AuthoringUiFixture.Click(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel"))); Assert.True(fixture.Window!.IsVisible);
     }
 
     private static AuthoringUiFixture Loaded()
     {
-        var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); return fixture;
+        var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(960, 600, realInteraction: true); fixture.OpenRememberedWorkspace(); return fixture;
     }
     private static void StageGlobalOnly(AuthoringUiFixture fixture)
     {
@@ -130,7 +130,7 @@ public sealed class AuthoringCatalogLifecycleTests
     }
     private static void AssertInside(Control control, Window window)
     {
-        Assert.True(control.IsEffectivelyVisible); var point = control.TranslatePoint(default, window); Assert.NotNull(point); Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
+        Assert.True(control.IsEffectivelyVisible); var point = control.TranslatePoint(default, window); _ = Assert.NotNull(point); Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(point.Value, control.Bounds.Size)), $"{control.GetType().Name} at {point} ({control.Bounds.Size}) must fit inside {window.ClientSize}.");
     }
 }

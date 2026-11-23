@@ -29,19 +29,13 @@ public interface IStationIdnStore
 }
 
 /// Persists queried identities beside settings, without bumping AppSettings schema.
-public sealed class FileStationIdnStore : IStationIdnStore
+public sealed class FileStationIdnStore(string dataDirectory, ILogger? log = null) : IStationIdnStore
 {
     public const string FileName = "station-idn.json";
 
-    private readonly string _path;
-    private readonly ILogger? _log;
+    private readonly string _path = Path.Combine(dataDirectory, FileName);
+    private readonly ILogger? _log = log;
     private readonly object _gate = new();
-
-    public FileStationIdnStore(string dataDirectory, ILogger? log = null)
-    {
-        _path = Path.Combine(dataDirectory, FileName);
-        _log = log;
-    }
 
     public IReadOnlyList<StationIdnRecord> List() => Load().Records.ToList();
 
@@ -55,14 +49,14 @@ public sealed class FileStationIdnStore : IStationIdnStore
         lock (_gate)
         {
             var doc = LoadUnlocked();
-            doc.Records.RemoveAll(r =>
+            _ = doc.Records.RemoveAll(r =>
                 string.Equals(r.PlanId, record.PlanId, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(r.SlotName, record.SlotName, StringComparison.OrdinalIgnoreCase));
             doc.Records.Add(record);
             var dir = Path.GetDirectoryName(_path);
             if (!string.IsNullOrWhiteSpace(dir))
             {
-                Directory.CreateDirectory(dir);
+                _ = Directory.CreateDirectory(dir);
             }
 
             using var stream = File.Create(_path);

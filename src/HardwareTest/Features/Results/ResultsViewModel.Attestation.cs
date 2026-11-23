@@ -119,22 +119,10 @@ public partial class ResultsViewModel
         var token = _pendingAttestationCancellation!.Token;
         var kind = _pendingAttestationKind ?? ReportKinds.Certification;
         var pending = _pendingAttestationAction;
-        var printPath = _pendingPrintPath;
         var pin = ShowAttestationPin ? AttestationPin : null;
         var credential = _capturedAttestationCredential;
         IsCapturingAttestation = true;
-        if (skipSigning)
-        {
-            AttestationPromptStatus = "Recording presence…";
-        }
-        else if (ShowAttestationPin)
-        {
-            AttestationPromptStatus = "Signing…";
-        }
-        else
-        {
-            AttestationPromptStatus = "Waiting for chip or tap…";
-        }
+        AttestationPromptStatus = skipSigning ? "Recording presence…" : ShowAttestationPin ? "Signing…" : "Waiting for chip or tap…";
         try
         {
             var result = await Task.Run(async () =>
@@ -169,7 +157,7 @@ public partial class ResultsViewModel
             Status = result.Message;
             LoadReportItems(run);
             DismissAttestationPrompt();
-            ContinuePendingAction(pending, printPath, kind, run, result.Attestation?.RevisionId);
+            ContinuePendingAction(pending, kind, run, result.Attestation?.RevisionId);
         }
         catch (OperationCanceledException)
         {
@@ -185,7 +173,7 @@ public partial class ResultsViewModel
         }
     }
 
-    private void ContinuePendingAction(string? pending, string? printPath, string reportKind, TestRunRecord run, string? revisionId)
+    private void ContinuePendingAction(string? pending, string reportKind, TestRunRecord run, string? revisionId)
     {
         if (string.Equals(pending, PendingExport, StringComparison.Ordinal))
         {

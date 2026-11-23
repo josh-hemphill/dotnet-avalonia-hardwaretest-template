@@ -57,7 +57,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         vm.DisplayName = "Edited sample";
 
         Assert.True(vm.HasUnsavedChanges);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         vm.SaveSidecar();
         Assert.False(vm.HasUnsavedChanges);
     }
@@ -73,7 +73,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         Assert.True(vm.HasUnsavedChanges);
         vm.SaveSidecar();
         Assert.True(vm.HasUnsavedChanges);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
     }
 
     [Fact]
@@ -81,14 +81,14 @@ public sealed class AuthoringWorkspaceViewModelTests
     {
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(CopyTemplateWorkspace());
-        vm.InitializePlan(new("new-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("new-program") { Instruments = [] });
         vm.DisplayName += " edited";
         vm.SelectProgram("sample");
         vm.DisplayName = "Edited sample";
         vm.SaveSidecar();
 
         Assert.True(vm.HasUnsavedChanges);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
         vm.SelectProgram("sample");
-        vm.Validate();
+        _ = vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
         vm.SelectMeasure(0);
         vm.ChannelKey = "edited-channel";
@@ -125,16 +125,16 @@ public sealed class AuthoringWorkspaceViewModelTests
         Assert.NotEmpty(vm.FindingRows);
         Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
         vm.Undo();
-        vm.Validate();
+        _ = vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
         vm.DisplayName = "edited sidecar";
         Assert.Empty(vm.Findings);
         Assert.NotEmpty(vm.FindingRows);
         Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
         vm.Undo();
-        vm.Validate();
+        _ = vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
-        vm.InitializePlan(new("new-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("new-program") { Instruments = [] });
         Assert.Empty(vm.Findings);
         Assert.NotEmpty(vm.FindingRows);
         Assert.All(vm.FindingRows, row => Assert.True(row.IsStale));
@@ -153,7 +153,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         if (redo) vm.UndoWorkspace();
         Assert.True(vm.SaveAll().Succeeded);
         File.Delete(Path.Combine(root, "sample.program.json"));
-        vm.Validate();
+        _ = vm.Validate();
         Assert.NotEmpty(vm.FindingRows);
         if (redo) vm.RedoWorkspace(); else vm.UndoWorkspace();
         Assert.Empty(vm.Findings);
@@ -169,7 +169,7 @@ public sealed class AuthoringWorkspaceViewModelTests
         File.Delete(Path.Combine(root, "board-demo.program.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.Validate();
+        _ = vm.Validate();
 
         Assert.Contains(vm.FindingRows, row => row.ProgramId == "sample" && row.CanOpenProgram);
         Assert.Contains(vm.FindingRows, row => row.ProgramId == "board-demo" && row.CanOpenProgram);
@@ -190,7 +190,7 @@ public sealed class AuthoringWorkspaceViewModelTests
     {
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         var dest = Path.Combine(Path.GetTempPath(), "ht-authoring-vm-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         foreach (var file in Directory.EnumerateFiles(src, "*", SearchOption.TopDirectoryOnly))
         {
             File.Copy(file, Path.Combine(dest, Path.GetFileName(file)));

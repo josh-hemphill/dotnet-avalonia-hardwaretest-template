@@ -18,18 +18,20 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
-            if (_editingIssueDispatch is not null) return _editingIssueCache;
+            if (_editingIssueDispatch is not null) return field;
             var inspection = HardwareInspection;
             return Programs.SelectMany(draft => AuthoringIssueService.GetIssues(draft, inspection.Home, inspection.Error, Workspace?.Manifest.Dependencies.Select(d => d.Package).ToArray())).ToArray();
         }
-    }
+
+        private set;
+    } = [];
 
     public void Undo()
     {
         EnsureWritableWorkspace("undo a program edit");
         var session = SelectedDocument ?? throw new AuthoringWorkspaceException("Select a program before Undo.");
         EnsurePresentedHistoryCurrent();
-        session.Undo();
+        _ = session.Undo();
         PresentSession(session);
     }
 
@@ -38,7 +40,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         EnsureWritableWorkspace("redo a program edit");
         var session = SelectedDocument ?? throw new AuthoringWorkspaceException("Select a program before Redo.");
         EnsurePresentedHistoryCurrent();
-        session.Redo();
+        _ = session.Redo();
         PresentSession(session);
     }
 
@@ -81,7 +83,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RestoreNodeSelection(Guid? nodeId)
     {
         if (nodeId is null) return;
-        var index = _sequenceItems.ToList().FindIndex(row => row.NodeId == nodeId);
+        var index = SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId);
         if (index >= 0) SelectSequence(index);
     }
 
@@ -151,9 +153,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         foreach (var draft in Programs)
         {
             if (!_documents.TryGetValue(draft.PlanId, out var session)) continue;
-            var dirty = session.GetDirtyState(draft);
-            if (dirty.PlanDirty) _dirtyPlans.Add(draft.PlanId);
-            if (dirty.SidecarDirty) _dirtySidecars.Add(draft.PlanId);
+            var (PlanDirty, SidecarDirty) = session.GetDirtyState(draft);
+            if (PlanDirty) _ = _dirtyPlans.Add(draft.PlanId);
+            if (SidecarDirty) _ = _dirtySidecars.Add(draft.PlanId);
         }
         _workspaceCatalogDirty = Workspace is not null && ManifestIdentity() != _savedManifestIdentity;
     }

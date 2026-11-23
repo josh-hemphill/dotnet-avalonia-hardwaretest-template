@@ -97,17 +97,17 @@ public static class OpenTapPackageCatalog
 
         foreach (var dir in ListPluginDirectories(settings))
         {
-            roots.Add(dir.Path);
+            _ = roots.Add(dir.Path);
         }
 
         var openTapDir = Path.GetDirectoryName(typeof(TestPlan).Assembly.Location);
         if (!string.IsNullOrWhiteSpace(openTapDir))
         {
-            roots.Add(Path.GetFullPath(openTapDir));
+            _ = roots.Add(Path.GetFullPath(openTapDir));
             var packagesSibling = Path.Combine(Path.GetFullPath(openTapDir), "Packages");
             if (Directory.Exists(packagesSibling))
             {
-                roots.Add(packagesSibling);
+                _ = roots.Add(packagesSibling);
             }
 
             var parentPackages = Path.Combine(Path.GetFullPath(openTapDir), "..", "Packages");
@@ -116,7 +116,7 @@ public static class OpenTapPackageCatalog
                 var fullParent = Path.GetFullPath(parentPackages);
                 if (Directory.Exists(fullParent))
                 {
-                    roots.Add(fullParent);
+                    _ = roots.Add(fullParent);
                 }
             }
             catch

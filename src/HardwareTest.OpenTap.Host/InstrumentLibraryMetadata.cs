@@ -27,8 +27,8 @@ internal static class InstrumentLibraryMetadata
         { throw new IOException("Library package version metadata is invalid.", error); }
         var containers = package.Elements().Where(element => element.Name.LocalName == "Files").ToArray();
         if (containers.Length != 1 || package.Descendants().Any(element =>
-            element.Name.LocalName == "Files" && element != containers[0]
-            || element.Name.LocalName == "File" && element.Parent != containers[0]))
+            (element.Name.LocalName == "Files" && element != containers[0])
+            || (element.Name.LocalName == "File" && element.Parent != containers[0])))
         {
             throw new IOException("Library package must declare payload directly in one Package/Files element.");
         }

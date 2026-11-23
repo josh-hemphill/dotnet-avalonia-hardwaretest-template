@@ -50,7 +50,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             var source = AuthoringDocumentDto.FromDraft(created);
             source.RequiresCompilation = true;
             _sourceDocuments.Add(created.PlanId, source);
-            _uncompiledDocuments.Add(created.PlanId);
+            _ = _uncompiledDocuments.Add(created.PlanId);
             RaiseDraftState();
         }
         _selectedInstrumentSlot = null;
@@ -112,16 +112,16 @@ public sealed partial class AuthoringWorkspaceViewModel
         _recovery?.Cancel(Workspace.Root, planId);
         sourceStore.DeleteRecovery(planId);
         sourceStore.DeleteSource(planId);
-        _sourceDocuments.Remove(planId); _recoverableDocuments.Remove(planId);
-        _measureSectionMigrations.Remove(planId); _compiledOnlyBaselines.Remove(planId);
-        _compiledConflicts.Remove(planId); _uncompiledDocuments.Remove(planId);
-        _saveCompilationWarnings.Remove(planId); UpdateSavePreviewWarning();
-        _documents.Remove(planId);
+        _ = _sourceDocuments.Remove(planId); _ = _recoverableDocuments.Remove(planId);
+        _ = _measureSectionMigrations.Remove(planId); _ = _compiledOnlyBaselines.Remove(planId);
+        _ = _compiledConflicts.Remove(planId); _ = _uncompiledDocuments.Remove(planId);
+        _ = _saveCompilationWarnings.Remove(planId); UpdateSavePreviewWarning();
+        _ = _documents.Remove(planId);
         RaiseDraftState();
         _workspaceHistory.Clear();
         Programs = remaining;
-        _dirtyPlans.Remove(planId);
-        _dirtySidecars.Remove(planId);
+        _ = _dirtyPlans.Remove(planId);
+        _ = _dirtySidecars.Remove(planId);
         RecomputeDocumentDirty();
         _selectedInstrumentSlot = null;
         AssignSelectedProgram(
@@ -140,7 +140,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var store = new AuthoringDocumentStore(Workspace!.Root);
         foreach (var path in new[] { tapPlanPath, PlanCompiler.SidecarPath(tapPlanPath), store.GetDocumentPath(planId), store.GetRecoveryPath(planId) })
         {
-            store.ValidatePath(path);
+            _ = store.ValidatePath(path);
             if (Directory.Exists(path)) throw new IOException($"Refusing to delete a directory as a program file: {path}");
             if (File.Exists(path) && new FileInfo(path).IsReadOnly) throw new IOException($"Program file is read-only: {path}");
         }
@@ -172,10 +172,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             return false;
         }
 
-        var current = DescribeSelectedProgramRemoval();
-        if (!string.Equals(current.PlanId, confirmedTarget.PlanId, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(current.TapPlanPath, confirmedTarget.TapPlanPath, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(current.SidecarPath, confirmedTarget.SidecarPath, StringComparison.OrdinalIgnoreCase))
+        var (PlanId, TapPlanPath, SidecarPath) = DescribeSelectedProgramRemoval();
+        if (!string.Equals(PlanId, confirmedTarget.PlanId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(TapPlanPath, confirmedTarget.TapPlanPath, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(SidecarPath, confirmedTarget.SidecarPath, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

@@ -30,7 +30,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void ConfigureMovementAvailability(Action<Action> dispatch, Func<bool> ownerIsCurrent)
     {
         _movementGeneration++;
-        _movementIdle.TrySetResult();
+        _ = _movementIdle.TrySetResult();
         _movementRunning = false;
         _movementQueued = false;
         _movementPending = false;
@@ -46,7 +46,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _movementGeneration++;
         _movementStopped = true;
         _movementPending = false;
-        _movementIdle.TrySetResult();
+        _ = _movementIdle.TrySetResult();
     }
 
     public Task WaitForMovementAvailabilityAsync() => _movementIdle.Task;
@@ -63,7 +63,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!key.Editable || key.Snapshot is null || key.Node is null)
         {
             _movementPending = false;
-            _movementIdle.TrySetResult();
+            _ = _movementIdle.TrySetResult();
             _movementAvailability = MovementUnavailable(Workspace?.IsReadOnly == true ? "This workspace is read-only."
                 : "Select an editable step or section.");
             PublishMovementAvailability();
@@ -96,13 +96,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             if (_movementStopped || _movementOwner?.Invoke() != true)
             {
                 _movementPending = false;
-                _movementIdle.TrySetResult();
+                _ = _movementIdle.TrySetResult();
                 return;
             }
             _movementPending = false;
             if (_movementKey is not { Editable: true, Snapshot: not null, Node: not null } key)
             {
-                _movementIdle.TrySetResult();
+                _ = _movementIdle.TrySetResult();
                 return;
             }
             _movementRunning = true;
@@ -114,7 +114,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             _movementQueued = false;
             _movementPending = false;
             _movementAvailability = MovementUnavailable($"Move check could not start: {error.Message}");
-            _movementIdle.TrySetResult();
+            _ = _movementIdle.TrySetResult();
             PublishMovementAvailability();
         }
     }
@@ -130,7 +130,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             if (generation != _movementGeneration) return;
             _movementRunning = false;
-            if (_movementStopped || _movementOwner?.Invoke() != true) { _movementPending = false; _movementIdle.TrySetResult(); return; }
+            if (_movementStopped || _movementOwner?.Invoke() != true) { _movementPending = false; _ = _movementIdle.TrySetResult(); return; }
             if (key == CurrentMovementKey())
             {
                 _movementAvailability = result;
@@ -142,13 +142,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
 
             if (_movementPending) QueueMovementAvailability();
-            else if (!_movementRunning && !_movementQueued && !_movementPending) _movementIdle.TrySetResult();
+            else if (!_movementRunning && !_movementQueued && !_movementPending) _ = _movementIdle.TrySetResult();
         });
         }
         catch
         {
             // The dispatcher may have shut down. A later Configure starts a fresh generation.
-            if (generation == _movementGeneration) _movementIdle.TrySetResult();
+            if (generation == _movementGeneration) _ = _movementIdle.TrySetResult();
         }
     }
 
@@ -184,7 +184,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             catch (Exception error) when (error is AuthoringWorkspaceException or NotSupportedException) { return (false, error.Message, null); }
         }
-        var up = Direction(-1);
+        var (Allowed, Reason, Draft) = Direction(-1);
         var down = Direction(1);
         var sectionAllowed = false;
         ProgramDraft? sectionDraft = null;
@@ -213,8 +213,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             catch (Exception error) when (error is AuthoringWorkspaceException or NotSupportedException) { sectionReason = error.Message; }
         }
-        return new(up.Allowed, up.Reason, down.Allowed, down.Reason, sectionAllowed, sectionReason)
-        { UpDraft = up.Draft, DownDraft = down.Draft, SectionDraft = sectionDraft };
+        return new(Allowed, Reason, down.Allowed, down.Reason, sectionAllowed, sectionReason)
+        { UpDraft = Draft, DownDraft = down.Draft, SectionDraft = sectionDraft };
     }
 
     private void ApplyPreparedMove(int? direction)
@@ -228,7 +228,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             Error = $"Cannot move{(direction == -1 ? " up" : direction == 1 ? " down" : " to section")}: {reason}";
             return;
         }
-        if (direction is null && _movementKey?.Destination is { } destination) _collapsedSectionIds.Remove(destination);
+        if (direction is null && _movementKey?.Destination is { } destination) _ = _collapsedSectionIds.Remove(destination);
         SequenceTransaction(_ => prepared, "Item moved");
     }
 

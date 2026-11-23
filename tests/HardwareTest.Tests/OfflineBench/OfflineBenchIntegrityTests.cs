@@ -35,7 +35,7 @@ public sealed class OfflineBenchIntegrityTests
         using var fixture = new BundleFixture();
         File.AppendAllText(Path.Combine(fixture.Root, relative), "changed");
         var retained = fixture.Fingerprint();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
         Assert.Equal(retained, fixture.Fingerprint());
     }
 
@@ -44,7 +44,7 @@ public sealed class OfflineBenchIntegrityTests
     {
         using var fixture = new BundleFixture();
         var dependency = fixture.Manifest.Packages.Single(package => package.Name == "Extension dependency");
-        fixture.Manifest.Packages.Remove(dependency); File.Delete(Path.Combine(fixture.Root, dependency.Path)); fixture.Save();
+        _ = fixture.Manifest.Packages.Remove(dependency); File.Delete(Path.Combine(fixture.Root, dependency.Path)); fixture.Save();
         Assert.Contains("Extension dependency", Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root)).Message);
     }
 
@@ -52,7 +52,7 @@ public sealed class OfflineBenchIntegrityTests
     public void Archive_metadata_target_and_operator_build_are_checked_independently()
     {
         using var fixture = new BundleFixture();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root, "Windows", "x64"));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root, "Windows", "x64"));
         var index = fixture.Manifest.Packages.FindIndex(package => package.Name == "Extension");
         fixture.Manifest.Packages[index] = fixture.Manifest.Packages[index] with { Version = "9.0.0" }; fixture.Save();
         Assert.Contains("metadata", Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root)).Message);
@@ -85,7 +85,7 @@ public sealed class OfflineBenchIntegrityTests
                 using var output = new StreamWriter(entry.Open()); output.Write("unsafe");
             }
         });
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
         Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(fixture.Root)!, "outside.dll")));
     }
 
@@ -95,10 +95,10 @@ public sealed class OfflineBenchIntegrityTests
         using var fixture = new BundleFixture();
         var original = fixture.Manifest.Files[0];
         fixture.Manifest.Files.Add(original with { Path = original.Path.ToUpperInvariant() }); fixture.WriteManifest();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root));
         fixture.Manifest.Files.RemoveAt(fixture.Manifest.Files.Count - 1); fixture.WriteManifest();
         var extra = Path.Combine(fixture.Root, "keep-unrelated.txt"); File.WriteAllText(extra, "keep");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root)); Assert.Equal("keep", File.ReadAllText(extra));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Root)); Assert.Equal("keep", File.ReadAllText(extra));
     }
 
     [Fact]
@@ -106,13 +106,13 @@ public sealed class OfflineBenchIntegrityTests
     {
         using var fixture = new BundleFixture();
         using var paths = new TempDataDirectory();
-        var source = Path.Combine(paths.Path, "source"); Directory.CreateDirectory(source);
+        var source = Path.Combine(paths.Path, "source"); _ = Directory.CreateDirectory(source);
         var destination = Path.Combine(paths.Path, "new-app"); var data = Path.Combine(paths.Path, "new-data");
         using var canceled = new CancellationTokenSource(); canceled.Cancel();
-        Assert.Throws<OperationCanceledException>(() => OfflineBenchInstaller.Install(fixture.Root, source, destination, data, canceled.Token));
+        _ = Assert.Throws<OperationCanceledException>(() => OfflineBenchInstaller.Install(fixture.Root, source, destination, data, canceled.Token));
         Assert.False(Directory.Exists(destination)); Assert.False(Directory.Exists(data));
-        Directory.CreateDirectory(destination); var sentinel = Path.Combine(destination, "existing-settings.json"); File.WriteAllText(sentinel, "retain original settings");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Root, source, destination, data));
+        _ = Directory.CreateDirectory(destination); var sentinel = Path.Combine(destination, "existing-settings.json"); File.WriteAllText(sentinel, "retain original settings");
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Root, source, destination, data));
         Assert.Equal("retain original settings", File.ReadAllText(sentinel)); Assert.False(Directory.Exists(data));
         Assert.DoesNotContain(Directory.EnumerateDirectories(paths.Path), path => Path.GetFileName(path).StartsWith(".offline-", StringComparison.Ordinal));
     }
@@ -137,7 +137,7 @@ public sealed class OfflineBenchIntegrityTests
                 RequiredOperatorBuild = OfflineBenchBundle.CurrentOperatorBuild,
                 Requirements = [new() { Name = "Extension", VersionRange = "^1.0.0" }]
             };
-            var program = Path.Combine(Root, OfflineBenchBundle.ProgramDirectory(PlanId)); Directory.CreateDirectory(program);
+            var program = Path.Combine(Root, OfflineBenchBundle.ProgramDirectory(PlanId)); _ = Directory.CreateDirectory(program);
             SampleProgramFactory.SaveBeside(program);
             var plan = Path.Combine(program, PlanId + ".TapPlan"); File.Move(Path.Combine(program, SampleProgramFactory.EmbeddedName), plan);
             var sidecar = Path.Combine(program, PlanId + ".program.json");
@@ -159,7 +159,7 @@ public sealed class OfflineBenchIntegrityTests
 
         private void AddPackage(string name, string version, List<OfflineBenchRequirement> dependencies)
         {
-            var relative = "packages/" + name + ".TapPackage"; var path = Path.Combine(Root, relative); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var relative = "packages/" + name + ".TapPackage"; var path = Path.Combine(Root, relative); _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var payload = "Packages/" + name + "/" + (name == "Extension" ? "extension.dll" : "payload.dll");
             var xml = new XElement("Package", new XAttribute("Name", name), new XAttribute("Version", version), new XAttribute("OS", "Linux"), new XAttribute("Architecture", "x64"),
                 new XElement("Dependencies", dependencies.Select(dependency => new XElement("PackageDependency", new XAttribute("Package", dependency.Name), new XAttribute("Version", dependency.VersionRange)))),

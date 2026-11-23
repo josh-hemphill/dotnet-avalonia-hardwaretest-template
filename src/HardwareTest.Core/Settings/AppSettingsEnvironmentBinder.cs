@@ -41,7 +41,7 @@ public static class AppSettingsEnvironmentBinder
         }
 
         // Indexed current station-overlay and plugin-directory overrides.
-        foreach (System.Collections.DictionaryEntry entry in env)
+        foreach (DictionaryEntry entry in env)
         {
             var name = entry.Key?.ToString();
             if (name is null
@@ -158,7 +158,7 @@ public static class AppSettingsEnvironmentBinder
 
     private static string? GetEnv(IDictionary env, string name)
     {
-        foreach (System.Collections.DictionaryEntry entry in env)
+        foreach (DictionaryEntry entry in env)
         {
             if (entry.Key is string key
                 && string.Equals(key, name, StringComparison.OrdinalIgnoreCase)
@@ -215,10 +215,10 @@ public static class AppSettingsEnvironmentBinder
                 continue;
             }
 
-            sb.Append(char.ToUpperInvariant(part[0]));
+            _ = sb.Append(char.ToUpperInvariant(part[0]));
             if (part.Length > 1)
             {
-                sb.Append(part[1..].ToLowerInvariant());
+                _ = sb.Append(part[1..].ToLowerInvariant());
             }
         }
 
@@ -243,7 +243,7 @@ public static class AppSettingsEnvironmentBinder
                 continue;
             }
 
-            if (index < 0 || index >= MaxIndexedListEntries)
+            if (index is < 0 or >= MaxIndexedListEntries)
             {
                 warn?.Invoke($"Ignoring {source} value for '{mapKey}': list index is out of range.");
                 continue;
@@ -262,7 +262,7 @@ public static class AppSettingsEnvironmentBinder
             var itemType = listProperty.PropertyType.GetGenericArguments()[0];
             while (target.Count <= index)
             {
-                target.Add(itemType == typeof(string) ? string.Empty : Activator.CreateInstance(itemType));
+                _ = target.Add(itemType == typeof(string) ? string.Empty : Activator.CreateInstance(itemType));
             }
 
             try
@@ -617,7 +617,7 @@ public sealed class SettingBinding
             }
 
             s.PhysicalSigningBackend = backend;
-            return (true, backend.ToString(), (string?)null);
+            return (true, backend.ToString(), null);
         });
 
     public static SettingBinding Bool(

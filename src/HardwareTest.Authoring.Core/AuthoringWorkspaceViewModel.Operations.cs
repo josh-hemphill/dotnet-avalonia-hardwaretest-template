@@ -5,15 +5,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     private AuthoringOperationCoordinator? _operations;
     private Action<Action>? _operationDispatch;
     private long _operationGeneration;
-    private bool _operationBusy;
     private int _operationLogNotificationPending;
-    private string? _operationStage;
+
     public bool OperationBusy
     {
-        get => _operationBusy;
+        get;
         private set
         {
-            if (SetField(ref _operationBusy, value))
+            if (SetField(ref field, value))
             {
                 RaisePackGuardProperties();
                 OnPropertyChanged(nameof(PackageDownloadSettingsEditable));
@@ -22,7 +21,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
     public bool OperationCleanupPending => _operations?.HasPendingCleanup == true;
-    public string? OperationStage { get => _operationStage; private set => SetField(ref _operationStage, value); }
+    public string? OperationStage { get; private set => SetField(ref field, value); }
     public IReadOnlyList<AuthoringOperationLog> OperationLogs => _operations?.Logs ?? [];
     public string OperationLogText => string.Join("", OperationLogs.Select(log => $"[{log.Stream}] {log.Text}"));
 
@@ -66,7 +65,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
     private void ReplaceOperationWorkspace()
     {
-        _workspaceSession = Guid.NewGuid();
+        WorkspaceSessionId = Guid.NewGuid();
         ClearCompletedBuilds();
         _lastFindingCheck = null;
         OnPropertyChanged(nameof(IssuesCheckState));
@@ -114,7 +113,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                     { IncludedFiles = build.Manifest.Files, ExcludedPlans = build.Receipt.ExcludedPlans });
                     _packCheckedClone = true;
                     OnPropertyChanged(nameof(PackPreflightHomeText));
-                    _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, build.Manifest, outputDirectory!);
+                    PackPreview = WorkspacePackPlan.WithLastPack(PackPreview, build.Manifest, outputDirectory!);
                     RetainCompletedBuild(build, outputDirectory!, result.Home!, checkedBuildIdentity);
                     RefreshPackPreview();
                     if (Prefs.OpenTapHomeOverride == operationHomeSetting) Status = $"Packed {build.Manifest.PackageName} {build.Manifest.Version}";

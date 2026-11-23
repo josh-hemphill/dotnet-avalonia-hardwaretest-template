@@ -33,7 +33,7 @@ public sealed class FileRunStoreTests
 
         var loaded = await store.LoadAsync("run-new");
         Assert.NotNull(loaded);
-        Assert.Equal("B", loaded!.PlanName);
+        Assert.Equal("B", loaded.PlanName);
 
         var list = await store.ListAsync();
         Assert.Equal(2, list.Count);
@@ -87,7 +87,7 @@ public sealed class FileRunStoreTests
         var loaded = await store.LoadAsync(run.RunId);
 
         Assert.NotNull(loaded);
-        Assert.Equal(run.AppVersion, loaded!.AppVersion);
+        Assert.Equal(run.AppVersion, loaded.AppVersion);
         Assert.Equal(run.AppCommitSha, loaded.AppCommitSha);
     }
     [Theory]
@@ -104,9 +104,9 @@ public sealed class FileRunStoreTests
         {
             var candidate = new TestRunRecord { RunId = "protected", PlanName = "new" };
             if (version > SchemaVersions.TestRunRecord)
-                await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(candidate));
+                _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(candidate));
             else
-                await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(candidate));
+                _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(candidate));
             Assert.False(File.Exists(path));
             Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
         }

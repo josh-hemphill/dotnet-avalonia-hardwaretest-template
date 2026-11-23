@@ -36,7 +36,7 @@ internal static class AuthoringProgramAssets
     {
         ValidatePath(relative);
         var path = Path.GetFullPath(Path.Combine(root, relative));
-        AuthoringBuildService.EnsureContained(root, AuthoringBuildService.ResolvedPath(path, directory: false));
+        AuthoringBuildService.EnsureContained(root, AuthoringBuildService.ResolvedPath(path));
         return path;
     }
 

@@ -4,14 +4,10 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private AuthoringInstrumentAdapter? _hardwareEditType = AuthoringInstrumentCatalog.All[0];
-    private string? _hardwareEditorSourceType;
     private Guid? _hardwareEditorSession;
     private string? _hardwareEditorPlanId;
     private string? _hardwareEditorSlot;
     private string? _hardwareEditorTemplate;
-    private string _hardwareEditAddress = string.Empty;
-    private string _hardwareEditTimeout = string.Empty;
     private AuthoringHardwareDefinition? _selectedHardwareDefinition;
 
     public IReadOnlyList<AuthoringHardwareDefinition> HardwareDefinitions => Workspace?.Manifest.Catalogs?.Hardware ?? [];
@@ -57,16 +53,19 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public AuthoringInstrumentAdapter? HardwareEditType
     {
-        get => _hardwareEditType;
+        get;
         set
         {
-            if (SetField(ref _hardwareEditType, value)) { OnPropertyChanged(nameof(HardwareEditTypeGuidance)); OnPropertyChanged(nameof(IsEditingRegisteredDevice)); }
+            if (SetField(ref field, value)) { OnPropertyChanged(nameof(HardwareEditTypeGuidance)); OnPropertyChanged(nameof(IsEditingRegisteredDevice)); }
         }
-    }
-    public string HardwareEditTypeGuidance => HardwareEditType is null && _hardwareEditorSourceType is { } type
+    } = AuthoringInstrumentCatalog.All[0];
+    public string HardwareEditTypeGuidance
+    {
+        get => HardwareEditType is null && field is { } type
         && !AuthoringInstrumentCatalog.TryGet(type, out _)
         ? $"Imported type '{type}' has no registered authoring adapter. Its source is preserved. Installing a package alone does not add editor support. Use the original editor, or deliberately choose a supported replacement and review compatibility; opaque bindings remain protected."
-        : InstrumentTypeGuidance(HardwareEditType);
+        : InstrumentTypeGuidance(HardwareEditType); private set;
+    }
     public string NewInstrumentTypeGuidance => InstrumentTypeGuidance(SelectedNewInstrumentType);
 
     private string InstrumentTypeGuidance(AuthoringInstrumentAdapter? adapter)
@@ -89,10 +88,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         catch (ArgumentException) { recovery = " Correct the authoring home in Environment."; }
         return $"{capability} {compatibility} Required package: {adapter.RequiredPackage}.{recovery}";
     }
-    public string HardwareEditAddress { get => _hardwareEditAddress; set => SetField(ref _hardwareEditAddress, value ?? string.Empty); }
-    public string HardwareEditTimeout { get => _hardwareEditTimeout; set => SetField(ref _hardwareEditTimeout, value ?? string.Empty); }
+    public string HardwareEditAddress { get; set => SetField(ref field, value ?? string.Empty); } = string.Empty;
+    public string HardwareEditTimeout { get; set => SetField(ref field, value ?? string.Empty); } = string.Empty;
 
-    public bool CanReviewLoadedHardwareBinding => _hardwareEditorSession == _workspaceSession
+    public bool CanReviewLoadedHardwareBinding => _hardwareEditorSession == WorkspaceSessionId
         && SelectedInstrument is not null && SelectedProgram?.PlanId == _hardwareEditorPlanId
         && Same(SelectedInstrumentSlot, _hardwareEditorSlot);
 
@@ -112,11 +111,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void LoadHardwareEditor()
     {
         var instrument = SelectedInstrument ?? throw new AuthoringWorkspaceException("Select an instrument before editing.");
-        _hardwareEditorSession = _workspaceSession;
+        _hardwareEditorSession = WorkspaceSessionId;
         _hardwareEditorPlanId = SelectedProgram!.PlanId;
         _hardwareEditorSlot = instrument.SlotName;
         _hardwareEditorTemplate = null;
-        _hardwareEditorSourceType = instrument.TypeId;
+        HardwareEditTypeGuidance = instrument.TypeId;
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = instrument.VisaAddress;
         HardwareEditTimeout = instrument.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
@@ -148,10 +147,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         var binding = new InstrumentRef(name, adapter.TypeId, HardwareEditAddress.Trim()) { Settings = settings.ToFrozenDictionary(StringComparer.Ordinal) };
         var resource = AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
-        if (resource is global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered)
+        if (resource is OpenTap.Plugins.Instruments.RegisteredInstrument registered)
         {
             try { _ = registered.AvailableOperations; }
-            catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+            catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or InstrumentComponents.Drivers.DriverException)
             { throw new AuthoringWorkspaceException(error.Message); }
         }
         return binding;
@@ -169,7 +168,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var replacement = HardwareEditorBinding(current.SlotName);
         if (!AuthoringInstrumentCatalog.CanReplace(program, current.SlotName, replacement))
             throw new AuthoringWorkspaceException("Selected adapter cannot satisfy the affected step and cleanup capabilities.");
-        return new(_workspaceSession, Workspace!.Root, program.PlanId, current.SlotName, ContentFingerprint(), replacement,
+        return new(WorkspaceSessionId, Workspace!.Root, program.PlanId, current.SlotName, ContentFingerprint(), replacement,
             AuthoringInstrumentUsage.DescribeSlotUsage(program, current.SlotName));
     }
 
@@ -182,7 +181,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (!Same(impact.Replacement.SlotName, impact.SlotName))
             throw new AuthoringWorkspaceException("A binding edit must preserve the logical slot; use explicit removal and replacement to retarget.");
         // Revalidate the reviewed value, never use editor text changed after review.
-        AuthoringInstrumentCatalog.Create(impact.Replacement, InstrumentCreationHomeFor(impact.Replacement.TypeId));
+        _ = AuthoringInstrumentCatalog.Create(impact.Replacement, InstrumentCreationHomeFor(impact.Replacement.TypeId));
         if (!AuthoringInstrumentCatalog.CanReplace(SelectedProgram, impact.SlotName, impact.Replacement))
             throw new AuthoringWorkspaceException("The replacement does not support the affected steps.");
         ReplaceSelected(SelectedProgram with { Instruments = SelectedProgram.Instruments.Select(i => Same(i.SlotName, impact.SlotName) ? impact.Replacement : i).ToArray() });
@@ -207,7 +206,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _hardwareEditorPlanId = null;
         _hardwareEditorSlot = null;
         _hardwareEditorTemplate = definition.Name;
-        _hardwareEditorSourceType = definition.TypeId;
+        HardwareEditTypeGuidance = definition.TypeId;
         HardwareEditType = AuthoringInstrumentCatalog.TryGet(definition.TypeId, out var adapter) ? adapter : null;
         HardwareEditAddress = definition.Address;
         HardwareEditTimeout = definition.Settings.GetValueOrDefault("IoTimeoutMilliseconds") ?? string.Empty;
@@ -229,7 +228,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         var next = definition with { TypeId = binding.TypeId, Address = binding.VisaAddress, Settings = binding.Settings };
-        RememberWorkspaceCatalog(c => c.Hardware = c.Hardware.Select(d => d.Id == definition.Id ? next : d).ToList());
+        RememberWorkspaceCatalog(c => c.Hardware = [.. c.Hardware.Select(d => d.Id == definition.Id ? next : d)]);
         Status = $"Updated workspace definition {definition.Name}; existing program bindings remain unchanged. Include explicitly in another program.";
     });
 
@@ -241,7 +240,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (program.Instruments.Any(i => Same(i.SlotName, definition.Name)))
             throw new AuthoringWorkspaceException("This program already has that logical slot; review its binding separately.");
         var binding = new InstrumentRef(definition.Name, definition.TypeId, definition.Address) { Settings = new Dictionary<string, string>(definition.Settings) };
-        AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
+        _ = AuthoringInstrumentCatalog.Create(binding, InstrumentCreationHomeFor(binding.TypeId));
         ReplaceSelected(program with { Instruments = [.. program.Instruments, binding] });
         SelectedInstrumentSlot = binding.SlotName;
     }
@@ -250,7 +249,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         EnsureWritableWorkspace("review a hardware definition removal");
         var definition = SelectedHardwareDefinition ?? throw new AuthoringWorkspaceException("Select a workspace hardware definition.");
-        return new(_workspaceSession, Workspace!.Root, ContentFingerprint(), definition.Id, definition.Name,
+        return new(WorkspaceSessionId, Workspace!.Root, ContentFingerprint(), definition.Id, definition.Name,
             Programs.Where(p => p.Instruments.Any(i => Same(i.SlotName, definition.Name)))
                 .Select(p => $"{p.Sidecar.DisplayName ?? p.PlanId} ({p.PlanId}): existing '{definition.Name}' membership and binding remain; remove or replace explicitly in Hardware").ToArray());
     }

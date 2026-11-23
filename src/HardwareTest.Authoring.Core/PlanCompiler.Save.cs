@@ -109,7 +109,7 @@ public sealed partial class PlanCompiler
                         ? AuthoringLibraryLifecycle.Create(resource, true) : new IdentityCheckStep { Dut = dut };
                     step.Id = action.NodeId; step.Name = "Identity Check";
                     AssignInstrument(step, resource, AuthoringFunctionIds.BasicIdentityCheck);
-                    OpenTapMixinAttach.AttachAnnotation(step);
+                    _ = OpenTapMixinAttach.AttachAnnotation(step);
                     return step;
                 }
             case OperatorPromptSetup prompt:
@@ -172,8 +172,8 @@ public sealed partial class PlanCompiler
                 Name = metric.Name,
                 InputChannel = tf.InputChannelKey,
                 Channel = metric.ChannelKey,
-                Numerator = tf.Numerator.ToArray(),
-                Denominator = tf.Denominator.ToArray(),
+                Numerator = [.. tf.Numerator],
+                Denominator = [.. tf.Denominator],
                 TsSeconds = tf.TsSeconds,
                 Method = tf.Method,
             };
@@ -271,7 +271,7 @@ public sealed partial class PlanCompiler
         if (prop.PropertyType.IsInstanceOfType(instrument))
         {
             prop.SetValue(step, instrument);
-            if (step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep operation && operation.ValidationIssue() is { } issue)
+            if (step is OpenTap.Plugins.Instruments.DeviceOperationStep operation && operation.ValidationIssue() is { } issue)
                 throw new AuthoringWorkspaceException("INSTRUMENT_INCOMPATIBLE: " + issue);
         }
         else

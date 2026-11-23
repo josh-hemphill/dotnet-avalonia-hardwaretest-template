@@ -2,11 +2,8 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private bool _loadingBusy;
-    private string? _loadingStage;
-
-    public bool LoadingBusy { get => _loadingBusy; private set => SetField(ref _loadingBusy, value); }
-    public string? LoadingStage { get => _loadingStage; private set => SetField(ref _loadingStage, value); }
+    public bool LoadingBusy { get; private set => SetField(ref field, value); }
+    public string? LoadingStage { get; private set => SetField(ref field, value); }
 
     public async Task<bool> SelectProgramAsync(string planId, Func<bool>? ownerIsCurrent = null)
     {

@@ -23,10 +23,7 @@ public partial class MainWindow : Window
         ApplyTitle(buildInfo);
         RestoreWindowState();
 
-        if (NavView is not null)
-        {
-            NavView.SelectionChanged += OnNavigationSelectionChanged;
-        }
+        NavView?.SelectionChanged += OnNavigationSelectionChanged;
 
         ActualThemeVariantChanged += (_, _) => _viewModel.ShellNotification.RefreshTheme();
         Opened += (_, _) => { UpdateCompactPane(); _viewModel.ShellNotification.RefreshTheme(); };

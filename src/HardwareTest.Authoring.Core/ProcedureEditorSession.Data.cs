@@ -44,12 +44,12 @@ public sealed partial class ProcedureEditorSession
 
     private ProcedureEditorField ViewField(ProcedureField field, string value, bool readOnly)
     {
-        var choices = field.Kind == ProcedureFieldKind.Instrument ? HardwareChoices(field).Select(option => option.Id.ToString("D")).ToArray()
+        var choices = field.Kind == ProcedureFieldKind.Instrument ? [.. HardwareChoices(field).Select(option => option.Id.ToString("D"))]
             : field.ReferenceTable switch
             {
                 null => Array.Empty<string>(),
-                "sections" => Roots.SelectMany(root => PlanCompiler.ImportedSteps(root.Element("ChildTestSteps"))).Select(StepId).ToArray(),
-                var reference => DataEntries().Where(entry => entry.Table == reference).Select(entry => entry.Item.Name).Distinct().ToArray()
+                "sections" => [.. Roots.SelectMany(root => PlanCompiler.ImportedSteps(root.Element("ChildTestSteps"))).Select(StepId)],
+                var reference => [.. DataEntries().Where(entry => entry.Table == reference).Select(entry => entry.Item.Name).Distinct()]
             };
         return new(field, value, readOnly, choices);
     }
@@ -96,7 +96,7 @@ public sealed partial class ProcedureEditorSession
         var copy = row.Node.DeepClone().AsObject();
         copy["id"] = id;
         rows.Add(copy);
-        _changedData.Add(row.Path);
+        _ = _changedData.Add(row.Path);
         return DataEntries().Single(entry => ReferenceEquals(entry.Node, copy)).Item.Id;
     }
 
@@ -111,8 +111,8 @@ public sealed partial class ProcedureEditorSession
         var references = Related(item).Where(related => related.IsStep).ToArray();
         if (references.Length > 0)
             throw new InvalidDataException($"'{item.Name}' is used by {string.Join(", ", references.Select(step => step.Name))}. Update those references before removing the row.");
-        source.Parent!.Node[source.Table]!.AsArray().Remove(source.Node);
-        _changedData.Add(source.Path);
+        _ = source.Parent!.Node[source.Table]!.AsArray().Remove(source.Node);
+        _ = _changedData.Add(source.Path);
         return source.Parent.Item.Id;
     }
 

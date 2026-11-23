@@ -11,7 +11,6 @@ namespace HardwareTest.Features.Results;
 
 public sealed class BenchReferenceCaptureRow : ReactiveObject
 {
-    private bool _isSelected;
     public required BenchReferenceRule Rule { get; init; }
     public BenchReferenceValue? Value { get; init; }
     public string? Error { get; init; }
@@ -24,7 +23,7 @@ public sealed class BenchReferenceCaptureRow : ReactiveObject
         + (Value is { } value
             ? $"Exact mean: {value.Value.ToString("G17", CultureInfo.InvariantCulture)} {value.Unit}\n{value.SampleCount} samples; producer {value.ProducerStepId}\n{BenchReferenceEvidence.DescribeRule(Rule)}"
             : Error ?? string.Empty);
-    public bool IsSelected { get => _isSelected; set { if (CanSelect) this.RaiseAndSetIfChanged(ref _isSelected, value); } }
+    public bool IsSelected { get; set { if (CanSelect) _ = this.RaiseAndSetIfChanged(ref field, value); } }
 }
 
 /// Saves an owned snapshot of the exact opened terminal source, never the current live program.
@@ -36,10 +35,6 @@ public sealed class BenchReferencePromotionViewModel : ReactiveObject
     private readonly Func<Action, Task> _onUi;
     private TestRunRecord? _source;
     private int _generation;
-    private string _name = string.Empty;
-    private string _validDays = "0";
-    private string _status = string.Empty;
-    private bool _isSaving;
 
     public BenchReferencePromotionViewModel(IBenchReferenceStore? store, IClock clock, Func<bool> canManage, Func<Action, Task> onUi)
     {
@@ -49,10 +44,10 @@ public sealed class BenchReferencePromotionViewModel : ReactiveObject
     public ObservableCollection<BenchReferenceCaptureRow> Candidates { get; } = [];
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SaveCommand { get; }
     public event Action<string>? RequestFocusField;
-    public string Name { get => _name; set => this.RaiseAndSetIfChanged(ref _name, value); }
-    public string ValidDays { get => _validDays; set => this.RaiseAndSetIfChanged(ref _validDays, value); }
-    public string Status { get => _status; private set => this.RaiseAndSetIfChanged(ref _status, value); }
-    public bool IsSaving { get => _isSaving; private set { this.RaiseAndSetIfChanged(ref _isSaving, value); RefreshPermissions(); } }
+    public string Name { get; set => this.RaiseAndSetIfChanged(ref field, value); } = string.Empty;
+    public string ValidDays { get; set => this.RaiseAndSetIfChanged(ref field, value); } = "0";
+    public string Status { get; private set => this.RaiseAndSetIfChanged(ref field, value); } = string.Empty;
+    public bool IsSaving { get; private set { _ = this.RaiseAndSetIfChanged(ref field, value); RefreshPermissions(); } }
     public bool CanEdit => _canManage() && !IsSaving;
     public bool HasCandidate => Candidates.Any(row => row.CanSelect);
     public bool CanPromote => CanEdit && HasCandidate;

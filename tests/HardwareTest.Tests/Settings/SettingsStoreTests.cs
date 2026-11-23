@@ -81,7 +81,7 @@ public sealed class SettingsStoreTests
         Assert.Equal("MOCK::A", slot.Resource);
         Assert.Equal(37, reload.AppSettings.OperatorSessionIdleMinutes);
         Assert.Equal(90, reload.AppSettings.OperatorSessionIdleWarnPercent);
-        Assert.Single(reload.AppSettings.PlanParameterOverrides);
+        _ = Assert.Single(reload.AppSettings.PlanParameterOverrides);
         Assert.Equal("16", reload.AppSettings.PlanParameterOverrides[0].Value);
         Assert.Equal("Results", reload.UiState.SelectedPageId);
         Assert.Equal(1111, reload.UiState.Width);

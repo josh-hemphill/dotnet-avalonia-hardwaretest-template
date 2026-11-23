@@ -24,10 +24,8 @@ public sealed class MeasurementPlotView : UserControl
     private double? _limitHigh;
     private bool _themeHooked;
     private bool _useTimeAxis;
-    private bool _followLive = true;
     private (double ElapsedSec, string Label)[] _events = [];
     private (double T0, double T1)[] _oobSpans = [];
-    private double? _cursorX;
     private Point? _pressPosition;
 
     public MeasurementPlotView()
@@ -42,10 +40,10 @@ public sealed class MeasurementPlotView : UserControl
     public event EventHandler<PlotCursorChangedEventArgs>? CursorChanged;
 
     /// Elapsed-seconds (or sample index) of the current readout line, if any.
-    public double? CursorX => _cursorX;
+    public double? CursorX { get; private set; }
 
     /// Whether the next render auto-scales to the visible window.
-    internal bool FollowLive => _followLive;
+    internal bool FollowLive { get; private set; } = true;
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -90,15 +88,15 @@ public sealed class MeasurementPlotView : UserControl
     }
 
     /// When true, each data update auto-scales axes to the visible window.
-    public void SetFollowLive(bool followLive) => _followLive = followLive;
+    public void SetFollowLive(bool followLive) => FollowLive = followLive;
 
     /// Vertical event ticks on the elapsed axis (applied on the next render).
     public void SetEvents(IReadOnlyList<(double ElapsedSec, string Label)> events)
-        => _events = events.ToArray();
+        => _events = [.. events];
 
     /// Contiguous out-of-band spans on the elapsed axis (applied on the next render).
     public void SetOutOfBandSpans(IReadOnlyList<(double T0, double T1)> spans)
-        => _oobSpans = spans.ToArray();
+        => _oobSpans = [.. spans];
 
     /// Redraws the current series so stored event ticks and OOB spans appear without a new sample.
     public void RefreshOverlays() => Render(force: true);
@@ -109,7 +107,7 @@ public sealed class MeasurementPlotView : UserControl
     /// Restores follow-live autoscale on the current buffer and drops the readout cursor.
     public void ResetView()
     {
-        _followLive = true;
+        FollowLive = true;
         SetCursor(null, announce: false);
         Render(force: true);
     }
@@ -119,13 +117,13 @@ public sealed class MeasurementPlotView : UserControl
     {
         if (xElapsedOrIndex is null)
         {
-            if (_cursorX is null)
+            if (CursorX is null)
             {
                 return;
             }
 
-            _cursorX = null;
-            _followLive = true;
+            CursorX = null;
+            FollowLive = true;
             Render(force: true);
             if (announce)
             {
@@ -170,7 +168,7 @@ public sealed class MeasurementPlotView : UserControl
         }
 
         _ys = _signalBuffer;
-        SyncCursorAfterBufferChange(_followLive);
+        SyncCursorAfterBufferChange(FollowLive);
         Render(force);
     }
 
@@ -208,7 +206,7 @@ public sealed class MeasurementPlotView : UserControl
         AddEventTicks();
         AddCursorLine();
         AddLimitOverlay();
-        if (_followLive)
+        if (FollowLive)
         {
             _plot.Plot.Axes.AutoScale();
         }
@@ -246,7 +244,7 @@ public sealed class MeasurementPlotView : UserControl
 
     private void AddCursorLine()
     {
-        if (_cursorX is not { } x)
+        if (CursorX is not { } x)
         {
             return;
         }
@@ -305,9 +303,9 @@ public sealed class MeasurementPlotView : UserControl
 
     private void SyncCursorAfterBufferChange(bool requestedFollowLive)
     {
-        if (_cursorX is not { } x)
+        if (CursorX is not { } x)
         {
-            _followLive = requestedFollowLive;
+            FollowLive = requestedFollowLive;
             return;
         }
 
@@ -315,13 +313,13 @@ public sealed class MeasurementPlotView : UserControl
         var ys = _useTimeAxis ? _ys : _signalBuffer;
         if (!PlotCursorReadout.TryNearestSample(xs, ys, ys.Length, x, out _, out var sampleX, out _))
         {
-            _cursorX = null;
-            _followLive = true;
+            CursorX = null;
+            FollowLive = true;
             return;
         }
 
-        _cursorX = sampleX;
-        _followLive = false;
+        CursorX = sampleX;
+        FollowLive = false;
     }
 
     private void PlaceCursor(double x, bool announce)
@@ -333,8 +331,8 @@ public sealed class MeasurementPlotView : UserControl
             return;
         }
 
-        _cursorX = sampleX;
-        _followLive = false;
+        CursorX = sampleX;
+        FollowLive = false;
         Render(force: true);
         if (announce)
         {
@@ -504,7 +502,10 @@ public sealed class MeasurementPlotView : UserControl
 
     private void OnThemeVariantChanged(object? sender, EventArgs e)
     {
-        void RefreshTheme() => Render(force: true);
+        void RefreshTheme()
+        {
+            Render(force: true);
+        }
 
         if (!Dispatcher.UIThread.CheckAccess())
         {

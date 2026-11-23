@@ -2,11 +2,10 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private IReadOnlyList<SequenceRow> _sequenceItems = [];
     private int _selectedSequenceIndex = -1;
     private string? _selectedSequenceKey;
 
-    public IReadOnlyList<SequenceRow> SequenceItems => _sequenceItems;
+    public IReadOnlyList<SequenceRow> SequenceItems { get; private set; } = [];
 
     public string ProgramsTitle => AuthoringChrome.ProgramsTitle;
 
@@ -61,9 +60,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     }
 
     public SequenceRow? SelectedSequence
-        => _selectedSequenceIndex < 0 || _selectedSequenceIndex >= _sequenceItems.Count
+        => _selectedSequenceIndex < 0 || _selectedSequenceIndex >= SequenceItems.Count
             ? null
-            : _sequenceItems[_selectedSequenceIndex];
+            : SequenceItems[_selectedSequenceIndex];
 
     public RepeatNode? SelectedRepeat
         => SelectedMeasure is RepeatNode repeat ? repeat : null;
@@ -101,7 +100,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             }
             else
             {
-                state.IncompleteNumericText.Remove(key);
+                _ = state.IncompleteNumericText.Remove(key);
                 var measure = AuthoringSequence.MutateMeasure(SelectedProgram.Measure, row.IndexPath,
                     node => node is RepeatNode repeat ? repeat with { Count = count } : node);
                 ReplaceSelected(SelectedProgram with { Measure = measure, AuthoringState = state }, rebuildLists: false);
@@ -179,13 +178,13 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             var separator = key.IndexOf('/');
             if (separator > 0 && Guid.TryParse(key.AsSpan(0, separator), out var id) && before.Contains(id))
-                state.IncompleteNumericText.Remove(key);
+                _ = state.IncompleteNumericText.Remove(key);
         }
-        foreach (var id in before) state.FormulaIntent.Remove(id);
+        foreach (var id in before) _ = state.FormulaIntent.Remove(id);
         var sidecar = PlanCompiler.CloneSidecar(updated.Sidecar);
         if (sidecar.ReferenceRules is { } rules)
         {
-            rules.RemoveAll(rule => before.Contains(rule.ProducerStepId));
+            _ = rules.RemoveAll(rule => before.Contains(rule.ProducerStepId));
             if (rules.Count == 0) sidecar.ReferenceRules = null;
         }
         return updated with { AuthoringState = state, Sidecar = sidecar };
@@ -193,7 +192,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void SelectSequence(int index)
     {
-        if (_sequenceItems.Count == 0)
+        if (SequenceItems.Count == 0)
         {
             _selectedSequenceIndex = -1;
             _selectedSequenceKey = null;
@@ -213,8 +212,8 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        var clamped = Math.Clamp(index, 0, _sequenceItems.Count - 1);
-        if (!_sequenceItems[clamped].IsSelectable)
+        var clamped = Math.Clamp(index, 0, SequenceItems.Count - 1);
+        if (!SequenceItems[clamped].IsSelectable)
         {
             var fallback = NearestSelectableIndex(clamped);
             if (fallback < 0)
@@ -231,17 +230,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
 
         if (_selectedSequenceIndex == clamped
-            && string.Equals(_selectedSequenceKey, _sequenceItems[clamped].Key, StringComparison.Ordinal))
+            && string.Equals(_selectedSequenceKey, SequenceItems[clamped].Key, StringComparison.Ordinal))
         {
-            SyncMeasureIndexFromSequence(_sequenceItems[clamped]);
+            SyncMeasureIndexFromSequence(SequenceItems[clamped]);
             RaiseEditorProperties();
             return;
         }
 
         _selectedSequenceIndex = clamped;
-        _selectedSequenceKey = _sequenceItems[clamped].Key;
+        _selectedSequenceKey = SequenceItems[clamped].Key;
         RememberNodeSelection();
-        SyncMeasureIndexFromSequence(_sequenceItems[clamped]);
+        SyncMeasureIndexFromSequence(SequenceItems[clamped]);
         OnPropertyChanged(nameof(SelectedSequenceIndex));
         OnPropertyChanged(nameof(SelectedSequence));
         RaiseEditorProperties();
@@ -257,49 +256,49 @@ public sealed partial class AuthoringWorkspaceViewModel
             foreach (var parent in allRows.Where(row => row.IsSection && row.IndexPath.Count < remembered.IndexPath.Count &&
                 remembered.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
             {
-                if (parent.NodeId is { } id) _collapsedSectionIds.Remove(id);
+                if (parent.NodeId is { } id) _ = _collapsedSectionIds.Remove(id);
             }
         }
 
         var next = VisibleSequence(allRows);
-        var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
+        var structureChanged = !AuthoringSequence.SameKeys(SequenceItems, next);
         if (structureChanged)
         {
             // Let the binding observe selection restoration even when the surviving row
             // retains its numeric index; replacing ItemsSource clears the ListBox selection.
             _selectedSequenceIndex = -1;
             OnPropertyChanged(nameof(SelectedSequenceIndex));
-            _sequenceItems = next;
+            SequenceItems = next;
             OnPropertyChanged(nameof(SequenceItems));
         }
         else
         {
             // Keep the list and selected row objects bound by the UI when only text changes.
-            for (var i = 0; i < next.Count; i++) _sequenceItems[i].RefreshPresentation(next[i]);
+            for (var i = 0; i < next.Count; i++) SequenceItems[i].RefreshPresentation(next[i]);
         }
 
         RaiseRawStepProperties();
 
         var selectedNodeId = SelectedDocument?.SelectedNodeId;
         var restored = selectedNodeId is { } stableId
-            ? _sequenceItems.ToList().FindIndex(row => row.NodeId == stableId)
-            : AuthoringSequence.IndexOfKey(_sequenceItems, _selectedSequenceKey);
+            ? SequenceItems.ToList().FindIndex(row => row.NodeId == stableId)
+            : AuthoringSequence.IndexOfKey(SequenceItems, _selectedSequenceKey);
         if (restored < 0)
         {
-            restored = AuthoringSequence.IndexOfTopLevelMeasure(_sequenceItems, _selectedMeasureIndex);
+            restored = AuthoringSequence.IndexOfTopLevelMeasure(SequenceItems, _selectedMeasureIndex);
         }
 
         if (restored < 0)
         {
-            restored = AuthoringSequence.FirstSelectableIndex(_sequenceItems);
+            restored = AuthoringSequence.FirstSelectableIndex(SequenceItems);
         }
 
         var indexChanged = _selectedSequenceIndex != restored;
         _selectedSequenceIndex = restored;
-        _selectedSequenceKey = restored < 0 ? null : _sequenceItems[restored].Key;
+        _selectedSequenceKey = restored < 0 ? null : SequenceItems[restored].Key;
         if (restored >= 0)
         {
-            SyncMeasureIndexFromSequence(_sequenceItems[restored]);
+            SyncMeasureIndexFromSequence(SequenceItems[restored]);
         }
 
         if (indexChanged || structureChanged)
@@ -323,8 +322,8 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private int NearestSelectableIndex(int from)
     {
-        var section = from >= 0 && from < _sequenceItems.Count
-            ? _sequenceItems[from].Section
+        var section = from >= 0 && from < SequenceItems.Count
+            ? SequenceItems[from].Section
             : (SequenceSection?)null;
         var sameSection = FindNearestSelectable(from, row => row.Section == section);
         return sameSection >= 0
@@ -336,9 +335,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var best = -1;
         var bestDistance = int.MaxValue;
-        for (var i = 0; i < _sequenceItems.Count; i++)
+        for (var i = 0; i < SequenceItems.Count; i++)
         {
-            if (!_sequenceItems[i].IsSelectable || !match(_sequenceItems[i]))
+            if (!SequenceItems[i].IsSelectable || !match(SequenceItems[i]))
             {
                 continue;
             }

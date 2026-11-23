@@ -5,18 +5,12 @@ using Serilog;
 namespace HardwareTest.Core.Crash;
 
 /// Converts incomplete run.json stubs left by a crash/power cut into Cancelled.
-public sealed class DanglingRunReconciler
+public sealed class DanglingRunReconciler(IRunStore runStore, IClock? clock = null)
 {
     public const string ProcessInterruptedReason = "ProcessInterrupted";
 
-    private readonly IRunStore _runStore;
-    private readonly IClock _clock;
-
-    public DanglingRunReconciler(IRunStore runStore, IClock? clock = null)
-    {
-        _runStore = runStore;
-        _clock = clock ?? SystemClock.Instance;
-    }
+    private readonly IRunStore _runStore = runStore;
+    private readonly IClock _clock = clock ?? SystemClock.Instance;
 
     public async Task<int> ReconcileAsync(
         string? correlatedCrashDossierId = null,

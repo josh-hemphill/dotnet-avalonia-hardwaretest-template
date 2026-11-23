@@ -29,13 +29,18 @@ public sealed class OfflineBenchExportWorkflowTests
         fixture.ViewModel.CreateDemoProgram("pending-offline");
         Assert.True(fixture.ViewModel.SaveAll().Succeeded);
         using var started = new ManualResetEventSlim(); using var release = new ManualResetEventSlim();
-        var dialog = new BenchExportWindow(fixture.ViewModel, () => true) { Width = 860, Height = 560, FontSize = 20 };
-        dialog.OfflineExporter = (options, target, current, token) =>
+        var dialog = new BenchExportWindow(fixture.ViewModel, () => true)
         {
-            started.Set(); release.Wait(token);
-            token.ThrowIfCancellationRequested();
-            Assert.False(current());
-            throw new AuthoringWorkspaceException("The selected revision changed before publication.");
+            Width = 860,
+            Height = 560,
+            FontSize = 20,
+            OfflineExporter = (options, target, current, token) =>
+            {
+                started.Set(); release.Wait(token);
+                token.ThrowIfCancellationRequested();
+                Assert.False(current());
+                throw new AuthoringWorkspaceException("The selected revision changed before publication.");
+            }
         };
         var shown = dialog.ShowDialog(owner);
         var include = fixture.Control<CheckBox>("Include packages for an offline bench", dialog);
@@ -75,7 +80,7 @@ public sealed class OfflineBenchExportWorkflowTests
         try
         {
             var files = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
-            new OpenTapHomeBootstrapper().Bootstrap(files, new() { Offline = true });
+            _ = new OpenTapHomeBootstrapper().Bootstrap(files, new() { Offline = true });
             files.Manifest.Dependencies.Add(new() { Package = "Offline GUI manual package", Version = "^1.0.0" });
             File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "authoring.json"),
                 JsonSerializer.Serialize(files.Manifest, AuthoringJsonContext.Default.AuthoringManifest));
@@ -98,7 +103,7 @@ public sealed class OfflineBenchExportWorkflowTests
             Assert.True(include.IsChecked);
             var platform = fixture.Control<ComboBox>("Offline bench platform", dialog);
             Assert.Equal(OfflineBenchBundle.CurrentOS == "Windows" ? "Windows x64" : "Linux x64", platform.SelectedItem);
-            var source = Path.Combine(fixture.WorkspaceRoot, "manual-packages"); Directory.CreateDirectory(source);
+            var source = Path.Combine(fixture.WorkspaceRoot, "manual-packages"); _ = Directory.CreateDirectory(source);
             var target = Path.Combine(fixture.WorkspaceRoot, "transfer");
             var packageFolder = fixture.Control<TextBox>("Offline package source folder", dialog);
             Type(dialog, packageFolder, source); RecordOfflineTextFont(typography, packageFolder);
@@ -208,7 +213,7 @@ public sealed class OfflineBenchExportWorkflowTests
     {
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") != "1") return;
         AuthoringUiFixture.Drain(); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
-        var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY") ?? Path.GetTempPath(); Directory.CreateDirectory(root);
+        var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY") ?? Path.GetTempPath(); _ = Directory.CreateDirectory(root);
         frame.Save(Path.Combine(root, $"{name}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
 }

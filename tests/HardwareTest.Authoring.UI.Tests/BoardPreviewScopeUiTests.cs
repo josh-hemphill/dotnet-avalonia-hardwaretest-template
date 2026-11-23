@@ -14,9 +14,17 @@ public sealed class BoardPreviewScopeUiTests
     public async Task Actual_inspector_recording_evidence_and_status_follow_same_output_formula_selection()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        MetricNode Input(string key) => new(new MetricDraft(key, key, PresentationRoles.Timeseries, "V", null, null,
+        MetricNode Input(string key)
+        {
+            return new(new MetricDraft(key, key, PresentationRoles.Timeseries, "V", null, null,
             new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string> { ["SampleCount"] = "3", ["IntervalMs"] = "5" })));
-        MetricNode Mean(string input) => new(new MetricDraft(input + " mean", "result", PresentationRoles.Scalar, "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm([input], $"mean({input})")));
+        }
+
+        MetricNode Mean(string input)
+        {
+            return new(new MetricDraft(input + " mean", "result", PresentationRoles.Scalar, "V", new LimitSpec(null, null, 0), null, new ExpressionAlgorithm([input], $"mean({input})")));
+        }
+
         var firstInput = Input("first");
         var secondInput = Input("second");
         var first = Mean("first");
@@ -26,7 +34,7 @@ public sealed class BoardPreviewScopeUiTests
         var document = AuthoringDocumentDto.FromDraft(draft);
         document.RequiresCompilation = true;
         new AuthoringDocumentStore(fixture.WorkspaceRoot).Save(document);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.StopRecovery();

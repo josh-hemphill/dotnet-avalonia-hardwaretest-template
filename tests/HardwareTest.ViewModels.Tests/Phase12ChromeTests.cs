@@ -137,7 +137,7 @@ public sealed class Phase12ChromeTests
         string? receivedPage = null;
         home.NavigateToPageRequested += (_, pageId) => receivedPage = pageId;
 
-        home.NavigateToRunCommand.Execute().Subscribe();
+        _ = home.NavigateToRunCommand.Execute().Subscribe();
 
         Assert.Equal("RunTest", receivedPage);
     }
@@ -149,7 +149,7 @@ public sealed class Phase12ChromeTests
         string? receivedPage = null;
         home.NavigateToPageRequested += (_, pageId) => receivedPage = pageId;
 
-        home.NavigateToInstrumentsCommand.Execute().Subscribe();
+        _ = home.NavigateToInstrumentsCommand.Execute().Subscribe();
 
         Assert.Equal("Instruments", receivedPage);
     }
@@ -161,7 +161,7 @@ public sealed class Phase12ChromeTests
         string? receivedPage = null;
         home.NavigateToPageRequested += (_, pageId) => receivedPage = pageId;
 
-        home.NavigateToResultsCommand.Execute().Subscribe();
+        _ = home.NavigateToResultsCommand.Execute().Subscribe();
 
         Assert.Equal("Results", receivedPage);
     }
@@ -189,7 +189,7 @@ public sealed class Phase12ChromeTests
         var raised = false;
         vm.NavigateToRunRequested += (_, _) => raised = true;
 
-        vm.NavigateToRunCommand.Execute().Subscribe();
+        _ = vm.NavigateToRunCommand.Execute().Subscribe();
 
         Assert.True(raised, "NavigateToRunCommand must raise NavigateToRunRequested");
     }
@@ -203,7 +203,7 @@ public sealed class Phase12ChromeTests
         // Before refresh HasRuns reflects the initial (empty) state.
         Assert.False(vm.HasRuns);
 
-        store.Seed(new HardwareTest.Core.Runs.TestRunRecord
+        store.Seed(new Core.Runs.TestRunRecord
         {
             RunId = "r-nonempty",
             PlanName = "P",

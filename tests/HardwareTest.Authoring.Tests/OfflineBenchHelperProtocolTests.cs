@@ -19,7 +19,7 @@ public sealed class OfflineBenchHelperProtocolTests : IDisposable
 
     public OfflineBenchHelperProtocolTests()
     {
-        Directory.CreateDirectory(Bundle); Directory.CreateDirectory(Release);
+        _ = Directory.CreateDirectory(Bundle); _ = Directory.CreateDirectory(Release);
         OfflineBenchBundleHelpers.Write(Bundle, new("Linux", "x64"));
         var manifest = new OfflineBenchBundleManifest { TargetOS = "Linux", TargetArchitecture = "x64", RequiredOperatorBuild = Build };
         var json = JsonSerializer.Serialize(manifest, OfflineBenchJsonContext.Default.OfflineBenchBundleManifest);
@@ -42,8 +42,8 @@ public sealed class OfflineBenchHelperProtocolTests : IDisposable
     {
         if (!OperatingSystem.IsLinux()) return;
         WriteCapability();
-        var result = await Run("check-offline-bundle.sh", Operator);
-        Assert.True(result.ExitCode == 0, result.Output);
+        var (ExitCode, Output) = await Run("check-offline-bundle.sh", Operator);
+        Assert.True(ExitCode == 0, Output);
         Assert.Equal(["CALL:1", "<--version>", "CALL:2", "<--check-offline-bundle>", "<" + Bundle + ">"], File.ReadAllLines(Log));
     }
 
@@ -54,8 +54,8 @@ public sealed class OfflineBenchHelperProtocolTests : IDisposable
         WriteCapability();
         var destination = Path.Combine(_root, "new app 'quoted' $literal");
         var data = Path.Combine(_root, "fresh data; $(touch SHOULD-NOT-EXIST)");
-        var result = await Run("install-offline-bundle.sh", Operator, destination, data);
-        Assert.True(result.ExitCode == 0, result.Output);
+        var (ExitCode, Output) = await Run("install-offline-bundle.sh", Operator, destination, data);
+        Assert.True(ExitCode == 0, Output);
         Assert.Equal([
             "CALL:1", "<--version>",
             "CALL:2", "<--check-offline-bundle>", "<" + Bundle + ">",
@@ -75,9 +75,9 @@ public sealed class OfflineBenchHelperProtocolTests : IDisposable
         {
             WriteCapability(); File.AppendAllText(Path.Combine(Release, "HardwareTest.dll"), "changed after receipt");
         }
-        var result = await Run("check-offline-bundle.sh", Operator);
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains(changedAfterReceipt ? "integrity check failed" : "no offline-bench capability receipt", result.Output);
+        var (ExitCode, Output) = await Run("check-offline-bundle.sh", Operator);
+        Assert.Equal(2, ExitCode);
+        Assert.Contains(changedAfterReceipt ? "integrity check failed" : "no offline-bench capability receipt", Output);
         Assert.False(File.Exists(Log));
     }
 
@@ -88,9 +88,9 @@ public sealed class OfflineBenchHelperProtocolTests : IDisposable
         WriteCapability();
         var path = Path.Combine(Bundle, OfflineBenchBundle.ManifestFileName);
         File.WriteAllText(path, File.ReadAllText(path).Replace(@"\u002B", @"\u0024", StringComparison.Ordinal));
-        var result = await Run("check-offline-bundle.sh", Operator);
-        Assert.Equal(2, result.ExitCode);
-        Assert.Contains("build identity is missing", result.Output);
+        var (ExitCode, Output) = await Run("check-offline-bundle.sh", Operator);
+        Assert.Equal(2, ExitCode);
+        Assert.Contains("build identity is missing", Output);
         Assert.False(File.Exists(Log));
     }
 

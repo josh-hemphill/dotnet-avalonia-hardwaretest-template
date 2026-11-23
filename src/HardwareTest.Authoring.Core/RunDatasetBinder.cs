@@ -9,9 +9,9 @@ public static class RunDatasetBinder
     public static IReadOnlyList<IReadOnlyList<StoredSample>> SeriesForProducer(TestRunRecord run, string key, Guid producer)
     {
         var candidates = run.Samples.Where(sample => string.Equals(sample.EffectiveMetricKey, key, StringComparison.OrdinalIgnoreCase)).ToArray();
-        if (candidates.Any(sample => sample.ProducerStepId is not null)) candidates = candidates.Where(sample => sample.ProducerStepId == producer).ToArray();
+        if (candidates.Any(sample => sample.ProducerStepId is not null)) candidates = [.. candidates.Where(sample => sample.ProducerStepId == producer)];
         return candidates.GroupBy(sample => (sample.ProducerStepId, sample.StepRunId, sample.StepPath, sample.LoopRunId, sample.LoopPath, sample.IterationIndex))
-            .Select(group => (IReadOnlyList<StoredSample>)group.ToArray()).ToArray();
+            .Select(group => (IReadOnlyList<StoredSample>)[.. group]).ToArray();
     }
 
     /// Extra MetricKeys in the run are kept; missing InputChannelKeys fail at eval.
@@ -23,7 +23,7 @@ public static class RunDatasetBinder
             .GroupBy(sample => sample.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,
-                group => (IReadOnlyList<StoredSample>)group.ToArray(),
+                group => (IReadOnlyList<StoredSample>)[.. group],
                 StringComparer.OrdinalIgnoreCase);
     }
 }

@@ -45,13 +45,9 @@ internal static class PivPresenceIdentity
                 CardSeenAt ??= now;
                 status = "Reading badge identity…";
             }
-            else if (Fallback is null)
-            {
-                status = captured.Error ?? "Present a badge: insert chip or tap the reader.";
-            }
             else
             {
-                status = "Reading badge identity…";
+                status = Fallback is null ? captured.Error ?? "Present a badge: insert chip or tap the reader." : "Reading badge identity…";
             }
 
             if (Fallback?.Credential is not null

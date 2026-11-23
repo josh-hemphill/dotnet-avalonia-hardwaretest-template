@@ -28,11 +28,11 @@ public sealed partial class AuthoringActionableFindingsTests
         {
             var error = await Record.ExceptionAsync(async () =>
             {
-                if (async) await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
-                else _vm.Validate();
+                if (async) _ = await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
+                else _ = _vm.Validate();
             });
             AssertCheckedStateStale();
-            Assert.IsType<AuthoringWorkspaceException>(error);
+            _ = Assert.IsType<AuthoringWorkspaceException>(error);
             Assert.Contains("verify", _vm.Error);
             Assert.False(_vm.OperationBusy);
         }
@@ -56,11 +56,11 @@ public sealed partial class AuthoringActionableFindingsTests
         var unsupported = File.ReadAllBytes(path);
         var error = await Record.ExceptionAsync(async () =>
         {
-            if (async) await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
-            else _vm.Validate();
+            if (async) _ = await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
+            else _ = _vm.Validate();
         });
         AssertCheckedStateStale();
-        Assert.IsType<AuthoringWorkspaceException>(error);
+        _ = Assert.IsType<AuthoringWorkspaceException>(error);
         Assert.Contains("SOURCE_READ_ONLY", error!.Message);
         Assert.Equal(unsupported, File.ReadAllBytes(path));
         Assert.False(File.Exists(Path.Combine(_root, "fixture-child.json")));
@@ -84,7 +84,7 @@ public sealed partial class AuthoringActionableFindingsTests
             AssertCheckedStateStale();
             Assert.NotNull(_vm.Error);
         }
-        Assert.Equal(locked ? original : original.Concat(new byte[] { 10 }).ToArray(), File.ReadAllBytes(path));
+        Assert.Equal(locked ? original : [.. original, .. "\n"u8.ToArray()], File.ReadAllBytes(path));
     }
 
     [Theory]
@@ -109,7 +109,7 @@ public sealed partial class AuthoringActionableFindingsTests
             var deadline = DateTime.UtcNow.AddSeconds(15);
             while (!File.Exists(Path.Combine(_root, "fixture-prepared")))
             {
-                if (operation.IsCompleted) await operation;
+                if (operation.IsCompleted) _ = await operation;
                 Assert.True(DateTime.UtcNow < deadline);
                 await Task.Delay(20);
             }
@@ -121,7 +121,7 @@ public sealed partial class AuthoringActionableFindingsTests
                 AssertCheckedStateStale();
                 if (locked)
                 {
-                    Assert.IsType<AuthoringWorkspaceException>(error);
+                    _ = Assert.IsType<AuthoringWorkspaceException>(error);
                     Assert.Contains("verify", _vm.Error);
                     Assert.Equal("Authoring operation failed", _vm.Status);
                 }
@@ -131,12 +131,12 @@ public sealed partial class AuthoringActionableFindingsTests
                     Assert.Contains("earlier revision", _vm.Status);
                 }
             }
-            Assert.Equal(locked ? original : original.Concat(new byte[] { 10 }).ToArray(), File.ReadAllBytes(path));
+            Assert.Equal(locked ? original : [.. original, .. "\n"u8.ToArray()], File.ReadAllBytes(path));
         }
         finally
         {
             File.WriteAllText(Path.Combine(_root, "fixture-release"), "");
-            await Record.ExceptionAsync(async () => await operation);
+            _ = await Record.ExceptionAsync(async () => await operation);
         }
     }
 
@@ -151,7 +151,7 @@ public sealed partial class AuthoringActionableFindingsTests
         _vm.SelectProgram("sample");
         _vm.SaveSidecar();
         new AuthoringDocumentStore(_root).SaveWorkspace(_vm.Workspace!.Manifest);
-        _vm.Validate();
+        _ = _vm.Validate();
         Assert.Contains("Current", _vm.IssuesCheckState);
         Assert.Equal(empty, _vm.FindingRows.Count == 0);
     }

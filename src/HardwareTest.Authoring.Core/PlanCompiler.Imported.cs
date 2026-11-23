@@ -42,15 +42,15 @@ public sealed partial class PlanCompiler
     {
         AuthoringPluginSearch.Search(LibraryHome is { } home ? [.. _extraPluginDirectories, home.Root] : _extraPluginDirectories);
         var directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
-        WithProcedureSnapshot(xml, directory, draft.ImportedData, (temporary, plan) =>
+        _ = WithProcedureSnapshot(xml, directory, draft.ImportedData, (temporary, plan) =>
         {
             foreach (var plugin in plan.ChildTestSteps.OfType<IProcedureAuthoring>()) plugin.ValidateAuthoring();
             return true;
         });
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         // An exclusive lease serializes procedure publications that may share declared assets.
         var lockPath = Path.Combine(directory, ".authoring-procedure.lock");
-        AuthoringBuildService.EnsureContained(directory, AuthoringBuildService.ResolvedPath(lockPath, directory: false));
+        AuthoringBuildService.EnsureContained(directory, AuthoringBuildService.ResolvedPath(lockPath));
         using var lease = new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         WritePlanAndSidecar(stream => stream.Write(Encoding.UTF8.GetBytes(xml)), path,
             CloneSidecar(draft.Sidecar), draft.ImportedData);
@@ -69,7 +69,7 @@ public sealed partial class PlanCompiler
             foreach (var relative in profiles.SelectMany(profile => profile.DataFiles).Select(file => file.Path).Distinct(StringComparer.Ordinal))
             {
                 var target = AuthoringProgramAssets.ResolvePath(stage, relative);
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 if (assets.TryGetValue(relative, out var contents))
                 {
                     File.WriteAllText(target, contents);

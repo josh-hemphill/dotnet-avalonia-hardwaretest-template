@@ -12,7 +12,7 @@ public sealed class AuthoringEnvironmentInspectionTests : IDisposable
 
     public AuthoringEnvironmentInspectionTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(_root, "plans"));
         File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Snapshot\"}");
         _vm.Open(_root);
         _vm.CreateDemoProgram("snapshot");
@@ -167,7 +167,7 @@ public sealed class AuthoringEnvironmentInspectionTests : IDisposable
         var original = _vm.RefreshEnvironmentInspectionAsync();
         Assert.NotNull(latest);
         Assert.Same(latest, _vm.WaitForEnvironmentInspectionAsync());
-        context.Complete(latest!);
+        context.Complete(latest);
         context.Complete(original);
         Assert.False(_vm.EnvironmentInspectionPending);
     }
@@ -203,7 +203,7 @@ public sealed class AuthoringEnvironmentInspectionTests : IDisposable
 
     private sealed class OwnerContext : SynchronizationContext, IDisposable
     {
-        private readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = new();
+        private readonly BlockingCollection<(SendOrPostCallback Callback, object? State)> _queue = [];
         public override void Post(SendOrPostCallback callback, object? state) => _queue.Add((callback, state));
         public void Complete(Task task)
         {

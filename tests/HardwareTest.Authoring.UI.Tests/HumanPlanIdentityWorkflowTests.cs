@@ -96,7 +96,7 @@ public sealed class HumanPlanIdentityWorkflowTests
     private static void OpenEmptyWorkspace(AuthoringUiFixture fixture)
     {
         var root = Path.Combine(fixture.WorkspaceRoot, "empty-human-workspace");
-        new AuthoringWorkspaceInitializer().Create(new(root, "Empty human workspace", "Empty human tests") { Template = WorkspaceTemplateKind.Empty });
+        _ = new AuthoringWorkspaceInitializer().Create(new(root, "Empty human workspace", "Empty human tests") { Template = WorkspaceTemplateKind.Empty });
         fixture.ViewModel.Open(root);
     }
 

@@ -4,7 +4,7 @@ using HardwareTest.Core.Time;
 namespace HardwareTest.Core.Credentials;
 
 /// In-process chip/tap stand-in for CI and benches without a reader.
-public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
+public sealed class MockOperatorCredentialBroker(IClock? clock = null, bool canSign = true, string? transport = null) : IOperatorCredentialBroker
 {
     public const string MockSerial = "MOCK-CARD";
     public const string MockDisplayName = "Mock Operator";
@@ -13,20 +13,13 @@ public sealed class MockOperatorCredentialBroker : IOperatorCredentialBroker
     private static readonly byte[] MockHmacKey =
         "HardwareTest.MockOperatorCredential"u8.ToArray();
 
-    private readonly IClock _clock;
-    private readonly string _transport;
-
-    public MockOperatorCredentialBroker(IClock? clock = null, bool canSign = true, string? transport = null)
-    {
-        _clock = clock ?? SystemClock.Instance;
-        CanSign = canSign;
-        _transport = string.IsNullOrWhiteSpace(transport)
+    private readonly IClock _clock = clock ?? SystemClock.Instance;
+    private readonly string _transport = string.IsNullOrWhiteSpace(transport)
             ? CredentialTransport.Contactless
             : transport;
-    }
 
     public bool IsMock => true;
-    public bool CanSign { get; set; }
+    public bool CanSign { get; set; } = canSign;
     public bool CanSignPdf => false;
     public string? SigningAlgorithm => CanSign ? MockAlgorithm : null;
     public string StatusText => CanSign

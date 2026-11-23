@@ -59,7 +59,7 @@ public sealed class MeasurementAcquisitionTests
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(30);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await foreach (var _ in acq.AcquireAsync(session, "VDC", 1000, 20, "READ?", cts.Token))
             {

@@ -127,7 +127,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit, sample.ElapsedMs);
             if (!string.IsNullOrWhiteSpace(path))
             {
-                _stepsWithSamples.Add(path);
+                _ = _stepsWithSamples.Add(path);
             }
 
             HasPlotData = true;
@@ -147,7 +147,7 @@ public partial class LivePresentationViewModel : ReactiveObject
 
         if (PresentationRoleMap.IsRunGaugeSample(sample))
         {
-            PresentationRoleMap.UpsertRunGauge(_gaugeTiles, sample, sampleStepPath ?? fallbackStepPath);
+            _ = PresentationRoleMap.UpsertRunGauge(_gaugeTiles, sample, sampleStepPath ?? fallbackStepPath);
             RefreshPresentationTiles(selectedStep?.Path);
         }
 
@@ -192,18 +192,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             && (PresentationTiles.Any(t => t.IsOutOfBand)
                 || _series.Values.Any(s => s.IsOutOfBand)
                 || ChartBandText.Contains("Out of band", StringComparison.OrdinalIgnoreCase));
-        if (attention)
-        {
-            FocusTrendTip = "Out of band — open Chart for waveform detail.";
-        }
-        else if (HasChartData)
-        {
-            FocusTrendTip = "Open Chart for waveform detail.";
-        }
-        else
-        {
-            FocusTrendTip = string.Empty;
-        }
+        FocusTrendTip = attention ? "Out of band — open Chart for waveform detail." : HasChartData ? "Open Chart for waveform detail." : string.Empty;
 
         HasChartAttention = attention;
     }
@@ -238,7 +227,7 @@ public partial class LivePresentationViewModel : ReactiveObject
 
         if (e.PropertyName == nameof(FollowLive) && FollowLive && HasCursor)
         {
-            _cursorX = null;
+            CursorX = null;
             HasCursor = false;
             PublishSelectedSnapshot(_lastSelectedStep);
         }
@@ -289,8 +278,8 @@ public partial class LivePresentationViewModel : ReactiveObject
 
             if (drop is { } dropped && _series.ContainsKey(dropped))
             {
-                _series.Remove(dropped);
-                _seriesOrder.Remove(dropped);
+                _ = _series.Remove(dropped);
+                _ = _seriesOrder.Remove(dropped);
             }
         }
 
@@ -372,7 +361,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         PlotYsLength = snapshot.Length;
         PlotLegendText = key.Value.MetricKey;
         PlotTitle = key.Value.DisplayName;
-        PlotYLabel = string.IsNullOrWhiteSpace(snapshot.Unit) ? "Value" : snapshot.Unit!;
+        PlotYLabel = string.IsNullOrWhiteSpace(snapshot.Unit) ? "Value" : snapshot.Unit;
         PlotLimitLow = snapshot.LimitLow;
         PlotLimitHigh = snapshot.LimitHigh;
         ChartValueText = snapshot.ValueText;

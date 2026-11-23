@@ -34,12 +34,12 @@ public sealed class ExplicitSlotBindingTests
         using var gateClaimed = new ManualResetEventSlim();
         using var allowRun = new ManualResetEventSlim();
         using var binderFinished = new ManualResetEventSlim();
-        session.PropertyChanged += (_, change) =>
+        session.PropertyChanged += (sender, change) =>
         {
             if (change.PropertyName == nameof(session.IsExecuting) && session.IsExecuting)
             {
                 gateClaimed.Set();
-                allowRun.Wait(TimeSpan.FromSeconds(10));
+                _ = allowRun.Wait(TimeSpan.FromSeconds(10));
             }
         };
         bool? bound = null;
@@ -68,8 +68,8 @@ public sealed class ExplicitSlotBindingTests
         finally
         {
             allowRun.Set();
-            if (run is not null) await run.WaitAsync(TimeSpan.FromSeconds(60));
-            binder.Join(TimeSpan.FromSeconds(5));
+            if (run is not null) _ = await run.WaitAsync(TimeSpan.FromSeconds(60));
+            _ = binder.Join(TimeSpan.FromSeconds(5));
         }
     }
 

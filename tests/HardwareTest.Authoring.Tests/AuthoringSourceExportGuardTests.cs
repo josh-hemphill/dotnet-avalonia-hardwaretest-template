@@ -8,7 +8,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
     private readonly string _root = Path.Combine(Path.GetTempPath(), "ht-source-export-" + Guid.NewGuid().ToString("N"));
     public AuthoringSourceExportGuardTests()
     {
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         File.WriteAllText(Path.Combine(_root, "authoring.json"), """{"schemaVersion":2,"plansDirectory":"."}""");
     }
 
@@ -52,7 +52,7 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
     public void Excluded_corrupt_source_only_ID_is_filtered_before_preflight_reads_its_document()
     {
         var path = new AuthoringDocumentStore(_root).GetDocumentPath("excluded");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "{broken");
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "{broken");
         var workspace = AuthoringWorkspaceLoader.Load(_root);
         workspace.Manifest.Package.Name = "Explicit inclusion"; workspace.Manifest.ExcludedProgramIds.Add("excluded");
         AuthoringWorkspaceLoader.SaveManifest(_root, workspace.Manifest);
@@ -92,13 +92,13 @@ public sealed class AuthoringSourceExportGuardTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(_root);
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetWorkspacePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, """{"schemaVersion":1,"manifest":{"schemaVersion":1,"plansDirectory":"."}}""" + "\r\n");
         var original = File.ReadAllBytes(path);
 
         Assert.Contains(AuthoringSourceExportGuard.GetIssues(workspace), finding =>
             finding.Code == "WORKSPACE_SOURCE_READ_ONLY" && finding.IsError);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(workspace));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(workspace));
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.Equal([path], Directory.GetFiles(Path.GetDirectoryName(path)!));
     }

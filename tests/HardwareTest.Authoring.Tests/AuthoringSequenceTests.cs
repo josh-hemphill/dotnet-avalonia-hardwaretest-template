@@ -28,7 +28,7 @@ public sealed class AuthoringSequenceTests
                 SequenceSection.Cleanup,
                 SequenceSection.Cleanup,
             },
-            rows.Select(row => row.Section).ToArray());
+            [.. rows.Select(row => row.Section)]);
         Assert.Equal(AuthoringChrome.SetupHeader, rows[0].Label);
         Assert.False(rows[0].IsSelectable);
         Assert.Contains(rows, row => row.Kind == SequenceRowKind.Setup && row.Label == "Identity Check");
@@ -131,13 +131,13 @@ public sealed class AuthoringSequenceTests
         var wrapped = AuthoringRecipeCatalog.Apply(mean, AuthoringRecipeIds.Repeat);
         var withoutChild = AuthoringSequence.RemoveMeasure(wrapped.Measure, [1, 0]);
         Assert.Equal(2, withoutChild.Count);
-        Assert.IsType<MetricNode>(withoutChild[0]);
+        _ = Assert.IsType<MetricNode>(withoutChild[0]);
         Assert.Empty(Assert.IsType<RepeatNode>(withoutChild[1]).Children);
 
         var unwrapped = AuthoringSequence.RemoveMeasure(wrapped.Measure, [1]);
         Assert.Equal(2, unwrapped.Count);
-        Assert.IsType<MetricNode>(unwrapped[0]);
-        Assert.IsType<MetricNode>(unwrapped[1]);
+        _ = Assert.IsType<MetricNode>(unwrapped[0]);
+        _ = Assert.IsType<MetricNode>(unwrapped[1]);
         Assert.Equal("VDC", Assert.IsType<MetricNode>(unwrapped[0]).Metric.ChannelKey);
         Assert.Equal("VDC.mean", Assert.IsType<MetricNode>(unwrapped[1]).Metric.ChannelKey);
     }
@@ -179,7 +179,7 @@ public sealed class AuthoringSequenceViewModelTests
         Assert.DoesNotContain(vm.SequenceItems, row => row.Section == SequenceSection.Measure && row.Kind == SequenceRowKind.Metric);
         Assert.Contains(vm.SequenceItems, row => row.Kind == SequenceRowKind.Cleanup);
         Assert.Equal("Identity Check", vm.SelectedSequence?.Label);
-        Assert.IsType<IdentitySetup>(vm.SelectedSetup);
+        _ = Assert.IsType<IdentitySetup>(vm.SelectedSetup);
     }
 
     [Fact]
@@ -294,8 +294,8 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_drops_session_and_saved_files()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("keep-me") { Instruments = [] });
-        vm.InitializePlan(new("drop-source") { Instruments = [] });
+        _ = vm.InitializePlan(new("keep-me") { Instruments = [] });
+        _ = vm.InitializePlan(new("drop-source") { Instruments = [] });
         var store = new AuthoringDocumentStore(vm.Workspace!.Root);
         var removedSource = store.GetDocumentPath("drop-source");
         Assert.True(File.Exists(removedSource));
@@ -322,17 +322,17 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_keeps_the_neighbor()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("alpha") { Instruments = [] });
-        vm.InitializePlan(new("beta") { Instruments = [] });
-        vm.InitializePlan(new("gamma") { Instruments = [] });
+        _ = vm.InitializePlan(new("alpha") { Instruments = [] });
+        _ = vm.InitializePlan(new("beta") { Instruments = [] });
+        _ = vm.InitializePlan(new("gamma") { Instruments = [] });
 
         vm.SelectProgram("beta");
         vm.RemoveSelectedProgram();
-        Assert.Equal(["alpha", "gamma"], vm.Programs.Select(program => program.PlanId).ToArray());
+        Assert.Equal(["alpha", "gamma"], [.. vm.Programs.Select(program => program.PlanId)]);
         Assert.Equal("gamma", vm.SelectedProgram?.PlanId);
 
         vm.RemoveSelectedProgram();
-        Assert.Equal(["alpha"], vm.Programs.Select(program => program.PlanId).ToArray());
+        Assert.Equal(["alpha"], [.. vm.Programs.Select(program => program.PlanId)]);
         Assert.Equal("alpha", vm.SelectedProgram?.PlanId);
 
         vm.RemoveSelectedProgram();
@@ -344,7 +344,7 @@ public sealed class AuthoringSequenceViewModelTests
     public void Remove_selected_program_throws_when_workspace_is_read_only()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-ro-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         new PlanCompiler().Save(MockDmmDraftFixture.Create("locked"), Path.Combine(dest, "locked.TapPlan"));
         File.WriteAllText(
             Path.Combine(dest, "authoring.json"),
@@ -359,12 +359,12 @@ public sealed class AuthoringSequenceViewModelTests
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
         Assert.True(vm.Workspace!.IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("another") { Instruments = [] }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("another") { Instruments = [] }));
         Assert.False(vm.CanRemoveSelectedProgram);
         var ex = Assert.Throws<AuthoringWorkspaceException>(vm.RemoveSelectedProgram);
         Assert.Contains("read-only", ex.Message, StringComparison.Ordinal);
         Assert.Equal("locked", vm.SelectedProgram?.PlanId);
-        Assert.Single(vm.Programs);
+        _ = Assert.Single(vm.Programs);
     }
 
     [Fact]
@@ -392,7 +392,7 @@ public sealed class AuthoringSequenceViewModelTests
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-seq-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var schema = Path.Combine(src, "authoring.schema.json");

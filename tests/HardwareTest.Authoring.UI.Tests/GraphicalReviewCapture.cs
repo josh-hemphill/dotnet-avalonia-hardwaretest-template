@@ -106,7 +106,7 @@ public sealed class GraphicalReviewCapture
         var rename = Assert.Single(window.OwnedWindows);
         Capture(rename, $"rename-{suffix}");
         rename.Close(false);
-        await renaming;
+        _ = await renaming;
 
         var run = new TestRunRecord
         {
@@ -138,7 +138,7 @@ public sealed class GraphicalReviewCapture
         plan.Save(planPath);
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
         await fixture.WaitForReadinessAsync();
-        fixture.ViewModel.Validate();
+        _ = fixture.ViewModel.Validate();
         fixture.NavigateTask(2);
         fixture.Control<Expander>("Editing findings").IsExpanded = false;
         var checkedFinding = Assert.Single(fixture.ViewModel.FindingRows, row =>
@@ -169,7 +169,7 @@ public sealed class GraphicalReviewCapture
         Capture(details, $"operation-details-{suffix}");
         AuthoringUiFixture.Click(fixture.Control<Button>("Close operation details", details));
 
-        fixture.ViewModel.InitializePlan(new("ui-review-empty"));
+        _ = fixture.ViewModel.InitializePlan(new("ui-review-empty"));
         await fixture.WaitForReadinessAsync();
         fixture.NavigateTask(0);
         Capture(window, $"empty-plan-{suffix}");
@@ -186,7 +186,7 @@ public sealed class GraphicalReviewCapture
         Assert.NotNull(bitmap);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "ui-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         File.WriteAllText(Path.Combine(directory, "font-diagnostics.txt"),
             $"Default={ScottPlot.Fonts.Default}; System={ScottPlot.Fonts.System}; "
             + $"DefaultGlyphs={ScottPlot.Fonts.GetTypeface(ScottPlot.Fonts.Default, false, false).GlyphCount}; "

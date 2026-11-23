@@ -71,7 +71,7 @@ public sealed class WorkerProgressOrderingTests
         {
             if (Interlocked.Increment(ref active) != 1)
             {
-                Interlocked.Exchange(ref concurrent, 1);
+                _ = Interlocked.Exchange(ref concurrent, 1);
             }
             try
             {
@@ -89,8 +89,8 @@ public sealed class WorkerProgressOrderingTests
             }
             finally
             {
-                Interlocked.Decrement(ref active);
-                callbackExited.TrySetResult();
+                _ = Interlocked.Decrement(ref active);
+                _ = callbackExited.TrySetResult();
             }
         });
 
@@ -122,7 +122,7 @@ public sealed class WorkerProgressOrderingTests
             {
                 Assert.NotEmpty(items);
                 Assert.True(items[^1].IsCompleted);
-                Assert.Single(items, p => p.IsCompleted);
+                _ = Assert.Single(items, p => p.IsCompleted);
             }
         }
         finally
@@ -182,7 +182,7 @@ public sealed class WorkerProgressOrderingTests
             Assert.NotNull(progress);
             if (progress.AwaitingOperator)
             {
-                rejectedPrompt.TrySetResult();
+                _ = rejectedPrompt.TrySetResult();
                 throw new InvalidOperationException("operator prompt delivery rejected");
             }
         }).WaitAsync(TimeSpan.FromSeconds(60));
@@ -240,7 +240,7 @@ public sealed class WorkerProgressOrderingTests
         var error = await Record.ExceptionAsync(() => client.RunAsync(progress).WaitAsync(TimeSpan.FromSeconds(60)));
 
         Assert.True(rejected);
-        Assert.IsType<InvalidOperationException>(error);
+        _ = Assert.IsType<InvalidOperationException>(error);
         Assert.Contains("client prompt delivery rejected", error.Message, StringComparison.Ordinal);
         Assert.False(client.IsExecuting);
         Assert.False(client.IsAwaitingOperator);
@@ -249,7 +249,7 @@ public sealed class WorkerProgressOrderingTests
         Assert.Equal(planPath, client.LoadedPlanPath);
         await client.LoadPlanShapeAsync(PlanShapeFixtures.FlatLeavesName);
         var items = new List<OpenTapProgress>();
-        await client.RunAsync(new CallbackProgress(items.Add)).WaitAsync(TimeSpan.FromSeconds(60));
+        _ = await client.RunAsync(new CallbackProgress(items.Add)).WaitAsync(TimeSpan.FromSeconds(60));
         Assert.NotEmpty(items);
         Assert.True(items[^1].IsCompleted);
         Assert.False(client.IsExecuting);
@@ -275,7 +275,7 @@ public sealed class WorkerProgressOrderingTests
         {
             if (value.AwaitingOperator)
             {
-                awaiting.TrySetResult();
+                _ = awaiting.TrySetResult();
             }
         }));
         try
@@ -286,14 +286,14 @@ public sealed class WorkerProgressOrderingTests
 
             var secondError = await Record.ExceptionAsync(() => client.RunAsync().WaitAsync(TimeSpan.FromSeconds(10)));
 
-            Assert.IsType<InvalidOperationException>(secondError);
+            _ = Assert.IsType<InvalidOperationException>(secondError);
             Assert.Contains("already in progress", secondError.Message, StringComparison.Ordinal);
             Assert.True(client.IsExecuting);
             Assert.True(client.IsAwaitingOperator);
             Assert.Equal("Keep this prompt", client.OperatorPromptMessage);
             Assert.Same(pending, client.PendingInteraction);
             client.Resume();
-            await first.WaitAsync(TimeSpan.FromSeconds(60));
+            _ = await first.WaitAsync(TimeSpan.FromSeconds(60));
             Assert.False(client.IsExecuting);
             Assert.False(client.IsAwaitingOperator);
             Assert.Null(client.OperatorPromptMessage);
@@ -304,7 +304,7 @@ public sealed class WorkerProgressOrderingTests
             if (!first.IsCompleted)
             {
                 client.Abort();
-                await first.WaitAsync(TimeSpan.FromSeconds(30));
+                _ = await first.WaitAsync(TimeSpan.FromSeconds(30));
             }
         }
     }
@@ -318,16 +318,16 @@ public sealed class WorkerProgressOrderingTests
         using var release = new ManualResetEventSlim();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var run = RunAsync(process, _ =>
+        var run = RunAsync(process, unused =>
         {
-            entered.TrySetResult();
+            _ = entered.TrySetResult();
             try
             {
                 release.Wait();
             }
             finally
             {
-                exited.TrySetResult();
+                _ = exited.TrySetResult();
             }
         });
         try
@@ -335,7 +335,7 @@ public sealed class WorkerProgressOrderingTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(60));
             process.Stop(writeDossier: false);
             var error = await Record.ExceptionAsync(() => run.WaitAsync(TimeSpan.FromSeconds(10)));
-            Assert.IsType<OpenTapWorkerProcessException>(error);
+            _ = Assert.IsType<OpenTapWorkerProcessException>(error);
             Assert.False(process.IsAlive);
         }
         finally

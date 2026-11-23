@@ -7,7 +7,7 @@ namespace HardwareTest.Authoring.Tests;
 [Collection("AuthoringOpenTap")]
 public sealed class AuthoringBuildSnapshotTests : IDisposable
 {
-    private static readonly System.Collections.Concurrent.ConcurrentBag<string> OwnedFixtures = new();
+    private static readonly System.Collections.Concurrent.ConcurrentBag<string> OwnedFixtures = [];
     public void Dispose() => CleanupOwnedFixtures();
     internal static void CleanupOwnedFixtures()
     {
@@ -93,12 +93,12 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         File.WriteAllText(Path.Combine(output, "a"), "old-a");
         using var cancel = new CancellationTokenSource();
         cancel.Cancel();
-        Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Execute(request, output, cancel.Token));
+        _ = Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Execute(request, output, cancel.Token));
         var staged = Temp();
         File.WriteAllText(Path.Combine(staged, "a"), "new-a");
         File.WriteAllText(Path.Combine(staged, "b"), "new-b");
         var moves = 0;
-        Assert.Throws<IOException>(() => AuthoringBuildService.Publish(staged, output, default, (from, to) =>
+        _ = Assert.Throws<IOException>(() => AuthoringBuildService.Publish(staged, output, default, (from, to) =>
         {
             if (++moves == 2) throw new IOException("injected publication failure");
             File.Move(from, to, true);
@@ -119,13 +119,13 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         File.WriteAllText(first, "same");
         File.WriteAllText(second, "same");
         var link = Path.Combine(home.Root, "declared.txt");
-        File.CreateSymbolicLink(link, first);
+        _ = File.CreateSymbolicLink(link, first);
         var request = AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home, Offline = true });
         File.Delete(link);
-        File.CreateSymbolicLink(link, second);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Recheck(request));
+        _ = File.CreateSymbolicLink(link, second);
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Recheck(request));
         File.Delete(link);
-        File.CreateSymbolicLink(link, Path.Combine(root, "sample.TapPlan"));
+        _ = File.CreateSymbolicLink(link, Path.Combine(root, "sample.TapPlan"));
         var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home }));
         Assert.Contains("BUILD_CONTAINMENT", error.Message);
     }
@@ -136,9 +136,9 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         if (OperatingSystem.IsWindows()) return;
         var root = Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = Home(workspace);
         var external = Temp(); File.WriteAllText(Path.Combine(external, "actual.dll"), "external payload");
-        var package = Path.Combine(home.Root, "Packages", "Nested"); Directory.CreateDirectory(package);
-        Directory.CreateSymbolicLink(Path.Combine(package, "escape"), external);
-        File.CreateSymbolicLink(Path.Combine(home.Root, "declared.dll"), Path.Combine(package, "escape", "actual.dll"));
+        var package = Path.Combine(home.Root, "Packages", "Nested"); _ = Directory.CreateDirectory(package);
+        _ = Directory.CreateSymbolicLink(Path.Combine(package, "escape"), external);
+        _ = File.CreateSymbolicLink(Path.Combine(home.Root, "declared.dll"), Path.Combine(package, "escape", "actual.dll"));
         Assert.Contains("BUILD_CONTAINMENT", Assert.Throws<AuthoringWorkspaceException>(() =>
             AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home })).Message);
     }
@@ -152,15 +152,15 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var outside = Temp();
         var external = Temp();
         var directoryTarget = Path.Combine(external, "deep", "child");
-        Directory.CreateDirectory(directoryTarget);
-        Directory.CreateSymbolicLink(Path.Combine(outside, "redirect"), directoryTarget);
+        _ = Directory.CreateDirectory(directoryTarget);
+        _ = Directory.CreateSymbolicLink(Path.Combine(outside, "redirect"), directoryTarget);
         var homeName = Path.GetFileName(home.Root);
         var externalPayload = Path.Combine(external, homeName, "decoy.dll");
-        Directory.CreateDirectory(Path.GetDirectoryName(externalPayload)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(externalPayload)!);
         File.WriteAllText(externalPayload, "escaped bytes");
         File.WriteAllText(Path.Combine(home.Root, "decoy.dll"), "contained decoy");
         var link = Path.Combine(home.Root, "declared.dll");
-        File.CreateSymbolicLink(link, Path.Combine(outside, "redirect", "..", "..", homeName, "decoy.dll"));
+        _ = File.CreateSymbolicLink(link, Path.Combine(outside, "redirect", "..", "..", homeName, "decoy.dll"));
         Assert.Equal("escaped bytes", File.ReadAllText(link));
         Assert.Contains("BUILD_CONTAINMENT", Assert.Throws<AuthoringWorkspaceException>(() =>
             AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = home })).Message);
@@ -211,7 +211,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var output = Temp(); File.WriteAllText(Path.Combine(output, "ship-manifest.json"), "previous receipt");
         Assert.Contains("BUILD_INPUT_CHANGED", Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Publish(prepared, output)).Message);
         Assert.Equal("previous receipt", File.ReadAllText(Path.Combine(output, "ship-manifest.json")));
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
     }
 
     [Fact]
@@ -225,7 +225,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var savedBytes = File.ReadAllBytes(store.GetDocumentPath("sample"));
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         Assert.True(vm.HasUncompiledSources); Assert.True(vm.CanPack);
-        var gui = Temp(); vm.Pack(gui, new PackOptions { Home = home, Offline = true }); vm.StopRecovery();
+        var gui = Temp(); _ = vm.Pack(gui, new PackOptions { Home = home, Offline = true }); vm.StopRecovery();
         var cli = Temp(); var error = new StringWriter(); var log = new StringWriter();
         Assert.Equal(0, AuthoringCli.Run(["--pack", root, "--out", cli, "--opentap-home", home.Root, "--offline"], log, error));
         using var guiReceipt = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(gui, AuthoringBuildService.ReceiptFileName)));
@@ -246,10 +246,10 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var output = Temp(); File.WriteAllText(Path.Combine(output, "ship-manifest.json"), "old");
         Assert.Contains("BUILD_SOURCE_CONFLICT", Assert.Throws<AuthoringWorkspaceException>(() => WorkspacePacker.Pack(vm.Workspace, output, new PackOptions { Home = home })).Message);
         Assert.Equal(sourceBefore, File.ReadAllBytes(new AuthoringDocumentStore(root).GetDocumentPath(id)));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate()); vm.ReconcileCompiled(id, useCompiledContent: false);
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate()); vm.ReconcileCompiled(id, useCompiledContent: false);
         Assert.True(vm.CanPack); var reconciledSource = File.ReadAllBytes(new AuthoringDocumentStore(root).GetDocumentPath(id));
         var externalPlan = File.ReadAllBytes(path);
-        vm.Pack(output, new PackOptions { Home = home }); vm.StopRecovery();
+        _ = vm.Pack(output, new PackOptions { Home = home }); vm.StopRecovery();
         Assert.Equal(reconciledSource, File.ReadAllBytes(new AuthoringDocumentStore(root).GetDocumentPath(id)));
         Assert.Equal(externalPlan, File.ReadAllBytes(path));
         Assert.True(File.Exists(Path.Combine(output, AuthoringBuildService.ReceiptFileName)));
@@ -266,8 +266,8 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
             PreflightCompleted = _ => cancel.Cancel()
         });
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old.TapPackage"), "old");
-        Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Execute(request, output, cancel.Token));
-        Assert.Single(Directory.GetFiles(output)); Assert.Equal("old", File.ReadAllText(Path.Combine(output, "old.TapPackage")));
+        _ = Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Execute(request, output, cancel.Token));
+        _ = Assert.Single(Directory.GetFiles(output)); Assert.Equal("old", File.ReadAllText(Path.Combine(output, "old.TapPackage")));
     }
 
     [Theory]
@@ -287,14 +287,14 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         }
         else
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sample"))!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sample"))!);
         }
 
         File.WriteAllText(store.GetDocumentPath("sample"), content);
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old.TapPackage"), "old");
         Assert.Contains("BUILD_SOURCE", Assert.Throws<AuthoringWorkspaceException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home })).Message);
         Assert.Equal(content, File.ReadAllText(store.GetDocumentPath("sample")));
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
     }
 
     [Fact]
@@ -302,12 +302,12 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
     {
         var entries = new List<AuthoringCompileMapEntry> { new(Guid.NewGuid(), null, "generated") };
         var compiled = new AuthoringCompileResult("program", "hash", entries); entries.Clear();
-        Assert.Single(compiled.SourceMap);
+        _ = Assert.Single(compiled.SourceMap);
         var included = new List<string> { "program" };
         var receipt = new AuthoringBuildReceipt(1, "id", DateTimeOffset.UtcNow, included, [], [], [], [], [], [compiled], []);
-        included.Clear(); Assert.Single(receipt.IncludedPlans);
-        Assert.Throws<NotSupportedException>(() => ((IList<string>)receipt.IncludedPlans).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<AuthoringCompileMapEntry>)compiled.SourceMap).Clear());
+        included.Clear(); _ = Assert.Single(receipt.IncludedPlans);
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<string>)receipt.IncludedPlans).Clear());
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<AuthoringCompileMapEntry>)compiled.SourceMap).Clear());
     }
 
     [Fact]
@@ -324,8 +324,8 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         Assert.Equal("OpenTAP", Assert.Single(result.Manifest.Dependencies).Package);
         Assert.Equal("OpenTAP", Assert.Single(receipt.Dependencies).Package);
         Assert.Equal("Demo.TapPackage", Assert.Single(result.Manifest.Files));
-        Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)result.Manifest.Dependencies).Clear());
-        Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)receipt.Dependencies).Clear());
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)result.Manifest.Dependencies).Clear());
+        _ = Assert.Throws<NotSupportedException>(() => ((IList<ShipDependency>)receipt.Dependencies).Clear());
     }
 
     [Fact]
@@ -352,7 +352,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         File.AppendAllText(Path.Combine(prepared.StagingRoot, "output", AuthoringBuildService.ReceiptFileName), " ");
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old"), "old");
         Assert.Contains("BUILD_STAGED_CHANGED", Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Publish(prepared, output)).Message);
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
     }
 
     [Fact]
@@ -369,7 +369,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old.TapPackage"), "previous");
         Assert.Contains(AuthoringCompileCodes.MissingLimits, Assert.Throws<AuthoringWorkspaceException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home })).Message);
         Assert.Equal(saved, File.ReadAllBytes(store.GetDocumentPath("sample"))); Assert.Equal(compiled, File.ReadAllBytes(path));
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
     }
 
     [Fact]
@@ -379,7 +379,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         File.WriteAllText(Path.Combine(staged, "a"), "new"); File.WriteAllText(Path.Combine(staged, "b"), "new");
         File.WriteAllText(Path.Combine(output, "a"), "old");
         using var cancel = new CancellationTokenSource();
-        Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Publish(staged, output, cancel.Token,
+        _ = Assert.Throws<OperationCanceledException>(() => AuthoringBuildService.Publish(staged, output, cancel.Token,
             (from, to) => { File.Move(from, to, true); cancel.Cancel(); }));
         Assert.Equal("old", File.ReadAllText(Path.Combine(output, "a"))); Assert.False(File.Exists(Path.Combine(output, "b")));
     }
@@ -392,7 +392,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
         var request = AuthoringBuildService.CaptureSaved(workspace, new PackOptions { Home = Home(workspace), Compat = checker });
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old.TapPackage"), "old");
         Assert.Contains("BUILD_STAGED_CHANGED", Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.Execute(request, output)).Message);
-        Assert.True(checker.Changed); Assert.Single(Directory.GetFiles(output));
+        Assert.True(checker.Changed); _ = Assert.Single(Directory.GetFiles(output));
     }
 
     private sealed class PackagingMutationChecker : ITuiCompatChecker, IDisposable
@@ -418,7 +418,7 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
     internal static string Temp()
     {
         var path = Path.Combine(Path.GetTempPath(), "build-snapshot-test-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         OwnedFixtures.Add(path);
         return path;
     }

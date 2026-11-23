@@ -22,7 +22,7 @@ public static class SamplePlotExporter
             return null;
         }
 
-        Directory.CreateDirectory(outputDirectory);
+        _ = Directory.CreateDirectory(outputDirectory);
         var safePlan = Sanitize(string.IsNullOrWhiteSpace(run.PlanId) ? run.PlanName : run.PlanId);
         var key = samples[0].EffectiveMetricKey;
         var path = Path.Combine(outputDirectory, $"{safePlan}-{Sanitize(key)}.png");
@@ -66,8 +66,8 @@ public static class SamplePlotExporter
         }
 
         plot.Axes.AutoScale();
-        plot.ShowLegend();
-        plot.SavePng(path, PlotWidth, PlotHeight);
+        _ = plot.ShowLegend();
+        _ = plot.SavePng(path, PlotWidth, PlotHeight);
     }
 
     private static readonly Color SeriesColor = Color.FromHex("#1565C0");
@@ -79,7 +79,7 @@ public static class SamplePlotExporter
             .Where(s => s.IterationIndex is > 0)
             .GroupBy(s => s.IterationIndex!.Value)
             .OrderBy(g => g.Key)
-            .Select(g => (Iteration: (double)g.Key, Value: g.Last().Value))
+            .Select(g => (Iteration: (double)g.Key, g.Last().Value))
             .ToArray();
 
         var xs = lastPerIter.Select(p => p.Iteration).ToArray();

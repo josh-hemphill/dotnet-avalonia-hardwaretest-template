@@ -3,21 +3,14 @@ using HardwareTest.Core.Settings;
 namespace HardwareTest.Core.Credentials;
 
 /// Routes chip/tap capture to the mock or PKCS11 broker from live settings.
-public sealed class SettingsBackedCredentialBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker
+public sealed class SettingsBackedCredentialBroker(
+    AppSettings settings,
+    IOperatorCredentialBroker mock,
+    IOperatorCredentialBroker physical) : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker
 {
-    private readonly AppSettings _settings;
-    private readonly IOperatorCredentialBroker _mock;
-    private readonly IOperatorCredentialBroker _physical;
-
-    public SettingsBackedCredentialBroker(
-        AppSettings settings,
-        IOperatorCredentialBroker mock,
-        IOperatorCredentialBroker physical)
-    {
-        _settings = settings;
-        _mock = mock;
-        _physical = physical;
-    }
+    private readonly AppSettings _settings = settings;
+    private readonly IOperatorCredentialBroker _mock = mock;
+    private readonly IOperatorCredentialBroker _physical = physical;
 
     public bool IsMock => Active.IsMock;
     public bool CanSign => Active.CanSign;

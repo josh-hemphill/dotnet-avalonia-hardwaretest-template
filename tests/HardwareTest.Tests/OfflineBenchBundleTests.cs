@@ -37,7 +37,7 @@ public sealed class OfflineBenchBundleTests
             case "undeclared": File.WriteAllText(Path.Combine(fixture.Bundle, "untracked.dll"), "unexpected"); break;
             case "missing": File.Delete(Path.Combine(fixture.Bundle, fixture.Manifest.Packages[1].Path)); break;
         }
-        Assert.ThrowsAny<Exception>(() => OfflineBenchBundle.Validate(fixture.Bundle));
+        _ = Assert.ThrowsAny<Exception>(() => OfflineBenchBundle.Validate(fixture.Bundle));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture();
         var missing = fixture.Manifest.Packages[1];
-        fixture.Manifest = fixture.Manifest with { Packages = [fixture.Manifest.Packages[0]], Files = fixture.Manifest.Files.Where(file => file.Path != missing.Path).ToList() };
+        fixture.Manifest = fixture.Manifest with { Packages = [fixture.Manifest.Packages[0]], Files = [.. fixture.Manifest.Files.Where(file => file.Path != missing.Path)] };
         File.Delete(Path.Combine(fixture.Bundle, missing.Path)); fixture.Save();
         var error = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Bundle));
         Assert.Contains("Fixture dependency", error.Message);
@@ -56,9 +56,9 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture();
         fixture.Manifest = fixture.Manifest with { Requirements = [new() { Name = "Fixture plugin", VersionRange = "^2.0.0" }] }; fixture.Save();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Bundle));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Bundle));
         fixture.Manifest = fixture.Manifest with { Requirements = [new() { Name = "Fixture plugin", VersionRange = "^1.0.0" }], Packages = [fixture.Manifest.Packages[0] with { Version = "2.0.0" }, fixture.Manifest.Packages[1]] }; fixture.Save();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Bundle));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.Validate(fixture.Bundle));
     }
 
     [Theory]
@@ -71,7 +71,7 @@ public sealed class OfflineBenchBundleTests
     public void Unsupported_actions_and_external_prerequisites_are_independently_refused(string element)
     {
         var bytes = Fixture.Archive("Unsafe", extra: new XElement(element, "do not run"));
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
     }
 
     [Theory]
@@ -82,7 +82,7 @@ public sealed class OfflineBenchBundleTests
     public void Unsafe_archive_paths_never_escape_owned_memory(string path)
     {
         var bytes = Fixture.Archive("Unsafe", payloadPath: path);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class OfflineBenchBundleTests
         var bytes = Fixture.Archive("Portable");
         Assert.Equal("Portable", OfflineBenchArchive.Read(bytes, "Linux", "arm64", default).Name);
         bytes = Fixture.Archive("Windows only", os: "Windows", architecture: "x64");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default));
     }
 
     [Fact]
@@ -100,19 +100,19 @@ public sealed class OfflineBenchBundleTests
         var bytes = Fixture.Archive("Compressed", content: new byte[1024]);
         var expanded = 0L;
         using (var zip = new ZipArchive(new MemoryStream(bytes))) expanded = zip.Entries.Sum(entry => entry.Length);
-        var shared = new OfflineBenchReadBudget(expanded * 2 - 1, 100);
-        OfflineBenchArchive.Read(bytes, "Linux", "x64", default, shared);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default, shared));
+        var shared = new OfflineBenchReadBudget((expanded * 2) - 1, 100);
+        _ = OfflineBenchArchive.Read(bytes, "Linux", "x64", default, shared);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default, shared));
         var entries = new OfflineBenchReadBudget(1_000_000, 3);
-        OfflineBenchArchive.Read(bytes, "Linux", "x64", default, entries);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default, entries));
+        _ = OfflineBenchArchive.Read(bytes, "Linux", "x64", default, entries);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(bytes, "Linux", "x64", default, entries));
     }
 
     [Fact]
     public void Cancellation_stops_owned_stream_read_before_returning_payload()
     {
         using var cancelled = new CancellationTokenSource(); cancelled.Cancel();
-        Assert.Throws<OperationCanceledException>(() => OfflineBenchReadBudget.Read(new MemoryStream(new byte[100]), 100, cancelled.Token));
+        _ = Assert.Throws<OperationCanceledException>(() => OfflineBenchReadBudget.Read(new MemoryStream(new byte[100]), 100, cancelled.Token));
     }
 
     [Fact]
@@ -138,8 +138,8 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture(); fixture.CreateRuntime();
         var existing = existingData ? fixture.DataDestination : fixture.AppDestination;
-        Directory.CreateDirectory(existing); File.WriteAllText(Path.Combine(existing, "keep"), "evidence");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
+        _ = Directory.CreateDirectory(existing); File.WriteAllText(Path.Combine(existing, "keep"), "evidence");
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
         Assert.Equal("evidence", File.ReadAllText(Path.Combine(existing, "keep")));
         Assert.False(Directory.Exists(existingData ? fixture.AppDestination : fixture.DataDestination));
     }
@@ -152,7 +152,7 @@ public sealed class OfflineBenchBundleTests
         // A package is never allowed to supply another identity's code, even before staging.
         var path = fixture.Manifest.Packages[1].Path; fixture.Write(path, conflict);
         fixture.Manifest = fixture.Manifest with { Packages = [fixture.Manifest.Packages[0], fixture.Manifest.Packages[1] with { Sha256 = BenchProgramHandoff.Hash(conflict) }] }; fixture.Save();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
         Assert.False(Directory.Exists(fixture.AppDestination)); Assert.False(Directory.Exists(fixture.DataDestination));
         Assert.Empty(Directory.GetDirectories(fixture.Root, ".offline-*"));
     }
@@ -169,8 +169,8 @@ public sealed class OfflineBenchBundleTests
             return package with { Sha256 = BenchProgramHandoff.Hash(bytes) };
         }).ToList();
         fixture.Manifest = fixture.Manifest with { Packages = packages }; fixture.Save();
-        OfflineBenchBundle.Validate(fixture.Bundle);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
+        _ = OfflineBenchBundle.Validate(fixture.Bundle);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
         var error = Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(
             fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
         Assert.Contains("conflicts", error.Message);
@@ -195,7 +195,7 @@ public sealed class OfflineBenchBundleTests
             return package with { Sha256 = BenchProgramHandoff.Hash(bytes) };
         }).ToList();
         fixture.Manifest = fixture.Manifest with { Packages = packages }; fixture.Save();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
         Assert.False(Directory.Exists(fixture.AppDestination)); Assert.False(Directory.Exists(fixture.DataDestination));
     }
 
@@ -207,11 +207,11 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture(); fixture.CreateRuntime();
         var foreign = ownsData ? fixture.DataDestination : fixture.AppDestination;
-        Assert.ThrowsAny<IOException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
+        _ = Assert.ThrowsAny<IOException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
             fixture.AppDestination, fixture.DataDestination, default, stage =>
             {
                 if (stage != (afterDataMove ? OfflineBenchPublicationStage.AfterDataPublication : OfflineBenchPublicationStage.BeforeCommit)) return;
-                Directory.CreateDirectory(foreign); File.WriteAllText(Path.Combine(foreign, "foreign-sentinel"), "concurrent actor");
+                _ = Directory.CreateDirectory(foreign); File.WriteAllText(Path.Combine(foreign, "foreign-sentinel"), "concurrent actor");
             }));
         Assert.Equal("concurrent actor", File.ReadAllText(Path.Combine(foreign, "foreign-sentinel")));
         Assert.Equal(["foreign-sentinel"], Directory.GetFiles(foreign).Select(Path.GetFileName));
@@ -226,21 +226,25 @@ public sealed class OfflineBenchBundleTests
     public void Cancellation_before_commit_rolls_back_but_after_data_publication_finishes_bound_install(bool afterDataMove)
     {
         using var fixture = new Fixture(); fixture.CreateRuntime(); using var cancellation = new CancellationTokenSource();
-        OfflineBenchInstallResult Install() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
+        OfflineBenchInstallResult Install()
+        {
+            return OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
             fixture.AppDestination, fixture.DataDestination, cancellation.Token, stage =>
             {
                 if (stage == (afterDataMove ? OfflineBenchPublicationStage.AfterDataPublication : OfflineBenchPublicationStage.BeforeCommit)) cancellation.Cancel();
             });
+        }
+
         if (afterDataMove)
         {
             var result = Install(); Assert.Equal(fixture.AppDestination, result.Directory);
             var args = OfflineBenchStartup.PrepareArguments([], fixture.AppDestination, new System.Collections.Hashtable());
             Assert.Contains(fixture.DataDestination, args);
-            Assert.Single(Directory.GetFiles(fixture.DataDestination));
+            _ = Assert.Single(Directory.GetFiles(fixture.DataDestination));
         }
         else
         {
-            Assert.Throws<OperationCanceledException>(() => Install());
+            _ = Assert.Throws<OperationCanceledException>(Install);
             Assert.False(Directory.Exists(fixture.AppDestination)); Assert.False(Directory.Exists(fixture.DataDestination));
         }
         Assert.Empty(Directory.GetDirectories(fixture.Root, ".offline-*"));
@@ -254,7 +258,7 @@ public sealed class OfflineBenchBundleTests
     public void Archives_cannot_claim_installer_owned_paths(string path)
     {
         var archive = Fixture.Archive("Ownership conflict", payloadPath: path);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(archive, "Linux", "x64", default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(archive, "Linux", "x64", default));
     }
 
     [Theory]
@@ -267,7 +271,7 @@ public sealed class OfflineBenchBundleTests
         using var fixture = new Fixture(); fixture.CreateRuntime();
         if (name == "apphost") name = OperatingSystem.IsWindows() ? "HardwareTest.OpenTap.Worker.exe" : "HardwareTest.OpenTap.Worker";
         File.Delete(Path.Combine(fixture.Runtime, name));
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
         Assert.False(Directory.Exists(fixture.AppDestination)); Assert.False(Directory.Exists(fixture.DataDestination));
     }
 
@@ -275,12 +279,12 @@ public sealed class OfflineBenchBundleTests
     public void Cleanup_preserves_foreign_empty_directory_added_to_owned_data_reservation()
     {
         using var fixture = new Fixture(); fixture.CreateRuntime();
-        Assert.ThrowsAny<IOException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
+        _ = Assert.ThrowsAny<IOException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime,
             fixture.AppDestination, fixture.DataDestination, default, stage =>
             {
                 if (stage != OfflineBenchPublicationStage.AfterDataPublication) return;
-                Directory.CreateDirectory(Path.Combine(fixture.DataDestination, "foreign-empty-directory"));
-                Directory.CreateDirectory(fixture.AppDestination);
+                _ = Directory.CreateDirectory(Path.Combine(fixture.DataDestination, "foreign-empty-directory"));
+                _ = Directory.CreateDirectory(fixture.AppDestination);
                 File.WriteAllText(Path.Combine(fixture.AppDestination, "foreign-sentinel"), "foreign");
             }));
         Assert.True(Directory.Exists(Path.Combine(fixture.DataDestination, "foreign-empty-directory")));
@@ -293,14 +297,14 @@ public sealed class OfflineBenchBundleTests
     {
         if (OperatingSystem.IsWindows()) return;
         using var fixture = new Fixture(); fixture.CreateRuntime();
-        var external = Path.Combine(fixture.Root, "external-user-data"); Directory.CreateDirectory(external);
+        var external = Path.Combine(fixture.Root, "external-user-data"); _ = Directory.CreateDirectory(external);
         File.WriteAllText(Path.Combine(external, "invalid:portable-name"), "station data");
-        Directory.CreateSymbolicLink(Path.Combine(fixture.Runtime, "data"), external);
-        OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime);
+        _ = Directory.CreateSymbolicLink(Path.Combine(fixture.Runtime, "data"), external);
+        _ = OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime);
         File.WriteAllText(Path.Combine(fixture.Runtime, "HardwareTest.deps.json"), "{\"targets\":{\"fixture\":{\"dependency/1\":{\"runtime\":{\"linked.dll\":{}}}}}}");
         var externalDll = Path.Combine(external, "asset.dll"); File.WriteAllText(externalDll, "external code");
-        File.CreateSymbolicLink(Path.Combine(fixture.Runtime, "linked.dll"), externalDll);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
+        _ = File.CreateSymbolicLink(Path.Combine(fixture.Runtime, "linked.dll"), externalDll);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
         Assert.Equal("station data", File.ReadAllText(Path.Combine(external, "invalid:portable-name")));
     }
 
@@ -309,10 +313,10 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture(); fixture.CreateRuntime();
         var rid = OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture);
-        OfflineBenchRuntime.ValidateCapability(fixture.Runtime, rid);
-        var captured = Directory.GetFiles(fixture.Runtime).ToDictionary(path => Path.GetFileName(path)!, File.ReadAllBytes);
+        _ = OfflineBenchRuntime.ValidateCapability(fixture.Runtime, rid);
+        var captured = Directory.GetFiles(fixture.Runtime).ToDictionary(path => Path.GetFileName(path), File.ReadAllBytes);
         captured["HardwareTest.dll"] = "changed after initial live verification"u8.ToArray();
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.ValidateCapturedCapability(captured, rid));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.ValidateCapturedCapability(captured, rid));
     }
 
     [Theory]
@@ -330,7 +334,7 @@ public sealed class OfflineBenchBundleTests
         Assert.True(payload.Count < archive.Payload.Count);
         var original = OfflineBenchBundle.Capture(fixture.Bundle, null, null, default);
         var partial = original with { Archives = new Dictionary<string, OfflineBenchArchiveData> { [archive.Name] = archive with { Payload = payload } } };
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.Capture(fixture.Runtime, partial, default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.Capture(fixture.Runtime, partial, default));
     }
 
     [Fact]
@@ -348,7 +352,7 @@ public sealed class OfflineBenchBundleTests
         fixture.Manifest = fixture.Manifest with { Packages = packages }; fixture.Save();
         var error = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime));
         Assert.Contains("permissions", error.Message);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination));
         Assert.False(Directory.Exists(fixture.AppDestination)); Assert.False(Directory.Exists(fixture.DataDestination));
     }
 
@@ -364,8 +368,8 @@ public sealed class OfflineBenchBundleTests
         var bytes = Fixture.Archive(package.Name, dependencies: package.Dependencies, payloadPath: "SharedManaged.dll", content: content, mode: (UnixFileMode)0x1A4);
         fixture.Write(package.Path, bytes);
         fixture.Manifest = fixture.Manifest with { Packages = [package with { Sha256 = BenchProgramHandoff.Hash(bytes) }, fixture.Manifest.Packages[1]] }; fixture.Save();
-        OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime);
-        OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination);
+        _ = OfflineBenchRuntime.CheckBundle(fixture.Bundle, fixture.Runtime);
+        _ = OfflineBenchInstaller.Install(fixture.Bundle, fixture.Runtime, fixture.AppDestination, fixture.DataDestination);
         Assert.Equal(content, File.ReadAllBytes(Path.Combine(fixture.AppDestination, "SharedManaged.dll")));
         Assert.Equal((UnixFileMode)0x1C0, File.GetUnixFileMode(Path.Combine(fixture.AppDestination, "SharedManaged.dll")) & (UnixFileMode)0x1FF);
     }
@@ -391,7 +395,7 @@ public sealed class OfflineBenchBundleTests
     {
         using var fixture = new Fixture(); fixture.CreateRuntime();
         File.AppendAllText(Path.Combine(fixture.Runtime, "HardwareTest.dll"), "tampered");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.ValidateCapability(fixture.Runtime));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchRuntime.ValidateCapability(fixture.Runtime));
         using var output = new StringWriter();
         Assert.True(OfflineBenchCli.TryRun(["--install-offline-bundle", fixture.Bundle], fixture.Runtime, output, out var exit));
         Assert.Equal(1, exit); Assert.Contains("refused", output.ToString());
@@ -408,7 +412,7 @@ public sealed class OfflineBenchBundleTests
         public OfflineBenchBundleManifest Manifest { get; set; }
         public Fixture()
         {
-            Directory.CreateDirectory(Bundle);
+            _ = Directory.CreateDirectory(Bundle);
             var export = Guid.NewGuid().ToString("N");
             var plan = "<TestPlan><Steps /></TestPlan>"u8.ToArray(); var sidecar = "{}"u8.ToArray();
             var receipt = new BenchProgramReceipt { PlanId = "offline-fixture", ExportId = export, ExportedAt = DateTimeOffset.UtcNow, PlanSha256 = BenchProgramHandoff.Hash(plan), SidecarSha256 = BenchProgramHandoff.Hash(sidecar) };
@@ -434,13 +438,20 @@ public sealed class OfflineBenchBundleTests
         }
         public void Write(string relative, byte[] bytes)
         {
-            var path = Path.Combine(Bundle, relative); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes);
-            Manifest = Manifest with { Files = Manifest.Files.Where(file => file.Path != relative).Append(new OfflineBenchFile { Path = relative, Length = bytes.LongLength, Sha256 = BenchProgramHandoff.Hash(bytes) }).ToList() };
+            var path = Path.Combine(Bundle, relative); _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllBytes(path, bytes);
+            Manifest = Manifest with
+            {
+                Files =
+            [
+                .. Manifest.Files.Where(file => file.Path != relative),
+                new OfflineBenchFile { Path = relative, Length = bytes.LongLength, Sha256 = BenchProgramHandoff.Hash(bytes) },
+            ]
+            };
         }
         public void Save() => File.WriteAllBytes(Path.Combine(Bundle, OfflineBenchBundle.ManifestFileName), JsonSerializer.SerializeToUtf8Bytes(Manifest, OfflineBenchJsonContext.Default.OfflineBenchBundleManifest));
         public void CreateRuntime()
         {
-            Directory.CreateDirectory(Runtime);
+            _ = Directory.CreateDirectory(Runtime);
             File.WriteAllText(Path.Combine(Runtime, "HardwareTest.dll"), "synthetic operator bytes: backend copy tests, actual execution tested separately");
             File.WriteAllText(Path.Combine(Runtime, "HardwareTest.OpenTap.Host.dll"), "synthetic host bytes");
             var workerHost = Path.Combine(Runtime, OperatingSystem.IsWindows() ? "HardwareTest.OpenTap.Worker.exe" : "HardwareTest.OpenTap.Worker");
@@ -450,7 +461,7 @@ public sealed class OfflineBenchBundleTests
             File.WriteAllText(Path.Combine(Runtime, "HardwareTest.OpenTap.Worker.deps.json"), "{\"targets\":{}}");
             File.WriteAllText(Path.Combine(Runtime, "HardwareTest.OpenTap.Worker.runtimeconfig.json"), "{}");
             File.WriteAllText(Path.Combine(Runtime, "HardwareTest.deps.json"), "{\"targets\":{}}"); File.WriteAllText(Path.Combine(Runtime, "HardwareTest.runtimeconfig.json"), "{}");
-            File.WriteAllText(Path.Combine(Runtime, "settings.json"), "old station"); Directory.CreateDirectory(Path.Combine(Runtime, "runs")); File.WriteAllText(Path.Combine(Runtime, "runs", "prior.json"), "prior evidence");
+            File.WriteAllText(Path.Combine(Runtime, "settings.json"), "old station"); _ = Directory.CreateDirectory(Path.Combine(Runtime, "runs")); File.WriteAllText(Path.Combine(Runtime, "runs", "prior.json"), "prior evidence");
             var receipt = new OfflineBenchCapabilityReceipt { OperatorSha256 = BenchProgramHandoff.Hash(File.ReadAllBytes(Path.Combine(Runtime, "HardwareTest.dll"))), HostSha256 = BenchProgramHandoff.Hash(File.ReadAllBytes(Path.Combine(Runtime, "HardwareTest.OpenTap.Host.dll"))), RuntimeIdentifier = OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture) };
             File.WriteAllBytes(Path.Combine(Runtime, OfflineBenchRuntime.CapabilityFileName), JsonSerializer.SerializeToUtf8Bytes(receipt, OfflineBenchJsonContext.Default.OfflineBenchCapabilityReceipt));
         }

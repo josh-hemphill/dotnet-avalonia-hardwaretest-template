@@ -43,7 +43,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             try
             {
                 foreach (var (key, value) in PlanCompiler.FunctionSettings(functionId))
-                    projected.TryAdd(key, value);
+                    _ = projected.TryAdd(key, value);
             }
             catch (AuthoringWorkspaceException)
             {

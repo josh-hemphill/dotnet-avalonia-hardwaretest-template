@@ -11,7 +11,7 @@ public sealed class PluginDirectoryTrustTests
     {
         using var temp = new TempDataDirectory();
         var extra = Path.Combine(temp.Path, "plugins", "vendor");
-        Directory.CreateDirectory(extra);
+        _ = Directory.CreateDirectory(extra);
         Assert.True(PluginDirectoryTrust.Allows(temp.Path, extra, engineerDebug: false));
     }
 
@@ -20,7 +20,7 @@ public sealed class PluginDirectoryTrustTests
     {
         using var temp = new TempDataDirectory();
         var escape = Path.Combine(temp.Path, "escape");
-        Directory.CreateDirectory(escape);
+        _ = Directory.CreateDirectory(escape);
         Assert.False(PluginDirectoryTrust.Allows(temp.Path, escape, engineerDebug: false));
     }
 
@@ -29,7 +29,7 @@ public sealed class PluginDirectoryTrustTests
     {
         using var temp = new TempDataDirectory();
         var escape = Path.Combine(temp.Path, "escape");
-        Directory.CreateDirectory(escape);
+        _ = Directory.CreateDirectory(escape);
         Assert.True(PluginDirectoryTrust.Allows(temp.Path, escape, engineerDebug: true));
     }
 

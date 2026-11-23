@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace HardwareTest.Authoring;
 
 public sealed record AuthoringCompletedBuild(AuthoringBuildResult Result, string OutputDirectory, string SelectedHome)
@@ -9,17 +11,22 @@ public sealed record AuthoringBuildProgramLine(string PlanId, bool Included, lon
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private readonly List<AuthoringCompletedBuild> _buildHistory = [];
-    private string? _completedBuildIdentity;
-    public Guid WorkspaceSessionId => _workspaceSession;
+
+    public Guid WorkspaceSessionId { get; private set; } = Guid.NewGuid();
     public IReadOnlyList<AuthoringCompletedBuild> BuildHistory => _buildHistory.ToArray();
     public AuthoringCompletedBuild? LastCompletedBuild => _buildHistory.LastOrDefault();
     public AuthoringBuildReceipt? LastBuildReceipt => LastCompletedBuild?.Result.Receipt;
     public bool HasCompletedBuild => LastCompletedBuild is not null;
-    public string BuildReadinessText => OperationBusy ? $"Build operation: {OperationStage ?? "starting"}" : LastCompletedBuild is null
+
+    [AllowNull]
+    public string BuildReadinessText
+    {
+        get => OperationBusy ? $"Build operation: {OperationStage ?? "starting"}" : LastCompletedBuild is null
         ? "No completed checked build. Compatibility has not been checked."
-        : BuildInspectionBusy || HasUnsavedChanges || _completedBuildIdentity != CurrentBuildIdentity()
+        : BuildInspectionBusy || HasUnsavedChanges || field != CurrentBuildIdentity()
             ? "Current revision needs a new build. Previous checked artifacts are retained."
-            : "Completed build checks apply to the recorded saved revision.";
+            : "Completed build checks apply to the recorded saved revision."; private set;
+    }
     public string CompatibilityState => LastBuildReceipt?.RequiredChecks.Any(c => c.Code == "BUILD_COMPATIBILITY_PASS") == true
         ? "Passed for recorded revision by production TuiCompatChecker (in-process)."
         : LastBuildReceipt is null ? "Not checked" : "Injected checker evidence; production compatibility not established.";
@@ -41,7 +48,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("The template package includes only its fixed program files. Change the package name before including other programs.");
         RunCatalogEdit("Change package program inclusion", () =>
         {
-            Workspace.Manifest.ExcludedProgramIds.RemoveAll(id => string.Equals(id, planId, StringComparison.OrdinalIgnoreCase));
+            _ = Workspace.Manifest.ExcludedProgramIds.RemoveAll(id => string.Equals(id, planId, StringComparison.OrdinalIgnoreCase));
             if (!included) Workspace.Manifest.ExcludedProgramIds.Add(planId);
         });
         RefreshPackPreview();
@@ -53,12 +60,12 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         _buildHistory.Add(new(result, Path.GetFullPath(outputDirectory), selectedHome));
         if (_buildHistory.Count > 20) _buildHistory.RemoveAt(0);
-        _completedBuildIdentity = checkedIdentity ?? CurrentBuildIdentity();
+        BuildReadinessText = checkedIdentity ?? CurrentBuildIdentity();
         RaiseBuildResultProperties();
     }
     private void ClearCompletedBuilds()
     {
-        _buildHistory.Clear(); _completedBuildIdentity = null;
+        _buildHistory.Clear(); BuildReadinessText = null;
         RaiseBuildResultProperties();
     }
     private void RaiseBuildResultProperties()

@@ -55,7 +55,7 @@ public sealed class AuthoringSequenceOperationWindowTests
         Assert.True(beforeDuplicate.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram)));
         Assert.Null(vm.Error);
         var survivingId = vm.SelectedSequence!.NodeId;
-        Assert.NotNull(survivingId);
+        _ = Assert.NotNull(survivingId);
         search = fixture.Control<TextBox>("Search sequence palette");
         recipes = fixture.Control<ListBox>("Recipe");
         fixture.Type(search, "mean");

@@ -13,7 +13,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
 
     public AuthoringActionableFindingsTests()
     {
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         var repo = new DirectoryInfo(AppContext.BaseDirectory);
         while (repo is not null && !File.Exists(Path.Combine(repo.FullName, "dirs.proj"))) repo = repo.Parent;
         foreach (var file in Directory.EnumerateFiles(Path.Combine(repo!.FullName, "plans", "opentap")))
@@ -54,7 +54,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
             var deadline = DateTime.UtcNow.AddSeconds(15);
             while (!File.Exists(Path.Combine(_root, "fixture-prepared")))
             {
-                if (operation.IsCompleted) await operation;
+                if (operation.IsCompleted) _ = await operation;
                 Assert.True(DateTime.UtcNow < deadline);
                 await Task.Delay(20);
             }
@@ -71,7 +71,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
                 Assert.Contains("Stale", _vm.IssuesCheckState);
                 Assert.All(_vm.FindingRows, item => Assert.True(item.IsStale));
                 Assert.Empty(_vm.Findings);
-                Assert.IsType<AuthoringWorkspaceException>(error);
+                _ = Assert.IsType<AuthoringWorkspaceException>(error);
                 Assert.Contains("could not be read to verify", _vm.Error);
                 Assert.Equal("Authoring operation failed", _vm.Status);
             }
@@ -80,7 +80,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
         finally
         {
             File.WriteAllText(Path.Combine(_root, "fixture-release"), "");
-            await Record.ExceptionAsync(async () => await operation);
+            _ = await Record.ExceptionAsync(async () => await operation);
         }
     }
 
@@ -89,7 +89,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     {
         _vm.SelectProgram("sample");
         _vm.SaveSidecar();
-        _vm.Validate();
+        _ = _vm.Validate();
         var row = _vm.FindingRows.First(item => item.ProgramId == "sample");
         var sourcePath = new AuthoringDocumentStore(_root).GetDocumentPath("sample");
         var original = File.ReadAllBytes(sourcePath);
@@ -109,10 +109,10 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     [Fact]
     public void Missing_limits_uses_structured_step_and_verified_mapping()
     {
-        _vm.Validate();
+        _ = _vm.Validate();
         var row = Assert.Single(_vm.FindingRows, row => row.ProgramId == "sample" && row.Code == PlanContractValidator.Codes.MissingLimits);
-        Assert.NotNull(row.Finding.Target?.CompiledStepId);
-        Assert.NotNull(row.NodeId);
+        _ = Assert.NotNull(row.Finding.Target?.CompiledStepId);
+        _ = Assert.NotNull(row.NodeId);
         Assert.False(row.IsStale);
         Assert.Equal("Open program settings", row.NavigationLabel);
         Assert.Contains("no supported editor control", row.NavigationReason);
@@ -128,7 +128,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     public void Plan_wide_finding_opens_settings_without_inventing_a_node()
     {
         File.Delete(Path.Combine(_root, "sample.program.json"));
-        _vm.Validate();
+        _ = _vm.Validate();
         var row = Assert.Single(_vm.FindingRows, row => row.ProgramId == "sample" && row.Code == PlanContractValidator.Codes.SidecarMissing);
         Assert.Null(row.NodeId);
         Assert.Contains("No verified source field", row.NavigationReason);
@@ -138,7 +138,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     [Fact]
     public void Editing_undo_and_removed_program_refuse_old_navigation()
     {
-        _vm.Validate();
+        _ = _vm.Validate();
         var row = _vm.FindingRows.First(row => row.NodeId is not null);
         Assert.NotNull(_vm.NavigateFinding(row));
         _vm.SelectSequence(_vm.SequenceItems.ToList().FindIndex(item => item.NodeId == row.NodeId));
@@ -148,7 +148,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
         Assert.Null(_vm.NavigateFinding(row));
         _vm.Undo();
         Assert.Null(_vm.NavigateFinding(row));
-        _vm.Validate();
+        _ = _vm.Validate();
         var current = _vm.FindingRows.First(item => item.ProgramId == "sample");
         _vm.SelectProgram("sample");
         _vm.RemoveSelectedProgram();
@@ -170,7 +170,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
             var deadline = DateTime.UtcNow.AddSeconds(15);
             while (!File.Exists(Path.Combine(_root, "fixture-child.json")))
             {
-                if (operation.IsCompleted) await operation;
+                if (operation.IsCompleted) _ = await operation;
                 Assert.True(DateTime.UtcNow < deadline);
                 await Task.Delay(20);
             }
@@ -191,7 +191,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
             }
         }
         finally { File.WriteAllText(Path.Combine(_root, "fixture-release"), ""); }
-        await operation;
+        _ = await operation;
         if (change != "remove") Assert.NotEmpty(_vm.FindingRows);
         Assert.Contains("Stale", _vm.IssuesCheckState);
         Assert.Contains("earlier revision", _vm.Status);
@@ -205,12 +205,12 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
     {
         var missing = Path.Combine(_root, "absent.TapPlan");
         using var jsonWriter = new StringWriter();
-        PlanContractCli.Run([missing], jsonWriter, new PlanContractOptions { Format = PlanContractFormat.Json });
+        _ = PlanContractCli.Run([missing], jsonWriter, new PlanContractOptions { Format = PlanContractFormat.Json });
         using var json = JsonDocument.Parse(jsonWriter.ToString());
         var finding = json.RootElement.GetProperty("plans")[0].GetProperty("findings")[0];
         Assert.Equal(new[] { "severity", "code", "message" }, finding.EnumerateObject().Select(property => property.Name));
         using var sarifWriter = new StringWriter();
-        PlanContractCli.Run([missing], sarifWriter, new PlanContractOptions { Format = PlanContractFormat.Sarif });
+        _ = PlanContractCli.Run([missing], sarifWriter, new PlanContractOptions { Format = PlanContractFormat.Sarif });
         using var sarif = JsonDocument.Parse(sarifWriter.ToString());
         var result = sarif.RootElement.GetProperty("runs")[0].GetProperty("results")[0];
         Assert.False(result.TryGetProperty("properties", out _));
@@ -228,7 +228,7 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
         };
         Assert.Equal(text, PlanContractValidator.Format(targeted));
         using var structuredWriter = new StringWriter();
-        PlanContractCli.Run([Path.Combine(_root, "sample.TapPlan")], structuredWriter, new PlanContractOptions { Format = PlanContractFormat.Json });
+        _ = PlanContractCli.Run([Path.Combine(_root, "sample.TapPlan")], structuredWriter, new PlanContractOptions { Format = PlanContractFormat.Json });
         using var structured = JsonDocument.Parse(structuredWriter.ToString());
         var threshold = structured.RootElement.GetProperty("plans")[0].GetProperty("findings").EnumerateArray()
             .Single(item => item.GetProperty("code").GetString() == PlanContractValidator.Codes.MissingLimits);

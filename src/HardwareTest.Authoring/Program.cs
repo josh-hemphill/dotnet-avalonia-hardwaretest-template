@@ -17,7 +17,7 @@ public static class Program
             return AuthoringCli.Run(args, Console.Out, Console.Error);
         }
 
-        BuildAvaloniaApp()
+        _ = BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
         return 0;
     }

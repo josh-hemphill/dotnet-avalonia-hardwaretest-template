@@ -17,7 +17,7 @@ public static class HierarchyRollup
     {
         var leaves = stage.Step is null
             ? EnumerateLeaves(fullHierarchy).ToList()
-            : EnumerateLeaves([stage.Step]).ToList();
+            : [.. EnumerateLeaves([stage.Step])];
 
         var (status, completed, total, failed) = SummarizeLeaves(leaves);
         stage.StatusText = status;

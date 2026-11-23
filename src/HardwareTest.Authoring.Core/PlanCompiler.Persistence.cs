@@ -38,7 +38,7 @@ public sealed partial class PlanCompiler
         {
             foreach (var (path, write) in files)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 var temporary = importedProcedure ? path + "." + Guid.NewGuid().ToString("N") + ".saving" : path + ".saving";
                 using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 staged.Add(temporary);

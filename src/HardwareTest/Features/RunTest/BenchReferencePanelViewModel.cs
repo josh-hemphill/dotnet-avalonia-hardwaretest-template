@@ -13,18 +13,13 @@ public sealed record BenchReferenceChoice(BenchReferenceProfile Profile, BenchRe
     public string Details => $"{Label}\nExact value: {Value.Value.ToString("G17", CultureInfo.InvariantCulture)} {Value.Unit}\nMean of {Value.SampleCount} samples; reference key {Value.ReferenceKey}\nGolden DUT: {Profile.SourceDutSerial}; operator: {Profile.SourceOperator}\nSource run: {Profile.SourceRunId}; {Profile.SourceScope}; selected path: {Profile.SourceSelectedStepPath ?? "Full acquisition"}\nCaptured: {Profile.CreatedAt:O}; VISA: {Profile.Context.VisaMode}\nExpires: {Profile.ExpiresAt?.ToString("O", CultureInfo.InvariantCulture) ?? "No automatic expiry"}\nContent SHA-256: {Profile.ContentSha256}";
 }
 
-public sealed class BenchReferenceRuleRow : ReactiveObject
+public sealed class BenchReferenceRuleRow(BenchReferenceRule rule, Func<bool> canEdit, Action changed) : ReactiveObject
 {
-    private readonly Func<bool> _canEdit;
-    private readonly Action _changed;
+    private readonly Func<bool> _canEdit = canEdit;
+    private readonly Action _changed = changed;
     private BenchReferenceChoice? _selectedChoice;
-    public BenchReferenceRuleRow(BenchReferenceRule rule, Func<bool> canEdit, Action changed)
-    {
-        Rule = BenchReferenceEvaluator.CloneRule(rule);
-        _canEdit = canEdit;
-        _changed = changed;
-    }
-    public BenchReferenceRule Rule { get; }
+
+    public BenchReferenceRule Rule { get; } = BenchReferenceEvaluator.CloneRule(rule);
     public ObservableCollection<BenchReferenceChoice> Choices { get; } = [];
     public string Heading => $"{Rule.MetricKey} — {Rule.ReferenceKey} ({Rule.Unit})";
     public string AutomationName => $"Reference for {Heading}, rule {Rule.RuleId}";
@@ -40,7 +35,7 @@ public sealed class BenchReferenceRuleRow : ReactiveObject
         set
         {
             if (!_canEdit() || ReferenceEquals(value, _selectedChoice)) return;
-            this.RaiseAndSetIfChanged(ref _selectedChoice, value);
+            _ = this.RaiseAndSetIfChanged(ref _selectedChoice, value);
             this.RaisePropertyChanged(nameof(SelectedDetails));
             _changed();
         }
@@ -87,14 +82,9 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
     private BenchReferenceContext? _context;
     private ProgramItemViewModel? _program;
     private int _generation;
-    private bool _isBusy;
-    private bool _managementPending;
     private bool _restoring;
     private bool _isAcquisition;
     private bool _catalogAvailable = true;
-    private string _status = string.Empty;
-    private string _retirementReason = string.Empty;
-    private BenchReferenceCatalogItem? _selectedProfile;
 
     public BenchReferencePanelViewModel(IBenchReferenceStore? store, AppSettings settings, ISettingsStore? settingsStore,
         IClock clock, Func<bool> isRunning, Func<bool> isEngineer, Func<Action, Task> onUi, Action contextChanged)
@@ -119,8 +109,8 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
     public bool IsReady => !IsManagementPending && (!HasRules || IsReadyForRules(_program?.ReferenceRules ?? []));
     public bool IsReadyForRules(IReadOnlyList<BenchReferenceRule> rules)
         => !IsManagementPending && string.IsNullOrWhiteSpace(_program?.ReferenceDeclarationError) && !IsBusy
-            && (rules.Count == 0 || IsAcquisition && _isEngineer() || _catalogAvailable && _context is not null && rules.All(rule => Rules.Any(row => row.Rule.RuleId == rule.RuleId
-                && row.SelectedChoice is { } choice && BenchReferenceEvaluator.CompatibilityError(rule, choice.Profile, _context, _clock.UtcNow) is null)));
+            && (rules.Count == 0 || (IsAcquisition && _isEngineer()) || (_catalogAvailable && _context is not null && rules.All(rule => Rules.Any(row => row.Rule.RuleId == rule.RuleId
+                && row.SelectedChoice is { } choice && BenchReferenceEvaluator.CompatibilityError(rule, choice.Profile, _context, _clock.UtcNow) is null))));
     public string Heading => IsAcquisition ? "Reference acquisition — no production acceptance" : $"Golden references ({Rules.Count})";
     public string SelectionSummary => string.Join("; ", Rules.Take(2).Select(row => row.SelectedChoice is { } choice
         ? $"{row.Rule.MetricKey}: {choice.Value.Value.ToString("G6", CultureInfo.InvariantCulture)} {choice.Value.Unit} ({choice.Profile.Name})"
@@ -129,7 +119,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
     {
         get
         {
-            if (!string.IsNullOrWhiteSpace(_program?.ReferenceDeclarationError)) return _program.ReferenceDeclarationError!;
+            if (!string.IsNullOrWhiteSpace(_program?.ReferenceDeclarationError)) return _program.ReferenceDeclarationError;
             if (IsManagementPending) return "Reference retirement is still being saved. Wait for its result, inspect the remaining inputs and confirm the session again before Run.";
             if (IsBusy) return "Loading saved golden references. Wait until the matching values are verified.";
             if (IsAcquisition) return "Acquisition collects reference data. Reference acceptance is unevaluated; this is not a production pass.";
@@ -147,22 +137,18 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
                 : "Choose compatible golden references for the affected tests, or ask a technician to acquire and save a new reference.";
         }
     }
-    public bool IsManagementPending => _managementPending;
-    public bool IsBusy { get => _isBusy || _managementPending; private set { this.RaiseAndSetIfChanged(ref _isBusy, value); RefreshState(); } }
-    public string Status { get => _status; private set => this.RaiseAndSetIfChanged(ref _status, value); }
-    public string RetirementReason { get => _retirementReason; set => this.RaiseAndSetIfChanged(ref _retirementReason, value); }
-    public BenchReferenceCatalogItem? SelectedProfile
-    {
-        get => _selectedProfile;
-        set { this.RaiseAndSetIfChanged(ref _selectedProfile, value); this.RaisePropertyChanged(nameof(CanRetire)); }
-    }
+    public bool IsManagementPending { get; private set; }
+    public bool IsBusy { get => field || IsManagementPending; private set { _ = this.RaiseAndSetIfChanged(ref field, value); RefreshState(); } }
+    public string Status { get; private set => this.RaiseAndSetIfChanged(ref field, value); } = string.Empty;
+    public string RetirementReason { get; set => this.RaiseAndSetIfChanged(ref field, value); } = string.Empty;
+    public BenchReferenceCatalogItem? SelectedProfile { get; set { _ = this.RaiseAndSetIfChanged(ref field, value); this.RaisePropertyChanged(nameof(CanRetire)); } }
     public bool IsAcquisition
     {
         get => _isAcquisition;
         set
         {
             if (!CanManage || value == _isAcquisition) return;
-            this.RaiseAndSetIfChanged(ref _isAcquisition, value);
+            _ = this.RaiseAndSetIfChanged(ref _isAcquisition, value);
             _contextChanged(); RefreshState();
         }
     }
@@ -315,7 +301,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
         var generation = _generation;
         foreach (var row in Rules)
         {
-            _settings.BenchReferenceSelections.RemoveAll(item => item.PlanId == _program.Id && item.RuleId == row.Rule.RuleId);
+            _ = _settings.BenchReferenceSelections.RemoveAll(item => item.PlanId == _program.Id && item.RuleId == row.Rule.RuleId);
             if (row.SelectedChoice is { } choice)
                 _settings.BenchReferenceSelections.Add(new() { PlanId = _program.Id, RuleId = row.Rule.RuleId, ReferenceId = choice.Profile.Id });
         }
@@ -339,7 +325,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
         { Status = "Enter a reason before retiring the selected profile."; RequestFocusField?.Invoke("Reference retirement reason"); return; }
         var generation = _generation;
         var completed = false;
-        _managementPending = true;
+        IsManagementPending = true;
         _contextChanged();
         Status = "Retiring the selected profile. Wait for the saved result before confirming or starting another run.";
         RefreshState();
@@ -358,7 +344,7 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
         {
             await _onUi(() =>
             {
-                _managementPending = false;
+                IsManagementPending = false;
                 if (generation == _generation) _contextChanged();
                 RefreshState();
             }).ConfigureAwait(false);

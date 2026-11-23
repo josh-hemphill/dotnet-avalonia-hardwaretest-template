@@ -20,7 +20,7 @@ public sealed class AuthoringDraftReviewRegressionTests
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         var original = File.ReadAllBytes(PlanCompiler.SidecarPath(path));
         vm.DisplayName = "Changed source sidecar"; fail = true;
-        Assert.Throws<IOException>(() => vm.SaveSidecar());
+        _ = Assert.Throws<IOException>(vm.SaveSidecar);
         Assert.Equal(original, File.ReadAllBytes(PlanCompiler.SidecarPath(path)));
         var store = new AuthoringDocumentStore(root);
         Assert.True(store.Load(id).Document!.RequiresCompilation);
@@ -29,8 +29,8 @@ public sealed class AuthoringDraftReviewRegressionTests
         Assert.Equal("Changed source sidecar", reopened.DisplayName);
         Assert.True(reopened.HasUncompiledSources);
         Assert.True(reopened.CanPack); // Saved complete source can be compiled by the isolated Build pipeline.
-        Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(reopened.Workspace!));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSourceExportGuard.EnsureCurrent(reopened.Workspace!));
         reopened.StopRecovery();
     }
 
@@ -49,7 +49,7 @@ public sealed class AuthoringDraftReviewRegressionTests
         vm.NewRequiredField = "second"; vm.AddRequiredField();
         if (backupFailure)
         {
-            File.Delete(sourcePath + ".bak"); Directory.CreateDirectory(sourcePath + ".bak");
+            File.Delete(sourcePath + ".bak"); _ = Directory.CreateDirectory(sourcePath + ".bak");
         }
         else
         {
@@ -105,7 +105,7 @@ public sealed class AuthoringDraftReviewRegressionTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
         var root = Path.Combine(Path.GetTempPath(), "authoring-review-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
         // Persistence regressions are independent of legacy section-layout migration.

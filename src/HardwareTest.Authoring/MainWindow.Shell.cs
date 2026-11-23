@@ -67,7 +67,7 @@ public partial class MainWindow
             if (e.Source is Control control and not TabItem and not TabControl)
                 _routeFocus[WorkspaceTabs.SelectedIndex] = control;
         });
-        WorkspaceTabs.SelectionChanged += (_, e) =>
+        WorkspaceTabs.SelectionChanged += (sender, e) =>
         {
             if (!ReferenceEquals(e.Source, WorkspaceTabs)) return;
             if (!_returningToRoute && _previousRoute != WorkspaceTabs.SelectedIndex)
@@ -84,7 +84,7 @@ public partial class MainWindow
                     && _routeFocus.TryGetValue(route, out var control) && control.IsEffectivelyVisible)
                 {
                     control.BringIntoView();
-                    control.Focus();
+                    _ = control.Focus();
                 }
                 else if (current() && plan == _viewModel.SelectedProgram?.PlanId && WorkspaceTabs.SelectedIndex == route
                          && route is 1 or 3 or 4 or 6 or 7 or 8)
@@ -93,7 +93,7 @@ public partial class MainWindow
                     // selection. First visits should start at the task heading; revisits restore focus.
                     var root = (WorkspaceTabs.SelectedItem as TabItem)?.Content as Control;
                     var viewport = root?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
-                    if (viewport is not null) { viewport.Offset = default; viewport.Focusable = true; viewport.Focus(); }
+                    if (viewport is not null) { viewport.Offset = default; viewport.Focusable = true; _ = viewport.Focus(); }
                 }
             }, DispatcherPriority.Loaded);
         };
@@ -160,7 +160,7 @@ public partial class MainWindow
             PlanNavigationBar.ColumnDefinitions[6].Width = overflow ? new GridLength(0) : new GridLength(.85, GridUnitType.Star);
             PlanNavigationBar.ColumnDefinitions[7].Width = overflow ? new GridLength(0) : new GridLength(.75, GridUnitType.Star);
             var taskName = (WorkspaceTabs.SelectedItem as TabItem)?.Header?.ToString() ?? "Overview";
-            var taskCaption = WorkspaceTabs.SelectedIndex is 6 or 8 || overflow && WorkspaceTabs.SelectedIndex is 2 or 4 ? taskName + " ▾" : "More ▾";
+            var taskCaption = WorkspaceTabs.SelectedIndex is 6 or 8 || (overflow && WorkspaceTabs.SelectedIndex is 2 or 4) ? taskName + " ▾" : "More ▾";
             if (!Equals(TaskMenuButton.Content, taskCaption)) TaskMenuButton.Content = taskCaption;
             Title = $"{taskName} — {_viewModel.DisplayName} · HardwareTest Authoring";
             var available = Math.Max(0, ClientSize.Width - 32 - 16);
@@ -212,7 +212,7 @@ public partial class MainWindow
             if (list is { IsEffectivelyVisible: true })
             {
                 if (list.SelectedItem is { } selected) list.ScrollIntoView(selected);
-                list.Focus();
+                _ = list.Focus();
             }
         }
     }

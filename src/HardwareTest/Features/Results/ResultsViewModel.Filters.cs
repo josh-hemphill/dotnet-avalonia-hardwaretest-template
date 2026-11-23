@@ -62,7 +62,7 @@ public partial class ResultsViewModel
         ReplaceOptions(
             DutFilterOptions,
             _allRuns
-                .Select(r => string.IsNullOrWhiteSpace(r.DutSerial) ? NoneDutFilter : r.DutSerial!)
+                .Select(r => string.IsNullOrWhiteSpace(r.DutSerial) ? NoneDutFilter : r.DutSerial)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(d => d, StringComparer.OrdinalIgnoreCase));
         if (!DutFilterOptions.Contains(DutFilter))
@@ -73,7 +73,7 @@ public partial class ResultsViewModel
         ReplaceOptions(
             OperatorFilterOptions,
             _allRuns
-                .Select(r => string.IsNullOrWhiteSpace(r.OperatorName) ? NoneDutFilter : r.OperatorName!)
+                .Select(r => string.IsNullOrWhiteSpace(r.OperatorName) ? NoneDutFilter : r.OperatorName)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(o => o, StringComparer.OrdinalIgnoreCase));
         if (!OperatorFilterOptions.Contains(OperatorFilter))
@@ -115,18 +115,11 @@ public partial class ResultsViewModel
                 ? string.Empty
                 : $"Passed {passed} · Failed {failed} · Other {other}";
 
-            if (_allRuns.Count == 0)
-            {
-                FilterStatus = string.Empty;
-            }
-            else if (string.IsNullOrWhiteSpace(YieldSummary))
-            {
-                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count}";
-            }
-            else
-            {
-                FilterStatus = $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
-            }
+            FilterStatus = _allRuns.Count == 0
+                ? string.Empty
+                : string.IsNullOrWhiteSpace(YieldSummary)
+                    ? $"Showing {Runs.Count} of {_allRuns.Count}"
+                    : $"Showing {Runs.Count} of {_allRuns.Count} · {YieldSummary}";
 
             this.RaisePropertyChanged(nameof(HasRuns));
             this.RaisePropertyChanged(nameof(HasSchemaDrift));
@@ -181,7 +174,7 @@ public partial class ResultsViewModel
 
         if (!string.Equals(DutFilter, AllFilter, StringComparison.OrdinalIgnoreCase))
         {
-            var dutLabel = string.IsNullOrWhiteSpace(run.DutSerial) ? NoneDutFilter : run.DutSerial!;
+            var dutLabel = string.IsNullOrWhiteSpace(run.DutSerial) ? NoneDutFilter : run.DutSerial;
             if (!string.Equals(dutLabel, DutFilter, StringComparison.OrdinalIgnoreCase))
             {
                 return false;
@@ -190,7 +183,7 @@ public partial class ResultsViewModel
 
         if (!string.Equals(OperatorFilter, AllFilter, StringComparison.OrdinalIgnoreCase))
         {
-            var opLabel = string.IsNullOrWhiteSpace(run.OperatorName) ? NoneDutFilter : run.OperatorName!;
+            var opLabel = string.IsNullOrWhiteSpace(run.OperatorName) ? NoneDutFilter : run.OperatorName;
             if (!string.Equals(opLabel, OperatorFilter, StringComparison.OrdinalIgnoreCase))
             {
                 return false;

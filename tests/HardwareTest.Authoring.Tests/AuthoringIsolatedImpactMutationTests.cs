@@ -12,7 +12,7 @@ public sealed class AuthoringIsolatedImpactMutationTests : IDisposable
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         File.Copy(Path.Combine(directory!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
     }
 
@@ -65,7 +65,7 @@ public sealed class AuthoringIsolatedImpactMutationTests : IDisposable
         var before = vm.SelectedProgram;
         var files = Directory.EnumerateFiles(_root).ToDictionary(path => path, File.ReadAllBytes);
 
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyProgramRemoval(reviewed));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyProgramRemoval(reviewed));
 
         Assert.Same(before, vm.SelectedProgram);
         Assert.Equal("a", Assert.Single(vm.Programs).PlanId);

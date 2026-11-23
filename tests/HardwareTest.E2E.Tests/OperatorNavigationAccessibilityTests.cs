@@ -16,7 +16,7 @@ public sealed class OperatorNavigationAccessibilityTests
     [InlineData(900, 600, 20)]
     public async Task Composite_navigation_exposes_navigation_page_and_footer_without_owning_their_selection(int width, int height, int font)
     {
-        E2EHarness.RequireApp();
+        _ = E2EHarness.RequireApp();
         var pageAction = new Button { Content = "Review current DUT" };
         var footerAction = new Button { Content = "Stop current run" };
         var first = new FANavigationViewItem { Content = "Home" };

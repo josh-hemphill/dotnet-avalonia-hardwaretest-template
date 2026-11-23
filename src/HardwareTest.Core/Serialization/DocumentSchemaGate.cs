@@ -68,7 +68,7 @@ public static class DocumentSchemaGate
         {
             if (children.ValueKind != JsonValueKind.Array) throw new JsonException("planRuns must be an array.");
             foreach (var child in children.EnumerateArray())
-                ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path);
+                _ = ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path);
         }
         return status;
     }
@@ -116,15 +116,12 @@ public static class DocumentSchemaGate
     }
 }
 
-public sealed class UnsupportedDocumentSchemaException : InvalidOperationException
+public sealed class UnsupportedDocumentSchemaException(DocumentSchemaStatus status, string? path = null) : InvalidOperationException(status.FormatOperatorWarning() + (path is null ? string.Empty : $" File: {path}"))
 {
-    public UnsupportedDocumentSchemaException(DocumentSchemaStatus status, string? path = null)
-        : base(status.FormatOperatorWarning() + (path is null ? string.Empty : $" File: {path}")) => Status = status;
-    public DocumentSchemaStatus Status { get; }
+    public DocumentSchemaStatus Status { get; } = status;
 }
 
-public sealed class SchemaReadOnlyException : InvalidOperationException
+public sealed class SchemaReadOnlyException(DocumentSchemaStatus status) : InvalidOperationException(status.FormatOperatorWarning())
 {
-    public SchemaReadOnlyException(DocumentSchemaStatus status) : base(status.FormatOperatorWarning()) => Status = status;
-    public DocumentSchemaStatus Status { get; }
+    public DocumentSchemaStatus Status { get; } = status;
 }

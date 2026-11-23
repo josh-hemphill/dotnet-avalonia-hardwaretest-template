@@ -21,7 +21,6 @@ namespace HardwareTest;
 
 public partial class App : Application
 {
-    private readonly ISettingsStore _settingsStore;
 #pragma warning disable S2930 // Process-lifetime CTS; Application is not disposed.
     private readonly CancellationTokenSource _startupCts = new();
 #pragma warning restore S2930
@@ -38,10 +37,10 @@ public partial class App : Application
     public App(ISettingsStore settingsStore)
     {
         Name = "HardwareTest Operator";
-        _settingsStore = settingsStore;
+        SettingsStore = settingsStore;
     }
 
-    public ISettingsStore SettingsStore => _settingsStore;
+    public ISettingsStore SettingsStore { get; }
 
     public ServiceProvider Services =>
         _services ?? throw new InvalidOperationException("DI container is not built yet.");
@@ -49,17 +48,17 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        ThemeApplier.Apply(_settingsStore.AppSettings);
+        ThemeApplier.Apply(SettingsStore.AppSettings);
     }
 
     public override void OnFrameworkInitializationCompleted()
     {
-        _services = Composition.Build(_settingsStore);
-        ThemeApplier.Apply(_settingsStore.AppSettings);
+        _services = Composition.Build(SettingsStore);
+        ThemeApplier.Apply(SettingsStore.AppSettings);
 
         var buildInfo = _services.GetRequiredService<BuildInfo>();
         CrashHandler.Configure(
-            _settingsStore,
+            SettingsStore,
             buildInfo,
             safeStop: () =>
             {
@@ -89,7 +88,7 @@ public partial class App : Application
                     session.OperatorName,
                     !string.IsNullOrWhiteSpace(session.DutSerial),
                     session.ProgramId,
-                    _settingsStore.AppSettings.IsEngineerDebugMode,
+                    SettingsStore.AppSettings.IsEngineerDebugMode,
                     session.OperatorCredentialSerial);
             });
         CrashHandler.InstallUiHooks();
@@ -106,8 +105,8 @@ public partial class App : Application
                 await _startupCts.CancelAsync();
                 try
                 {
-                    await _settingsStore.SaveUiStateAsync();
-                    await _settingsStore.SaveAppSettingsAsync();
+                    await SettingsStore.SaveUiStateAsync();
+                    await SettingsStore.SaveAppSettingsAsync();
                 }
                 catch
                 {
@@ -144,11 +143,11 @@ public partial class App : Application
 
         cancellationToken.ThrowIfCancellationRequested();
         await SetStartupStatusAsync(shell, "Checking prior runs…");
-        await Task.Run(() => ReconcileDanglingRuns(), cancellationToken).ConfigureAwait(false);
+        await Task.Run(ReconcileDanglingRuns, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         await SetStartupStatusAsync(shell, "Applying retention…");
-        await Task.Run(() => PruneRetentionAndLogHealth(), cancellationToken).ConfigureAwait(false);
+        await Task.Run(PruneRetentionAndLogHealth, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         await SetStartupStatusAsync(shell, "Loading programs…");
@@ -182,9 +181,9 @@ public partial class App : Application
     {
         try
         {
-            var crashRoot = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
-                ? Path.Combine(_settingsStore.RootDirectory, "crashes")
-                : _settingsStore.AppSettings.CrashDirectory;
+            var crashRoot = string.IsNullOrWhiteSpace(SettingsStore.AppSettings.CrashDirectory)
+                ? Path.Combine(SettingsStore.RootDirectory, "crashes")
+                : SettingsStore.AppSettings.CrashDirectory;
             var dossierId = DanglingRunReconciler.TryCorrelateNewestDossierId(
                 crashRoot,
                 TimeSpan.FromHours(24),
@@ -208,7 +207,7 @@ public partial class App : Application
     {
         try
         {
-            var retention = Services.GetRequiredService<HardwareTest.Core.Storage.IRunRetentionService>();
+            var retention = Services.GetRequiredService<Core.Storage.IRunRetentionService>();
             var pruned = retention.Prune();
             if (pruned.DeletedCount > 0)
             {
@@ -222,7 +221,7 @@ public partial class App : Application
 
         try
         {
-            var health = Services.GetRequiredService<HardwareTest.Core.Storage.IStorageHealthService>()
+            var health = Services.GetRequiredService<Core.Storage.IStorageHealthService>()
                 .GetDataVolumeHealth();
             if (health.Level != HardwareTest.Core.Storage.StorageHealthLevel.Ok)
             {

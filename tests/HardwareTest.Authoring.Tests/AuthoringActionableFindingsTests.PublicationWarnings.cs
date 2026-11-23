@@ -23,7 +23,7 @@ public sealed partial class AuthoringActionableFindingsTests
         {
             if (args.PropertyName == nameof(_vm.Status) && _vm.Status?.StartsWith("Saved sample.", StringComparison.Ordinal) == true)
             {
-                if (all) _vm.Validate();
+                if (all) _ = _vm.Validate();
                 Assert.Contains("Current", _vm.IssuesCheckState);
                 held ??= new FileStream(manifestPath, FileMode.Open, FileAccess.Read, FileShare.None);
             }
@@ -76,7 +76,7 @@ public sealed partial class AuthoringActionableFindingsTests
         Assert.Equal("Open program settings", issue.NavigationLabel);
         Assert.Null(issue.Field);
         var program = _vm.SelectedProgram.PlanId;
-        _vm.InitializePlan(new("other") { Instruments = [] });
+        _ = _vm.InitializePlan(new("other") { Instruments = [] });
         var target = _vm.NavigateEditingIssue(issue);
         Assert.Equal(program, _vm.SelectedProgram!.PlanId);
         Assert.Null(target!.NodeId);

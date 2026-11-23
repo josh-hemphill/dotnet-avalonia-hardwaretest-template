@@ -8,20 +8,16 @@ using ILogger = Serilog.ILogger;
 
 namespace HardwareTest.OpenTap.Host.Worker;
 
-public sealed class OpenTapWorkerProcessException : InvalidOperationException
+public sealed class OpenTapWorkerProcessException(string message) : InvalidOperationException(message)
 {
-    public OpenTapWorkerProcessException(string message)
-        : base(message)
-    {
-    }
 }
 
 /// Owns the OpenTAP worker child process and its StreamJsonRpc channel.
-public sealed class OpenTapWorkerProcess : IDisposable
+public sealed class OpenTapWorkerProcess(ILogger? logger = null, string? executablePath = null) : IDisposable
 {
     public const string ExecutableName = "HardwareTest.OpenTap.Worker";
 
-    private readonly ILogger _logger;
+    private readonly ILogger _logger = logger ?? Log.ForContext<OpenTapWorkerProcess>();
     private readonly ConcurrentDictionary<long, Action<WorkerEnvelope>> _eventHandlers = new();
     private readonly StringBuilder _stderr = new();
     private readonly object _stderrLock = new();
@@ -30,13 +26,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
     private long _nextId = 1;
     private int _disposed;
 
-    public OpenTapWorkerProcess(ILogger? logger = null, string? executablePath = null)
-    {
-        _logger = logger ?? Log.ForContext<OpenTapWorkerProcess>();
-        ExecutablePath = executablePath;
-    }
-
-    public string? ExecutablePath { get; }
+    public string? ExecutablePath { get; } = executablePath;
 
     public bool IsAlive
     {
@@ -222,7 +212,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
         }
         finally
         {
-            _eventHandlers.TryRemove(id, out _);
+            _ = _eventHandlers.TryRemove(id, out _);
         }
     }
 
@@ -241,7 +231,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
                 process.Kill(entireProcessTree: true);
             }
 
-            process.WaitForExit(milliseconds: 2000);
+            _ = process.WaitForExit(milliseconds: 2000);
         }
         catch (Exception ex)
         {
@@ -276,7 +266,7 @@ public sealed class OpenTapWorkerProcess : IDisposable
         _process = null;
         lock (_stderrLock)
         {
-            _stderr.Clear();
+            _ = _stderr.Clear();
         }
     }
 
@@ -316,11 +306,11 @@ public sealed class OpenTapWorkerProcess : IDisposable
     {
         lock (_stderrLock)
         {
-            _stderr.AppendLine(line);
+            _ = _stderr.AppendLine(line);
             const int maxChars = 32 * 1024;
             if (_stderr.Length > maxChars)
             {
-                _stderr.Remove(0, _stderr.Length - maxChars);
+                _ = _stderr.Remove(0, _stderr.Length - maxChars);
             }
         }
     }

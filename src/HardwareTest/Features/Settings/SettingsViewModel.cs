@@ -402,37 +402,37 @@ public partial class SettingsViewModel : ReactiveObject
         }
 
         var sb = new StringBuilder();
-        sb.AppendLine(_buildInfo.FormatSupportBlock(DataDirectory));
-        sb.AppendLine($"Hardware interlock: {SafetyInterlockStatus}");
-        sb.AppendLine("OpenTAP worker: killable child process");
+        _ = sb.AppendLine(_buildInfo.FormatSupportBlock(DataDirectory));
+        _ = sb.AppendLine($"Hardware interlock: {SafetyInterlockStatus}");
+        _ = sb.AppendLine("OpenTAP worker: killable child process");
         if (ShellAppSummaries.Count > 0)
         {
-            sb.AppendLine("Shell applications:");
+            _ = sb.AppendLine("Shell applications:");
             foreach (var summary in ShellAppSummaries)
             {
-                sb.AppendLine(summary);
+                _ = sb.AppendLine(summary);
             }
         }
-        sb.AppendLine();
+        _ = sb.AppendLine();
         var catalog = ProgramCatalog.SelfCheck();
         if (catalog.Count == 0)
         {
-            sb.AppendLine("Catalog self-check: ok");
+            _ = sb.AppendLine("Catalog self-check: ok");
         }
         else
         {
-            sb.AppendLine("Program catalog:");
+            _ = sb.AppendLine("Program catalog:");
             foreach (var warning in catalog)
             {
-                sb.AppendLine(warning);
+                _ = sb.AppendLine(warning);
             }
         }
 
-        sb.AppendLine();
-        sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
         foreach (var row in ProvenanceRows)
         {
-            sb.Append(row.Key).Append('\t')
+            _ = sb.Append(row.Key).Append('\t')
                 .Append(row.EffectiveValue).Append('\t')
                 .Append(row.Source).Append('\t')
                 .Append(row.SourceDetail).AppendLine();
@@ -488,7 +488,7 @@ public partial class SettingsViewModel : ReactiveObject
             var root = string.IsNullOrWhiteSpace(_settingsStore.AppSettings.CrashDirectory)
                 ? Path.Combine(_settingsStore.RootDirectory, "crashes")
                 : _settingsStore.AppSettings.CrashDirectory;
-            Directory.CreateDirectory(root);
+            _ = Directory.CreateDirectory(root);
             OpenFolder(root);
             Status = $"Opened crashes: {root}";
         }
@@ -503,7 +503,7 @@ public partial class SettingsViewModel : ReactiveObject
 
     private static void OpenFolder(string path)
     {
-        Process.Start(new ProcessStartInfo
+        _ = Process.Start(new ProcessStartInfo
         {
             FileName = path,
             UseShellExecute = true,

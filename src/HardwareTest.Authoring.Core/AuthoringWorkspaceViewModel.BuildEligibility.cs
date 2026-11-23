@@ -8,10 +8,12 @@ public sealed partial class AuthoringWorkspaceViewModel
         get
         {
             if (Workspace is { } workspace && _measureSectionMigrations.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))) return true;
-            if (_buildInspectionDispatch is not null) return BuildInspectionBusy || _buildInspectionBlockers;
+            if (_buildInspectionDispatch is not null) return BuildInspectionBusy || field;
             return EvaluateSavedBuildBlockers(Workspace, _sourceDocuments, _compiledConflicts, _uncompiledDocuments);
         }
-    }
+
+        set;
+    } = true;
 
     private static bool EvaluateSavedBuildBlockers(AuthoringWorkspace? workspace, IReadOnlyDictionary<string, AuthoringDocumentDto> sources, IEnumerable<string> conflicts, IEnumerable<string> uncompiled)
     {

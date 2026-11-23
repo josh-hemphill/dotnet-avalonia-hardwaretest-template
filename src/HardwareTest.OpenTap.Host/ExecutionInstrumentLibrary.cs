@@ -38,7 +38,7 @@ internal static class ExecutionInstrumentLibrary
         if (!Payloads.TryGetValue(key, out var directory))
         {
             directory = Path.Combine(Path.GetTempPath(), "ht-library-execution-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
             for (var i = 0; i < Files.Length; i++) File.WriteAllBytes(Path.Combine(directory, Files[i]), bytes[i]);
             Payloads.Add(key, directory);
             var retained = directory;
@@ -58,7 +58,7 @@ internal static class ExecutionInstrumentLibrary
             var assembly = OwnedInstrumentLibrary.Load(bytes[i], path);
             if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
-            if (i == Files.Length - 1) VerifyContract(assembly);
+            if (i == Files.Length - 1) _ = VerifyContract(assembly);
         }
         return directory;
     }
@@ -105,7 +105,7 @@ internal static class ExecutionInstrumentLibrary
                 "Packages/" + PublishedInstrumentComponents.PackageName + "/package.xml"), writable: false);
             var document = XDocument.Load(metadataStream);
             var captured = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-            InstrumentLibraryMetadata.Validate(document.Root ?? throw new IOException("Library package metadata has no root element."), file =>
+            _ = InstrumentLibraryMetadata.Validate(document.Root ?? throw new IOException("Library package metadata has no root element."), file =>
             {
                 var payload = ExecutionLibraryHome.ReadPayload(directory, file.Replace('/', Path.DirectorySeparatorChar));
                 captured.Add(file, payload);
@@ -150,12 +150,12 @@ internal static class ExecutionInstrumentLibrary
             throw new InvalidOperationException("The bundled Instrument Components release hash does not match.");
         buffer.Position = 0;
         using var zip = new ZipArchive(buffer, ZipArchiveMode.Read);
-        return Files.Select(file =>
+        return [.. Files.Select(file =>
         {
             using var source = (zip.GetEntry(file) ?? throw new InvalidOperationException("Bundled library payload missing: " + file)).Open();
             using var payload = new MemoryStream();
             source.CopyTo(payload);
             return payload.ToArray();
-        }).ToArray();
+        })];
     }
 }

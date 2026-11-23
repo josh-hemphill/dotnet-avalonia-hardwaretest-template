@@ -144,8 +144,8 @@ public static class TfModelImporter
         {
             SchemaVersion = 1,
             TsSeconds = model.Algorithm.TsSeconds,
-            Numerator = model.Algorithm.Numerator.ToArray(),
-            Denominator = model.Algorithm.Denominator.ToArray(),
+            Numerator = [.. model.Algorithm.Numerator],
+            Denominator = [.. model.Algorithm.Denominator],
             Method = model.Algorithm.Method,
             TimeBase = "elapsedMs",
             InputChannelKey = model.Algorithm.InputChannelKey,
@@ -156,7 +156,7 @@ public static class TfModelImporter
         var directory = Path.GetDirectoryName(Path.GetFullPath(path));
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         File.WriteAllText(path, json);

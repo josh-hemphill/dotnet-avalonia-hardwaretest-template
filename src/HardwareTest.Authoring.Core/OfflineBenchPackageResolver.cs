@@ -44,7 +44,7 @@ internal sealed class OfflineBenchPackageResolver(OfflineBenchPackageInventory i
             inventory.EnsureCandidates(next);
             var required = active.Where(requirement => requirement.Name.Equals(next, StringComparison.OrdinalIgnoreCase)).ToArray();
             if (options.DownloadMissing && !inventory.Candidates.Any(candidate => candidate.Name.Equals(next, StringComparison.OrdinalIgnoreCase) && Satisfies(candidate, required)))
-                Download(next, required[0].VersionRange);
+                _ = Download(next, required[0].VersionRange);
             var candidates = inventory.Candidates.Where(candidate => candidate.Name.Equals(next, StringComparison.OrdinalIgnoreCase) && Satisfies(candidate, required))
                 .OrderBy(candidate => candidate.Priority).ThenByDescending(candidate => candidate.Version).ThenBy(candidate => candidate.Archive, StringComparer.Ordinal).ToArray();
             foreach (var sameVersion in candidates.GroupBy(candidate => candidate.Version.ToString(), StringComparer.Ordinal))
@@ -111,7 +111,7 @@ internal sealed class OfflineBenchPackageResolver(OfflineBenchPackageInventory i
         }
         catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested && timeout.IsCancellationRequested)
         { throw new AuthoringWorkspaceException("The package repository did not complete within two minutes. Choose matching manual archives and retry.", error); }
-        catch (Exception error) when (error is not OperationCanceledException && error is not AuthoringWorkspaceException)
+        catch (Exception error) when (error is not OperationCanceledException and not AuthoringWorkspaceException)
         { throw new AuthoringWorkspaceException("Package repository lookup/download failed. The selected home and prior bundle were preserved; use matching manual archives. " + error.Message, error); }
     }
 }

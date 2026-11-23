@@ -27,7 +27,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         {
             if (file.Contains("SessionLogs", StringComparison.Ordinal) || file.Contains(".PackageCache", StringComparison.Ordinal)) continue;
             var destination = Path.Combine(home, Path.GetRelativePath(external, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(file, destination);
         }
         if (!Directory.GetFiles(home, "*Tui*.dll", SearchOption.AllDirectories).Any())
@@ -40,7 +40,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
             foreach (var file in Directory.GetFiles(Path.Combine(plugins.Root, "Packages", package)))
             {
                 var destination = Path.Combine(home, "Packages", package, Path.GetFileName(file));
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 File.Copy(file, destination, true);
             }
         }
@@ -125,7 +125,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         {
             if (file.Contains("SessionLogs", StringComparison.Ordinal) || file.Contains(".PackageCache", StringComparison.Ordinal)) continue;
             var target = Path.Combine(home, Path.GetRelativePath(external, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
         }
         var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
         var plugins = AuthoringBuildSnapshotTests.Home(workspace);
@@ -134,7 +134,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
             foreach (var file in Directory.GetFiles(Path.Combine(plugins.Root, "Packages", package)))
             {
                 var target = Path.Combine(home, "Packages", package, Path.GetFileName(file));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true);
             }
         }
 
@@ -183,7 +183,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
             // End only the captured original CLI process from our private terminal, then observe terminal completion.
             var terminalExit = terminal!.WaitForExitAsync();
             child.Kill(entireProcessTree: true);
-            await launch.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await launch.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(terminalExit.IsCompletedSuccessfully);
             var state = $"/proc/{child.Id}/stat";
             Assert.True(!File.Exists(state) || ReadProc(state)[(ReadProc(state).LastIndexOf(')') + 1)..].TrimStart().StartsWith('Z'),
@@ -192,7 +192,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         finally
         {
             timeout.Cancel();
-            try { await launch; } catch (OperationCanceledException) { }
+            try { _ = await launch; } catch (OperationCanceledException) { }
             child?.Dispose();
         }
     }

@@ -109,7 +109,7 @@ public sealed class OperatorSessionTests
         var session = new OperatorSession();
         session.ConfirmDut("SN-1");
         var confirmed = session.ConfirmedAt;
-        Assert.NotNull(session.LastActivityAt);
+        _ = Assert.NotNull(session.LastActivityAt);
         session.CheckIdleStale(TimeSpan.FromHours(1), DateTimeOffset.UtcNow.AddHours(2));
         Assert.Equal(OperatorSessionState.Stale, session.State);
         Assert.False(session.CanRun);
@@ -183,7 +183,7 @@ public sealed class OpenTapSessionTests
             || s.StepPath.Contains("Safe Shutdown", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(shutdown);
         Assert.True(
-            shutdown!.Passed
+            shutdown.Passed
             || string.Equals(shutdown.Message, "Pass", StringComparison.OrdinalIgnoreCase),
             $"SafeShutdown should execute on Run Selected; got Passed={shutdown.Passed} Message={shutdown.Message}");
         Assert.Contains(
@@ -329,7 +329,7 @@ public sealed class OpenTapSessionTests
         var progress = new Progress<OpenTapProgress>();
         OperatorInteractionRequest? typedRequest = null;
         var typedReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        progress.ProgressChanged += (_, p) =>
+        progress.ProgressChanged += (sender, p) =>
         {
             if (!p.AwaitingOperator)
             {
@@ -347,7 +347,7 @@ public sealed class OpenTapSessionTests
             if (request.Fields.Any(f => f.Id == "fixtureId"))
             {
                 typedRequest = request;
-                typedReady.TrySetResult(true);
+                _ = typedReady.TrySetResult(true);
                 return;
             }
 
@@ -366,7 +366,7 @@ public sealed class OpenTapSessionTests
             Assert.True(sawTyped, "Expected typed operator input pause (fixtureId).");
             Assert.True(session.IsAwaitingOperator);
             Assert.NotNull(session.PendingInteraction);
-            Assert.Contains(session.PendingInteraction!.Fields, f => f.Id == "fixtureId");
+            Assert.Contains(session.PendingInteraction.Fields, f => f.Id == "fixtureId");
             Assert.Contains(session.PendingInteraction.Fields, f => f.Id == "fixtureTorqueNm");
             Assert.NotNull(typedRequest);
 
@@ -391,7 +391,7 @@ public sealed class OpenTapSessionTests
                 session.Abort(safetyStop: true);
                 try
                 {
-                    await runTask;
+                    _ = await runTask;
                 }
                 catch
                 {
@@ -412,14 +412,14 @@ public sealed class OpenTapSessionTests
 
         var progress = new Progress<OpenTapProgress>();
         var sawAnyPause = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        progress.ProgressChanged += (_, p) =>
+        progress.ProgressChanged += (sender, p) =>
         {
             if (!p.AwaitingOperator)
             {
                 return;
             }
 
-            sawAnyPause.TrySetResult(true);
+            _ = sawAnyPause.TrySetResult(true);
             if (session.PendingInteraction is { } pending)
             {
                 session.Resume(OperatorInteractionResponse.Continue(pending.Id));
@@ -641,7 +641,7 @@ public sealed class OpenTapSessionTests
     {
         using var temp = new TempDataDirectory();
         var dir = Path.Combine(temp.Path, "plugins", "extra");
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         var settings = new AppSettings
         {
             DataDirectory = temp.Path,
@@ -660,7 +660,7 @@ public sealed class OpenTapSessionTests
     {
         using var temp = new TempDataDirectory();
         var untrusted = Path.Combine(Path.GetTempPath(), "opentap-untrusted-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(untrusted);
+        _ = Directory.CreateDirectory(untrusted);
         try
         {
             var settings = new AppSettings
@@ -697,7 +697,7 @@ public sealed class OpenTapSessionTests
         var root = Path.Combine(Path.GetTempPath(), "opentap-pkg-" + Guid.NewGuid().ToString("N"));
         var pluginDir = Path.Combine(root, "plugins");
         var packageDir = Path.Combine(pluginDir, "DemoBench");
-        Directory.CreateDirectory(packageDir);
+        _ = Directory.CreateDirectory(packageDir);
         File.WriteAllText(
             Path.Combine(packageDir, "package.xml"),
             """
@@ -745,7 +745,7 @@ public sealed class OpenTapSessionTests
             || p.MemberKey.EndsWith("/Note", StringComparison.OrdinalIgnoreCase)
             || p.MemberKey.Contains(".Note", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(note);
-        Assert.False(note!.IsReadOnly);
+        Assert.False(note.IsReadOnly);
         Assert.True(
             note.IsMixinEmbedded
             || string.Equals(note.Group, "Annotation", StringComparison.OrdinalIgnoreCase)
@@ -773,7 +773,7 @@ public sealed class OpenTapSessionTests
             || p.MemberKey.EndsWith("/ChannelKey", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(channelKey);
         Assert.True(
-            channelKey!.IsMixinEmbedded
+            channelKey.IsMixinEmbedded
             || string.Equals(channelKey.Group, "Presentation", StringComparison.OrdinalIgnoreCase)
             || channelKey.MemberKey.Contains("Presentation", StringComparison.OrdinalIgnoreCase));
 
@@ -854,7 +854,7 @@ public sealed class OpenTapSessionTests
             p.DisplayName.Contains("Display role", StringComparison.OrdinalIgnoreCase)
             || p.MemberKey.EndsWith("/DisplayRole", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(role);
-        Assert.True(session.TryGetParameter(role!.MemberKey, out var roleValue));
+        Assert.True(session.TryGetParameter(role.MemberKey, out var roleValue));
         Assert.Equal(PresentationDisplayRoles.Passband, roleValue);
     }
 
@@ -890,7 +890,7 @@ public sealed class OpenTapSessionTests
             p.DisplayName.Contains("Display role", StringComparison.OrdinalIgnoreCase)
             || p.MemberKey.EndsWith("/DisplayRole", StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(role);
-        Assert.True(session.TryGetParameter(role!.MemberKey, out var roleValue));
+        Assert.True(session.TryGetParameter(role.MemberKey, out var roleValue));
         Assert.Equal(PresentationDisplayRoles.Passband, roleValue);
 
         var summary = await session.RunAsync();
@@ -925,7 +925,7 @@ public sealed class OpenTapSessionTests
     public async Task Export_on_writes_opentap_results_csv()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-export-on-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var settings = new AppSettings
@@ -970,7 +970,7 @@ public sealed class OpenTapSessionTests
     public async Task Export_off_leaves_no_opentap_results()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-export-off-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var settings = new AppSettings
@@ -1043,7 +1043,7 @@ public sealed class OpenTapSessionTests
     public async Task Timed_sample_publishes_limits_elapsed_and_event()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-timed-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             OpenTapPluginSearch.SearchSerialized();
@@ -1060,7 +1060,7 @@ public sealed class OpenTapSessionTests
                 EventLabel = "bit0",
                 EventValue = 1,
             };
-            OpenTapMixinAttach.AttachPresentation(step, "rail.x", PresentationDisplayRoles.Timeseries, "V");
+            _ = OpenTapMixinAttach.AttachPresentation(step, "rail.x", PresentationDisplayRoles.Timeseries, "V");
             var plan = new TestPlan();
             plan.ChildTestSteps.Add(step);
             plan.ChildTestSteps.Add(new SafeShutdownStep { Name = "Safe Shutdown", Instrument = instrument });

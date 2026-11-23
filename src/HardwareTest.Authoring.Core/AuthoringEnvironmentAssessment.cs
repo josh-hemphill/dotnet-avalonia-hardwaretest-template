@@ -57,7 +57,7 @@ public static class AuthoringEnvironmentAssessment
         try
         {
             // Match capture's selected-root boundary before following metadata or runtime links.
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
             var metadata = ExistingContainedFile(home.Root, Path.Combine(package.Path, "package.xml"));
             if (metadata is null) return false;
             // Managed identities and runtime configuration are subsequently checked by preflight.
@@ -80,8 +80,8 @@ public static class AuthoringEnvironmentAssessment
         var packages = Path.Combine(home.Root, "Packages");
         try
         {
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(packages, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(packages));
             if (!Directory.Exists(packages)) return failures;
             foreach (var package in Directory.EnumerateDirectories(packages))
             {
@@ -149,7 +149,7 @@ public static class AuthoringEnvironmentAssessment
     internal static string? ExistingContainedFile(string root, string path)
     {
         AuthoringBuildService.EnsureContained(root, path);
-        var target = AuthoringBuildService.ResolvedPath(path, directory: false);
+        var target = AuthoringBuildService.ResolvedPath(path);
         AuthoringBuildService.EnsureContained(root, target);
         return File.Exists(target) ? target : null;
     }
@@ -161,7 +161,7 @@ public static class AuthoringEnvironmentAssessment
     {
         try
         {
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
             return ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or AuthoringWorkspaceException or ArgumentException) { return false; }

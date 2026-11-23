@@ -24,7 +24,7 @@ public partial class MainWindow
         var workspace = _viewModel.Workspace;
         var session = _viewModel.WorkspaceSessionId;
         var homeSetting = _viewModel.OpenTapHomeOverride;
-        try { await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath, downloadRequiredPackages); }
+        try { _ = await _viewModel.RunOperationAsync(kind, outputDirectory, offlinePackagePath, downloadRequiredPackages); }
         catch (OperationCanceledException) { }
         catch (Exception error) { if (ReferenceEquals(workspace, _viewModel.Workspace) && session == _viewModel.WorkspaceSessionId && homeSetting == _viewModel.OpenTapHomeOverride && !_ownerClosed && IsVisible) _viewModel.ReportError(error.Message); }
     }

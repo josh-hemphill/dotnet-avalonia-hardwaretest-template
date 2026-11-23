@@ -140,7 +140,7 @@ internal static class OpenTapPresentation
 
     private static double? TryToNullableDouble(object? raw)
     {
-        if (raw is null || raw is DBNull)
+        if (raw is null or DBNull)
         {
             return null;
         }
@@ -169,14 +169,7 @@ internal static class OpenTapPresentation
         double? elapsedMs = null)
     {
         sample.Channel = publishedChannel;
-        if (hints is not null && !string.IsNullOrWhiteSpace(hints.ChannelKey))
-        {
-            sample.MetricKey = hints.ChannelKey;
-        }
-        else
-        {
-            sample.MetricKey = publishedChannel;
-        }
+        sample.MetricKey = hints is not null && !string.IsNullOrWhiteSpace(hints.ChannelKey) ? hints.ChannelKey : publishedChannel;
 
         sample.DisplayRole = hints?.DisplayRole ?? PresentationDisplayRoles.Timeseries;
         if (hints is not null && !string.IsNullOrWhiteSpace(hints.YUnit))
@@ -199,14 +192,7 @@ internal static class OpenTapPresentation
         double? limitHigh = null)
     {
         sample.Channel = publishedName;
-        if (hints is not null && !string.IsNullOrWhiteSpace(hints.ChannelKey))
-        {
-            sample.MetricKey = hints.ChannelKey;
-        }
-        else
-        {
-            sample.MetricKey = publishedName;
-        }
+        sample.MetricKey = hints is not null && !string.IsNullOrWhiteSpace(hints.ChannelKey) ? hints.ChannelKey : publishedName;
 
         sample.DisplayRole = hints is not null && !string.IsNullOrWhiteSpace(hints.DisplayRole)
             ? hints.DisplayRole

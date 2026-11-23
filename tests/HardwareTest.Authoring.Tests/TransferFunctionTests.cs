@@ -308,7 +308,7 @@ public sealed class TransferFunctionTests
         Assert.Equal(0.01, tf.TsSeconds, 9);
 
         var draft = TfDraft(new ExpressionAlgorithm(["VDC"], "filter([1],[1],VDC)"));
-        var run = new TestRunRecord { PlanId = "tf", Samples = series["VDC"].ToList() };
+        var run = new TestRunRecord { PlanId = "tf", Samples = [.. series["VDC"]] };
         var results = FormulaDatasetEval.EvaluateProgram(draft, run);
         Assert.Equal(3, results.Count);
         Assert.Equal(0, results[0].ElapsedMs);
@@ -477,7 +477,7 @@ public sealed class TransferFunctionTests
         var run = new TestRunRecord
         {
             PlanId = "tf",
-            Samples = recorded["VDC"].ToList(),
+            Samples = [.. recorded["VDC"]],
         };
         var eval = Assert.Throws<AuthoringWorkspaceException>(() => FormulaDatasetEval.EvaluateProgram(draft, run));
         Assert.Contains(AuthoringCompileCodes.TfGrid, eval.Message, StringComparison.Ordinal);
@@ -528,7 +528,7 @@ public sealed class TransferFunctionTests
                     var elapsed = i < ElapsedMs.Length ? ElapsedMs[i] : double.NaN;
                     Results.Publish(
                         "Sample",
-                        new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                        ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
                         Channel,
                         i,
                         Values[i],
@@ -540,7 +540,7 @@ public sealed class TransferFunctionTests
                 {
                     Results.Publish(
                         "Sample",
-                        new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh" },
+                        ["Channel", "Index", "Value", "LimitLow", "LimitHigh"],
                         Channel,
                         i,
                         Values[i],
@@ -628,7 +628,7 @@ public sealed class TransferFunctionTests
     }
 
     private static double[] ReadArray(JsonElement element)
-        => element.EnumerateArray().Select(item => item.GetDouble()).ToArray();
+        => [.. element.EnumerateArray().Select(item => item.GetDouble())];
 
     private static void AssertVectors(IReadOnlyList<double> expected, IReadOnlyList<double> actual)
     {
@@ -648,7 +648,7 @@ public sealed class TransferFunctionTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-tf-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

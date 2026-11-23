@@ -32,7 +32,7 @@ public sealed partial class StandaloneBoundaryTests
         var first = InstalledHome();
         var second = InstalledHome();
         var plugins = Path.Combine(second, "Plugins", "Custom");
-        Directory.CreateDirectory(plugins);
+        _ = Directory.CreateDirectory(plugins);
         var provider = Path.Combine(second, "InstrumentComponents.OpenTap.dll");
         var metadata = Path.Combine(second, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         var document = XDocument.Load(metadata);
@@ -46,7 +46,7 @@ public sealed partial class StandaloneBoundaryTests
                 outside = Path.Combine(_root, "outside.txt");
                 File.WriteAllText(outside, "outside-second-root");
                 link = Path.Combine(plugins, "external.txt");
-                File.CreateSymbolicLink(link, outside);
+                _ = File.CreateSymbolicLink(link, outside);
                 break;
             case "nested-dll": File.Copy(provider, Path.Combine(plugins, "InstrumentComponents.OpenTap.dll")); break;
             case "duplicate-metadata": document.Save(Path.Combine(plugins, "package.xml")); break;
@@ -77,11 +77,11 @@ public sealed partial class StandaloneBoundaryTests
         }
         var before = new[] { first, second }.SelectMany(home => Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories))
             .ToDictionary(path => path, File.ReadAllBytes);
-        var roots = reverseOrder ? new[] { second, first } : new[] { first, second };
-        var result = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("broker-binding-absent-on-cold-rejection", result.Output);
+        var roots = reverseOrder ? new[] { second, first } : [first, second];
+        var (Code, Output) = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.Contains("broker-binding-absent-on-cold-rejection", Output);
         Assert.Contains(defect switch
         {
             "outside-link" => "resolves outside its root",
@@ -91,7 +91,7 @@ public sealed partial class StandaloneBoundaryTests
             "malformed-hash" => "Malformed library payload hash",
             "wrong-version" => "requires current 0.3.0-alpha.1 library assemblies",
             _ => "Configured execution roots contain different Instrument Components payloads"
-        }, result.Output);
+        }, Output);
         var after = new[] { first, second }.SelectMany(home => Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories))
             .ToDictionary(path => path, File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
@@ -111,18 +111,18 @@ public sealed partial class StandaloneBoundaryTests
         var processHome = InstalledHome();
         var first = Path.Combine(_root, "safe-plugins");
         var second = Path.Combine(_root, "unsafe-plugins");
-        Directory.CreateDirectory(first);
-        Directory.CreateDirectory(Path.Combine(second, "Plugins", "Alias"));
+        _ = Directory.CreateDirectory(first);
+        _ = Directory.CreateDirectory(Path.Combine(second, "Plugins", "Alias"));
         File.WriteAllText(Path.Combine(first, "notes.txt"), "contained-plugin-data");
         var metadata = Path.Combine(second, "Plugins", "Alias", "package.xml");
         File.WriteAllText(metadata, "<Package Name=\"InstrumentComponents.OpenTap\" Version=\"0.3.0-alpha.1\"/>");
         var original = File.ReadAllBytes(metadata);
-        var roots = reverseOrder ? new[] { second, first } : new[] { first, second };
-        var result = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("broker-binding-absent-on-cold-rejection", result.Output);
-        Assert.Contains("noncanonical or duplicate installed package identities", result.Output);
+        var roots = reverseOrder ? new[] { second, first } : [first, second];
+        var (Code, Output) = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.Contains("broker-binding-absent-on-cold-rejection", Output);
+        Assert.Contains("noncanonical or duplicate installed package identities", Output);
         Assert.Equal(original, File.ReadAllBytes(metadata));
         Assert.Equal("contained-plugin-data", File.ReadAllText(Path.Combine(first, "notes.txt")));
     }
@@ -139,17 +139,17 @@ public sealed partial class StandaloneBoundaryTests
         var processHome = InstalledHome();
         var first = mode == "fallback-plugins" ? Path.Combine(_root, "first-plugins") : processHome;
         var second = mode == "identical-libraries" ? InstalledHome() : Path.Combine(_root, "second-plugins");
-        Directory.CreateDirectory(first);
-        Directory.CreateDirectory(Path.Combine(second, "Plugins", "Custom"));
+        _ = Directory.CreateDirectory(first);
+        _ = Directory.CreateDirectory(Path.Combine(second, "Plugins", "Custom"));
         if (mode != "identical-libraries")
         {
             File.WriteAllText(Path.Combine(second, "Plugins", "Custom", "notes.txt"), "safe-plugin-data");
             File.WriteAllText(Path.Combine(second, "Plugins", "Custom", "package.xml"), "<Package Name=\"UnrelatedPlugin\" Version=\"1.0.0\"/>");
         }
-        var roots = reverseOrder ? new[] { second, first } : new[] { first, second };
-        var result = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--managed-multiple-roots");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        var roots = reverseOrder ? new[] { second, first } : [first, second];
+        var (Code, Output) = await Run(processHome, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--managed-multiple-roots");
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
     }
     private static string SerializeRoots(IEnumerable<string> roots)
     {

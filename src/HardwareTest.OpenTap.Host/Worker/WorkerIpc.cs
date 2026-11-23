@@ -90,7 +90,7 @@ public sealed class WorkerSnapshot
             LoadedPlanPath = session.LoadedPlanPath,
             LoadedPlanName = session.LoadedPlanName,
             StepTree = CloneTree(session.StepTree),
-            InstrumentSlots = session.InstrumentSlots.Select(CloneSlot).ToList(),
+            InstrumentSlots = [.. session.InstrumentSlots.Select(CloneSlot)],
             IsExecuting = session.IsExecuting,
             IsAwaitingOperator = session.IsAwaitingOperator,
             OperatorPromptMessage = session.OperatorPromptMessage,
@@ -98,7 +98,7 @@ public sealed class WorkerSnapshot
         };
 
     private static List<OpenTapStepNode> CloneTree(IReadOnlyList<OpenTapStepNode> nodes)
-        => nodes.Select(CloneNode).ToList();
+        => [.. nodes.Select(CloneNode)];
 
     private static OpenTapStepNode CloneNode(OpenTapStepNode node)
         => new()

@@ -53,7 +53,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
             {
                 Results.Publish(
                     "Sample",
-                    new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                    ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
                     string.IsNullOrWhiteSpace(Channel) ? Name : Channel,
                     i,
                     filtered[i].Value,

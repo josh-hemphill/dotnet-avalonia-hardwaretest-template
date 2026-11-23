@@ -22,7 +22,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         foreach (var file in Directory.EnumerateFiles(original, "*", SearchOption.AllDirectories))
         {
             var destination = Path.Combine(root, Path.GetRelativePath(original, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.Copy(file, destination);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.Copy(file, destination);
         }
         var bytes = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
         var vm = new AuthoringWorkspaceViewModel(preferences: new AuthoringPreferencesStore(Path.Combine(AuthoringBuildSnapshotTests.Temp(), "preferences.json")));
@@ -64,7 +64,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         foreach (var file in originals)
         {
             var destination = Path.Combine(root, Path.GetRelativePath(original, file.Key));
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.WriteAllBytes(destination, file.Value);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!); File.WriteAllBytes(destination, file.Value);
         }
         var store = new AuthoringDocumentStore(root);
         var primary = Assert.IsType<AuthoringDocumentDto>(store.Load("board").Document);
@@ -106,7 +106,7 @@ public sealed class AuthoringPortableReviewTests : IDisposable
         var root = AuthoringBuildSnapshotTests.Temp();
         File.WriteAllText(Path.Combine(root, "tap.dll"), "fixture");
         var plan = Path.Combine(root, "safe.TapPlan"); File.WriteAllText(plan, "fixture");
-        var blocked = Path.Combine(root, "unreadable"); Directory.CreateDirectory(blocked);
+        var blocked = Path.Combine(root, "unreadable"); _ = Directory.CreateDirectory(blocked);
         File.SetUnixFileMode(blocked, UnixFileMode.None);
         try { Assert.Contains("Cannot inspect", AuthoringExternalTuiLauncher.Prerequisite(root, plan, requiresInstrumentLibrary: false)); }
         finally { File.SetUnixFileMode(blocked, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute); }

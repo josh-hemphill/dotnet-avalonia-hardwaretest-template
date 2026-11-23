@@ -62,7 +62,7 @@ public sealed class VisaSessionGate
         }
         finally
         {
-            _gate.Release();
+            _ = _gate.Release();
         }
     }
 
@@ -75,7 +75,7 @@ public sealed class VisaSessionGate
         }
         finally
         {
-            _gate.Release();
+            _ = _gate.Release();
         }
     }
 

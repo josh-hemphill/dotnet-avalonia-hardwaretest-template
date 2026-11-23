@@ -99,7 +99,11 @@ public partial class MainWindow
         var current = OwnerContext();
         var session = _viewModel.WorkspaceSessionId;
         var closeScheduled = false;
-        bool RetainedSession() => !_ownerClosed && ReferenceEquals(DataContext, _viewModel) && session == _viewModel.WorkspaceSessionId;
+        bool RetainedSession()
+        {
+            return !_ownerClosed && ReferenceEquals(DataContext, _viewModel) && session == _viewModel.WorkspaceSessionId;
+        }
+
         void ResumeIfRetained()
         {
             if (!_ownerClosed && session == _viewModel.WorkspaceSessionId)

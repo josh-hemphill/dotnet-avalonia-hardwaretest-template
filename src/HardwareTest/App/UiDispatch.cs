@@ -57,11 +57,11 @@ internal static class UiDispatch
             {
                 scheduler(() =>
                 {
-                    try { action(); completed.TrySetResult(); }
-                    catch (Exception ex) { completed.TrySetException(ex); }
+                    try { action(); _ = completed.TrySetResult(); }
+                    catch (Exception ex) { _ = completed.TrySetException(ex); }
                 });
             }
-            catch (Exception ex) { completed.TrySetException(ex); }
+            catch (Exception ex) { _ = completed.TrySetException(ex); }
             return completed.Task;
         }
 

@@ -71,7 +71,7 @@ public partial class OperatorSessionPanelViewModel
 
             var credential = result.Credential;
             PrepareCapturedTechnicianSession(credential);
-            _session.ApplyOperatorCredential(credential.Serial, credential.Transport, credential.DisplayName);
+            Session.ApplyOperatorCredential(credential.Serial, credential.Transport, credential.DisplayName);
             OperatorInput = credential.DisplayName;
             ClearFieldErrors();
             var verb = string.Equals(credential.Transport, CredentialTransport.Contact, StringComparison.OrdinalIgnoreCase)
@@ -103,7 +103,7 @@ public partial class OperatorSessionPanelViewModel
 
     private void PrepareCapturedTechnicianSession(OperatorCredential credential)
     {
-        if (_session.ConfirmedAt is null || !ChangedKnownIdentity(_session.OperatorName, credential.DisplayName)) return;
+        if (Session.ConfirmedAt is null || !ChangedKnownIdentity(Session.OperatorName, credential.DisplayName)) return;
         if (ShowSameDutPrompt) RetainSameDutInputs();
         // This owned response identifies the incoming technician. Keep its in-flight
         // ownership while the session change cancels any other departing context.
@@ -122,7 +122,7 @@ public partial class OperatorSessionPanelViewModel
             return true;
         }
 
-        if (!string.IsNullOrWhiteSpace(_session.OperatorCredentialSerial))
+        if (!string.IsNullOrWhiteSpace(Session.OperatorCredentialSerial))
         {
             return true;
         }

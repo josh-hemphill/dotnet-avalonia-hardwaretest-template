@@ -13,7 +13,7 @@ public partial class StepPaletteView : UserControl
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm) return;
         vm.RecipeSearch = string.Empty;
-        SearchBox.Focus();
+        _ = SearchBox.Focus();
     }
     internal void FocusSearch() => SearchBox.Focus();
 }

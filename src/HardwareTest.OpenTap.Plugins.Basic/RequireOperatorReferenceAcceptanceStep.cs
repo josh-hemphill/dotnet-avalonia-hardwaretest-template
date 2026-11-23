@@ -25,7 +25,7 @@ public sealed class RequireOperatorReferenceAcceptanceStep : RuntimeAwareTestSte
 
     public override void PrePlanRun()
     {
-        RequirePrepared();
+        _ = RequirePrepared();
         base.PrePlanRun();
     }
 

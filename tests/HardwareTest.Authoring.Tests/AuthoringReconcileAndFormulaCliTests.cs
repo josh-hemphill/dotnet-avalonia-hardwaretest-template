@@ -17,7 +17,7 @@ public sealed class AuthoringReconcileAndFormulaCliTests
         var path = vm.Workspace!.TapPlanPaths.Single(p => Path.GetFileNameWithoutExtension(p) == id);
         if (removePlan) File.Delete(path); else File.AppendAllText(path, "\n<!-- external edit -->");
         Assert.False(vm.HasUnsavedChanges);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         vm.ReconcileCompiled(id, useCompiledContent: false);
         Assert.True(vm.HasUncompiledSources);
         Assert.True(new AuthoringDocumentStore(root).Load(id).Document!.RequiresCompilation);
@@ -47,14 +47,14 @@ public sealed class AuthoringReconcileAndFormulaCliTests
         source.State.FormulaIntent[metric.NodeId] = FormulaDeploymentIntent.Explore; source.RequiresCompilation = true;
         var store = new AuthoringDocumentStore(root); store.Save(source);
         if (sourceOnly) { File.Delete(path); File.Delete(PlanCompiler.SidecarPath(path)); }
-        var recording = Path.Combine(root, "recordings", "sample", "mean-vdc"); Directory.CreateDirectory(recording);
+        var recording = Path.Combine(root, "recordings", "sample", "mean-vdc"); _ = Directory.CreateDirectory(recording);
         File.Copy(Path.Combine(RepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"), Path.Combine(recording, "run.json"));
         var output = new StringWriter(); var error = new StringWriter();
         Assert.Equal(0, AuthoringCli.Run(["--eval-formulas", root], output, error));
         Assert.Contains("exploration=4", output.ToString(), StringComparison.Ordinal); Assert.Equal("", error.ToString());
         var edited = source.ToDraft() with { Measure = [metric with { Metric = metric.Metric with { Source = new ExpressionAlgorithm(["VDC"], "mean(VDC)+3") } }] };
         var next = AuthoringDocumentDto.FromDraft(edited); next.RequiresCompilation = true; store.Save(next);
-        output.GetStringBuilder().Clear();
+        _ = output.GetStringBuilder().Clear();
         Assert.Equal(0, AuthoringCli.Run(["--eval-formulas", root], output, error)); Assert.Contains("exploration=5", output.ToString(), StringComparison.Ordinal);
         if (sourceOnly) Assert.False(File.Exists(path));
         else Assert.Equal(compiledBytes, File.ReadAllBytes(path));
@@ -66,7 +66,7 @@ public sealed class AuthoringReconcileAndFormulaCliTests
     public void CliRejectsUnknownOrCorruptAuthoringSourceWithoutEvaluatingCompiledFallback(string json)
     {
         var root = Workspace(); var store = new AuthoringDocumentStore(root); var path = store.GetDocumentPath("sample");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, json);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, json);
         var bytes = File.ReadAllBytes(path); var output = new StringWriter(); var error = new StringWriter();
         Assert.NotEqual(0, AuthoringCli.Run(["--eval-formulas", root], output, error)); Assert.NotEqual("", error.ToString());
         Assert.DoesNotContain("ok ", output.ToString(), StringComparison.Ordinal); Assert.Equal(bytes, File.ReadAllBytes(path));
@@ -80,7 +80,7 @@ public sealed class AuthoringReconcileAndFormulaCliTests
         {
             if (fail && destination.EndsWith(".TapPlan", StringComparison.Ordinal))
             {
-                File.Delete(destination); Directory.CreateDirectory(destination); throw new InvalidOperationException("original publication failure");
+                File.Delete(destination); _ = Directory.CreateDirectory(destination); throw new InvalidOperationException("original publication failure");
             }
             File.Move(temporary, destination, true);
         });
@@ -100,7 +100,7 @@ public sealed class AuthoringReconcileAndFormulaCliTests
     }
     private static string Workspace()
     {
-        var root = Path.Combine(Path.GetTempPath(), "authoring-reconcile-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var root = Path.Combine(Path.GetTempPath(), "authoring-reconcile-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(RepoRoot(), "plans", "opentap"))) File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
         return root;
     }

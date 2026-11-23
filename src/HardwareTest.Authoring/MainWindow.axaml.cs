@@ -54,23 +54,23 @@ public partial class MainWindow : Window
     private void OnUndo(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.Undo());
+        TryRun(_viewModel.Undo);
     }
 
     private void OnRedo(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.Redo());
+        TryRun(_viewModel.Redo);
     }
     private void OnUndoWorkspace(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.UndoWorkspace());
+        TryRun(_viewModel.UndoWorkspace);
     }
     private void OnRedoWorkspace(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.RedoWorkspace());
+        TryRun(_viewModel.RedoWorkspace);
     }
 
     private void OnSaveAll(object? sender, RoutedEventArgs e)
@@ -89,14 +89,14 @@ public partial class MainWindow : Window
     private void OnSaveSidecar(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.SaveSidecar());
+        TryRun(_viewModel.SaveSidecar);
         RefreshGuidance();
     }
 
     private void OnApply(object? sender, RoutedEventArgs e)
     {
         CommitFocusedEditor();
-        TryRun(() => _viewModel.Apply());
+        TryRun(_viewModel.Apply);
         RefreshGuidance();
     }
 
@@ -107,7 +107,7 @@ public partial class MainWindow : Window
         => await ConfirmRemoveProgramAsync();
 
     internal void OnAddRecipe(object? sender, RoutedEventArgs e)
-        => TryRun(() => _viewModel.ApplySelectedRecipe());
+        => TryRun(_viewModel.ApplySelectedRecipe);
 
     internal void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
     {
@@ -189,7 +189,7 @@ public partial class MainWindow : Window
         }
 
         e.Handled = true;
-        await ConfirmRemoveProgramAsync();
+        _ = await ConfirmRemoveProgramAsync();
     }
 
     internal async void OnImportTransferFunction(object? sender, RoutedEventArgs e)
@@ -276,7 +276,7 @@ public partial class MainWindow : Window
             var home = settings.GetVisualDescendants().OfType<TextBox>()
                 .SingleOrDefault(field => Avalonia.Automation.AutomationProperties.GetName(field) == "OpenTAP home override");
             home?.BringIntoView();
-            home?.Focus();
+            _ = (home?.Focus());
         }, Avalonia.Threading.DispatcherPriority.Loaded);
     }
 
@@ -303,7 +303,7 @@ public partial class MainWindow : Window
         if (box is not null)
         {
             box.CaretIndex = next;
-            box.Focus();
+            _ = box.Focus();
         }
 
         _viewModel.RefreshFormulaCompletions(next);

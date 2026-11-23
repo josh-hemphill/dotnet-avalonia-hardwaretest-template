@@ -5,14 +5,12 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private Guid _workspaceSession = Guid.NewGuid();
-
     public bool CanRemoveSelectedInstrumentSlot
     {
         get
         {
             if (Workspace is not { IsReadOnly: false } || SelectedProgram is null) return false;
-            try { PrepareSelectedInstrumentRemoval(); return true; }
+            try { _ = PrepareSelectedInstrumentRemoval(); return true; }
             catch (AuthoringWorkspaceException) { return false; }
         }
     }
@@ -22,7 +20,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
-            try { PrepareSelectedInstrumentRemoval(); return "Removal requires review and an explicit compatible replacement. Save this program to persist the edit."; }
+            try { _ = PrepareSelectedInstrumentRemoval(); return "Removal requires review and an explicit compatible replacement. Save this program to persist the edit."; }
             catch (AuthoringWorkspaceException ex) { return ex.Message; }
         }
     }
@@ -47,7 +45,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var affected = Programs.Where(p => CatalogUses(p.Sidecar, kind, token))
             .Select(p => new DestructiveProgramImpact(p.PlanId, p.Sidecar.DisplayName ?? p.PlanId,
                 Array.AsReadOnly(DescribeCatalogConsequences(p.Sidecar, kind, token)))).ToArray();
-        return new(_workspaceSession, Workspace!.Root, kind, token, ContentFingerprint(), affected);
+        return new(WorkspaceSessionId, Workspace!.Root, kind, token, ContentFingerprint(), affected);
     }
 
     public void ApplyCatalogDeletion(CatalogDeletionImpact reviewedImpact)
@@ -113,7 +111,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             .Where(g => g.Count() == 1 && AuthoringInstrumentCatalog.CanReplace(program, slot, g.First()))
             .Select(g => g.First().SlotName).ToArray();
         if (replacements.Length == 0) throw new AuthoringWorkspaceException("Choose a distinct remaining slot with compatible registered instrument capabilities.");
-        return new(_workspaceSession, Workspace!.Root, program.PlanId, slot, ContentFingerprint(), replacements,
+        return new(WorkspaceSessionId, Workspace!.Root, program.PlanId, slot, ContentFingerprint(), replacements,
             AuthoringInstrumentUsage.DescribeSlotUsage(program, slot));
     }
 
@@ -127,7 +125,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var current = PrepareSelectedInstrumentRemoval();
         var replacement = current.CompatibleReplacementSlots.FirstOrDefault(s => Same(s, AuthoringWorkspaceCatalog.Normalize(replacementSlot)))
             ?? throw new AuthoringWorkspaceException("Explicitly choose a distinct compatible replacement slot before removing the instrument.");
-        var next = AuthoringInstrumentUsage.RetargetSlot(SelectedProgram!, current.TargetSlot, replacement);
+        var next = AuthoringInstrumentUsage.RetargetSlot(SelectedProgram, current.TargetSlot, replacement);
         next = next with { Instruments = next.Instruments.Where(i => !Same(i.SlotName, current.TargetSlot)).ToArray() };
         ReplaceSelected(next);
         SelectedInstrumentSlot = replacement;
@@ -137,14 +135,14 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public void RemoveSelectedInstrumentSlot()
     {
-        PrepareSelectedInstrumentRemoval();
+        _ = PrepareSelectedInstrumentRemoval();
         throw new AuthoringWorkspaceException("Review the instrument removal impact and explicitly choose a compatible replacement slot before applying it.");
     }
 
     private string ContentFingerprint() => AuthoringContentFingerprint.Compute(Workspace!, Programs, DirtyPrograms, WorkspaceCatalogDirty);
     private void RequireCurrentImpact(Guid session, string root, string fingerprint)
     {
-        if (session != _workspaceSession || root != Workspace!.Root || fingerprint != ContentFingerprint())
+        if (session != WorkspaceSessionId || root != Workspace!.Root || fingerprint != ContentFingerprint())
             throw new AuthoringWorkspaceException("Workspace, target or content changed since review; prepare and review a new impact.");
     }
     private static bool Same(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

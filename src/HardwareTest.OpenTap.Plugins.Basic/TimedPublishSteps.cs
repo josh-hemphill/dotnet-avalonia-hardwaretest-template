@@ -41,7 +41,7 @@ public sealed class PublishTimedSampleStep : RuntimeAwareTestStep
         WaitIfPaused();
         Results.Publish(
             "Sample",
-            new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+            ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
             Channel,
             Index,
             Value,
@@ -53,7 +53,7 @@ public sealed class PublishTimedSampleStep : RuntimeAwareTestStep
         {
             Results.Publish(
                 "Event",
-                new List<string> { "Name", "ElapsedMs", "Label", "Value" },
+                ["Name", "ElapsedMs", "Label", "Value"],
                 string.IsNullOrWhiteSpace(EventName) ? "cfg" : EventName,
                 elapsed,
                 EventLabel,

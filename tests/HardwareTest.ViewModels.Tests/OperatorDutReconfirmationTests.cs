@@ -21,7 +21,7 @@ public sealed class OperatorDutReconfirmationTests
             new StoredSample
             {
                 MetricKey = "VDC", Channel = "VDC", Unit = "V",
-                Timestamp = started + (completed - started) / 2,
+                Timestamp = started + ((completed - started) / 2),
                 Value = tap.LastDut?.Serial == "DUT-A" ? 1 : 2,
             },
         ];
@@ -96,9 +96,13 @@ public sealed class OperatorDutReconfirmationTests
     {
         var session = new OperatorSession();
         var clears = 0;
-        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, onSessionCleared: () => clears++);
-        panel.DutSerialInput = "DUT"; panel.DutPartInput = "PART"; panel.DutRevisionInput = "A";
-        panel.OperatorInput = "Technician";
+        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, onSessionCleared: () => clears++)
+        {
+            DutSerialInput = "DUT",
+            DutPartInput = "PART",
+            DutRevisionInput = "A",
+            OperatorInput = "Technician"
+        };
         await panel.ConfirmSessionCommand.ExecuteAsync();
         session.ApplyOperatorCredential("OLD", CredentialTransport.Contactless, "Technician");
         var oldSession = session.SessionId;
@@ -120,8 +124,11 @@ public sealed class OperatorDutReconfirmationTests
         var selected = new ProgramItemViewModel { Id = "dut", DisplayName = "DUT", Path = "dut.TapPlan", Requirements = ProgramRequirements.Sample };
         var session = new OperatorSession();
         var clears = 0;
-        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected, () => clears++);
-        panel.DutSerialInput = "DUT"; panel.OperatorInput = "First technician";
+        var panel = new OperatorSessionPanelViewModel(session, new AppSettings(), _ => { }, () => selected, () => clears++)
+        {
+            DutSerialInput = "DUT",
+            OperatorInput = "First technician"
+        };
         await panel.ConfirmSessionCommand.ExecuteAsync();
         var original = session.SessionId;
         selected = new() { Id = "dut", DisplayName = "DUT", Path = "dut.TapPlan", Requirements = new() { RequireSerial = true, RequireOperator = true, RequirePartNumber = true, RequireRevision = true } };
@@ -146,8 +153,10 @@ public sealed class OperatorDutReconfirmationTests
         var original = session.SessionId;
         var clears = 0;
         var panel = new OperatorSessionPanelViewModel(session, new AppSettings { RequireCredentialForOperator = true }, _ => { },
-            onSessionCleared: () => clears++, credentialBroker: new MockOperatorCredentialBroker());
-        panel.DutSerialInput = differentDut ? "DUT-B" : "DUT-A";
+            onSessionCleared: () => clears++, credentialBroker: new MockOperatorCredentialBroker())
+        {
+            DutSerialInput = differentDut ? "DUT-B" : "DUT-A"
+        };
         await panel.CaptureCredentialCommand.ExecuteAsync();
         var incoming = session.SessionId;
         Assert.NotEqual(original, incoming);

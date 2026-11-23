@@ -36,7 +36,7 @@ public sealed class HistoricalRecordingPreviewWorkflowTests
             var window = fixture.Show(width, height);
             app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
             window.FontSize = font;
-            Assert.Equal((double)width, window.ClientSize.Width);
+            Assert.Equal(width, window.ClientSize.Width);
             fixture.OpenRememberedWorkspace();
             await fixture.WaitForReadinessAsync();
             fixture.NavigateTask(5);
@@ -145,7 +145,7 @@ public sealed class HistoricalRecordingPreviewWorkflowTests
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") != "1") return;
         var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(root)) return;
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         AuthoringUiFixture.Drain();
         using var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);

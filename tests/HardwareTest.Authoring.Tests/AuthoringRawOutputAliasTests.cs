@@ -246,7 +246,7 @@ public sealed class AuthoringRawOutputAliasTests
     private static string TemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "ht-raw-alias-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         return path;
     }
     private sealed class OutputListener : ResultListener

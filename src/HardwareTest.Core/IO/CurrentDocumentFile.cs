@@ -40,13 +40,12 @@ public static class CurrentDocumentFile
             if (File.Exists(path + ".bak")) return await RecoverAsync(path, typeInfo, documentType, currentVersion, cancellationToken).ConfigureAwait(false);
             return (default, DocumentSchemaGate.Evaluate(documentType, currentVersion, currentVersion));
         }
-        finally { gate.Release(); }
+        finally { _ = gate.Release(); }
     }
 
     private static (T? Document, DocumentSchemaStatus Status) Decode<T>(byte[] bytes, JsonTypeInfo<T> typeInfo, DocumentSchemaStatus status)
     {
-        var document = JsonSerializer.Deserialize(bytes, typeInfo);
-        if (document is null) throw new JsonException($"{status.DocumentType} must contain a document.");
+        var document = JsonSerializer.Deserialize(bytes, typeInfo) ?? throw new JsonException($"{status.DocumentType} must contain a document.");
         return (document, status);
     }
 
@@ -71,7 +70,7 @@ public static class CurrentDocumentFile
         {
             await ValidateWriteDestinationCoreAsync(path, typeInfo, documentType, currentVersion, cancellationToken).ConfigureAwait(false);
         }
-        finally { gate.Release(); }
+        finally { _ = gate.Release(); }
     }
 
     private static async Task ValidateWriteDestinationCoreAsync<T>(string path, JsonTypeInfo<T> typeInfo,
@@ -81,7 +80,7 @@ public static class CurrentDocumentFile
         if (!File.Exists(destination)) return;
         var previous = await File.ReadAllBytesAsync(destination, cancellationToken).ConfigureAwait(false);
         DocumentSchemaGate.RequireCurrentHeader(previous, documentType, currentVersion, destination);
-        Decode(previous, typeInfo, DocumentSchemaGate.ReadHeader(previous, documentType, currentVersion, destination));
+        _ = Decode(previous, typeInfo, DocumentSchemaGate.ReadHeader(previous, documentType, currentVersion, destination));
     }
 
     public static async Task WriteAsync<T>(string path, T value, JsonTypeInfo<T> typeInfo, string documentType,
@@ -100,11 +99,11 @@ public static class CurrentDocumentFile
             {
                 var previous = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
                 DocumentSchemaGate.RequireCurrentHeader(previous, documentType, currentVersion, path);
-                Decode(previous, typeInfo, DocumentSchemaGate.ReadHeader(previous, documentType, currentVersion, path));
+                _ = Decode(previous, typeInfo, DocumentSchemaGate.ReadHeader(previous, documentType, currentVersion, path));
                 await AtomicFile.WriteAllBytesAsync(path + ".bak", previous, cancellationToken).ConfigureAwait(false);
             }
             await AtomicFile.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
         }
-        finally { gate.Release(); }
+        finally { _ = gate.Release(); }
     }
 }

@@ -112,12 +112,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             throw new AuthoringWorkspaceException("Select a program before adding an instrument slot.");
         }
 
-        var slot = AuthoringWorkspaceCatalog.Normalize(NewInstrumentSlot);
-        if (slot is null)
-        {
-            throw new AuthoringWorkspaceException("Instrument slot name is required.");
-        }
-
+        var slot = AuthoringWorkspaceCatalog.Normalize(NewInstrumentSlot) ?? throw new AuthoringWorkspaceException("Instrument slot name is required.");
         if (SelectedProgram.Instruments.Any(instrument =>
                 string.Equals(instrument.SlotName, slot, StringComparison.OrdinalIgnoreCase)))
         {
@@ -132,7 +127,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                        : throw new AuthoringWorkspaceException("Instrument address is required."));
         var instrument = new InstrumentRef(slot, typeId, visa) { Settings = NewDeviceSettings() };
         // Validate the selected adapter without opening any instrument connection.
-        AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));
+        _ = AuthoringInstrumentCatalog.Create(instrument, InstrumentCreationHomeFor(instrument.TypeId));
         RememberWorkspaceCatalog(catalogs => AuthoringWorkspaceCatalog.Remember(catalogs.InstrumentSlotNames, slot));
         ReplaceSelected(SelectedProgram with
         {
@@ -165,7 +160,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         else
         {
-            current.RemoveAll(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
+            _ = current.RemoveAll(existing => string.Equals(existing, slot, StringComparison.OrdinalIgnoreCase));
         }
 
         var next = SelectedProgram.Cleanup with { InstrumentSlots = current };
@@ -207,7 +202,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         else
         {
-            current.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
+            _ = current.RemoveAll(existing => string.Equals(existing, id, StringComparison.OrdinalIgnoreCase));
         }
 
         SetSidecar(sidecar => RequiredFieldIds.Apply(sidecar, current));
@@ -254,7 +249,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         else if (!include)
         {
-            current.RemoveAll(existing => string.Equals(existing, kind, StringComparison.OrdinalIgnoreCase));
+            _ = current.RemoveAll(existing => string.Equals(existing, kind, StringComparison.OrdinalIgnoreCase));
         }
 
         if (current.Count == 0)
@@ -337,7 +332,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             return;
         }
 
-        AuthoringWorkspaceCatalog.Remember(items, token);
+        _ = AuthoringWorkspaceCatalog.Remember(items, token);
     }
 
     private void RememberWorkspaceCatalog(Action<AuthoringWorkspaceCatalogs> mutate)

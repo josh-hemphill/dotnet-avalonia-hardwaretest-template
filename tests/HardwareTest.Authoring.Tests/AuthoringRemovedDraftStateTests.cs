@@ -37,7 +37,7 @@ public sealed class AuthoringRemovedDraftStateTests
         Assert.Empty(reopened.SelectedProgram.AuthoringState.FormulaIntent);
         Assert.False(reopened.HasUncompiledSources);
         Assert.DoesNotContain(AuthoringDependencyIndex.Build(reopened.SelectedProgram).Nodes, node => node.NodeId == temporary.NodeId);
-        Assert.IsType<RepeatNode>(reopened.SelectedProgram.Measure[1]); reopened.StopRecovery();
+        _ = Assert.IsType<RepeatNode>(reopened.SelectedProgram.Measure[1]); reopened.StopRecovery();
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public sealed class AuthoringRemovedDraftStateTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
-        var root = Path.Combine(Path.GetTempPath(), "authoring-remove-state-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var root = Path.Combine(Path.GetTempPath(), "authoring-remove-state-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap"))) File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
         return root;
     }

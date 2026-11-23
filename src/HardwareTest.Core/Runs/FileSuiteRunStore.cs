@@ -20,13 +20,13 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
     {
         _runStore = runStore;
         _runsDirectory = runsDirectory;
-        Directory.CreateDirectory(_runsDirectory);
+        _ = Directory.CreateDirectory(_runsDirectory);
     }
 
     public string GetSuiteRunDirectory(string suiteRunId)
     {
         var dir = PathContainment.CombineUnderRoot(_runsDirectory, "suites", Sanitize(suiteRunId));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 
@@ -56,7 +56,7 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         }
         var candidate = JsonSerializer.Deserialize(JsonSerializer.Serialize(suiteRun, AppJsonContext.Default.SuiteRunRecord),
             AppJsonContext.Default.SuiteRunRecord)!;
-        candidate.PlanRuns = suiteRun.PlanRuns.Select(ReportRevisions.Clone).ToList();
+        candidate.PlanRuns = [.. suiteRun.PlanRuns.Select(ReportRevisions.Clone)];
         if (committed is not null)
         {
             foreach (var member in committed.PlanRuns)

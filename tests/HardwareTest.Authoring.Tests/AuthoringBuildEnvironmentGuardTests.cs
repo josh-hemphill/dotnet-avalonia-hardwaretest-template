@@ -94,7 +94,7 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
         try
         {
             Environment.SetEnvironmentVariable(name, Path.GetFullPath("redirected"));
-            var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.CaptureEnvironment());
+            var error = Assert.Throws<AuthoringWorkspaceException>(AuthoringBuildService.CaptureEnvironment);
             Assert.Contains("BUILD_ENVIRONMENT", error.Message);
             Assert.Contains(name, error.Message);
         }
@@ -113,8 +113,7 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
         try
         {
             Environment.SetEnvironmentVariable(name, AuthoringBuildSnapshotTests.Temp());
-            Assert.Contains("BUILD_CONTAINMENT", Assert.Throws<AuthoringWorkspaceException>(() =>
-                AuthoringBuildService.CaptureEnvironment()).Message);
+            Assert.Contains("BUILD_CONTAINMENT", Assert.Throws<AuthoringWorkspaceException>(AuthoringBuildService.CaptureEnvironment).Message);
             Environment.SetEnvironmentVariable(name, Environment.GetEnvironmentVariable("DOTNET_ROOT"));
             Assert.Contains(name, AuthoringBuildService.CaptureEnvironment().Keys);
         }
@@ -134,7 +133,7 @@ public sealed class AuthoringBuildEnvironmentGuardTests : IDisposable
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         var home = AuthoringBuildSnapshotTests.Home(workspace);
         var output = AuthoringBuildSnapshotTests.Temp();
-        Directory.CreateDirectory(Path.Combine(output, "net10.0"));
+        _ = Directory.CreateDirectory(Path.Combine(output, "net10.0"));
         var previousDll = Path.Combine(output, "net10.0", "Shell.dll");
         File.WriteAllText(previousDll, "previous final output");
         var before = Directory.GetFiles(output, "*", SearchOption.AllDirectories).Select(p => (p, File.ReadAllBytes(p))).ToArray();

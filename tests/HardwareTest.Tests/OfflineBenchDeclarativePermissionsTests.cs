@@ -45,7 +45,7 @@ public sealed class OfflineBenchDeclarativePermissionsTests
     public void Any_changed_tuple_or_extra_attribute_is_refused(string os, string attribute, string value)
     {
         var xml = Metadata(os); xml.Element(Namespace + "PackageActionExtensions")!.Element(Namespace + "ActionStep")!.SetAttributeValue(attribute, value);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(Archive(xml), os, "x64", default));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchArchive.Read(Archive(xml), os, "x64", default));
     }
 
     [Theory]
@@ -76,7 +76,7 @@ public sealed class OfflineBenchDeclarativePermissionsTests
             case "nested": container.Remove(); xml.Add(new XElement(Namespace + "Other", container)); break;
             case "extra-content": container.Element(Namespace + "ActionStep")!.Add(new XElement(Namespace + "Extra")); break;
         }
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.ValidatePackageMetadata(xml));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.ValidatePackageMetadata(xml));
     }
 
     [Fact]
@@ -85,8 +85,8 @@ public sealed class OfflineBenchDeclarativePermissionsTests
         var linux = Metadata("Linux");
         Assert.Equal((UnixFileMode)0x1FF, OfflineBenchBundle.DeclarativePayloadMode(linux, "tap", (UnixFileMode)0x1B6, "Linux"));
         Assert.Equal((UnixFileMode)0x180, OfflineBenchBundle.DeclarativePayloadMode(linux, "other-helper.sh", (UnixFileMode)0x180, "Linux"));
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.DeclarativePayloadMode(linux, "tap", 0, "Windows"));
-        Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.DeclarativePayloadMode(Metadata("Windows"), "Packages/OpenTAP/Tap.Upgrader.exe", 0, "Linux"));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.DeclarativePayloadMode(linux, "tap", 0, "Windows"));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchBundle.DeclarativePayloadMode(Metadata("Windows"), "Packages/OpenTAP/Tap.Upgrader.exe", 0, "Linux"));
     }
 
     private static XElement Metadata(string os)

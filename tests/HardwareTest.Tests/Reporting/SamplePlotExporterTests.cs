@@ -14,14 +14,13 @@ public sealed class SamplePlotExporterTests
             RunId = Guid.NewGuid().ToString("N"),
             PlanId = "sample",
             PlanName = "Sample",
-            Samples = Enumerable.Range(0, 32)
+            Samples = [.. Enumerable.Range(0, 32)
                 .Select(i => new StoredSample
                 {
                     Channel = "VDC",
                     Timestamp = DateTimeOffset.UtcNow.AddMilliseconds(i * 5),
                     Value = Math.Sin(i / 5.0) + 1.25,
-                })
-                .ToList(),
+                })],
         };
 
         var dir = Path.Combine(Path.GetTempPath(), "ht-plots-" + Guid.NewGuid().ToString("N"));
@@ -31,7 +30,7 @@ public sealed class SamplePlotExporterTests
             Assert.NotNull(path);
             Assert.True(File.Exists(path));
 
-            var bytes = File.ReadAllBytes(path!);
+            var bytes = File.ReadAllBytes(path);
             Assert.True(bytes.Length > 5_000, $"Expected ScottPlot PNG, got {bytes.Length} bytes");
             Assert.Equal(0x89, bytes[0]);
             Assert.Equal((byte)'P', bytes[1]);
@@ -70,7 +69,7 @@ public sealed class SamplePlotExporterTests
             var path = SamplePlotExporter.ExportChannelPng(run, "VDC", dir);
             Assert.NotNull(path);
             Assert.True(File.Exists(path));
-            var bytes = File.ReadAllBytes(path!);
+            var bytes = File.ReadAllBytes(path);
             Assert.True(bytes.Length > 1_000);
             Assert.Equal(0x89, bytes[0]);
         }

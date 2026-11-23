@@ -46,7 +46,7 @@ public sealed class AuthoringInspectorNitsTests
     public void Input_field_ids_edit_the_selected_operator_input_row()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("input-ids") { Instruments = [] });
+        _ = vm.InitializePlan(new("input-ids") { Instruments = [] });
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Input);
         var input = vm.SequenceItems.Single(row => row.Label == "Operator Input");
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(input));
@@ -62,8 +62,8 @@ public sealed class AuthoringInspectorNitsTests
     public void SelectedProgram_setter_switches_the_session_program()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("alpha") { Instruments = [] });
-        vm.InitializePlan(new("beta") { Instruments = [] });
+        _ = vm.InitializePlan(new("alpha") { Instruments = [] });
+        _ = vm.InitializePlan(new("beta") { Instruments = [] });
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "alpha");
         Assert.Equal("alpha", vm.SelectedProgram?.PlanId);
         vm.SelectedProgram = vm.Programs.Single(p => p.PlanId == "beta");
@@ -80,11 +80,11 @@ public sealed class AuthoringInspectorNitsTests
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(acquire));
         var index = vm.SelectedSequenceIndex;
         var notified = new HashSet<string>(StringComparer.Ordinal);
-        vm.PropertyChanged += (_, e) =>
+        vm.PropertyChanged += (sender, e) =>
         {
             if (!string.IsNullOrEmpty(e.PropertyName))
             {
-                notified.Add(e.PropertyName);
+                _ = notified.Add(e.PropertyName);
             }
         };
 
@@ -123,11 +123,11 @@ public sealed class AuthoringInspectorNitsTests
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(mean));
         var index = vm.SelectedSequenceIndex;
         var notified = new HashSet<string>(StringComparer.Ordinal);
-        vm.PropertyChanged += (_, e) =>
+        vm.PropertyChanged += (sender, e) =>
         {
             if (!string.IsNullOrEmpty(e.PropertyName))
             {
-                notified.Add(e.PropertyName);
+                _ = notified.Add(e.PropertyName);
             }
         };
 
@@ -147,11 +147,11 @@ public sealed class AuthoringInspectorNitsTests
         var shutdown = vm.SequenceItems.Single(row => row.Kind == SequenceRowKind.Cleanup);
         vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(shutdown));
         var notified = new HashSet<string>(StringComparer.Ordinal);
-        vm.PropertyChanged += (_, e) =>
+        vm.PropertyChanged += (sender, e) =>
         {
             if (!string.IsNullOrEmpty(e.PropertyName))
             {
-                notified.Add(e.PropertyName);
+                _ = notified.Add(e.PropertyName);
             }
         };
 
@@ -213,7 +213,7 @@ public sealed class AuthoringInspectorNitsTests
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-nits-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();

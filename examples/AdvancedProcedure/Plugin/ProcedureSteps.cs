@@ -48,7 +48,7 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
             RecordEvent(Results, "tables", started, $"{Tables.DescribeProfile()} / {Tables.FileHashes()}");
 
             _sectionVerdicts.Clear();
-            foreach (FixtureSectionStep section in ChildTestSteps)
+            foreach (FixtureSectionStep section in ChildTestSteps.Cast<FixtureSectionStep>())
             {
                 TapThread.ThrowIfAborted();
                 if (RecordBlockedPrerequisites(section.Name, section.PrerequisiteIds, "section", Results, started))
@@ -102,12 +102,12 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
         ValidateHandoffs(stationChecks, before: step => step is HarnessResistanceStep, enableSupply: false);
         ValidateHandoffs(dutChecks, before: step => step is DutCommunicationsStep or DutSignalsStep or IdentityCheckStep, enableSupply: true);
         var previous = new HashSet<Guid>();
-        foreach (FixtureSectionStep section in ChildTestSteps)
+        foreach (FixtureSectionStep section in ChildTestSteps.Cast<FixtureSectionStep>())
         {
             ValidatePrerequisites(section.Name, section.PrerequisiteIds, previous);
             foreach (var suite in Descendants(section).OfType<FixtureSuiteStep>())
                 ValidatePrerequisites(suite.Name, suite.PrerequisiteIds, previous);
-            previous.Add(section.Id);
+            _ = previous.Add(section.Id);
         }
 
         var tables = ProcedureTables.Load(Path.Combine(plan.Directory, TableDirectory));
@@ -157,9 +157,7 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
     }
 
     private static Guid[] RequiredSections(string name, string requirements)
-        => requirements.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(value => Guid.TryParse(value, out var id) ? id : throw new InvalidDataException($"'{name}' has invalid prerequisite ID '{value}'."))
-            .ToArray();
+        => [.. requirements.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(value => Guid.TryParse(value, out var id) ? id : throw new InvalidDataException($"'{name}' has invalid prerequisite ID '{value}'."))];
 
     internal bool RecordBlockedPrerequisites(string name, string requirement, string target, ResultSource results, Stopwatch started)
     {
@@ -321,7 +319,7 @@ public sealed class FixtureConfigurationsStep : RuntimeAwareTestStep
         var blocked = ChildTestSteps.OfType<FixtureSuiteStep>()
             .Where(suite => root.RecordBlockedPrerequisites(suite.Name, suite.PrerequisiteIds, "configuration", Results, started))
             .Select(suite => suite.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (var name in blocked) remaining.Remove(name);
+        foreach (var name in blocked) _ = remaining.Remove(name);
         if (blocked.Count > 0) UpgradeVerdict(Verdict.Inconclusive);
         while (remaining.Count > 0)
         {

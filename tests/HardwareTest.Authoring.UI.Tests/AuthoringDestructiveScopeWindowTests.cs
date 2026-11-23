@@ -18,8 +18,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Actual_membership_checkbox_changes_only_selected_program(string target, string group)
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
-        vm.InitializePlan(new("a") { Instruments = [] }); AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
-        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
+        _ = vm.InitializePlan(new("a") { Instruments = [] }); _ = AddCatalog(fixture, target == "fixtureId" ? CatalogDeletionKind.RequiredField : CatalogDeletionKind.ReportKind);
+        _ = vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; vm.SelectProgram("a"); Assert.True(vm.SaveAll().Succeeded); AuthoringUiFixture.Drain();
         var other = vm.Programs.Single(p => p.PlanId == "b"); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "b"));
         fixture.NavigateTask(7);
         var box = fixture.Control<CheckBox>($"Include {target} in selected program", fixture.Control<ItemsControl>(group));
@@ -64,8 +64,8 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(CatalogDeletionKind.ProgramKind)]
     public void Real_workspace_delete_affirmation_stages_only_affected_programs_until_SaveAll_then_reloads(CatalogDeletionKind kind)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, kind);
-        vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; _ = vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, kind);
+        _ = vm.InitializePlan(new("b") { Instruments = [] }); vm.DisplayName += " edited"; if (kind == CatalogDeletionKind.RequiredField) vm.SetRequiredFieldIncluded(target, false);
         if (kind == CatalogDeletionKind.ReportKind) vm.SetReportKindIncluded(target, false);
         if (kind == CatalogDeletionKind.ProgramKind) vm.ProgramKind = "dut";
         Assert.True(vm.SaveAll().Succeeded); var other = vm.SelectedProgram; vm.SelectProgram("a"); AuthoringUiFixture.Drain(); var files = Snapshot(fixture);
@@ -98,7 +98,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData("session")]
     public void Catalog_confirmation_cannot_apply_to_a_changed_selection_or_reopened_session(string change)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
+        using var fixture = Loaded(); var vm = fixture.ViewModel; _ = vm.InitializePlan(new("a") { Instruments = [] }); var target = AddCatalog(fixture, CatalogDeletionKind.RequiredField); Assert.True(vm.SaveAll().Succeeded);
         OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, target);
         if (change == "selection") vm.SelectProgram("sample"); else vm.CommitOpen(vm.PrepareOpen(fixture.WorkspaceRoot));
         var before = vm.Programs; var files = Snapshot(fixture); AuthoringUiFixture.Click(fixture.Control<Button>("Remove from workspace", Dialog(fixture)));
@@ -128,7 +128,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         using var fixture = Loaded(); PrepareSlots(fixture); var draft = fixture.ViewModel.SelectedProgram; var files = Snapshot(fixture);
         AuthoringUiFixture.Click(fixture.Control<Button>("Remove instrument slot from selected program")); var dialog = Dialog(fixture);
-        var chooser = fixture.Control<ComboBox>("Compatible replacement instrument slot", dialog); Assert.Null(chooser.SelectedItem); Assert.Equal(-1, chooser.SelectedIndex); Assert.Single(chooser.Items);
+        var chooser = fixture.Control<ComboBox>("Compatible replacement instrument slot", dialog); Assert.Null(chooser.SelectedItem); Assert.Equal(-1, chooser.SelectedIndex); _ = Assert.Single(chooser.Items);
         Assert.False(fixture.Control<Button>("Remove and replace slot", dialog).IsEnabled); Assert.Contains("Program 'slots' only", ModalText(dialog));
         Assert.Contains("Identity", ModalText(dialog)); Assert.Contains("Children", ModalText(dialog)); Assert.Contains("Cleanup", ModalText(dialog));
         AssertCancel(dialog); Cancel(dialog, route); Assert.Same(draft, fixture.ViewModel.SelectedProgram); AssertFiles(files); Assert.False(fixture.ViewModel.HasUnsavedChanges);
@@ -183,7 +183,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
             ? new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler("unresolved"))
             : Loaded();
         var vm = fixture.ViewModel;
-        if (scenario == "unresolved") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
+        if (scenario == "unresolved") { _ = fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
         else if (scenario == "last")
         {
             vm.CreateDemoProgram("last");
@@ -203,7 +203,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     public void Conservative_instrument_compatibility_blockers_are_visible_and_accessible(string scenario, string message)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler: new BlockerCompiler(scenario));
-        fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture);
         var remove = fixture.Control<Button>("Remove instrument slot from selected program"); Assert.False(remove.IsEnabled);
         var guidance = fixture.Control<TextBlock>("Instrument removal guidance"); guidance.BringIntoView(); AuthoringUiFixture.Drain();
         AssertInside(guidance, fixture.Window!); Assert.Contains(message, guidance.Text); Assert.Equal(guidance.Text, AutomationProperties.GetHelpText(remove));
@@ -214,10 +214,10 @@ public sealed class AuthoringDestructiveScopeWindowTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var manifest = Path.Combine(fixture.WorkspaceRoot, "authoring.json"); File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(7);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(7);
         var box = fixture.Control<CheckBox>("Include serial in selected program"); var before = box.IsChecked; var draft = fixture.ViewModel.SelectedProgram;
         Assert.False(box.IsEffectivelyEnabled); box.BringIntoView(); AuthoringUiFixture.Drain();
-        var point = box.TranslatePoint(new Point(10, 10), fixture.Window!); Assert.NotNull(point); fixture.Window!.MouseDown(point.Value, MouseButton.Left); fixture.Window!.MouseUp(point.Value, MouseButton.Left); AuthoringUiFixture.Drain();
+        var point = box.TranslatePoint(new Point(10, 10), fixture.Window!); _ = Assert.NotNull(point); fixture.Window!.MouseDown(point.Value, MouseButton.Left); fixture.Window!.MouseUp(point.Value, MouseButton.Left); AuthoringUiFixture.Drain();
         Assert.Equal(before, box.IsChecked); Assert.Same(draft, fixture.ViewModel.SelectedProgram); Assert.False(fixture.ViewModel.HasUnsavedChanges);
     }
 
@@ -242,7 +242,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(true)]
     public void Affirmative_whole_program_removal_affects_only_named_program_and_stale_selection_is_rejected(bool stale)
     {
-        using var fixture = Loaded(); var vm = fixture.ViewModel; vm.InitializePlan(new("other") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
+        using var fixture = Loaded(); var vm = fixture.ViewModel; _ = vm.InitializePlan(new("other") { Instruments = [] }); vm.DisplayName += " edited"; Assert.True(vm.SaveAll().Succeeded); vm.SelectProgram("sample"); AuthoringUiFixture.Drain();
         OpenProgramModal(fixture, true); var dialog = Dialog(fixture); var otherBytes = File.ReadAllBytes(Sidecar(fixture, "other")); var files = Snapshot(fixture);
         if (stale) vm.SelectProgram("other"); AuthoringUiFixture.Click(fixture.Control<Button>("Remove program", dialog));
         Assert.Equal(otherBytes, File.ReadAllBytes(Sidecar(fixture, "other")));
@@ -277,12 +277,12 @@ public sealed class AuthoringDestructiveScopeWindowTests
     [InlineData(1280, 800)]
     public void Workspace_impact_many_programs_scrolls_with_cancel_visible_at_supported_sizes(int width, int height)
     {
-        using var fixture = Loaded(width, height); var vm = fixture.ViewModel; AddCatalog(fixture, CatalogDeletionKind.RequiredField);
-        for (var i = 0; i < 35; i++) { vm.InitializePlan(new($"impact-{i:00}-{new string('x', 110)}") { Instruments = [] }); vm.SetRequiredFieldIncluded("fixtureId", true); }
+        using var fixture = Loaded(width, height); var vm = fixture.ViewModel; _ = AddCatalog(fixture, CatalogDeletionKind.RequiredField);
+        for (var i = 0; i < 35; i++) { _ = vm.InitializePlan(new($"impact-{i:00}-{new string('x', 110)}") { Instruments = [] }); vm.SetRequiredFieldIncluded("fixtureId", true); }
         AuthoringUiFixture.Drain(); OpenCatalogModal(fixture, CatalogDeletionKind.RequiredField, "fixtureId"); var dialog = Dialog(fixture);
         var scroll = fixture.Control<ScrollViewer>("Destructive operation scope and impact", dialog); AssertInside(scroll, dialog); Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
         foreach (var button in dialog.GetVisualDescendants().OfType<Button>().Where(b => b.Content is string)) AssertInside(button, dialog);
-        var point = scroll.TranslatePoint(new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog); Assert.NotNull(point); dialog.MouseWheel(point.Value, new Vector(0, -1000), RawInputModifiers.None); AuthoringUiFixture.Drain(); Assert.True(scroll.Offset.Y > 0);
+        var point = scroll.TranslatePoint(new Point(scroll.Bounds.Width / 2, scroll.Bounds.Height / 2), dialog); _ = Assert.NotNull(point); dialog.MouseWheel(point.Value, new Vector(0, -1000), RawInputModifiers.None); AuthoringUiFixture.Drain(); Assert.True(scroll.Offset.Y > 0);
         Assert.Contains(vm.Programs[^1].PlanId, ModalText(dialog));
         var finalText = Assert.Single(Assert.IsType<StackPanel>(scroll.Content).Children.OfType<TextBlock>());
         AssertFinalLineVisible(finalText, scroll); Cancel(dialog, "cancel");
@@ -361,7 +361,7 @@ public sealed class AuthoringDestructiveScopeWindowTests
 
     private static AuthoringUiFixture Loaded(double width = 1280, double height = 800, bool realLifecycle = false)
     {
-        var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(width, height, realLifecycle); fixture.OpenRememberedWorkspace(); Settings(fixture); return fixture;
+        var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(width, height, realLifecycle); fixture.OpenRememberedWorkspace(); Settings(fixture); return fixture;
     }
     private static void Settings(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain(); fixture.Control<Expander>("Remove instrument section").IsExpanded = true; AuthoringUiFixture.Drain(); }
     private static void Definitions(AuthoringUiFixture fixture) { fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 6; AuthoringUiFixture.Drain(); }
@@ -427,13 +427,13 @@ public sealed class AuthoringDestructiveScopeWindowTests
     private static void AssertFiles(Dictionary<string, byte[]> files) { foreach (var entry in files) Assert.Equal(entry.Value, File.ReadAllBytes(entry.Key)); }
     private static void AssertFinalLineVisible(TextBlock text, ScrollViewer scroll)
     {
-        var point = text.TranslatePoint(default, scroll); Assert.NotNull(point);
+        var point = text.TranslatePoint(default, scroll); _ = Assert.NotNull(point);
         var bottom = point.Value.Y + text.Bounds.Height; var top = bottom - text.TextLayout.TextLines.Last().Height;
         Assert.True(top >= -1 && bottom <= scroll.Bounds.Height + 1, $"Final line {top}–{bottom} must fit viewport {scroll.Bounds.Height}.");
     }
     private static void AssertInside(Control control, Window window)
     {
-        Assert.True(control.IsEffectivelyVisible); var point = control.TranslatePoint(default, window); Assert.NotNull(point); Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
+        Assert.True(control.IsEffectivelyVisible); var point = control.TranslatePoint(default, window); _ = Assert.NotNull(point); Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(point.Value, control.Bounds.Size)), $"{control.GetType().Name} at {point} ({control.Bounds.Size}) must fit inside {window.ClientSize}.");
     }
     private sealed class BlockerCompiler(string scenario) : IPlanCompiler

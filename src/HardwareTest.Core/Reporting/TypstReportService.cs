@@ -31,27 +31,18 @@ public interface IReportService
 }
 
 /// Compiles Typst templates to PDF and writes them beside run folders.
-public sealed class TypstReportService : IReportService, IDisposable
+public sealed class TypstReportService(
+    IRunStore runStore,
+    AppSettings settings,
+    ISuiteRunStore? suiteRunStore = null,
+    ILogger? logger = null) : IReportService, IDisposable
 {
-    private readonly IRunStore _runStore;
-    private readonly ISuiteRunStore? _suiteRunStore;
-    private readonly AppSettings _settings;
-    private readonly Lazy<TypstCompiler> _compiler;
-    private readonly ILogger _logger;
+    private readonly IRunStore _runStore = runStore;
+    private readonly ISuiteRunStore? _suiteRunStore = suiteRunStore;
+    private readonly AppSettings _settings = settings;
+    private readonly Lazy<TypstCompiler> _compiler = new(() => new TypstCompiler());
+    private readonly ILogger _logger = logger ?? Log.ForContext<TypstReportService>();
     private bool _disposed;
-
-    public TypstReportService(
-        IRunStore runStore,
-        AppSettings settings,
-        ISuiteRunStore? suiteRunStore = null,
-        ILogger? logger = null)
-    {
-        _runStore = runStore;
-        _suiteRunStore = suiteRunStore;
-        _settings = settings;
-        _logger = logger ?? Log.ForContext<TypstReportService>();
-        _compiler = new Lazy<TypstCompiler>(() => new TypstCompiler());
-    }
 
     public async Task<string> GeneratePdfAsync(TestRunRecord run, CancellationToken cancellationToken = default)
     {
@@ -102,19 +93,19 @@ public sealed class TypstReportService : IReportService, IDisposable
         ReportAttestationService.RequireReportWritable(run, dir);
         var artifacts = new List<RunReportArtifact>();
         var now = DateTimeOffset.UtcNow;
-        foreach (var item in compiled)
+        foreach (var (Kind, Title, Pdf) in compiled)
         {
-            var path = Path.Combine(dir, $"{item.Kind}.pdf");
-            await AtomicFile.WriteAllBytesAsync(path, item.Pdf, cancellationToken).ConfigureAwait(false);
+            var path = Path.Combine(dir, $"{Kind}.pdf");
+            await AtomicFile.WriteAllBytesAsync(path, Pdf, cancellationToken).ConfigureAwait(false);
             artifacts.Add(new RunReportArtifact
             {
-                Kind = item.Kind,
-                Title = item.Title,
+                Kind = Kind,
+                Title = Title,
                 PdfPath = path,
                 GeneratedAt = now,
                 Role = ReportArtifactRoles.Working,
             });
-            _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", item.Kind, run.RunId, path);
+            _logger.Information("Wrote {Kind} PDF for run {RunId} to {Path}", Kind, run.RunId, path);
         }
 
         MergeGeneratedArtifacts(run, artifacts);
@@ -158,8 +149,8 @@ public sealed class TypstReportService : IReportService, IDisposable
             CompletedAt = suiteRun.CompletedAt,
             Result = suiteRun.Result,
             ErrorMessage = suiteRun.ErrorMessage,
-            Samples = suiteRun.PlanRuns.SelectMany(p => p.Samples).ToList(),
-            Steps = suiteRun.PlanRuns.SelectMany(p => p.Steps).ToList(),
+            Samples = [.. suiteRun.PlanRuns.SelectMany(p => p.Samples)],
+            Steps = [.. suiteRun.PlanRuns.SelectMany(p => p.Steps)],
         };
 
         var path = await GeneratePdfAsync(aggregate, cancellationToken).ConfigureAwait(false);
@@ -279,12 +270,12 @@ public sealed class TypstReportService : IReportService, IDisposable
             JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord),
             AppJsonContext.Default.TestRunRecord)
             ?? throw new InvalidOperationException("Could not snapshot the run for Typst.");
-        snapshot.Attestations.RemoveAll(a =>
+        _ = snapshot.Attestations.RemoveAll(a =>
             string.Equals(a.ReportKind, kind, StringComparison.OrdinalIgnoreCase));
         var resultJson = JsonSerializer.Serialize(snapshot, AppJsonContext.Default.TestRunRecord);
         var workDir = Path.Combine(Path.GetTempPath(), "HardwareTestTypst", run.RunId, kind);
         var libDir = Path.Combine(workDir, "lib");
-        Directory.CreateDirectory(libDir);
+        _ = Directory.CreateDirectory(libDir);
 
         File.WriteAllText(Path.Combine(workDir, "main.typ"), template, Encoding.UTF8);
         File.WriteAllText(Path.Combine(libDir, "sample-chart.typ"), chartLib, Encoding.UTF8);

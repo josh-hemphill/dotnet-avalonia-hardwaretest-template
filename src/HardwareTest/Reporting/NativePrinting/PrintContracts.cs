@@ -68,7 +68,7 @@ public static class PrintGeometry
     /// GDI printer coordinates start at the printable area's origin, already excluding physical margins.
     public static PrintRectangle Fit(PdfPageSize size, PrinterMetrics metrics)
     {
-        ValidateRasterSize(size);
+        _ = ValidateRasterSize(size);
         if (metrics.WidthPixels <= 0 || metrics.HeightPixels <= 0 || metrics.DpiX <= 0 || metrics.DpiY <= 0)
             throw new InvalidDataException("The printer returned invalid printable dimensions or resolution.");
         var widthInches = size.WidthPoints / 72d;

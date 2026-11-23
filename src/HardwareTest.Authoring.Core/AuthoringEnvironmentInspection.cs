@@ -30,7 +30,7 @@ internal sealed record AuthoringEnvironmentInspection(
                 Error = error,
                 Packages = Array.AsReadOnly(workspace.Manifest.Dependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", false, false, error!))
                     .Concat(workspace.Manifest.OptionalDependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", true, false, error!))).ToArray()),
-                RuntimeFiles = Array.AsReadOnly(new[] { error! }),
+                RuntimeFiles = Array.AsReadOnly([error!]),
             };
         }
 

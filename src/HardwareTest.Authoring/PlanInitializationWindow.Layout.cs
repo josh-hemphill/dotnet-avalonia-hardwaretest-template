@@ -24,7 +24,7 @@ public sealed partial class PlanInitializationWindow
             for (var section = 0; section < titles[stageIndex].Length; section++)
             {
                 var count = lengths[stageIndex][section];
-                stage.Children.Add(AuthoringFormLayout.Section(titles[stageIndex][section], controls.Skip(offset).Take(count).ToArray()));
+                stage.Children.Add(AuthoringFormLayout.Section(titles[stageIndex][section], [.. controls.Skip(offset).Take(count)]));
                 offset += count;
             }
         }

@@ -19,20 +19,20 @@ public sealed class AuthoringSequenceOperationsTests
         File.WriteAllText(Path.Combine(root, "authoring.json"), """{"schemaVersion":2,"displayName":"Empty","plansDirectory":"."}""");
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
         Assert.True(vm.NeedsFirstPlan);
-        vm.InitializePlan(new("empty"));
+        _ = vm.InitializePlan(new("empty"));
         if (flat) vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [] });
         Assert.True(vm.IsSequenceEmpty);
         Assert.Equal(flat ? SequenceRowKind.Cleanup : SequenceRowKind.Section, vm.SelectedSequence!.Kind);
         vm.SelectedRecipeId = AuthoringRecipeIds.Prompt;
         Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
         vm.InsertSelectedRecipe();
-        Assert.IsType<OperatorPromptSetup>(Assert.Single(vm.SelectedProgram!.Setup));
+        _ = Assert.IsType<OperatorPromptSetup>(Assert.Single(vm.SelectedProgram!.Setup));
         Assert.False(vm.IsSequenceEmpty);
         vm.SelectedRecipeId = AuthoringRecipeIds.BandScalar;
         vm.InsertionPosition = "End of matching phase";
         Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
         vm.InsertSelectedRecipe();
-        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
+        _ = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram.Measure));
         Assert.Empty(vm.SelectedProgram.Instruments);
         Assert.Null(vm.Error);
     }
@@ -154,12 +154,12 @@ public sealed class AuthoringSequenceOperationsTests
         var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(draft, Row(draft, consumer.NodeId), -1));
         Assert.Contains("VDC", error.Message, StringComparison.Ordinal);
         Assert.Contains("preceding", error.Message, StringComparison.Ordinal);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[0].NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[0].NodeId)));
         var raw = new RawStepNode("Unknown", "<TestStep type='Unknown'/>");
         var opaque = draft with { Measure = [draft.Measure[0], raw, consumer] };
         Assert.Contains("Opaque", Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(opaque,
             Row(opaque, consumer.NodeId), -1)).Message, StringComparison.Ordinal);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Duplicate(opaque, Row(opaque, raw.NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Duplicate(opaque, Row(opaque, raw.NodeId)));
         Assert.Same(draft, AuthoringSequenceOperations.Move(draft, Row(draft, draft.Measure[0].NodeId), -1));
         var invalidFormula = Assert.IsType<MetricNode>(consumer);
         invalidFormula = invalidFormula with { Metric = invalidFormula.Metric with { Source = new ExpressionAlgorithm([], "unknown(") } };
@@ -174,7 +174,7 @@ public sealed class AuthoringSequenceOperationsTests
         var draft = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.MeanGte, AuthoringRecipeIds.BandScalar,
             AuthoringRecipeIds.SeriesCompliance, AuthoringRecipeIds.StationHealth, AuthoringRecipeIds.Formula);
         foreach (var recipe in new[] { AuthoringRecipeIds.MeanGte, AuthoringRecipeIds.SeriesCompliance, AuthoringRecipeIds.StationHealth })
-            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringRecipeCatalog.Apply(draft, recipe));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringRecipeCatalog.Apply(draft, recipe));
         foreach (var recipe in new[] { AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar, AuthoringRecipeIds.Formula })
             draft = AuthoringRecipeCatalog.Apply(draft, recipe);
         var band = draft.Measure.OfType<MetricNode>().First(node => node.Metric.Name == "Band Scalar");
@@ -287,7 +287,7 @@ public sealed class AuthoringSequenceOperationsTests
         Assert.Equal("Selected check", Assert.IsType<MetricNode>(renamed.Measure[0]).Metric.Name);
         Assert.Equal("Acquire VDC", Assert.IsType<MetricNode>(renamed.Measure[1]).Metric.Name);
         var removed = draft with { Measure = [draft.Measure[0]] };
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Rename(removed, selected, "Gone"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Rename(removed, selected, "Gone"));
     }
 
     [Theory]
@@ -295,7 +295,7 @@ public sealed class AuthoringSequenceOperationsTests
     [InlineData(AuthoringRecipeIds.TransferFunction)]
     public void Recognized_raw_publishers_share_compiler_insertion_and_output_allocation(string recipe)
     {
-        RawStepNode Raw(double elapsed)
+        static RawStepNode Raw(double elapsed)
         {
             AuthoringPluginSearch.Search();
             var step = new PublishTimedSampleStep { Channel = "VDC", ElapsedMs = elapsed, Value = 2 };
@@ -359,12 +359,12 @@ public sealed class AuthoringSequenceOperationsTests
         var draft = ProgramWith(AuthoringRecipeIds.Prompt, AuthoringRecipeIds.Acquire, AuthoringRecipeIds.Formula);
         var acquire = Row(draft, draft.Measure[0].NodeId);
         var consumer = Row(draft, draft.Measure[1].NodeId);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, consumer));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, Row(draft, draft.Setup[0].NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, consumer));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(draft, acquire, Row(draft, draft.Setup[0].NodeId)));
         var independent = ProgramWith(AuthoringRecipeIds.Acquire, AuthoringRecipeIds.BandScalar);
         var loop = AuthoringSequenceOperations.Repeat(independent, Row(independent, independent.Measure[1].NodeId));
         var child = Assert.Single(Assert.IsType<RepeatNode>(loop.Measure[1]).Children);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(loop, Row(loop, child.NodeId), Row(loop, loop.Measure[0].NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Reorder(loop, Row(loop, child.NodeId), Row(loop, loop.Measure[0].NodeId)));
     }
 
     private static SequenceRow Row(ProgramDraft draft, Guid id) => AuthoringSequence.Flatten(draft).Single(row => row.NodeId == id);
@@ -377,7 +377,7 @@ public sealed class AuthoringSequenceOperationsTests
     private static string TemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "ht-sequence-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         return path;
     }
 }

@@ -160,23 +160,15 @@ public sealed class VisaModeSettingsViewModelTests
 }
 
 /// Controllable fake for IVisaModeController used in ViewModel tests.
-file sealed class FakeVisaModeController : IVisaModeController
+file sealed class FakeVisaModeController(
+    bool initialMock,
+    bool refuseNextApply = false,
+    string refuseMessage = "Refused.") : IVisaModeController
 {
-    private bool _effective;
-    private readonly bool _refuseNextApply;
-    private readonly string _refuseMessage;
+    private readonly bool _refuseNextApply = refuseNextApply;
+    private readonly string _refuseMessage = refuseMessage;
 
-    public FakeVisaModeController(
-        bool initialMock,
-        bool refuseNextApply = false,
-        string refuseMessage = "Refused.")
-    {
-        _effective = initialMock;
-        _refuseNextApply = refuseNextApply;
-        _refuseMessage = refuseMessage;
-    }
-
-    public bool EffectiveUseMockVisa => _effective;
+    public bool EffectiveUseMockVisa { get; private set; } = initialMock;
     public int TryApplyCallCount { get; private set; }
 
     public event EventHandler? ModeApplied;
@@ -190,7 +182,7 @@ file sealed class FakeVisaModeController : IVisaModeController
             return false;
         }
 
-        _effective = wantMock;
+        EffectiveUseMockVisa = wantMock;
         statusMessage = wantMock
             ? "Mock VISA applied — Instruments will reflect mock resources."
             : "Real VISA applied — Instruments will discover hardware resources.";

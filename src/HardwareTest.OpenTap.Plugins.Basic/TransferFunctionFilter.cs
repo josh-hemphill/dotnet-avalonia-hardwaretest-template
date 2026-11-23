@@ -20,7 +20,7 @@ public static class TransferFunctionFilter
         ArgumentNullException.ThrowIfNull(a);
         ArgumentNullException.ThrowIfNull(x);
         var (bn, an) = Normalize(b, a);
-        var input = x as double[] ?? x.ToArray();
+        var input = x as double[] ?? [.. x];
         var n = input.Length;
         if (n == 0)
         {
@@ -99,15 +99,15 @@ public static class TransferFunctionFilter
         for (var i = 0; i < n; i++)
         {
             var xn = x[i];
-            y[i] = bn[0] * xn + (z.Length == 0 ? 0 : z[0]);
+            y[i] = (bn[0] * xn) + (z.Length == 0 ? 0 : z[0]);
             for (var j = 0; j < z.Length - 1; j++)
             {
-                z[j] = bn[j + 1] * xn - an[j + 1] * y[i] + z[j + 1];
+                z[j] = (bn[j + 1] * xn) - (an[j + 1] * y[i]) + z[j + 1];
             }
 
             if (z.Length > 0)
             {
-                z[^1] = bn[^1] * xn - an[^1] * y[i];
+                z[^1] = (bn[^1] * xn) - (an[^1] * y[i]);
             }
         }
 
@@ -130,16 +130,16 @@ public static class TransferFunctionFilter
     {
         if (edge <= 0)
         {
-            return x.ToArray();
+            return [.. x];
         }
 
         var n = x.Length;
-        var padded = new double[n + 2 * edge];
+        var padded = new double[n + (2 * edge)];
         var x0 = x[0];
         for (var i = 0; i < edge; i++)
         {
             var src = Math.Min(n - 1, i + 1);
-            padded[edge - 1 - i] = 2 * x0 - x[src];
+            padded[edge - 1 - i] = (2 * x0) - x[src];
         }
 
         Array.Copy(x, 0, padded, edge, n);
@@ -147,7 +147,7 @@ public static class TransferFunctionFilter
         for (var i = 0; i < edge; i++)
         {
             var src = Math.Max(0, n - 2 - i);
-            padded[edge + n + i] = 2 * xn - x[src];
+            padded[edge + n + i] = (2 * xn) - x[src];
         }
 
         return padded;

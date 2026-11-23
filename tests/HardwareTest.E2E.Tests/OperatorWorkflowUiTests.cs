@@ -218,7 +218,7 @@ public sealed class OperatorWorkflowUiTests
         var owner = TopLevel.GetTopLevel(button);
         Assert.NotNull(owner);
         var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), owner);
-        Assert.NotNull(point);
+        _ = Assert.NotNull(point);
         Assert.True(new Rect(owner.ClientSize).Contains(point.Value));
         owner.MouseDown(point.Value, MouseButton.Left);
         owner.MouseUp(point.Value, MouseButton.Left);
@@ -229,14 +229,14 @@ public sealed class OperatorWorkflowUiTests
     {
         Assert.True(control.IsEffectivelyVisible);
         var location = control.TranslatePoint(default, window);
-        Assert.NotNull(location);
+        _ = Assert.NotNull(location);
         var bounds = new Rect(location.Value, control.Bounds.Size);
         Assert.True(new Rect(window.ClientSize).Inflate(1).Contains(bounds),
             $"{control.Name ?? control.GetType().Name} {bounds} must fit {window.ClientSize}.");
         foreach (var viewport in control.GetVisualAncestors().OfType<ScrollContentPresenter>())
         {
             var point = control.TranslatePoint(default, viewport);
-            Assert.NotNull(point);
+            _ = Assert.NotNull(point);
             Assert.True(new Rect(viewport.Bounds.Size).Inflate(1).Contains(new Rect(point.Value, control.Bounds.Size)),
                 $"{control.Name ?? control.GetType().Name} must fit the visible viewport {viewport.Bounds.Size}.");
         }

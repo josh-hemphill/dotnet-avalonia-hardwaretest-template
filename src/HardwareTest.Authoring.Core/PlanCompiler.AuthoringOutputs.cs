@@ -16,18 +16,18 @@ public sealed partial class PlanCompiler
     {
         var existing = AuthoringOutputs(AuthoringFormulaDeployment.Project(before).Measure, includePresentation: false);
         var outputs = AuthoringOutputs(AuthoringFormulaDeployment.Project(after).Measure, includePresentation: false);
-        foreach (var output in outputs)
+        foreach (var (NodeId, Channel) in outputs)
         {
-            if (existing.Any(old => old.NodeId == output.NodeId &&
-                string.Equals(old.Channel, output.Channel, StringComparison.OrdinalIgnoreCase)))
+            if (existing.Any(old => old.NodeId == NodeId &&
+                string.Equals(old.Channel, Channel, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
 
-            if (outputs.Any(other => other.NodeId != output.NodeId &&
-                string.Equals(other.Channel, output.Channel, StringComparison.OrdinalIgnoreCase)))
+            if (outputs.Any(other => other.NodeId != NodeId &&
+                string.Equals(other.Channel, Channel, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new AuthoringWorkspaceException($"Output '{output.Channel}' already has a producer. This publisher's runtime output cannot be made unique by changing its presentation channel. Choose a configurable publisher or remove the conflicting producer.");
+                throw new AuthoringWorkspaceException($"Output '{Channel}' already has a producer. This publisher's runtime output cannot be made unique by changing its presentation channel. Choose a configurable publisher or remove the conflicting producer.");
             }
         }
     }
@@ -118,7 +118,7 @@ public sealed partial class PlanCompiler
         {
             MeasureSource measure => (measure.FunctionId, measure.Settings),
             AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.Settings),
-            _ => (string.Empty, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>())
+            _ => (string.Empty, new Dictionary<string, string>())
         };
         if (!AuthoringFunctionCatalog.TryGet(function, out _))
             throw new AuthoringWorkspaceException($"Opaque outputs of function '{function}' are unknown; new output channels cannot be allocated safely.");
@@ -126,7 +126,7 @@ public sealed partial class PlanCompiler
         step.Name = metric.Name;
         ApplyAuthoringStringSettings(step, settings);
         ApplySettings(step, settings.Where(pair => pair.Key.Equals(nameof(ITestStep.Enabled), StringComparison.OrdinalIgnoreCase)
-            || step is BitSweepAcquireStep && pair.Key.Equals(nameof(BitSweepAcquireStep.PublishSummaries), StringComparison.OrdinalIgnoreCase))
+            || (step is BitSweepAcquireStep && pair.Key.Equals(nameof(BitSweepAcquireStep.PublishSummaries), StringComparison.OrdinalIgnoreCase)))
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal));
         step.GetType().GetProperty("Channel")?.SetValue(step, metric.ChannelKey);
         return step;
@@ -145,7 +145,7 @@ public sealed partial class PlanCompiler
         {
             MeasureSource measure => (measure.FunctionId, measure.Settings),
             AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.Settings),
-            _ => (string.Empty, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>())
+            _ => (string.Empty, new Dictionary<string, string>())
         };
         if (source is AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage } average)
             return average.InputChannelKeys;

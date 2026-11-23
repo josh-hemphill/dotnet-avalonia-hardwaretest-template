@@ -27,7 +27,7 @@ public partial class OperatorSessionPanelViewModel
             return;
         }
 
-        if (!_session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
+        if (!Session.TryConfirm(req, DutSerialInput, DutPartInput, DutRevisionInput, OperatorInput, family, out var error))
         {
             ApplyFieldError(error, NextIncompleteSessionField());
             _setStatus(error);
@@ -41,7 +41,7 @@ public partial class OperatorSessionPanelViewModel
         ShowSessionForm = false;
         RefreshSessionSummary();
         UpdateIdleTimer();
-        _setStatus($"Session confirmed: {_session.DutSerial} / {_session.OperatorName ?? "—"}");
+        _setStatus($"Session confirmed: {Session.DutSerial} / {Session.OperatorName ?? "—"}");
         RequestFocusRun?.Invoke(this, EventArgs.Empty);
     }
 
@@ -75,7 +75,7 @@ public partial class OperatorSessionPanelViewModel
         }
         if (RequireOperator
             && string.IsNullOrWhiteSpace(OperatorInput)
-            && string.IsNullOrWhiteSpace(_session.OperatorName))
+            && string.IsNullOrWhiteSpace(Session.OperatorName))
         {
             OperatorError = "Technician name is required.";
             this.RaisePropertyChanged(nameof(HasOperatorError));
@@ -88,7 +88,7 @@ public partial class OperatorSessionPanelViewModel
         }
 
         if (!string.IsNullOrWhiteSpace(OperatorInput)
-            && ChangedKnownIdentity(_session.OperatorName, OperatorInput))
+            && ChangedKnownIdentity(Session.OperatorName, OperatorInput))
         {
             // Same DUT does not mean the outgoing technician owns the next run.
             // Keep this DUT in the form, but require the incoming session's identity.
@@ -101,7 +101,7 @@ public partial class OperatorSessionPanelViewModel
         if (!string.IsNullOrWhiteSpace(OperatorInput))
         {
             OperatorInput = NormalizeScan(OperatorInput);
-            _session.OperatorName = OperatorInput;
+            Session.OperatorName = OperatorInput;
         }
 
         if (!TryRequireCredential(req, out var credentialError))
@@ -113,18 +113,18 @@ public partial class OperatorSessionPanelViewModel
             return;
         }
 
-        _session.ConfirmSameDut();
+        Session.ConfirmSameDut();
         InvalidateCredentialCapture();
         PendingConfirmEveryRun = false;
-        DutSerialInput = _session.DutSerial;
-        DutPartInput = _session.DutPartNumber ?? string.Empty;
-        DutRevisionInput = _session.DutRevision ?? string.Empty;
-        OperatorInput = _session.OperatorName ?? string.Empty;
-        ShowSessionForm = !_session.CanRun;
+        DutSerialInput = Session.DutSerial;
+        DutPartInput = Session.DutPartNumber ?? string.Empty;
+        DutRevisionInput = Session.DutRevision ?? string.Empty;
+        OperatorInput = Session.OperatorName ?? string.Empty;
+        ShowSessionForm = !Session.CanRun;
         RefreshSessionSummary();
         UpdateIdleTimer();
-        _setStatus(_session.CanRun ? $"Still testing {_session.DutSerial}." : "Confirm DUT, then Run.");
-        if (_session.CanRun) RequestFocusRun?.Invoke(this, EventArgs.Empty);
+        _setStatus(Session.CanRun ? $"Still testing {Session.DutSerial}." : "Confirm DUT, then Run.");
+        if (Session.CanRun) RequestFocusRun?.Invoke(this, EventArgs.Empty);
     }
 
     private void ChangeSession()
@@ -143,29 +143,29 @@ public partial class OperatorSessionPanelViewModel
 
     private void PrepareChangedSessionIdentity(bool requireTypedOperator)
     {
-        if (_session.ConfirmedAt is null) return;
+        if (Session.ConfirmedAt is null) return;
         var requirements = CurrentRequirements;
-        if (requirements.RequireSerial && string.IsNullOrWhiteSpace(NormalizeScan(DutSerialInput))
-            || requirements.RequirePartNumber && string.IsNullOrWhiteSpace(NormalizeScan(DutPartInput))
-            || requirements.RequireRevision && string.IsNullOrWhiteSpace(NormalizeScan(DutRevisionInput))
-            || requireTypedOperator && requirements.RequireOperator && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput)))
+        if ((requirements.RequireSerial && string.IsNullOrWhiteSpace(NormalizeScan(DutSerialInput)))
+            || (requirements.RequirePartNumber && string.IsNullOrWhiteSpace(NormalizeScan(DutPartInput)))
+            || (requirements.RequireRevision && string.IsNullOrWhiteSpace(NormalizeScan(DutRevisionInput)))
+            || (requireTypedOperator && requirements.RequireOperator && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput))))
         {
             return;
         }
 
-        var changed = !string.Equals(_session.DutSerial, NormalizeScan(DutSerialInput), StringComparison.Ordinal)
-            || ChangedKnownIdentity(_session.DutPartNumber, DutPartInput)
-            || ChangedKnownIdentity(_session.DutRevision, DutRevisionInput)
-            || (requireTypedOperator || !string.IsNullOrWhiteSpace(OperatorInput))
-                && ChangedKnownIdentity(_session.OperatorName, OperatorInput);
+        var changed = !string.Equals(Session.DutSerial, NormalizeScan(DutSerialInput), StringComparison.Ordinal)
+            || ChangedKnownIdentity(Session.DutPartNumber, DutPartInput)
+            || ChangedKnownIdentity(Session.DutRevision, DutRevisionInput)
+            || ((requireTypedOperator || !string.IsNullOrWhiteSpace(OperatorInput))
+                && ChangedKnownIdentity(Session.OperatorName, OperatorInput));
         if (changed) StartNewSession(preserveInputs: true);
     }
 
     private void RetainSameDutInputs()
     {
-        DutSerialInput = _session.DutSerial;
-        DutPartInput = _session.DutPartNumber ?? string.Empty;
-        DutRevisionInput = _session.DutRevision ?? string.Empty;
+        DutSerialInput = Session.DutSerial;
+        DutPartInput = Session.DutPartNumber ?? string.Empty;
+        DutRevisionInput = Session.DutRevision ?? string.Empty;
     }
 
     private static bool ChangedKnownIdentity(string? confirmed, string input)
@@ -177,7 +177,7 @@ public partial class OperatorSessionPanelViewModel
         // A full reconfirmation form can be reopened by reference/policy changes.
         // Editing a known DUT or technician crosses the same boundary as Change Session.
         // Completing previously unknown metadata with the same identity does not.
-        _session.ChangeSession();
+        Session.ChangeSession();
         _requiresFullConfirmation = false;
         PendingConfirmEveryRun = false;
         ClearFieldErrors();

@@ -245,7 +245,7 @@ public sealed class RunFlowE2ETests
         results.SelectedRun = results.Runs[0];
         await results.OpenCommand.ExecuteAsync();
         Assert.NotNull(results.OpenedRun);
-        Assert.Equal(RunResult.Passed, results.OpenedRun!.Result);
+        Assert.Equal(RunResult.Passed, results.OpenedRun.Result);
         Assert.Equal("E2E-SN-2", results.OpenedRun.DutSerial);
         Assert.True(results.ShowDetail);
     }
@@ -280,7 +280,7 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public async Task SetLimits_does_not_drop_the_next_live_sample()
     {
-        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        var plot = new Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0], [1.0], 1, followLive: true, force: true);
         Assert.Equal(1, plot.LastRenderedPointCount);
 
@@ -295,7 +295,7 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public void SetCursor_snaps_and_clear_drops_the_line()
     {
-        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        var plot = new Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
         Dispatcher.UIThread.RunJobs();
 
@@ -323,7 +323,7 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public void SetCursor_null_does_not_resume_follow_live_when_no_line_is_placed()
     {
-        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        var plot = new Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
         Dispatcher.UIThread.RunJobs();
         plot.SetFollowLive(false);
@@ -343,7 +343,7 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public void SetCursor_resumes_follow_live_when_the_series_empties()
     {
-        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        var plot = new Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0, 1], [1.0, 2.0], 2, followLive: true, force: true);
         Dispatcher.UIThread.RunJobs();
         plot.SetCursor(0.1, announce: false);
@@ -360,7 +360,7 @@ public sealed class RunFlowE2ETests
     [AvaloniaFact]
     public void SetCursor_resnaps_when_the_window_drops_the_point()
     {
-        var plot = new HardwareTest.Widgets.MeasurementPlot.MeasurementPlotView();
+        var plot = new Widgets.MeasurementPlot.MeasurementPlotView();
         plot.UpdateTimeSeries([0.0, 40.0], [1.0, 1.5], 2, followLive: true, force: true);
         Dispatcher.UIThread.RunJobs();
         plot.SetCursor(0.0, announce: false);

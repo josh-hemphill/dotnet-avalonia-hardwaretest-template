@@ -27,7 +27,7 @@ public sealed class OfflineDeliveryJourneyTests
     {
         var root = Path.GetFullPath(Environment.GetEnvironmentVariable("HT_OFFLINE_BENCH_JOURNEY")!);
         Assert.False(Directory.Exists(root), "Use a fresh evidence directory so prior artifacts cannot satisfy this journey.");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var repository = Repository();
         var configuration = Path.GetRelativePath(Path.Combine(repository, "tests", "HardwareTest.E2E.Tests", "bin"), AppContext.BaseDirectory).Split(Path.DirectorySeparatorChar)[0];
         var rid = System.Runtime.InteropServices.RuntimeInformation.RuntimeIdentifier;
@@ -40,29 +40,29 @@ public sealed class OfflineDeliveryJourneyTests
         Assert.False(File.Exists(Path.Combine(baseline, "OfflineBench.DeliveryFixture.dll")));
         Assert.False(File.Exists(Path.Combine(baseline, "OfflineBench.ValueFixture.dll")));
         var originalRuntime = Snapshot(baseline);
-        var priorData = Path.Combine(root, "original-station-data"); Directory.CreateDirectory(priorData);
+        var priorData = Path.Combine(root, "original-station-data"); _ = Directory.CreateDirectory(priorData);
         File.WriteAllText(Path.Combine(priorData, "credentials.json"), "Original station credential sentinel — must never be copied.");
-        Directory.CreateDirectory(Path.Combine(priorData, "bench-references"));
+        _ = Directory.CreateDirectory(Path.Combine(priorData, "bench-references"));
         File.WriteAllText(Path.Combine(priorData, "bench-references", "golden.json"), "Original qualification sentinel.");
         var originalData = Snapshot(priorData);
 
-        var workspaceRoot = Path.Combine(root, "authoring"); Directory.CreateDirectory(workspaceRoot);
+        var workspaceRoot = Path.Combine(root, "authoring"); _ = Directory.CreateDirectory(workspaceRoot);
         var manifest = JsonSerializer.Deserialize(File.ReadAllText(Path.Combine(repository, "plans", "opentap", "authoring.json")),
             AuthoringJsonContext.Default.AuthoringManifest)!;
         manifest.Dependencies.Add(new() { Package = "Offline Delivery Fixture", Version = "^1.0.0" });
         var bootstrapManifest = JsonSerializer.Deserialize(JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest),
             AuthoringJsonContext.Default.AuthoringManifest)!;
-        bootstrapManifest.Dependencies.RemoveAll(dependency => dependency.Package == "Offline Delivery Fixture");
+        _ = bootstrapManifest.Dependencies.RemoveAll(dependency => dependency.Package == "Offline Delivery Fixture");
         File.WriteAllText(Path.Combine(workspaceRoot, "authoring.json"), JsonSerializer.Serialize(bootstrapManifest, AuthoringJsonContext.Default.AuthoringManifest));
         var authoringExe = Path.Combine(repository, "src", "HardwareTest.Authoring", "bin", configuration, "net10.0", rid,
             OperatingSystem.IsWindows() ? "HardwareTest.Authoring.exe" : "HardwareTest.Authoring");
         var home = new OpenTapHome(Path.Combine(workspaceRoot, ".authoring", "opentap"));
-        var bootstrap = await Command(authoringExe, ["--bootstrap", workspaceRoot, "--offline", "--opentap-home", home.Root],
+        var (Exit, Output) = await Command(authoringExe, ["--bootstrap", workspaceRoot, "--offline", "--opentap-home", home.Root],
             Path.Combine(root, "authoring-workstation-config"));
-        File.WriteAllText(Path.Combine(root, "authoring-preparation.log"), bootstrap.Output);
-        Assert.True(bootstrap.Exit == 0, bootstrap.Output);
+        File.WriteAllText(Path.Combine(root, "authoring-preparation.log"), Output);
+        Assert.True(Exit == 0, Output);
         File.WriteAllText(Path.Combine(workspaceRoot, "authoring.json"), JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
-        var archiveFolder = Path.Combine(workspaceRoot, "manual-archives"); Directory.CreateDirectory(archiveFolder);
+        var archiveFolder = Path.Combine(workspaceRoot, "manual-archives"); _ = Directory.CreateDirectory(archiveFolder);
         Archive(archiveFolder, "Offline Delivery Fixture", typeof(OfflineProofStep).Assembly.Location,
             [("Offline Delivery Dependency", "^1.0.0"), ("OpenTAP", "^9.32.2")]);
         Archive(archiveFolder, "Offline Delivery Dependency", typeof(OfflineValue).Assembly.Location, []);
@@ -164,7 +164,7 @@ public sealed class OfflineDeliveryJourneyTests
             new XElement("Dependencies", dependencies.Select(value => new XElement("PackageDependency", new XAttribute("Package", value.Name), new XAttribute("Version", value.Range)))),
             new XElement("Files", new XElement("File", new XAttribute("Path", Path.GetFileName(assembly)))));
         using (var writer = new StreamWriter(archive.CreateEntry($"Packages/{package}/package.xml").Open())) writer.Write(metadata);
-        archive.CreateEntryFromFile(assembly, Path.GetFileName(assembly));
+        _ = archive.CreateEntryFromFile(assembly, Path.GetFileName(assembly));
     }
 
     private static Dictionary<string, string> Snapshot(string root) => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
@@ -176,10 +176,10 @@ public sealed class OfflineDeliveryJourneyTests
     }
     private static void Copy(string source, string destination)
     {
-        Directory.CreateDirectory(destination);
+        _ = Directory.CreateDirectory(destination);
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
-            var target = Path.Combine(destination, Path.GetRelativePath(source, file)); Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
+            var target = Path.Combine(destination, Path.GetRelativePath(source, file)); _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
         }
     }
     private static async Task<(int Exit, string Output)> Command(string executable, string[] arguments, string originalData)

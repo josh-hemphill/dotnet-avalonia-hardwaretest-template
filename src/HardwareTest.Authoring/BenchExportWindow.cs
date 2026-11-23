@@ -88,7 +88,7 @@ public sealed partial class BenchExportWindow : Window
         Opened += (_, _) => _destination.Focus();
         Closed += (_, _) =>
         {
-            Interlocked.Exchange(ref _closed, 1); _cancellation.Cancel();
+            _ = Interlocked.Exchange(ref _closed, 1); _cancellation.Cancel();
             if (!_busy) _cancellation.Dispose();
         };
     }
@@ -109,7 +109,7 @@ public sealed partial class BenchExportWindow : Window
             if (Current() && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) _destination.Text = path;
         }
         catch (Exception error) { if (Current()) ShowPreparationError(error.Message); }
-        finally { if (Current()) _destination.Focus(); }
+        finally { if (Current()) _ = _destination.Focus(); }
     }
 
     private async Task PrepareAsync()
@@ -128,7 +128,7 @@ public sealed partial class BenchExportWindow : Window
         if (_viewModel.HasUnsavedChanges || _viewModel.OperationBusy || _viewModel.OperationCleanupPending)
         { _status.Text = "Save and compile the selected revision, then finish the active operation before preparing bench files."; return; }
         if (string.IsNullOrWhiteSpace(_destination.Text))
-        { _status.Text = "Choose a destination folder."; _destination.Focus(); return; }
+        { _status.Text = "Choose a destination folder."; _ = _destination.Focus(); return; }
         var destination = _destination.Text;
         var offline = _includePackages.IsChecked == true;
         var options = CaptureOfflineOptions();

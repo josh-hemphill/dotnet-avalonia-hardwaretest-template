@@ -15,7 +15,7 @@ public sealed class AuthoringLifecycleTests
     {
         using var fixture = Loaded();
         var original = fixture.ViewModel.SelectedProgram;
-        PendingChannel(fixture, "pending-open-edit");
+        _ = PendingChannel(fixture, "pending-open-edit");
         Assert.False(fixture.ViewModel.HasUnsavedChanges);
         Assert.False(await fixture.Window!.OpenWorkspaceAsync(fixture.WorkspaceRoot));
         Assert.Equal(1, fixture.Interaction.Calls);
@@ -79,7 +79,7 @@ public sealed class AuthoringLifecycleTests
     public async Task Completed_close_choice_posts_one_close_after_initial_event(UnsavedChangesChoice choice)
     {
         using var fixture = Loaded();
-        PendingChannel(fixture, "pending-close-edit");
+        _ = PendingChannel(fixture, "pending-close-edit");
         fixture.Interaction.Choice = choice;
         var closed = 0;
         fixture.Window!.Closed += (_, _) => closed++;
@@ -115,7 +115,7 @@ public sealed class AuthoringLifecycleTests
         var vm = fixture.ViewModel;
         if (origin != "compiled")
         {
-            vm.InitializePlan(new("first-compiled") { Instruments = [] });
+            _ = vm.InitializePlan(new("first-compiled") { Instruments = [] });
             if (origin == "source-only")
             {
                 var document = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
@@ -177,7 +177,7 @@ public sealed class AuthoringLifecycleTests
             {
                 using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    entered.TrySetResult();
+                    _ = entered.TrySetResult();
                     if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Fixture writer was not released.");
                 }
                 new AuthoringDocumentStore(fixture.WorkspaceRoot).SaveAtPath(path, document);
@@ -389,7 +389,7 @@ public sealed class AuthoringLifecycleTests
     public void Folder_open_button_uses_picker_and_commits_pending_edit_before_cancel_prompt()
     {
         using var fixture = Loaded();
-        PendingChannel(fixture, "folder-button-edit");
+        _ = PendingChannel(fixture, "folder-button-edit");
         fixture.Picker.Path = fixture.WorkspaceRoot;
         AuthoringUiFixture.Click(fixture.Control<Button>("Open workspace"));
         Assert.Equal(1, fixture.Interaction.Calls);
@@ -402,7 +402,7 @@ public sealed class AuthoringLifecycleTests
     public void Save_all_commits_pending_plan_edit_and_keeps_actual_sequence_selection()
     {
         using var fixture = Loaded();
-        PendingChannel(fixture, "save-all-channel");
+        _ = PendingChannel(fixture, "save-all-channel");
         var vm = fixture.ViewModel;
         var sequenceIndex = vm.SelectedSequenceIndex;
         var programRow = vm.SelectedProgramRow;
@@ -448,7 +448,7 @@ public sealed class AuthoringLifecycleTests
     private static AuthoringUiFixture Loaded(IPlanCompiler? compiler = null, bool realInteraction = false)
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true, compiler);
-        fixture.Show(realInteraction: realInteraction);
+        _ = fixture.Show(realInteraction: realInteraction);
         fixture.OpenRememberedWorkspace();
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7;
         AuthoringUiFixture.Drain();

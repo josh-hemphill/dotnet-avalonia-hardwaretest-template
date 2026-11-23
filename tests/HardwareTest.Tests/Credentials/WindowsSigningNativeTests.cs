@@ -32,7 +32,7 @@ public sealed class WindowsSigningNativeTests
     public void Provider_reference_released_even_when_implementation_query_fails()
     {
         var calls = new Calls { ImplementationFailure = true }; var native = new WindowsSigningNative(calls);
-        Assert.Throws<WindowsSigningNativeException>(() => native.IsHardware(new(10, uint.MaxValue, true)));
+        _ = Assert.Throws<WindowsSigningNativeException>(() => native.IsHardware(new(10, uint.MaxValue, true)));
         Assert.Equal(new nint[] { 20 }, calls.CngFreed);
     }
     [Theory]
@@ -59,7 +59,7 @@ public sealed class WindowsSigningNativeTests
     public void CSP_hash_destroyed_on_sign_failure()
     {
         var calls = new Calls { SignFailure = true }; var native = new WindowsSigningNative(calls);
-        Assert.Throws<WindowsSigningNativeException>(() => native.SignHash(new(10, 2, true), new byte[32], true, 256)); Assert.Equal(1, calls.HashDestroyed);
+        _ = Assert.Throws<WindowsSigningNativeException>(() => native.SignHash(new(10, 2, true), new byte[32], true, 256)); Assert.Equal(1, calls.HashDestroyed);
     }
     [Fact]
     public void CSP_cleanup_failure_cannot_replace_wrong_PIN_failure()
@@ -101,7 +101,7 @@ public sealed class WindowsSigningNativeTests
     public void Native_signature_written_size_must_match_certificate_width(bool cng)
     {
         var calls = new Calls { ShortWrite = true }; var native = new WindowsSigningNative(calls);
-        Assert.Throws<WindowsSigningNativeException>(() => native.SignHash(new(10, cng ? uint.MaxValue : 2, true), new byte[32], true, 256));
+        _ = Assert.Throws<WindowsSigningNativeException>(() => native.SignHash(new(10, cng ? uint.MaxValue : 2, true), new byte[32], true, 256));
     }
     private sealed class Calls : IWindowsSigningInterop
     {

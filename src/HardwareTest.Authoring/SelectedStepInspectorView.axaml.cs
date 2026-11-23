@@ -41,7 +41,7 @@ public partial class SelectedStepInspectorView : UserControl
 
     private void ArrangeDensity()
     {
-        var compact = Bounds.Height > 0 && Bounds.Height < 300;
+        var compact = Bounds.Height is > 0 and < 300;
         InspectorBody.Spacing = compact ? 10 : 16;
         InspectorBreadcrumbText.IsVisible = !compact;
     }
@@ -79,14 +79,14 @@ public partial class SelectedStepInspectorView : UserControl
     {
         StopObservingRecipeSelection();
         _recipeOwner = Vm;
-        if (_recipeOwner is not null) _recipeOwner.PropertyChanged += OnRecipePropertyChanged;
+        _recipeOwner?.PropertyChanged += OnRecipePropertyChanged;
         QueueRecipeSelection();
         QueueReferenceSelection();
     }
 
     private void StopObservingRecipeSelection()
     {
-        if (_recipeOwner is not null) _recipeOwner.PropertyChanged -= OnRecipePropertyChanged;
+        _recipeOwner?.PropertyChanged -= OnRecipePropertyChanged;
         _recipeOwner = null;
     }
 
@@ -152,7 +152,7 @@ public partial class SelectedStepInspectorView : UserControl
     private void OnRemoveSequence(object? sender, RoutedEventArgs e)
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OnRemoveSequence(sender, e);
 
-    public bool FocusFinding(HardwareTest.OpenTap.Host.PlanContractTarget target)
+    public bool FocusFinding(OpenTap.Host.PlanContractTarget target)
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm || vm.SelectedProgram?.PlanId != target.ProgramId
             || vm.SelectedSequence?.NodeId != target.NodeId)
@@ -234,7 +234,7 @@ public partial class SelectedStepInspectorView : UserControl
     private void OnAddReferenceCriterion(object? sender, RoutedEventArgs e) => Vm?.AddReferenceCriterion();
     private void OnRemoveReferenceCriterion(object? sender, RoutedEventArgs e) => Vm?.RemoveSelectedReferenceCriterion();
     private void OnMoveToSection(object? sender, RoutedEventArgs e) => Vm?.MoveSelectedToSection();
-    internal void FocusName() { IdentityExpander.IsExpanded = true; StepNameBox.BringIntoView(); StepNameBox.Focus(); }
+    internal void FocusName() { IdentityExpander.IsExpanded = true; StepNameBox.BringIntoView(); _ = StepNameBox.Focus(); }
     private void OnFocusName(object? sender, RoutedEventArgs e)
         => Avalonia.Threading.Dispatcher.UIThread.Post(FocusName);
     internal void FocusPrimaryEditor()
@@ -243,13 +243,13 @@ public partial class SelectedStepInspectorView : UserControl
         var field = ConfigureExpander.GetVisualDescendants().OfType<Control>().FirstOrDefault(control =>
             control.IsEffectivelyVisible && control.IsEffectivelyEnabled && control is TextBox or ComboBox or CheckBox or AutoCompleteBox);
         field?.BringIntoView();
-        field?.Focus();
+        _ = (field?.Focus());
     }
     internal void FocusSectionDestination()
     {
         InspectorActionsButton.Flyout!.ShowAt(InspectorActionsButton);
         SectionDestinationBox.BringIntoView();
-        SectionDestinationBox.Focus();
+        _ = SectionDestinationBox.Focus();
     }
 
     private void OnToggleCleanupSlot(object? sender, RoutedEventArgs e)
@@ -286,7 +286,7 @@ public partial class SelectedStepInspectorView : UserControl
     private void OnFormulaThreshold(object? sender, RoutedEventArgs e)
     {
         ConfigureExpander.IsExpanded = true;
-        ThresholdBox.Focus();
+        _ = ThresholdBox.Focus();
         ThresholdBox.BringIntoView();
     }
 

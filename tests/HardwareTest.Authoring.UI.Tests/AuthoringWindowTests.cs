@@ -58,7 +58,7 @@ public sealed class AuthoringWindowTests
     public void Populated_unit_and_function_choices_keep_selection_identity_through_editor_refresh()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var viewModel = fixture.ViewModel;
         var acquire = Assert.Single(viewModel.SequenceItems, row => row.Label == "Acquire VDC");
@@ -134,7 +134,7 @@ public sealed class AuthoringWindowTests
         using var first = new AuthoringUiFixture(rememberWorkspace: true);
         using var second = new AuthoringUiFixture();
         var firstWindow = first.Show();
-        second.Show();
+        _ = second.Show();
         first.OpenRememberedWorkspace();
 
         AuthoringUiFixture.Click(first.Control<Button>("Open settings"));
@@ -190,7 +190,7 @@ public sealed class AuthoringWindowTests
         Assert.True(control.IsEffectivelyVisible);
         Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
         var origin = control.TranslatePoint(default, window);
-        Assert.NotNull(origin);
+        _ = Assert.NotNull(origin);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(origin.Value, control.Bounds.Size)),
             $"{control.GetType().Name} at {origin} ({control.Bounds.Size}) must fit inside {window.ClientSize}.");
     }

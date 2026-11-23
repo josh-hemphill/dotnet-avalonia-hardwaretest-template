@@ -36,7 +36,7 @@ public sealed class AuthoringPublicationOwnership : IDisposable
         {
             if (acquired) mutex.ReleaseMutex();
             mutex.Dispose();
-            Owned.TryRemove(name, out _);
+            _ = Owned.TryRemove(name, out _);
             throw;
         }
     }
@@ -46,7 +46,7 @@ public sealed class AuthoringPublicationOwnership : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        Owned.TryRemove(_name, out _);
+        _ = Owned.TryRemove(_name, out _);
         _mutex.ReleaseMutex();
         _mutex.Dispose();
         _disposed = true;

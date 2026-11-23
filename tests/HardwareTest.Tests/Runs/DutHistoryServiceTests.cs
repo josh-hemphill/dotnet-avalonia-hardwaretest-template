@@ -9,7 +9,7 @@ public sealed class DutHistoryServiceTests
     public async Task Analyze_flags_watch_when_channel_mean_shifts_over_5_percent()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-dut-hist-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -69,7 +69,7 @@ public sealed class DutHistoryServiceTests
     public async Task Analyze_returns_ok_when_within_threshold()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-dut-hist-ok-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -128,7 +128,7 @@ public sealed class DutHistoryServiceTests
     public async Task Analyze_uses_per_metric_alert_threshold_from_sample()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-dut-hist-thr-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -181,7 +181,7 @@ public sealed class DutHistoryServiceTests
     public async Task Analyze_skips_metric_when_history_disabled_or_unknown(bool? enabled)
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-dut-hist-off-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);

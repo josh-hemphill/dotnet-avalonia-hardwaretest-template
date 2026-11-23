@@ -21,7 +21,7 @@ public sealed class LibraryColdWrapperTests
     {
         var package = PublishedLibraryFixture.PackageRoot;
         var root = Path.Combine(Path.GetTempPath(), "ht-library-wrapper-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var home = new OpenTapHome(Path.Combine(root, "actual-home"));
@@ -30,7 +30,7 @@ public sealed class LibraryColdWrapperTests
                 Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }],
                 InstrumentComponentsPackage = package
             }, []);
-            new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+            _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
             var supply = AuthoringInstrumentCatalog.Discover(home).Single(adapter => adapter.DisplayName == "DC Power Supply");
             var binding = new InstrumentRef("Supply", supply.TypeId, "TCPIP0::192.0.2.8::inst0::INSTR");
             var draft = new AuthoringPlanInitializer().Construct(new("wrapped")
@@ -40,7 +40,7 @@ public sealed class LibraryColdWrapperTests
             var xml = XDocument.Load(path);
             var lifecycle = xml.Descendants().Where(element => element.Name.LocalName == "TestStep"
                 && ((string?)element.Attribute("type"))?.Contains("InstrumentComponents.OpenTap.", StringComparison.Ordinal) == true).ToArray();
-            Assert.Single(lifecycle);
+            _ = Assert.Single(lifecycle);
             var wrapperId = Guid.NewGuid();
             var wrapper = new XElement("TestStep", new XAttribute("type", typeof(TestGroupStep).FullName!), new XAttribute("Id", wrapperId),
                 new XElement("Name", "Preserved lifecycle wrapper"), new XElement("ChildTestSteps", lifecycle.Select(step => new XElement(step))));
@@ -55,7 +55,7 @@ public sealed class LibraryColdWrapperTests
             // Preserve the original setup or cleanup position; only add the opaque wrapper.
             lifecycle[0].ReplaceWith(outer); xml.Save(path);
             var original = File.ReadAllBytes(path);
-            var coldPath = Path.Combine(root, "cold", "wrapped.authoring.json"); Directory.CreateDirectory(Path.GetDirectoryName(coldPath)!);
+            var coldPath = Path.Combine(root, "cold", "wrapped.authoring.json"); _ = Directory.CreateDirectory(Path.GetDirectoryName(coldPath)!);
             var start = new ProcessStartInfo("dotnet") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
             start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll"));
             start.ArgumentList.Add("--cold-library-import"); start.ArgumentList.Add(path); start.ArgumentList.Add(coldPath);

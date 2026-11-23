@@ -22,7 +22,11 @@ public partial class MainWindow
             _guidanceObservedSources.Clear();
         }
         // Read only published package values; pending notifications alone do not invalidate guidance.
-        static string Values(IEnumerable<string> values) => string.Concat(values.Select(value => $"{value.Length}:{value}"));
+        static string Values(IEnumerable<string> values)
+        {
+            return string.Concat(values.Select(value => $"{value.Length}:{value}"));
+        }
+
         if (!_viewModel.EnvironmentInspectionPending)
         {
             _guidanceEnvironmentIdentity = Values(_viewModel.EnvironmentPackages.SelectMany(package => new[]
@@ -36,7 +40,7 @@ public partial class MainWindow
             _guidanceEnvironmentIdentity, _guidanceObservedSources.Contains(_viewModel.SelectedProgram?.PlanId ?? "") ? null : _viewModel.SelectedFirstAuthoringSaveBaseline);
     }
 
-    private Func<Action, Task> _runGuidanceAssessment = action => Task.Run(action);
+    private readonly Func<Action, Task> _runGuidanceAssessment = Task.Run;
 
     private sealed record GuidanceAssessmentRequest(AuthoringDocumentSnapshot Snapshot, string? SavedPlanIdentity,
         string? SavedSidecarIdentity, string Root, string[] PlanPaths, string[] Packages, string HomeOverride, bool Dirty, AuthoringFirstSaveBaseline? FirstSave);
@@ -79,7 +83,7 @@ public partial class MainWindow
                 var revision = document.Revision;
                 // Snapshot is already isolated and immutable. No validation, cloning, or I/O runs on this thread.
                 var request = new GuidanceAssessmentRequest(document.Snapshot, document.SavedPlanIdentity, document.SavedSidecarIdentity,
-                    workspace.Root, workspace.TapPlanPaths.ToArray(), workspace.Manifest.Dependencies.Select(item => item.Package).ToArray(),
+                    workspace.Root, [.. workspace.TapPlanPaths], [.. workspace.Manifest.Dependencies.Select(item => item.Package)],
                     _viewModel.OpenTapHomeOverride, document.IsDirty, identity?.FirstSave);
                 GuidanceAssessmentResult? result = null;
                 try { await _runGuidanceAssessment(() => result = AssessGuidance(request)); }
@@ -100,7 +104,7 @@ public partial class MainWindow
                     continue;
                 }
 
-                if (result!.SourceObserved) _guidanceObservedSources.Add(plan);
+                if (result!.SourceObserved) _ = _guidanceObservedSources.Add(plan);
                 ApplyGuidanceAssessment(result);
             }
         }

@@ -18,7 +18,7 @@ internal static class ExecutionLibraryHome
         if (!Directory.Exists(root)) return root;
         var visited = 0;
         var active = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        active.Add(root);
+        _ = active.Add(root);
         foreach (var entry in Directory.EnumerateFileSystemEntries(root))
         {
             if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
@@ -65,7 +65,7 @@ internal static class ExecutionLibraryHome
                     if (Directory.Exists(entry)) Scan(entry, depth + 1);
                 }
             }
-            finally { active.Remove(resolved); }
+            finally { _ = active.Remove(resolved); }
         }
     }
 
@@ -148,7 +148,7 @@ internal static class ExecutionLibraryHome
                     // Resolve ancestors before '..', matching filesystem lookup rather than lexical normalization.
                     current = Resolve(Path.IsPathFullyQualified(target) ? target : Path.Combine(Path.GetDirectoryName(link)!, target));
                 }
-                finally { activeLinks.Remove(link); }
+                finally { _ = activeLinks.Remove(link); }
             }
             return Path.GetFullPath(current);
         }

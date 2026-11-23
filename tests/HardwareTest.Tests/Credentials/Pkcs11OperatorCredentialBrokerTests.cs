@@ -147,11 +147,11 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
             var signing = SignAsync(broker, pdf, CapturedBadge(), "123456", cts.Token);
             Assert.False(signing.IsCompleted);
             cts.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => signing);
+            _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => signing);
         }
         finally
         {
-            presence.Release.TrySetResult();
+            _ = presence.Release.TrySetResult();
             Assert.True((await capture).Succeeded);
         }
     }
@@ -164,7 +164,7 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => SignAsync(CreateBroker(), pdf, CapturedBadge(), cancellationToken: cts.Token));
     }
 
@@ -224,7 +224,7 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
             CancellationToken cancellationToken = default)
         {
             _ = timeout;
-            Entered.TrySetResult();
+            _ = Entered.TrySetResult();
             await Release.Task.WaitAsync(cancellationToken);
             return new CredentialCaptureResult { Credential = CapturedBadge() };
         }

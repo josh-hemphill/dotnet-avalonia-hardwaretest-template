@@ -51,10 +51,10 @@ public static class OfflineBenchInstaller
         };
         try
         {
-            Directory.CreateDirectory(appParent); Directory.CreateDirectory(dataParent);
+            _ = Directory.CreateDirectory(appParent); _ = Directory.CreateDirectory(dataParent);
             OfflineBenchPaths.RejectLinks(appParent); OfflineBenchPaths.RejectLinks(dataParent);
             if (Exists(appStage) || Exists(dataStage)) throw new IOException("Offline staging identity already exists.");
-            Directory.CreateDirectory(appStage); Directory.CreateDirectory(dataStage);
+            _ = Directory.CreateDirectory(appStage); _ = Directory.CreateDirectory(dataStage);
             var installationPath = OfflineBenchPaths.Under(appStage, OfflineBenchStartup.InstallationFileName);
             File.WriteAllBytes(installationPath, JsonSerializer.SerializeToUtf8Bytes(installation, OfflineBenchJsonContext.Default.OfflineBenchInstallation));
             var installed = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
@@ -68,7 +68,7 @@ public static class OfflineBenchInstaller
                     return; // Identical declared bytes do not overwrite existing payload.
                 }
                 if (File.Exists(target)) throw new InvalidDataException("Offline package attempts to replace installation ownership.");
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None)) output.Write(bytes);
                 installed.Add(path, bytes);
             }
@@ -104,8 +104,8 @@ public static class OfflineBenchInstaller
                 Put(programDirectory + name, snapshot.Files[programDirectory + name]);
             installation = installation with
             {
-                RuntimeFiles = installed.OrderBy(file => file.Key, StringComparer.Ordinal).Select(file => new OfflineBenchFile
-                { Path = file.Key, Length = file.Value.LongLength, Sha256 = OfflineBenchPaths.HashBytes(file.Value) }).ToList(),
+                RuntimeFiles = [.. installed.OrderBy(file => file.Key, StringComparer.Ordinal).Select(file => new OfflineBenchFile
+                { Path = file.Key, Length = file.Value.LongLength, Sha256 = OfflineBenchPaths.HashBytes(file.Value) })],
             };
             File.WriteAllBytes(OfflineBenchPaths.Under(appStage, OfflineBenchStartup.LockFileName), snapshot.ManifestBytes);
             var installationBytes = JsonSerializer.SerializeToUtf8Bytes(installation, OfflineBenchJsonContext.Default.OfflineBenchInstallation);

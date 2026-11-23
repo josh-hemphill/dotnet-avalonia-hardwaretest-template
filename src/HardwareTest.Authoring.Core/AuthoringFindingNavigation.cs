@@ -9,14 +9,18 @@ internal static class AuthoringFindingNavigation
 
     internal static Destination Resolve(ProgramDraft draft, Guid? nodeId, PlanContractTarget? target)
     {
-        Destination Fallback(string reason) => new(new(ProgramId: draft.PlanId, Section: "ProgramSettings"),
+        Destination Fallback(string reason)
+        {
+            return new(new(ProgramId: draft.PlanId, Section: "ProgramSettings"),
             "Open program settings", reason);
+        }
+
         if (nodeId is not { } id || target is null)
             return Fallback("No verified source field is available; opens program settings.");
         var matches = AuthoringSequence.Flatten(draft).Where(row => row.NodeId == id).ToArray();
         if (matches.Length != 1)
             return Fallback("The source node is unavailable or ambiguous; opens program settings.");
-        if (target.Section is not null && target.Section is not ("Configure" or "Advanced" or "OperatorDisplay"))
+        if (target.Section is not null and not ("Configure" or "Advanced" or "OperatorDisplay"))
             return Fallback("The structured section has no supported editor destination; opens program settings.");
         if (target.Field is null)
         {
@@ -54,12 +58,12 @@ internal static class AuthoringFindingNavigation
         {
             MeasureSource measure => (measure.FunctionId, measure.Settings, false),
             AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.Settings, true),
-            _ => (string.Empty, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(), false)
+            _ => (string.Empty, new Dictionary<string, string>(), false)
         };
         if (!AuthoringFunctionCatalog.TryGet(id, out var function) || function.IsAlgorithm != isAlgorithm
             || AuthoringCriteria.IsRuntimeLimit(field) || field.Equals("Channel", StringComparison.OrdinalIgnoreCase)
-            || AuthoringFunctionCatalog.ConsumesInputChannels(id)
-                && new[] { "InputChannel", "ProducerStepId", "Unit" }.Contains(field, StringComparer.OrdinalIgnoreCase))
+            || (AuthoringFunctionCatalog.ConsumesInputChannels(id)
+                && new[] { "InputChannel", "ProducerStepId", "Unit" }.Contains(field, StringComparer.OrdinalIgnoreCase)))
         {
             return false;
         }
@@ -68,7 +72,7 @@ internal static class AuthoringFindingNavigation
         var projected = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase);
         try
         {
-            foreach (var (key, value) in PlanCompiler.FunctionSettings(id)) projected.TryAdd(key, value);
+            foreach (var (key, value) in PlanCompiler.FunctionSettings(id)) _ = projected.TryAdd(key, value);
         }
         catch (AuthoringWorkspaceException)
         {

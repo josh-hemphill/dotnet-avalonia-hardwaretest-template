@@ -19,8 +19,8 @@ public static class ChannelAverageEvaluator
         }
 
         // Scale before summing so finite samples near double.MaxValue do not overflow.
-        var scale = samples.Max(value => Math.Abs(value));
-        var average = scale == 0 ? 0 : samples.Select(value => value / scale).Average() * scale;
+        var scale = samples.Max(Math.Abs);
+        var average = scale == 0 ? 0 : samples.Average(value => value / scale) * scale;
         if (!double.IsFinite(average))
         {
             throw new InvalidOperationException("CHANNEL_AVERAGE: average must be finite.");

@@ -27,7 +27,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
 {
     private readonly IOpenTapPlanSession _plan;
     private readonly IOpenTapRunSession _runSession;
-    private readonly OperatorSession _session;
     private readonly IRunControl _runControl;
     private readonly AppSettings _settings;
     private readonly ThrottledOpenTapProgress _progress;
@@ -61,7 +60,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     {
         _plan = plan;
         _runSession = runSession;
-        _session = session;
+        Session = session;
         _runControl = runControl;
         _settings = settings;
         _storageHealth = storageHealth;
@@ -69,10 +68,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
         _clock = clock ?? SystemClock.Instance;
         _stationHealthGate = stationHealthGate;
         _visaModeController = visaModeController;
-        if (_visaModeController is not null)
-        {
-            _visaModeController.ModeApplied += (_, _) => UiDispatch.Post(RefreshVisaMode, UiScheduler);
-        }
+        _visaModeController?.ModeApplied += (_, _) => UiDispatch.Post(RefreshVisaMode, UiScheduler);
         _progress = new ThrottledOpenTapProgress(IngestProgress);
         BindLiveSettings(settingsStore, settings);
 
@@ -144,7 +140,7 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
     public RunExecutionViewModel Run { get; private set; } = null!;
     public RunWorkspaceViewModel Workspace { get; private set; } = null!;
 
-    public OperatorSession Session => _session;
+    public OperatorSession Session { get; }
 
     /// True when Stop Run can abort a run or cancel an in-panel operator prompt.
     public bool CanSafetyStop => IsRunning || Interaction.IsAwaitingOperator || _runSession.IsAwaitingOperator;
@@ -437,18 +433,9 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(IterationText))
-        {
-            HeroStatusLine = Status;
-        }
-        else if (string.IsNullOrWhiteSpace(Status))
-        {
-            HeroStatusLine = $"iter {IterationText}";
-        }
-        else
-        {
-            HeroStatusLine = $"{Status} · iter {IterationText}";
-        }
+        HeroStatusLine = string.IsNullOrWhiteSpace(IterationText)
+            ? Status
+            : string.IsNullOrWhiteSpace(Status) ? $"iter {IterationText}" : $"{Status} · iter {IterationText}";
     }
 
     private void SyncHierarchyLive()

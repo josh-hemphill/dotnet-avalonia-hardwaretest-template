@@ -36,7 +36,7 @@ public sealed class SeriesComplianceHostTests
         {
             Assert.Equal(3.2, s.LimitLow);
             Assert.Equal(3.5, s.LimitHigh);
-            Assert.NotNull(s.ElapsedMs);
+            _ = Assert.NotNull(s.ElapsedMs);
         });
 
         Assert.Contains(summary.Samples, s =>
@@ -109,7 +109,7 @@ public sealed class SeriesComplianceHostTests
     public async Task PublishSeriesComplianceStep_fails_on_scripted_out_of_band()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-series-pub-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             OpenTapPluginSearch.SearchSerialized();
@@ -163,7 +163,7 @@ public sealed class SeriesComplianceHostTests
         int bitCount = 4)
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-bitsweep-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             OpenTapPluginSearch.SearchSerialized();

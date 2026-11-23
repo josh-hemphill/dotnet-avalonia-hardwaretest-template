@@ -97,7 +97,7 @@ public partial class StepDetailViewModel : ReactiveObject
         ShowDetails = true;
         DetailChipText = StatusChip.FromStatus(step.StatusText, step.Verdict);
         DetailPrimaryLine = !string.IsNullOrWhiteSpace(step.KeyValue)
-            ? step.KeyValue!
+            ? step.KeyValue
             : step.StatusText;
         DetailKeyValues.Clear();
         if (!string.IsNullOrWhiteSpace(step.KeyValue))
@@ -130,13 +130,9 @@ public partial class StepDetailViewModel : ReactiveObject
                     (string.IsNullOrWhiteSpace(attempt.OutcomeDetail) ? "" : " — " + attempt.OutcomeDetail));
             }
         }
-        else if (!string.IsNullOrWhiteSpace(step.AttemptsText))
-        {
-            AttemptSummaryChip = step.AttemptsText;
-        }
         else
         {
-            AttemptSummaryChip = string.Empty;
+            AttemptSummaryChip = !string.IsNullOrWhiteSpace(step.AttemptsText) ? step.AttemptsText : string.Empty;
         }
 
         ConditionSummary = conditionSummary ?? string.Empty;
@@ -147,7 +143,7 @@ public partial class StepDetailViewModel : ReactiveObject
     {
         DetailChipText = StatusChip.FromStatus(step.StatusText, step.Verdict);
         DetailPrimaryLine = !string.IsNullOrWhiteSpace(step.KeyValue)
-            ? step.KeyValue!
+            ? step.KeyValue
             : step.StatusText;
     }
 

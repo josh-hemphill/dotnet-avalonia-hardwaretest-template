@@ -195,18 +195,11 @@ public partial class SettingsViewModel
                 return;
             }
 
-            if (visaRefused && visaApplyStatus is not null)
-            {
-                Status = visaApplyStatus;
-            }
-            else if (visaApplyStatus is not null)
-            {
-                Status = $"Saved at {FormatSavedAt()}. {visaApplyStatus}";
-            }
-            else
-            {
-                Status = $"Saved at {FormatSavedAt()}. Restart may be required for logging sink changes.";
-            }
+            Status = visaRefused && visaApplyStatus is not null
+                ? visaApplyStatus
+                : visaApplyStatus is not null
+                    ? $"Saved at {FormatSavedAt()}. {visaApplyStatus}"
+                    : $"Saved at {FormatSavedAt()}. Restart may be required for logging sink changes.";
         }, UiScheduler).ConfigureAwait(false);
     }
 

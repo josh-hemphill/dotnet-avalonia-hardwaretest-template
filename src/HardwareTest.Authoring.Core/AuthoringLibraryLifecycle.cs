@@ -46,9 +46,9 @@ internal static class AuthoringLibraryLifecycle
 
     public static ITestStep Create(Instrument resource, bool identity)
     {
-        if (resource is global::HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument registered)
+        if (resource is OpenTap.Plugins.Instruments.RegisteredInstrument registered)
         {
-            return new global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
+            return new OpenTap.Plugins.Instruments.DeviceOperationStep
             {
                 Instrument = registered,
                 Operation = identity ? "QueryIdentity" : "Shutdown",

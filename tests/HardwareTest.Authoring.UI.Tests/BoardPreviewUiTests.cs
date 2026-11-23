@@ -15,8 +15,12 @@ public sealed class BoardPreviewUiTests
     public async Task Selecting_same_channel_nodes_keeps_their_own_units_limits_and_board_tiles()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        MetricNode Publisher(string name, string unit, double low, double high) => new(new MetricDraft(name, "same", PresentationRoles.Timeseries, unit,
+        static MetricNode Publisher(string name, string unit, double low, double high)
+        {
+            return new(new MetricDraft(name, "same", PresentationRoles.Timeseries, unit,
             new LimitSpec(low, high, null), null, new MeasureSource("DMM", AuthoringFunctionIds.BasicAcquireVoltage, new Dictionary<string, string> { ["SampleCount"] = "3", ["IntervalMs"] = "5" })));
+        }
+
         var first = Publisher("first scope", "V", 0, 4);
         var second = Publisher("second scope", "mV", 100, 200);
         var draft = new ProgramDraft("scoped", new ProgramSidecar { DisplayName = "Scoped" },

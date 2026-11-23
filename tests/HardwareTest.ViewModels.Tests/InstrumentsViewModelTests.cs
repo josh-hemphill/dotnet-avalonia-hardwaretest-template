@@ -265,7 +265,7 @@ public sealed class InstrumentsViewModelTests
     public async Task Query_IDN_on_bound_slot_persists_sidecar_without_settings_schema()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-vm-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var idn = new FileStationIdnStore(dir);
@@ -300,7 +300,7 @@ public sealed class InstrumentsViewModelTests
     public async Task Rebinding_and_reopening_never_attach_a_previous_resources_identity_to_the_new_address()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-address-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FakeSettingsStore();
@@ -341,7 +341,7 @@ public sealed class InstrumentsViewModelTests
     public async Task Query_IDN_for_an_unapplied_resource_does_not_verify_an_unselected_slot()
     {
         var dir = Path.Combine(Path.GetTempPath(), "hwtest-idn-slot-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var idn = new FileStationIdnStore(dir);

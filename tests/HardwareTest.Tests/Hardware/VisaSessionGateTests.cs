@@ -68,7 +68,7 @@ public sealed class VisaSessionGateTests
         await Task.Delay(20);
         cts.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => gate.RunAsync(_ => Task.CompletedTask, cts.Token));
 
         release.SetResult();

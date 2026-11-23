@@ -38,21 +38,21 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     public async Task Genuine_installed_home_actual_wrapper_dispatch_registers_and_preserves_provider_and_exit_code()
     {
         var home = InstalledHome(minimal: true);
-        var result = await Run(home, StandaloneVisaPackage.WrapperFileName, "visa-boundary");
-        Assert.Equal(17, result.Code);
-        Assert.Contains("standalone-registered-before-dispatch-existing-provider-preserved", result.Output);
-        Assert.Contains("standalone-published-instrument-opened-with-explicit-driver-and-closed", result.Output);
+        var (Code, Output) = await Run(home, StandaloneVisaPackage.WrapperFileName, "visa-boundary");
+        Assert.Equal(17, Code);
+        Assert.Contains("standalone-registered-before-dispatch-existing-provider-preserved", Output);
+        Assert.Contains("standalone-published-instrument-opened-with-explicit-driver-and-closed", Output);
     }
 
     [Fact]
     public async Task Actual_published_interface_uses_broker_and_closes_failed_acquired_lease()
     {
         var home = InstalledHome();
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
-        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", result.Output);
-        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
+        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", Output);
+        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", Output);
     }
 
     [Fact]
@@ -60,29 +60,29 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         RemoveBaseFromFixture(home);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", "fallback");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
-        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", "fallback");
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
+        Assert.Contains("published-instrument-broker-measured-voltage-dc-1.25", Output);
     }
 
     [Fact]
     public async Task Cold_process_reuses_already_loaded_genuine_library_without_a_configured_selection()
     {
         var home = InstalledHome();
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--loaded");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("already-loaded-library-reused", result.Output);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--loaded");
+        Assert.Equal(0, Code);
+        Assert.Contains("already-loaded-library-reused", Output);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
     }
 
     [Fact]
     public async Task Externally_preloaded_library_with_same_mvid_replaced_origin_has_no_verified_provenance()
     {
         var home = InstalledHome();
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--external-same-mvid-update");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("unverified-preloaded-library-refused", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--external-same-mvid-update");
+        Assert.Equal(0, Code);
+        Assert.Contains("unverified-preloaded-library-refused", Output);
     }
 
     [Fact]
@@ -100,10 +100,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
                 .Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(SHA1.HashData(bytes));
         }
         document.Save(metadata);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--managed-custom-reuse");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("current-custom-owned-library-reused", result.Output);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--managed-custom-reuse");
+        Assert.Equal(0, Code);
+        Assert.Contains("current-custom-owned-library-reused", Output);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var outside = Path.Combine(_root, "outside-payload.txt");
         File.WriteAllText(outside, "external-library-payload");
         var linked = Path.Combine(home, "additional.txt");
-        File.CreateSymbolicLink(linked, outside);
+        _ = File.CreateSymbolicLink(linked, outside);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         var document = XDocument.Load(metadata);
         document.Root!.Elements().Single(element => element.Name.LocalName == "Files")
@@ -122,10 +122,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
                 new XElement("Hash", Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(outside))))));
         document.Save(metadata);
         var originalMetadata = File.ReadAllBytes(metadata);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("resolves outside its root", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.Contains("resolves outside its root", Output);
         Assert.Equal(outside, new FileInfo(linked).LinkTarget);
         Assert.Equal(originalMetadata, File.ReadAllBytes(metadata));
         Assert.Equal("external-library-payload", File.ReadAllText(outside));
@@ -142,15 +142,15 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         if (omitHashes)
             document.Descendants().Where(element => element.Name.LocalName == "Hash").Remove();
         var additional = Path.Combine(home, "Documentation", "library.txt");
-        Directory.CreateDirectory(Path.GetDirectoryName(additional)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(additional)!);
         File.WriteAllText(additional, "selected-library-documentation");
         document.Root!.Elements().Single(element => element.Name.LocalName == "Files")
             .Add(new XElement("File", new XAttribute("Path", "Documentation/library.txt"),
                 new XElement("Hash", Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(additional))))));
         document.Save(metadata);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
     }
 
     [Theory]
@@ -197,10 +197,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         document.Save(metadata);
         var before = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
         var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
@@ -212,9 +212,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         File.Copy(Path.Combine(AppContext.BaseDirectory, "RebuiltFixture", "InstrumentComponents.OpenTap.dll"), Path.Combine(home, "replacement.dll"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--loaded-unsupported");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("unsupported-loaded-library-refused", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--loaded-unsupported");
+        Assert.Equal(0, Code);
+        Assert.Contains("unsupported-loaded-library-refused", Output);
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         var custom = Path.Combine(_root, "custom");
-        Directory.CreateDirectory(custom);
+        _ = Directory.CreateDirectory(custom);
         foreach (var name in new[] { "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll", "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
             File.Copy(Path.Combine(AppContext.BaseDirectory, "BoundaryFixture", name), Path.Combine(custom, name));
         CopyTree(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName), Path.Combine(custom, "Packages", PublishedInstrumentComponents.PackageName));
@@ -231,9 +231,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         foreach (var declaration in document.Descendants().Where(element => element.Name.LocalName == "File"))
             declaration.Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(Path.Combine(custom, (string)declaration.Attribute("Path")!))));
         document.Save(customMetadata);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", custom, "--custom-mismatch", allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("differs from the loaded execution library", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", custom, "--custom-mismatch", allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("differs from the loaded execution library", Output);
     }
 
     [Fact]
@@ -241,9 +241,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         File.Copy(Path.Combine(AppContext.BaseDirectory, "RebuiltFixture", "InstrumentComponents.OpenTap.dll"), Path.Combine(home, "replacement.dll"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--selected-update");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-origin-replacement-refused", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--selected-update");
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-origin-replacement-refused", Output);
     }
 
     [Theory]
@@ -253,9 +253,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         File.Copy(Path.Combine(AppContext.BaseDirectory, "RebuiltFixture", "InstrumentComponents.OpenTap.dll"), Path.Combine(home, "replacement.dll"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, mode);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("unselected-loaded-origin-replacement-refused", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, mode);
+        Assert.Equal(0, Code);
+        Assert.Contains("unselected-loaded-origin-replacement-refused", Output);
     }
 
     [Theory]
@@ -271,10 +271,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
                 File.Copy(Path.Combine(home, file), Path.Combine(selected, file));
         }
 
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("requires an installed home root", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("requires an installed home root", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Theory]
@@ -289,10 +289,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
             File.Copy(Path.Combine(home, file), Path.Combine(package, file));
             if (!retainRootPayload) File.Delete(Path.Combine(home, file));
         }
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("cannot use obsolete package-directory library DLLs", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("cannot use obsolete package-directory library DLLs", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Fact]
@@ -300,14 +300,14 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         var alias = Path.Combine(home, "Packages", "Alias");
-        Directory.CreateDirectory(alias);
+        _ = Directory.CreateDirectory(alias);
         foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
             File.Move(Path.Combine(home, file), Path.Combine(alias, file));
         File.Delete(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("cannot use obsolete package-directory library DLLs", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("cannot use obsolete package-directory library DLLs", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Theory]
@@ -320,26 +320,26 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         if (OperatingSystem.IsWindows()) return; // Windows link creation requires an elevated test process.
         var home = InstalledHome();
         var outside = Path.Combine(_root, "outside-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(outside);
+        _ = Directory.CreateDirectory(outside);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         if (linked is "dll" or "metadata")
         {
             var path = linked == "dll" ? Path.Combine(home, "InstrumentComponents.OpenTap.dll") : metadata;
             var target = Path.Combine(outside, Path.GetFileName(path));
             File.Move(path, target);
-            File.CreateSymbolicLink(path, target);
+            _ = File.CreateSymbolicLink(path, target);
         }
         else
         {
             var path = linked == "packages" ? Path.Combine(home, "Packages") : Path.GetDirectoryName(metadata)!;
             var target = Path.Combine(outside, Path.GetFileName(path));
             Directory.Move(path, target);
-            Directory.CreateSymbolicLink(path, target);
+            _ = Directory.CreateSymbolicLink(path, target);
         }
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("resolves outside its root", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("resolves outside its root", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Theory]
@@ -358,12 +358,12 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
             File.Delete(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"));
         }
         var alias = Path.Combine(home, "Packages", aliasName);
-        Directory.CreateDirectory(alias);
+        _ = Directory.CreateDirectory(alias);
         File.WriteAllText(Path.Combine(alias, "package.xml"), "<Package Name=\" instrumentcomponents.opentap \" Version=\"0.3.0-alpha.1\"/>");
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("noncanonical or duplicate installed package identities", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("noncanonical or duplicate installed package identities", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Fact]
@@ -371,9 +371,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         File.Copy(Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), Path.Combine(home, "Package.XML"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("requires an installed home root", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("requires an installed home root", Output);
     }
 
     [Fact]
@@ -381,11 +381,11 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         if (OperatingSystem.IsWindows()) return;
         var home = InstalledHome();
-        Directory.CreateSymbolicLink(Path.Combine(home, "Packages", "Cycle"), Path.Combine(home, "Packages"));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("link cycle", result.Output);
-        Assert.DoesNotContain("managed-broker-bound-and-cleaned", result.Output);
+        _ = Directory.CreateSymbolicLink(Path.Combine(home, "Packages", "Cycle"), Path.Combine(home, "Packages"));
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("link cycle", Output);
+        Assert.DoesNotContain("managed-broker-bound-and-cleaned", Output);
     }
 
     [Fact]
@@ -394,10 +394,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         if (OperatingSystem.IsWindows()) return;
         var home = InstalledHome();
         var selected = Path.Combine(_root, "selected-link");
-        Directory.CreateSymbolicLink(selected, home);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        _ = Directory.CreateSymbolicLink(selected, home);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected);
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
     }
 
     [Theory]
@@ -407,9 +407,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = InstalledHome();
         RemoveBaseFromFixture(home);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", gate, "--metadata");
-        Assert.Equal(0, result.Code);
-        Assert.Contains("metadata-boundary-isolated", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", gate, "--metadata");
+        Assert.Equal(0, Code);
+        Assert.Contains("metadata-boundary-isolated", Output);
     }
 
     private static void RemoveBaseFromFixture(string home)
@@ -432,7 +432,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
                 if (dependency.Key.StartsWith("InstrumentComponents/", StringComparison.Ordinal)
                     || dependency.Key.StartsWith("InstrumentComponents.OpenTap/", StringComparison.Ordinal))
                 {
-                    dependency.Value!.AsObject().Remove("runtime");
+                    _ = dependency.Value!.AsObject().Remove("runtime");
                 }
             }
         }
@@ -520,9 +520,9 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
             .Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(SHA1.HashData(bytes));
         document.Save(metadata);
         Assert.False(StandaloneVisaReadiness.Assess(new(home)).Available);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
-        Assert.NotEqual(0, result.Code);
-        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, allowFailure: true);
+        Assert.NotEqual(0, Code);
+        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", Output);
     }
 
     [Theory]
@@ -569,7 +569,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         foreach (var entry in zip.Entries)
         {
             var path = Path.Combine(home, entry.FullName);
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             using var source = entry.Open();
             using var target = File.Create(path);
             source.CopyTo(target);
@@ -581,7 +581,7 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var path = Path.Combine(target, Path.GetRelativePath(source, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Copy(file, path);
         }
     }

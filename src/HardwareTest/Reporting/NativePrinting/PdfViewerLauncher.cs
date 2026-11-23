@@ -26,7 +26,7 @@ public sealed class PdfViewerLauncher(
         {
             var owner = await ownerHandle(cancellationToken).ConfigureAwait(false);
             if (owner == 0) throw new InvalidOperationException("No window is available for the PDF viewer chooser.");
-            await worker.RunAsync(() =>
+            _ = await worker.RunAsync(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 backend.ChooseApplication(owner, pdfPath);

@@ -16,7 +16,7 @@ public sealed class AuthoringChromeA11yTests
         Assert.Equal(new[] { "Sequence", "Instruments", "Issues", "Environment", "Build", "Preview", "Definitions", "Operator & reports", "Overview" },
             host.Elements().Where(element => element.Name.LocalName == "TabItem").Select(element => (string?)element.Attribute("Header")));
         foreach (var view in new[] { "SequenceEditorView", "SelectedStepInspectorView", "ProgramSettingsView", "WorkspaceEnvironmentView", "WorkspaceBuildView", "WorkspaceDefinitionsView", "OperatorReportsView", "WorkspaceOverviewView" })
-            Assert.Single(shell.Descendants(), element => element.Name.LocalName == view);
+            _ = Assert.Single(shell.Descendants(), element => element.Name.LocalName == view);
         Assert.DoesNotContain(shell.Descendants(), element => element.Name.LocalName is "ProgramsRailView" or "OperatorPreviewPane" or "TreeView");
         var plan = Assert.Single(shell.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == "Selected test plan");
         Assert.Equal("ComboBox", plan.Name.LocalName);
@@ -28,9 +28,9 @@ public sealed class AuthoringChromeA11yTests
         Assert.Equal(1, CountOccurrences(code, "WorkspacePreviewView _previewView = new()"));
         Assert.Equal(1, CountOccurrences(code, "WorkspaceIssuesView _issuesView = new()"));
         Assert.Contains("SeparatePreview.Content = _previewView", code, StringComparison.Ordinal);
-        Assert.Single(XDocument.Load(Path.Combine(root, "WorkspacePreviewView.axaml")).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
+        _ = Assert.Single(XDocument.Load(Path.Combine(root, "WorkspacePreviewView.axaml")).Descendants(), element => element.Name.LocalName == "OperatorPreviewPane");
         foreach (var name in new[] { "Workspace overview", "Switch task", "Back to previous section", "Open full preview", "Loading workspace or program" })
-            Assert.Single(shell.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
+            _ = Assert.Single(shell.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class AuthoringChromeA11yTests
             foreach (var label in document.Descendants().Attributes("AutomationProperties.LabeledBy"))
             {
                 Assert.StartsWith("{Binding #", label.Value, StringComparison.Ordinal);
-                Assert.Single(names, candidate => candidate == label.Value["{Binding #".Length..^1]);
+                _ = Assert.Single(names, candidate => candidate == label.Value["{Binding #".Length..^1]);
             }
             var code = string.Join(Environment.NewLine, Directory.EnumerateFiles(root, view + ".*.cs").Select(File.ReadAllText));
             foreach (var handler in document.Descendants().Attributes()
@@ -71,7 +71,7 @@ public sealed class AuthoringChromeA11yTests
         var nameBox = Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == "Selected step name");
         Assert.Equal("{Binding SequenceRename}", (string?)nameBox.Attribute("Text"));
         foreach (var name in new[] { "Configure selected step", "Operator display selected step", "Advanced selected step", "Selected step errors", "Raw step XML", "Destination section" })
-            Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
+            _ = Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == name);
         var settingTemplate = Assert.Single(inspector.Descendants(), element => element.Name.LocalName == "DataTemplate"
             && (string?)element.Attribute(XName.Get("DataType", "http://schemas.microsoft.com/winfx/2006/xaml")) == "vm:AuthoringSettingRow");
         var settingLabel = Assert.Single(settingTemplate.Descendants(), element => element.Name.LocalName == "TextBlock" && (string?)element.Attribute("Text") == "{Binding Label}");
@@ -87,7 +87,11 @@ public sealed class AuthoringChromeA11yTests
     public void Task_actions_keep_guarded_section_palette_preview_and_catalog_workflows()
     {
         var root = Path.Combine(FindRepoRoot(), "src", "HardwareTest.Authoring");
-        string Read(string file) => File.ReadAllText(Path.Combine(root, file));
+        string Read(string file)
+        {
+            return File.ReadAllText(Path.Combine(root, file));
+        }
+
         var sequence = Read("SequenceEditorView.axaml");
         var sequenceCode = Read("SequenceEditorView.axaml.cs");
         Assert.Contains("{Binding NewSectionName}", sequence, StringComparison.Ordinal);
@@ -129,7 +133,7 @@ public sealed class AuthoringChromeA11yTests
     public void Switching_programs_drops_a_stale_instrument_slot()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-slot-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();

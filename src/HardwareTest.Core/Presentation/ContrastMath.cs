@@ -8,9 +8,9 @@ public static class ContrastMath
     /// Contrast ratio of two sRGB hex colors (`#RRGGBB` or `RRGGBB`).
     public static double RatioHex(string foregroundHex, string backgroundHex)
     {
-        var fg = ParseRgb(foregroundHex);
+        var (R, G, B) = ParseRgb(foregroundHex);
         var bg = ParseRgb(backgroundHex);
-        return Ratio(fg.R, fg.G, fg.B, bg.R, bg.G, bg.B);
+        return Ratio(R, G, B, bg.R, bg.G, bg.B);
     }
 
     /// Contrast ratio of two sRGB triples (0–255).

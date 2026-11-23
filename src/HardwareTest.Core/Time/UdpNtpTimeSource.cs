@@ -65,7 +65,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
             var request = new byte[PacketSize];
             request[0] = 0x23; // LI=0, VN=4, Mode=3 (client)
             socket.SendTimeout = SocketTimeoutMs(remaining);
-            socket.SendTo(request, endpoint);
+            _ = socket.SendTo(request, endpoint);
 
             if (!TryRemaining(_elapsed(clock), budget, out remaining))
             {
@@ -111,7 +111,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
 
         var seconds = BinaryPrimitives.ReadUInt32BigEndian(packet.Slice(TransmitTimestampOffset, 4));
         var fraction = BinaryPrimitives.ReadUInt32BigEndian(packet.Slice(TransmitTimestampOffset + 4, 4));
-        var unixSeconds = (long)seconds - NtpEpochOffsetSeconds;
+        var unixSeconds = seconds - NtpEpochOffsetSeconds;
         if (unixSeconds < DateTimeOffset.MinValue.ToUnixTimeSeconds()
             || unixSeconds > DateTimeOffset.MaxValue.ToUnixTimeSeconds())
         {

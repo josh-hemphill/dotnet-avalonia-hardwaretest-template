@@ -67,7 +67,11 @@ if (args.Length == 2 && args[0] == "--owned-library-lifecycle")
 
 if (args.Length == 3 && args[0] == "--cold-library-import")
 {
-    bool LibraryResident() => AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true);
+    static bool LibraryResident()
+    {
+        return AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name?.StartsWith("InstrumentComponents", StringComparison.Ordinal) == true);
+    }
+
     if (LibraryResident()) throw new InvalidOperationException("Cold fixture started with a resident library.");
     var compiler = new PlanCompiler(selectedHome: new(Path.Combine(Path.GetDirectoryName(args[2])!, "missing-library-home")));
     var original = File.ReadAllBytes(args[1]);
@@ -140,7 +144,7 @@ if (args.Length == 2 && args[0] == "--operation-owner")
     var fixture = Path.GetFileNameWithoutExtension(Environment.ProcessPath) == "dotnet"
         ? Assembly.GetExecutingAssembly().Location : Environment.ProcessPath!;
     using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(fixture));
-    await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, args[1]);
+    _ = await coordinator.RunAsync(AuthoringOperationKind.Bootstrap, args[1]);
     return 0;
 }
 if (args.Length is 1 or 2 && args[0] == "--descendant")
@@ -203,13 +207,11 @@ static void Publish(string path, string content)
     {
         if (Path.GetFileName(path) == "partial-marker")
         {
-            using (var writer = new StreamWriter(temporary))
-            {
-                writer.Write("complete"); writer.Flush();
-                Console.WriteLine("partial"); Console.Out.Flush();
-                if (Console.ReadLine() != "release") throw new IOException("Marker owner disconnected.");
-                writer.Write("\nowned-root");
-            }
+            using var writer = new StreamWriter(temporary);
+            writer.Write("complete"); writer.Flush();
+            Console.WriteLine("partial"); Console.Out.Flush();
+            if (Console.ReadLine() != "release") throw new IOException("Marker owner disconnected.");
+            writer.Write("\nowned-root");
         }
         else
         {

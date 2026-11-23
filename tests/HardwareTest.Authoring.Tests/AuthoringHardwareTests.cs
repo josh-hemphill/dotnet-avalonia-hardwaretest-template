@@ -15,7 +15,7 @@ public sealed class AuthoringHardwareTests : IDisposable
         _owned.Add(_vm);
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "dirs.proj"))) directory = directory.Parent;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         File.Copy(Path.Combine(directory!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
         _vm.Open(_root); _vm.CreateDemoProgram("one"); _vm.CreateDemoProgram("two"); _vm.SelectProgram("one");
     }
@@ -31,13 +31,13 @@ public sealed class AuthoringHardwareTests : IDisposable
         _vm.LoadHardwareDefinitionEditor();
         Assert.False(_vm.CanReviewLoadedHardwareBinding);
         Assert.Contains("Loaded workspace template: Template", _vm.HardwareEditorContext);
-        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(_vm.PrepareHardwareEdit).Message);
         _vm.LoadHardwareEditor();
         Assert.True(_vm.CanReviewLoadedHardwareBinding);
         Assert.True(_vm.SaveAll().Succeeded);
         _vm.Open(_root); _vm.SelectProgram("one");
         Assert.False(_vm.CanReviewLoadedHardwareBinding);
-        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(_vm.PrepareHardwareEdit).Message);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public sealed class AuthoringHardwareTests : IDisposable
         var review = _vm.PrepareHardwareEdit(); _vm.DisplayName = "changed";
         Assert.Contains("changed since review", Assert.Throws<AuthoringWorkspaceException>(() => _vm.ApplyHardwareEdit(review)).Message);
         _vm.ReplaceSelected(_vm.SelectedProgram! with { Measure = [new RawStepNode("unknown", "<step/>")] });
-        Assert.Contains("unresolved", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("unresolved", Assert.Throws<AuthoringWorkspaceException>(_vm.PrepareHardwareEdit).Message);
         Assert.DoesNotContain(_vm.SelectedProgram!.Instruments, i => i.VisaAddress == "MOCK::UPDATED");
     }
 
@@ -56,11 +56,11 @@ public sealed class AuthoringHardwareTests : IDisposable
     {
         _vm.LoadHardwareEditor(); _vm.HardwareEditType = null;
         _vm.HardwareEditAddress = "TCPIP::bench";
-        Assert.Contains("registered adapter", Assert.Throws<AuthoringWorkspaceException>(() => _vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("registered adapter", Assert.Throws<AuthoringWorkspaceException>(_vm.PrepareHardwareEdit).Message);
         _vm.HardwareEditType = AuthoringInstrumentCatalog.All[0]; _vm.HardwareEditTimeout = "12";
         var before = AuthoringWorkspaceState.Capture(_vm.Workspace!.Manifest, _vm.Programs);
         _vm.NewInstrumentSlot = "BAD";
-        Assert.Contains("does not support", Assert.Throws<AuthoringWorkspaceException>(() => _vm.AddHardwareDefinition()).Message);
+        Assert.Contains("does not support", Assert.Throws<AuthoringWorkspaceException>(_vm.AddHardwareDefinition).Message);
         Assert.True(before.ContentEquals(AuthoringWorkspaceState.Capture(_vm.Workspace.Manifest, _vm.Programs)));
     }
 
@@ -110,12 +110,12 @@ public sealed class AuthoringHardwareTests : IDisposable
     [Fact]
     public void Empty_workspace_can_administer_global_definitions_without_a_selected_program()
     {
-        var root = Path.Combine(_root, "empty"); Directory.CreateDirectory(root);
+        var root = Path.Combine(_root, "empty"); _ = Directory.CreateDirectory(root);
         File.Copy(Path.Combine(_root, "authoring.json"), Path.Combine(root, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel(); _owned.Add(vm); vm.Open(root); Assert.Null(vm.SelectedProgram);
         vm.NewRequiredField = "fixtureId"; vm.AddWorkspaceRequiredField();
         vm.NewInstrumentSlot = "BENCH"; vm.HardwareEditAddress = "MOCK::EMPTY"; vm.AddHardwareDefinition();
-        Assert.Empty(vm.Programs); Assert.Single(vm.HardwareDefinitions);
+        Assert.Empty(vm.Programs); _ = Assert.Single(vm.HardwareDefinitions);
         Assert.True(vm.SaveAll().Succeeded); vm.UndoWorkspace(); Assert.Empty(vm.HardwareDefinitions);
     }
 

@@ -174,7 +174,7 @@ public sealed class OperatorResultsFilterContinuityTests
         Settle(window);
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")!;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         using var bitmap = window.CaptureRenderedFrame();
         Assert.NotNull(bitmap);
         bitmap.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),

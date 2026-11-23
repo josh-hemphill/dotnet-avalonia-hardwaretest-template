@@ -14,7 +14,7 @@ public sealed class HomeSupportWorkflowTests
     public async Task Technician_exports_real_support_zip_through_notification_when_folder_browsing_is_disabled()
     {
         var root = Path.Combine(Path.GetTempPath(), "persona-support-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var settings = new FakeSettingsStore(root);

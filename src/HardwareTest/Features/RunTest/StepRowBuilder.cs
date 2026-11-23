@@ -65,7 +65,7 @@ public static class StepRowBuilder
                 || l.Path.Contains(term, StringComparison.OrdinalIgnoreCase));
         }
 
-        return query.ToList();
+        return [.. query];
     }
 
     private static void AppendScopeWithMarkers(

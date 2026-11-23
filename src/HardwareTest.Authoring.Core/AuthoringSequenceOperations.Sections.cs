@@ -19,20 +19,28 @@ public static partial class AuthoringSequenceOperations
             ?? throw Fail("The destination section no longer exists.");
         if (destination is not null && destination.IndexPath.Take(source.IndexPath.Count).SequenceEqual(source.IndexPath))
             throw Fail("A section cannot be moved into itself or one of its children.");
-        Guid? LoopScope(SequenceRow? row) => row is null ? null : rows.LastOrDefault(candidate =>
+        Guid? LoopScope(SequenceRow? row)
+        {
+            return row is null ? null : rows.LastOrDefault(candidate =>
             candidate.Kind == SequenceRowKind.Repeat && candidate.IndexPath.Count < row.IndexPath.Count &&
             row.IndexPath.Take(candidate.IndexPath.Count).SequenceEqual(candidate.IndexPath))?.NodeId;
+        }
+
         if (LoopScope(source) != LoopScope(destination)) throw Fail("Keep steps in the same loop scope when moving between sections.");
         if (AuthoringDependencyIndex.Build(draft).HasOpaqueReferences)
             throw Fail("Opaque dependencies prevent safely moving steps between sections.");
         var selected = AuthoringSequence.ResolveMeasure(draft, source.IndexPath)!;
-        IReadOnlyList<MeasureNode> Remove(IReadOnlyList<MeasureNode> nodes) => nodes.Where(node => node.NodeId != selected.NodeId)
+        IReadOnlyList<MeasureNode> Remove(IReadOnlyList<MeasureNode> nodes)
+        {
+            return nodes.Where(node => node.NodeId != selected.NodeId)
             .Select(node => node switch
             {
                 SectionNode section => section with { Children = Remove(section.Children) },
                 RepeatNode repeat => repeat with { Children = Remove(repeat.Children) },
                 _ => node
             }).ToArray();
+        }
+
         var updated = draft with { Measure = Remove(draft.Measure) };
         if (destinationId is null)
         {

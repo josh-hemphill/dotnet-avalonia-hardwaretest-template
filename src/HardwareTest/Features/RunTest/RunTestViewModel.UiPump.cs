@@ -220,9 +220,9 @@ public partial class RunTestViewModel
                     RequeueFrame(frame);
                     keepScheduledForDelay = true;
                     _ = Task.Delay(delayMs).ContinueWith(
-                        _ =>
+                        completedDelay =>
                         {
-                            Interlocked.Exchange(ref _flushScheduled, 0);
+                            _ = Interlocked.Exchange(ref _flushScheduled, 0);
                             ScheduleUiFlush();
                         },
                         TaskScheduler.Default);
@@ -248,7 +248,7 @@ public partial class RunTestViewModel
         {
             if (!keepScheduledForDelay)
             {
-                Interlocked.Exchange(ref _flushScheduled, 0);
+                _ = Interlocked.Exchange(ref _flushScheduled, 0);
                 lock (_progressSync)
                 {
                     if (_pendingForceFlush
@@ -271,18 +271,7 @@ public partial class RunTestViewModel
         OverallPercent = frame.Percent;
         if (frame.Status is not null)
         {
-            if (_runControl.IsPaused)
-            {
-                Status = $"Paused — {frame.Status}";
-            }
-            else if (frame.Awaiting)
-            {
-                Status = $"Awaiting — {frame.Status}";
-            }
-            else
-            {
-                Status = frame.Status;
-            }
+            Status = _runControl.IsPaused ? $"Paused — {frame.Status}" : frame.Awaiting ? $"Awaiting — {frame.Status}" : frame.Status;
         }
 
         if (frame.Awaiting)
@@ -293,7 +282,7 @@ public partial class RunTestViewModel
 
         if (frame.Details is not null)
         {
-            StepDetail.AppendDetailLines(frame.Details, MaxDetailLinesPerFlush);
+            _ = StepDetail.AppendDetailLines(frame.Details, MaxDetailLinesPerFlush);
         }
 
         SyncHierarchyLive();
@@ -443,7 +432,7 @@ public partial class RunTestViewModel
 
             foreach (var band in frame.Bands)
             {
-                _pendingBands.TryAdd(band.Sample.EffectiveMetricKey, band);
+                _ = _pendingBands.TryAdd(band.Sample.EffectiveMetricKey, band);
             }
 
             if (frame.Details is not null)
@@ -517,7 +506,7 @@ public partial class RunTestViewModel
     {
         while (_pendingDetails.Count >= DetailCap)
         {
-            _pendingDetails.Dequeue();
+            _ = _pendingDetails.Dequeue();
         }
 
         _pendingDetails.Enqueue(line);

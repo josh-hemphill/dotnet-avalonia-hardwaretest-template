@@ -54,7 +54,7 @@ public static class OfflineBenchStartup
                 throw new InvalidDataException("The data ownership marker does not belong to this exact installation. Existing station data cannot be reused.");
             }
 
-            OfflineBenchRuntime.ValidateCapability(appDirectory, OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture));
+            _ = OfflineBenchRuntime.ValidateCapability(appDirectory, OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture));
             ValidateRuntimeFiles(appDirectory, installation.RuntimeFiles);
             ValidateSavedPluginConfiguration(data);
 

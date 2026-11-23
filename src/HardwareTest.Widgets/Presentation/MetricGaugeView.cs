@@ -69,9 +69,9 @@ public sealed class MetricGaugeView : UserControl
 
     private void Subscribe(IMetricGaugeSource? source)
     {
-        if (_source is not null) _source.PropertyChanged -= OnTilePropertyChanged;
+        _source?.PropertyChanged -= OnTilePropertyChanged;
         _source = source;
-        if (_source is not null) _source.PropertyChanged += OnTilePropertyChanged;
+        _source?.PropertyChanged += OnTilePropertyChanged;
     }
 
     private void OnTilePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => Refresh(_source);
@@ -97,7 +97,7 @@ public sealed class MetricGaugeView : UserControl
         var width = _bandTrack.Bounds.Width;
         if (width <= 0) return;
 
-        var low = tile.LimitLow ?? tile.Value - Math.Abs(tile.Value) - 1;
+        var low = tile.LimitLow ?? (tile.Value - Math.Abs(tile.Value) - 1);
         var high = tile.LimitHigh ?? Math.Max(tile.Value, low + 1);
         if (high <= low)
         {

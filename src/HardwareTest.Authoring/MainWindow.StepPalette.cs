@@ -26,7 +26,11 @@ public partial class MainWindow
         var current = OwnerContext();
         var plan = _viewModel.SelectedProgram.PlanId;
         var node = _viewModel.SelectedSequence?.Key;
-        bool TargetCurrent() => current() && plan == _viewModel.SelectedProgram?.PlanId && node == _viewModel.SelectedSequence?.Key;
+        bool TargetCurrent()
+        {
+            return current() && plan == _viewModel.SelectedProgram?.PlanId && node == _viewModel.SelectedSequence?.Key;
+        }
+
         var content = new StepPaletteView { DataContext = _viewModel };
         var dialog = new Window
         {

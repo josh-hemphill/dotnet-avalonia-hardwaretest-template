@@ -20,7 +20,7 @@ public static partial class AuthoringBuildService
                 }
                 // package.xml is generated from the frozen manifest by the existing packer.
                 if (relative == "workspace/plans/package.xml") continue;
-                var target = ResolvedPath(path, false);
+                var target = ResolvedPath(path);
                 EnsureContained(staging, target);
                 files.Add((relative, Path.GetRelativePath(staging, target), Hash(File.ReadAllBytes(path)),
                     OperatingSystem.IsWindows() ? null : (int)File.GetUnixFileMode(path)));

@@ -137,7 +137,7 @@ public partial class StationOverridesViewModel : ReactiveObject
                      string.Equals(o.PlanId, planId, StringComparison.OrdinalIgnoreCase)
                      && !string.IsNullOrWhiteSpace(o.MemberKey)))
         {
-            _station.TrySetParameter(ov.MemberKey, ov.Value ?? string.Empty);
+            _ = _station.TrySetParameter(ov.MemberKey, ov.Value ?? string.Empty);
         }
     }
 
@@ -206,10 +206,10 @@ public partial class StationOverridesViewModel : ReactiveObject
         }
 
         ClampDebugKnobs();
-        _plan.TrySetStepEnabled(step.Path, DebugStepEnabled);
+        _ = _plan.TrySetStepEnabled(step.Path, DebugStepEnabled);
         step.Enabled = DebugStepEnabled;
-        _station.TrySetAcquireSettings(step.Path, DebugSampleCount, DebugIntervalMs);
-        _station.TrySetMeanGteThreshold(step.Path, DebugThreshold);
+        _ = _station.TrySetAcquireSettings(step.Path, DebugSampleCount, DebugIntervalMs);
+        _ = _station.TrySetMeanGteThreshold(step.Path, DebugThreshold);
         RefreshParameterFields();
         _setStatus($"Applied debug overlay to {step.Name} (not saved to golden plan).");
         return true;
@@ -261,7 +261,7 @@ public partial class StationOverridesViewModel : ReactiveObject
             && _plan.TryGetStepConditionSummary(step.Path, out var summary)
             && !string.IsNullOrWhiteSpace(summary))
         {
-            _setConditionSummary(summary!);
+            _setConditionSummary(summary);
         }
 
         _setStatus(applied == 0

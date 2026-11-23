@@ -67,7 +67,7 @@ public sealed class MockDmmInstrument : HardwareDmm
             }
 
             // Mild variation so plots are non-flat.
-            _nextValue += (_nextValue * 0.001) % 0.05;
+            _nextValue += _nextValue * 0.001 % 0.05;
             return _nextValue;
         }
     }

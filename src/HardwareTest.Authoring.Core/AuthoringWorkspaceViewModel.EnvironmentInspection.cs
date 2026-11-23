@@ -5,13 +5,12 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private AuthoringEnvironmentInspection _environmentInspection = AuthoringEnvironmentInspection.Pending;
-    private bool _environmentInspectionPending = true;
     private Guid? _environmentChoicesSession;
     private long _environmentInspectionRevision;
     internal Func<AuthoringWorkspace, string?, AuthoringEnvironmentInspection> EnvironmentInspector { get; set; }
         = AuthoringEnvironmentInspection.Inspect;
 
-    public bool EnvironmentInspectionPending => Workspace is not null && _environmentInspectionPending;
+    public bool EnvironmentInspectionPending { get => Workspace is not null && field; private set; } = true;
 
     /// Explicit synchronous compatibility API for headless callers. UI callers use the async API.
     public void RefreshEnvironmentInspection()
@@ -44,7 +43,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _environmentInspectionStopped = true;
         ++_environmentInspectionRevision;
         _environmentInspectionCancellation?.Cancel();
-        _environmentInspectionCompletion?.TrySetResult();
+        _ = (_environmentInspectionCompletion?.TrySetResult());
     }
 
     public Task WaitForEnvironmentInspectionAsync() => _environmentInspectionTask;
@@ -80,7 +79,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 if (_environmentInspectionStopped || revision != _environmentInspectionRevision) return;
                 _environmentInspection = FailedEnvironmentInspection(error);
-                _environmentInspectionPending = false;
+                EnvironmentInspectionPending = false;
                 // A broken notification subscriber must not leave an unobserved background
                 // exception or undo the fail-closed state already recorded above.
                 try { NotifyEnvironmentInspection(); } catch (Exception) { }
@@ -95,7 +94,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 catch (Exception) { /* A closed dispatcher cannot publish; its owner is stopping. */ }
             }
         }
-        finally { completion.TrySetResult(); }
+        finally { _ = completion.TrySetResult(); }
     }
 
     private async Task RefreshEnvironmentInspectionCoreAsync()
@@ -118,7 +117,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                     request.Cancellation.ThrowIfCancellationRequested();
                     return inspected;
                 }
-                finally { gate.Release(); }
+                finally { _ = gate.Release(); }
             }, request.Cancellation).ConfigureAwait(dispatch is null);
         }
         catch (OperationCanceledException) when (request.Cancellation.IsCancellationRequested) { return; }
@@ -131,9 +130,9 @@ public sealed partial class AuthoringWorkspaceViewModel
             try
             {
                 if (owner?.Invoke() == true) PublishEnvironmentInspection(request, result);
-                published.TrySetResult();
+                _ = published.TrySetResult();
             }
-            catch (Exception error) { published.TrySetException(error); }
+            catch (Exception error) { _ = published.TrySetException(error); }
         });
         try { await published.Task.ConfigureAwait(false); }
         catch (OperationCanceledException) when (request.Cancellation.IsCancellationRequested) { }
@@ -151,10 +150,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         _environmentInspectionCancellation = new CancellationTokenSource();
         // Keep the editor's selection stable during a rescan, but never carry choices
         // into a different workspace session. Availability and build guards remain pending.
-        var choices = Workspace is not null && _environmentChoicesSession == _workspaceSession
+        var choices = Workspace is not null && _environmentChoicesSession == WorkspaceSessionId
             ? _environmentInspection.Choices : Array.Empty<AuthoringInstrumentAdapter>();
         _environmentInspection = AuthoringEnvironmentInspection.Pending with { Choices = choices };
-        _environmentInspectionPending = Workspace is not null;
+        EnvironmentInspectionPending = Workspace is not null;
         if (Workspace is not { } owner)
         {
             NotifyEnvironmentInspection();
@@ -166,7 +165,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             Manifest = JsonSerializer.Deserialize(json, AuthoringJsonContext.Default.AuthoringManifest)!,
             TapPlanPaths = Array.AsReadOnly(owner.TapPlanPaths.ToArray()),
         };
-        var request = new EnvironmentInspectionRequest(revision, _workspaceSession, owner, detached, json,
+        var request = new EnvironmentInspectionRequest(revision, WorkspaceSessionId, owner, detached, json,
             Prefs.OpenTapHomeOverride, EnvironmentInspector, _environmentInspectionCancellation.Token);
         NotifyEnvironmentInspection();
         return request;
@@ -185,21 +184,21 @@ public sealed partial class AuthoringWorkspaceViewModel
         => AuthoringEnvironmentInspection.Empty(error.Message) with
         {
             Error = error.Message,
-            Blockers = Array.AsReadOnly(new[] { new PackPreflightFinding("PACK_ENVIRONMENT_INSPECTION", error.Message, true) }),
+            Blockers = Array.AsReadOnly([new PackPreflightFinding("PACK_ENVIRONMENT_INSPECTION", error.Message, true)]),
         };
 
     private void PublishEnvironmentInspection(EnvironmentInspectionRequest request, AuthoringEnvironmentInspection result)
     {
-        if (_environmentInspectionStopped || request.Revision != _environmentInspectionRevision || request.Session != _workspaceSession
+        if (_environmentInspectionStopped || request.Revision != _environmentInspectionRevision || request.Session != WorkspaceSessionId
             || !ReferenceEquals(Workspace, request.Owner) || Prefs.OpenTapHomeOverride != request.HomeOverride
-            || JsonSerializer.Serialize(Workspace!.Manifest, AuthoringJsonContext.Default.AuthoringManifest) != request.ManifestJson)
+            || JsonSerializer.Serialize(Workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest) != request.ManifestJson)
         {
             return;
         }
 
         _environmentInspection = result;
         _environmentChoicesSession = request.Session;
-        _environmentInspectionPending = false;
+        EnvironmentInspectionPending = false;
         RefreshDeferredSavePreviewWarning();
         OnPropertyChanged(nameof(EditingIssues));
         OnPropertyChanged(nameof(IssuesSummary));

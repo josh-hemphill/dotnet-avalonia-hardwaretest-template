@@ -132,10 +132,10 @@ public sealed class TuiCompatCheckerTests
 
     private static string CopyDirectory(string source, string dest)
     {
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         foreach (var dir in Directory.EnumerateDirectories(source, "*", SearchOption.AllDirectories))
         {
-            Directory.CreateDirectory(Path.Combine(dest, Path.GetRelativePath(source, dir)));
+            _ = Directory.CreateDirectory(Path.Combine(dest, Path.GetRelativePath(source, dir)));
         }
 
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
@@ -149,7 +149,7 @@ public sealed class TuiCompatCheckerTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-tui-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

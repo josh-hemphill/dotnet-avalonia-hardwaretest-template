@@ -17,7 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         }
     }
-    public bool CanPack => !OperationBusy && Workspace is not null && (_buildInspectionDispatch is not null ? !BuildInspectionBusy && _buildInspectionWritable : WorkspacePacker.IsWritableWorkspace(Workspace)) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null && !HasKnownEnvironmentBlockers;
+    public bool CanPack { get => !OperationBusy && Workspace is not null && (_buildInspectionDispatch is not null ? !BuildInspectionBusy && field : WorkspacePacker.IsWritableWorkspace(Workspace)) && !HasUnsavedChanges && !HasKnownSavedBuildBlockers && EnvironmentPathError is null && !HasKnownEnvironmentBlockers; private set; }
     public string PackGuardText => Workspace is { } workspace && _measureSectionMigrations.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))
         ? "Use Save All to persist the configurable test sections before building."
         : BuildInspectionBusy ? "Checking saved build inputs…" : EnvironmentPathError ?? (HasKnownSavedBuildBlockers ? "Repair incomplete saved deployment input or reconcile source conflicts before building." : HasKnownEnvironmentBlockers ? EnvironmentBlockerText : HasUnsavedChanges
@@ -80,8 +80,8 @@ public sealed partial class AuthoringWorkspaceViewModel
         var checkedBuildIdentity = checkedContentIdentity + "|" + checkedHome;
         var result = AuthoringBuildService.Execute(request, outputDirectory, resolved.CancellationToken);
         var manifest = result.Manifest;
-        _packPreview = WorkspacePackPlan.Describe(Workspace!, Prefs.OpenTapHomeOverride);
-        _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, manifest, outputDirectory);
+        PackPreview = WorkspacePackPlan.Describe(Workspace!, Prefs.OpenTapHomeOverride);
+        PackPreview = WorkspacePackPlan.WithLastPack(PackPreview, manifest, outputDirectory);
         RetainCompletedBuild(result, outputDirectory, checkedHome, checkedBuildIdentity);
         RaisePackPreviewProperties();
         Status = $"Packed {manifest.PackageName} {manifest.Version}";

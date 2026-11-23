@@ -83,10 +83,10 @@ public sealed class RingBufferSink : ILogEventSink
 
                 if (sb.Length > 0)
                 {
-                    sb.AppendLine();
+                    _ = sb.AppendLine();
                 }
 
-                sb.Append(line);
+                _ = sb.Append(line);
             }
 
             return sb.ToString();

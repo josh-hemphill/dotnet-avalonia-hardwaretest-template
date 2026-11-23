@@ -112,13 +112,13 @@ public static class FormulaParser
             .Or(power);
 
         var multiply = unary.LeftAssociative(
-            (Terms.Text(".*"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr(".*", left, right)),
-            (Terms.Text("./"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("./", left, right)),
-            (Terms.Text("*"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("*", left, right)),
-            (Terms.Text("/"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("/", left, right)));
+            (Terms.Text(".*"), static (left, right) => new BinaryExpr(".*", left, right)),
+            (Terms.Text("./"), static (left, right) => new BinaryExpr("./", left, right)),
+            (Terms.Text("*"), static (left, right) => new BinaryExpr("*", left, right)),
+            (Terms.Text("/"), static (left, right) => new BinaryExpr("/", left, right)));
         var add = multiply.LeftAssociative(
-            (Terms.Text("+"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("+", left, right)),
-            (Terms.Text("-"), static (FormulaExpr left, FormulaExpr right) => new BinaryExpr("-", left, right)));
+            (Terms.Text("+"), static (left, right) => new BinaryExpr("+", left, right)),
+            (Terms.Text("-"), static (left, right) => new BinaryExpr("-", left, right)));
 
         expression.Parser = add;
         return add.Eof();

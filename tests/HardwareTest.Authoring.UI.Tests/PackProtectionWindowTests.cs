@@ -19,7 +19,7 @@ public sealed class PackProtectionWindowTests
         AuthoringUiFixture.Drain();
         if (create)
         {
-            fixture.ViewModel.InitializePlan(new("new-dirty") { Instruments = [] });
+            _ = fixture.ViewModel.InitializePlan(new("new-dirty") { Instruments = [] });
             fixture.ViewModel.DisplayName += " edited";
         }
         else

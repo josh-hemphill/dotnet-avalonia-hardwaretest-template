@@ -142,7 +142,7 @@ public sealed class OperatorPersonaJourneyTests
                 Settle(window);
                 OperatorWorkflowUiTests.Inside(row, window);
                 var point = row.TranslatePoint(new Point(row.Bounds.Width / 2, row.Bounds.Height / 2), window);
-                Assert.NotNull(point);
+                _ = Assert.NotNull(point);
                 window.MouseDown(point.Value, MouseButton.Left);
                 window.MouseUp(point.Value, MouseButton.Left);
                 await E2EHarness.WaitUntilAsync(() => main.Results.ShowDetail && main.Results.OpenedRun?.RunId == departingId,
@@ -322,7 +322,7 @@ public sealed class OperatorPersonaJourneyTests
         Assert.NotNull(bitmap);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "operator-persona-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         bitmap.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),
             Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }

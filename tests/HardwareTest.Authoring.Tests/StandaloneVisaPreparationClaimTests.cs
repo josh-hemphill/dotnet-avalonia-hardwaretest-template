@@ -22,7 +22,7 @@ public sealed class StandaloneVisaPreparationClaimTests : IDisposable
     public void Existing_standalone_aliases_are_rejected_before_owned_or_public_preparation_changes_any_bytes(bool owned, bool partialImport, bool metadataAlias)
     {
         var (workspace, home) = Prepare();
-        var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(home.Root, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         if (metadataAlias)
             File.Copy(Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), Path.Combine(custom, "package.xml"));
         else File.Copy(Path.Combine(home.Root, StandaloneVisaPackage.WrapperFileName), Path.Combine(custom, StandaloneVisaPackage.WrapperFileName));
@@ -32,7 +32,7 @@ public sealed class StandaloneVisaPreparationClaimTests : IDisposable
         var bootstrap = new OpenTapHomeBootstrapper();
         var error = Assert.Throws<AuthoringWorkspaceException>(() =>
         {
-            if (owned) bootstrap.BootstrapOwned(workspace, options); else bootstrap.Bootstrap(workspace, options);
+            _ = owned ? bootstrap.BootstrapOwned(workspace, options) : bootstrap.Bootstrap(workspace, options);
         });
         Assert.Contains("canonical", error.Message, StringComparison.OrdinalIgnoreCase);
         AssertSnapshot(before, home);

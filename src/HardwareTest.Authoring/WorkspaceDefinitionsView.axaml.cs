@@ -24,7 +24,7 @@ public partial class WorkspaceDefinitionsView : UserControl
     {
         if (sender is Button { DataContext: AuthoringCatalogToggle row })
         {
-            await RemoveCatalogAsync(CatalogDeletionKind.RequiredField, row.Id);
+            _ = await RemoveCatalogAsync(CatalogDeletionKind.RequiredField, row.Id);
         }
     }
 
@@ -35,7 +35,7 @@ public partial class WorkspaceDefinitionsView : UserControl
     {
         if (sender is Button { DataContext: AuthoringCatalogToggle row })
         {
-            await RemoveCatalogAsync(CatalogDeletionKind.ReportKind, row.Id);
+            _ = await RemoveCatalogAsync(CatalogDeletionKind.ReportKind, row.Id);
         }
     }
 
@@ -46,7 +46,7 @@ public partial class WorkspaceDefinitionsView : UserControl
     {
         if (sender is Button { DataContext: AuthoringCatalogToggle row })
         {
-            await RemoveCatalogAsync(CatalogDeletionKind.ProgramKind, row.Id);
+            _ = await RemoveCatalogAsync(CatalogDeletionKind.ProgramKind, row.Id);
         }
     }
 
@@ -56,7 +56,7 @@ public partial class WorkspaceDefinitionsView : UserControl
     private void OnIncludeDefinition(object? sender, RoutedEventArgs e) => TryRun(() => Vm?.IncludeHardwareDefinition());
     private async void OnRemoveDefinition(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is MainWindow owner) await owner.ConfirmHardwareDefinitionRemovalAsync();
+        if (TopLevel.GetTopLevel(this) is MainWindow owner) _ = await owner.ConfirmHardwareDefinitionRemovalAsync();
     }
 
     private Task<bool> RemoveCatalogAsync(CatalogDeletionKind kind, string target)

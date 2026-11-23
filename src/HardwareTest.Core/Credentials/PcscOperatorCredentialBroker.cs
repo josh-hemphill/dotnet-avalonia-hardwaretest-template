@@ -5,16 +5,10 @@ using PCSC.Exceptions;
 namespace HardwareTest.Core.Credentials;
 
 /// <summary>PC/SC contact and contactless credential capture backed by pcsc-sharp.</summary>
-public sealed class PcscOperatorCredentialBroker : IOperatorCredentialPresenceBroker
+public sealed class PcscOperatorCredentialBroker(IClock? clock = null, TimeSpan? pollInterval = null) : IOperatorCredentialPresenceBroker
 {
-    private readonly IClock _clock;
-    private readonly TimeSpan _pollInterval;
-
-    public PcscOperatorCredentialBroker(IClock? clock = null, TimeSpan? pollInterval = null)
-    {
-        _clock = clock ?? SystemClock.Instance;
-        _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(250);
-    }
+    private readonly IClock _clock = clock ?? SystemClock.Instance;
+    private readonly TimeSpan _pollInterval = pollInterval ?? TimeSpan.FromMilliseconds(250);
 
     public string StatusText { get; private set; } = "PC/SC not queried yet.";
 

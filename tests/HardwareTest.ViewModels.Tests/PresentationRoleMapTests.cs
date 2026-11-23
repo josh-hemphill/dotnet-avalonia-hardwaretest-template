@@ -65,7 +65,7 @@ public sealed class PresentationRoleMapTests
                 LimitLow: 0),
             "path/mean");
         Assert.NotNull(gauge);
-        Assert.Single(tiles);
+        _ = Assert.Single(tiles);
         Assert.Equal(PresentationTileKind.Scalar, tiles[0].Kind);
         Assert.Equal("VDC.mean", tiles[0].MetricKey);
         Assert.Contains("V", tiles[0].ValueText, StringComparison.Ordinal);

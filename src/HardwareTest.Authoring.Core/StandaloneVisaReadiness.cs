@@ -16,24 +16,24 @@ public static class StandaloneVisaReadiness
 
     public static bool RequiresStandaloneReadiness(OpenTapHome home)
     {
-        var inspection = InspectClaims(home);
-        return inspection.HasClaims || inspection.Issue is not null;
+        var (HasClaims, Issue) = InspectClaims(home);
+        return HasClaims || Issue is not null;
     }
 
     internal static string? ExecutionPrerequisite(OpenTapHome home, bool requiresInstrumentLibrary)
     {
-        var inspection = InspectClaims(home);
-        if (inspection.Issue is not null) return inspection.Issue;
-        if (requiresInstrumentLibrary && !inspection.HasClaims)
+        var (HasClaims, Issue) = InspectClaims(home);
+        if (Issue is not null) return Issue;
+        if (requiresInstrumentLibrary && !HasClaims)
             return "This workspace requires InstrumentComponents.OpenTap, but the selected home has no installed library. Prepare or import the library and standalone VISA counterpart before opening the TUI.";
-        return inspection.HasClaims && AssessClaimedHome(home) is { Available: false } unavailable ? unavailable.Reason : null;
+        return HasClaims && AssessClaimedHome(home) is { Available: false } unavailable ? unavailable.Reason : null;
     }
 
     public static AuthoringInstrumentAvailability Assess(OpenTapHome home)
     {
-        var inspection = InspectClaims(home);
-        if (inspection.Issue is not null) return new(false, inspection.Issue);
-        if (!inspection.HasClaims) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
+        var (HasClaims, Issue) = InspectClaims(home);
+        if (Issue is not null) return new(false, Issue);
+        if (!HasClaims) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
         return AssessClaimedHome(home);
     }
 
@@ -55,7 +55,7 @@ public static class StandaloneVisaReadiness
         try
         {
             if (File.Exists(home.Root) && !Directory.Exists(home.Root)) throw new IOException("The selected home is a file, not a directory.");
-            ExecutionLibraryHome.Validate(home.Root, (entry, package) =>
+            _ = ExecutionLibraryHome.Validate(home.Root, (entry, package) =>
             {
                 var name = Path.GetFileName(entry);
                 if (InstrumentLibraryMetadata.Files.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;

@@ -38,12 +38,12 @@ public static partial class AuthoringBuildService
             {
                 using var assets = JsonDocument.Parse(File.ReadAllBytes(existingAssets));
                 foreach (var folder in assets.RootElement.GetProperty("packageFolders").EnumerateObject())
-                    packageFolders.Add(Path.GetFullPath(folder.Name));
+                    _ = packageFolders.Add(Path.GetFullPath(folder.Name));
             }
             var evaluation = EvaluateShell(project, sdkRoot!, packageFolders, environment);
             projects.Add(project, evaluation);
             foreach (var reference in evaluation.References) pending.Enqueue(reference);
-            foreach (var import in evaluation.Imports) imports.Add(import);
+            foreach (var import in evaluation.Imports) _ = imports.Add(import);
         }
         var root = Path.GetDirectoryName(projects.Keys.First())!;
         foreach (var path in projects.Keys.Concat(imports).Concat(projects.Values.SelectMany(p => p.Inputs))
@@ -131,7 +131,7 @@ public static partial class AuthoringBuildService
         // boundary, after preserving the captured source/config hierarchy beneath it.
         File.WriteAllText(Path.Combine(staging, ".editorconfig"), "root = true\n");
         var packages = Path.Combine(staging, "shell-packages");
-        Directory.CreateDirectory(packages);
+        _ = Directory.CreateDirectory(packages);
         var config = new XDocument(new XElement("configuration",
             new XElement("packageSources", new XElement("clear")),
             new XElement("config", new XElement("add", new XAttribute("key", "globalPackagesFolder"), new XAttribute("value", packages)))));

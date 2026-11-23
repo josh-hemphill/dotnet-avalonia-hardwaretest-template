@@ -191,7 +191,7 @@ public partial class ResultsViewModel
         finally
         {
             await RunOnUiAsync(() => IsBusy = false).ConfigureAwait(false);
-            _busyGate.Release();
+            _ = _busyGate.Release();
         }
     }
 
@@ -407,7 +407,7 @@ public partial class ResultsViewModel
 
         SelectedReportItem = ReportItems.FirstOrDefault(r => ReportAttestationService.PathEquals(r.PdfPath, selectedPath)) ?? ReportItems.FirstOrDefault(r => r.IsDefault) ?? ReportItems.FirstOrDefault();
         HasReports = ReportItems.Count > 0;
-        _ = VerifyReportItemsAsync(run, ReportItems.Where(r => r.IsIssued).ToArray());
+        _ = VerifyReportItemsAsync(run, [.. ReportItems.Where(r => r.IsIssued)]);
     }
 
     private async Task VerifyReportItemsAsync(TestRunRecord run, RunReportItemViewModel[] items)
@@ -538,7 +538,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
-            _busyGate.Release();
+            _ = _busyGate.Release();
         }
     }
 }

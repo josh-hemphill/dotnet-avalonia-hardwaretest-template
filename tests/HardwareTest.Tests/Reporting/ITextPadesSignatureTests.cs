@@ -104,7 +104,7 @@ public sealed class ITextPadesSignatureTests
         using (var document = new PdfDocument(new PdfReader(new MemoryStream(signed)), new PdfWriter(output),
             new StampingProperties().UseAppendMode()))
         {
-            document.GetDocumentInfo().SetSubject("Unsigned modification after issuance");
+            _ = document.GetDocumentInfo().SetSubject("Unsigned modification after issuance");
         }
 
         var appended = output.ToArray();

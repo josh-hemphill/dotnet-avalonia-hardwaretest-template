@@ -114,7 +114,7 @@ public sealed class ResponsivePreviewTests
                 Assert.True(scroll.Offset.Y > 0);
                 // The board owns its wheel input; source controls stay outside its viewport.
                 var center = preview.TranslatePoint(new Point(8, 8), window);
-                Assert.NotNull(center);
+                _ = Assert.NotNull(center);
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);
                 AuthoringUiFixture.Drain();
                 Assert.Equal(0, scroll.Offset.Y);

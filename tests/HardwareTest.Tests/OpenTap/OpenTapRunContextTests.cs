@@ -24,7 +24,7 @@ public sealed class OpenTapRunContextTests
         b.WaitIfPaused();
         Assert.True(sw.Elapsed < TimeSpan.FromMilliseconds(250), $"context B WaitIfPaused blocked ({sw.Elapsed})");
 
-        var blocked = Task.Run(() => a.WaitIfPaused());
+        var blocked = Task.Run(a.WaitIfPaused);
         var finishedEarly = await Task.WhenAny(blocked, Task.Delay(80)) == blocked;
         Assert.False(finishedEarly);
         a.Resume();
@@ -49,7 +49,7 @@ public sealed class OpenTapRunContextTests
         context.Pause();
         context.BeginRun(CancellationToken.None);
 
-        var blocked = Task.Run(() => context.WaitIfPaused());
+        var blocked = Task.Run(context.WaitIfPaused);
         var finishedEarly = await Task.WhenAny(blocked, Task.Delay(80)) == blocked;
         Assert.False(finishedEarly, "BeginRun cleared a live pause.");
         context.Resume();
@@ -57,7 +57,7 @@ public sealed class OpenTapRunContextTests
     }
 
     [Fact]
-    public async Task BeginRun_does_not_restore_a_pause_cleared_by_resume()
+    public Task BeginRun_does_not_restore_a_pause_cleared_by_resume()
     {
         using var context = CreateContext();
         context.Pause();
@@ -69,6 +69,7 @@ public sealed class OpenTapRunContextTests
         Assert.True(
             sw.Elapsed < TimeSpan.FromMilliseconds(250),
             $"BeginRun re-applied a snapshot pause after Resume ({sw.Elapsed}).");
+        return Task.CompletedTask;
     }
 
     private static OpenTapRunContext CreateContext()

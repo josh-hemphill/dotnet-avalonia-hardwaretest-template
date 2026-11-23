@@ -43,7 +43,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
 
         Assert.Equal(original, captured["InstrumentComponents.OpenTap.dll"]);
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
-        Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home));
+        _ = Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.CaptureLibraryPayload(home));
     }
 
     // Exercise exact published payload bytes by default; explicit fixture overrides remain supported.
@@ -88,12 +88,12 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var incompatible = new AuthoringPlanInitializer().Construct(new("unsupported")
         { Home = home, Instruments = [binding], Measurement = new(AuthoringRecipeIds.MeanGte, binding.SlotName) });
         Assert.Contains(incompatible.Issues, issue => issue.Code == "INSTRUMENT_INCOMPATIBLE");
-        Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(incompatible.Draft, Path.Combine(_root, "unsupported.TapPlan")));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(incompatible.Draft, Path.Combine(_root, "unsupported.TapPlan")));
         VerifyResidentProvenance(home, adapters);
         var foreign = new OpenTapHome(Path.Combine(_root, "foreign-home"));
         Assert.Empty(AuthoringInstrumentCatalog.Discover(foreign));
         Assert.False(supply.Availability(foreign).Available);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(binding, foreign));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(binding, foreign));
         var providerCalls = 0;
         var foreignCompiler = new PlanCompiler(libraryHomeProvider: () => { providerCalls++; return foreign; });
         var unavailableImport = foreignCompiler.Load(path);
@@ -108,12 +108,12 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var bytes = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(file => file, File.ReadAllBytes);
         var workspace = new AuthoringWorkspace(_root, new AuthoringManifest
         { Dependencies = [new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" }] }, []);
-        new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         foreach (var pair in bytes) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
         var vmRoot = Path.Combine(_root, "workspace");
-        new AuthoringWorkspaceInitializer().Create(new(vmRoot, "Actual library workspace", "Actual library workspace") { IncludeLibraryPackage = true });
+        _ = new AuthoringWorkspaceInitializer().Create(new(vmRoot, "Actual library workspace", "Actual library workspace") { IncludeLibraryPackage = true });
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(vmRoot); vm.OpenTapHomeOverride = home.Root;
-        vm.InitializePlan(new("persisted-library") { Instruments = [binding], IdentityInstrumentSlot = binding.SlotName });
+        _ = vm.InitializePlan(new("persisted-library") { Instruments = [binding], IdentityInstrumentSlot = binding.SlotName });
         vm.DisplayName = "Saved library lifecycle"; Assert.True(vm.SaveAll().Succeeded);
         var vmPath = Path.Combine(vmRoot, "plans", "persisted-library.TapPlan");
         Assert.True(File.Exists(vmPath)); Assert.Contains("InstrumentComponents.OpenTap.DcPowerSupplyInstrument", File.ReadAllText(vmPath));
@@ -121,8 +121,8 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.Equal(binding.TypeId, Assert.Single(vm.SelectedProgram!.Instruments).TypeId);
         Assert.Equal("8123", Assert.Single(vm.SelectedProgram.Instruments).Settings["IoTimeoutMilliseconds"]);
         var active = vm.Workspace;
-        var badRoot = Path.Combine(_root, "bad-workspace"); Directory.CreateDirectory(badRoot); File.WriteAllText(Path.Combine(badRoot, "authoring.json"), "invalid json");
-        Assert.ThrowsAny<Exception>(() => vm.PrepareOpen(badRoot));
+        var badRoot = Path.Combine(_root, "bad-workspace"); _ = Directory.CreateDirectory(badRoot); File.WriteAllText(Path.Combine(badRoot, "authoring.json"), "invalid json");
+        _ = Assert.ThrowsAny<Exception>(() => vm.PrepareOpen(badRoot));
         Assert.Same(active, vm.Workspace); Assert.Equal(home.Root, vm.OpenTapHomeOverride);
         var metadata = XDocument.Load(Path.Combine(payload, "package.xml"));
         metadata.Root!.SetAttributeValue("Version", "2.0.0"); metadata.Save(Path.Combine(payload, "package.xml"));
@@ -132,7 +132,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         // Same assembly name/version in another home cannot borrow cached types if its binary differs.
         using (var stream = new FileStream(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), FileMode.Append)) stream.WriteByte(0);
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(binding, home));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(binding, home));
         File.WriteAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), bytes[Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll")]);
         File.Delete(Path.Combine(home.Root, "InstrumentComponents.dll"));
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
@@ -150,7 +150,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
             InstrumentComponentsPackage = archivePath
         }, []);
         var bootstrap = new OpenTapHomeBootstrapper();
-        bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        _ = bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         using var archive = ZipFile.OpenRead(archivePath!);
         var originals = new Dictionary<string, byte[]>();
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
@@ -171,11 +171,11 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         Assert.Equal(binding, Assert.Single(reopened.Instruments) with { Settings = binding.Settings });
         Assert.Equal("8123", Assert.Single(reopened.Instruments).Settings["IoTimeoutMilliseconds"]);
         Assert.Equal(draft.Cleanup.NodeId, reopened.Cleanup.NodeId);
-        bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        _ = bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         foreach (var pair in originals) Assert.Equal(pair.Value, File.ReadAllBytes(Path.Combine(home.Root, pair.Key)));
-        File.WriteAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), originals["InstrumentComponents.OpenTap.dll"].Concat(new byte[] { 0 }).ToArray());
+        File.WriteAllBytes(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), [.. originals["InstrumentComponents.OpenTap.dll"], .. new byte[] { 0 }]);
         Assert.Empty(AuthoringInstrumentCatalog.Discover(home));
-        bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
+        _ = bootstrap.Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true });
         Assert.Equal(13, AuthoringInstrumentCatalog.Discover(home).Count);
         foreach (var pair in originals) Assert.Equal(pair.Value, File.ReadAllBytes(Path.Combine(home.Root, pair.Key)));
     }
@@ -185,12 +185,12 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
         var original = origin.Root;
         var second = new OpenTapHome(Path.Combine(_root, "identical-home"));
         var copied = second.Root;
-        Directory.CreateDirectory(copied);
+        _ = Directory.CreateDirectory(copied);
         var bytes = Directory.GetFiles(original, "*", SearchOption.AllDirectories).ToDictionary(file => Path.GetRelativePath(original, file), File.ReadAllBytes);
         foreach (var pair in bytes)
         {
             var destination = Path.Combine(copied, pair.Key);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.WriteAllBytes(destination, pair.Value);
         }
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
@@ -212,7 +212,7 @@ public sealed class LibraryInstrumentCatalogTests : IDisposable
     {
         var home = new OpenTapHome(Path.Combine(_root, "actual-home"));
         var target = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        Directory.CreateDirectory(target);
+        _ = Directory.CreateDirectory(target);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" }) File.Copy(Path.Combine(package, file), Path.Combine(home.Root, file));
         File.Copy(Path.Combine(package, "package.xml"), Path.Combine(target, "package.xml"));
         return home;

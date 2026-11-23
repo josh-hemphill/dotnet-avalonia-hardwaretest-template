@@ -13,7 +13,7 @@ public sealed class AuthoringOperationWindowTests
     public async Task Owner_close_retries_failed_cleanup_after_operation_stops_and_stays_open_until_removed(bool closeWhileBusy)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         File.WriteAllText(Path.Combine(fixture.WorkspaceRoot, "fixture-wait"), "");
         var blocked = 1;
         using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(
@@ -36,7 +36,7 @@ public sealed class AuthoringOperationWindowTests
             {
                 fixture.ViewModel.CancelOperation();
                 await Until(() => running.IsCompleted);
-                await Assert.ThrowsAsync<IOException>(() => running);
+                _ = await Assert.ThrowsAsync<IOException>(() => running);
             }
             fixture.ViewModel.ReportError("Awaiting first close");
             fixture.Window!.Close();
@@ -55,7 +55,7 @@ public sealed class AuthoringOperationWindowTests
             await Until(() => !fixture.Window.IsVisible);
             Assert.False(fixture.ViewModel.OperationCleanupPending);
             Assert.False(Directory.Exists(owned));
-            await Assert.ThrowsAsync<IOException>(() => running);
+            _ = await Assert.ThrowsAsync<IOException>(() => running);
         }
         finally { Volatile.Write(ref blocked, 0); }
     }
@@ -66,7 +66,7 @@ public sealed class AuthoringOperationWindowTests
     public async Task Accepted_close_reaps_real_child_and_descendant_before_owner_closes(bool cancelDirtyDialogFirst)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
             Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")),
             action => Dispatcher.UIThread.Post(action));
@@ -105,7 +105,7 @@ public sealed class AuthoringOperationWindowTests
     public async Task Replacement_during_close_cleanup_retains_new_session_recovery()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var coordinator = new AuthoringOperationCoordinator(AuthoringChildProcessRunner.ForExecutable(
@@ -114,7 +114,7 @@ public sealed class AuthoringOperationWindowTests
             CancelledCleanup = async owned =>
             {
                 Assert.False(Dispatcher.UIThread.CheckAccess());
-                entered.TrySetResult();
+                _ = entered.TrySetResult();
                 await release.Task.WaitAsync(TimeSpan.FromSeconds(5));
                 await AuthoringOperationCoordinator.CleanupCancelledOperationAsync(owned);
             }
@@ -138,9 +138,9 @@ public sealed class AuthoringOperationWindowTests
             Assert.NotEqual(oldSession, fixture.ViewModel.WorkspaceSessionId);
             Assert.False(fixture.ViewModel.OperationBusy);
             Assert.Null(fixture.ViewModel.OperationStage);
-            release.TrySetResult();
+            _ = release.TrySetResult();
             await Until(() => running.IsCompleted);
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
+            _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
             var transition = typeof(MainWindow).GetField("_transitionInFlight",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
             await Until(() => !(bool)transition.GetValue(fixture.Window)!);
@@ -162,19 +162,19 @@ public sealed class AuthoringOperationWindowTests
             File.Delete(marker);
             var replacementOperation = fixture.ViewModel.RunOperationAsync(AuthoringOperationKind.Bootstrap);
             await Until(() => File.Exists(marker) || replacementOperation.IsCompleted);
-            if (replacementOperation.IsCompleted) await replacementOperation;
+            if (replacementOperation.IsCompleted) _ = await replacementOperation;
             Assert.True(File.Exists(marker));
             Assert.False(replacementOperation.IsCompleted);
             Assert.True(fixture.ViewModel.OperationBusy);
             fixture.ViewModel.CancelOperation();
             await Until(() => replacementOperation.IsCompleted);
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replacementOperation);
+            _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => replacementOperation);
             Assert.Null(fixture.ViewModel.Error);
             Assert.True(fixture.Window.IsVisible);
             coordinator.Dispose();
-            await Assert.ThrowsAsync<ObjectDisposedException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, fixture.WorkspaceRoot));
+            _ = await Assert.ThrowsAsync<ObjectDisposedException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, fixture.WorkspaceRoot));
         }
-        finally { release.TrySetResult(); }
+        finally { _ = release.TrySetResult(); }
     }
 
     private static bool IsAlive(int id)
@@ -194,7 +194,7 @@ public sealed class AuthoringOperationWindowTests
     public async Task Bootstrap_handler_runs_real_child_off_UI_and_cancel_leaves_workspace_usable()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
             Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")),
@@ -224,7 +224,7 @@ public sealed class AuthoringOperationWindowTests
     public async Task Workspace_replacement_suppresses_old_result_and_progress(bool waitForChild)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.ConfigureOperations(AuthoringChildProcessRunner.ForExecutable(
             Path.Combine(AppContext.BaseDirectory, "HardwareTest.Authoring.ProcessFixture.dll")),
             action => Dispatcher.UIThread.Post(action));
@@ -234,7 +234,7 @@ public sealed class AuthoringOperationWindowTests
         Assert.True(await fixture.Window!.ReopenWorkspaceAsync());
         var replacementStatus = fixture.ViewModel.Status;
         await Until(() => running.IsCompleted);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => running);
         Assert.Equal(replacementStatus, fixture.ViewModel.Status);
         Assert.Null(fixture.ViewModel.Error);
         Assert.Null(fixture.ViewModel.OperationStage);

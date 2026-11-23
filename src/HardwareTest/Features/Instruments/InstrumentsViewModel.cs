@@ -57,10 +57,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         PlanFilter = AllPlanFilter;
         Status = "Discover VISA or OpenTAP resources, then set per-plan OpenTAP slot overrides.";
 
-        if (visaModeController is not null)
-        {
-            visaModeController.ModeApplied += OnVisaModeApplied;
-        }
+        visaModeController?.ModeApplied += OnVisaModeApplied;
 
         RefreshVisaDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshVisaDiscoverAsync);
         RefreshOpenTapDiscoverCommand = ReactiveCommand.CreateFromTask(RefreshOpenTapDiscoverAsync);
@@ -118,10 +115,10 @@ public partial class InstrumentsViewModel : ReactiveObject
         foreach (var removed in _observedSlots.Where(slot => !SlotOverrides.Contains(slot)).ToArray())
         {
             removed.PropertyChanged -= OnSlotBindingChanged;
-            _observedSlots.Remove(removed);
+            _ = _observedSlots.Remove(removed);
         }
 
-        foreach (var added in SlotOverrides.Where(slot => _observedSlots.Add(slot)))
+        foreach (var added in SlotOverrides.Where(_observedSlots.Add))
         {
             added.PropertyChanged += OnSlotBindingChanged;
         }
@@ -303,20 +300,13 @@ public partial class InstrumentsViewModel : ReactiveObject
                     }
                 }
 
-                if (SlotOverrides.Count == 0)
-                {
-                    Status = failures > 0
+                Status = SlotOverrides.Count == 0
+                    ? failures > 0
                         ? $"No OpenTAP instrument slots found ({failures} plan load error(s)). {firstFailure}"
-                        : "No OpenTAP instrument slots found in available plans.";
-                }
-                else if (failures == 0)
-                {
-                    Status = $"Loaded {SlotOverrides.Count} slot(s) from available plans.";
-                }
-                else
-                {
-                    Status = $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed. {firstFailure}";
-                }
+                        : "No OpenTAP instrument slots found in available plans."
+                    : failures == 0
+                        ? $"Loaded {SlotOverrides.Count} slot(s) from available plans."
+                        : $"Loaded {SlotOverrides.Count} slot(s); {failures} plan(s) failed. {firstFailure}";
             }
             catch (Exception ex)
             {
@@ -377,20 +367,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         }
 
         var resource = SelectedVisa?.Resource ?? SelectedOpenTap?.Address;
-        string? source;
-        if (SelectedVisa is not null)
-        {
-            source = "VISA";
-        }
-        else if (SelectedOpenTap is not null)
-        {
-            source = "OpenTAP";
-        }
-        else
-        {
-            source = null;
-        }
-
+        var source = SelectedVisa is not null ? "VISA" : SelectedOpenTap is not null ? "OpenTAP" : null;
         if (string.IsNullOrWhiteSpace(resource) || source is null)
         {
             Status = "Select a VISA or OpenTAP discovered resource.";
@@ -526,7 +503,7 @@ public partial class InstrumentsViewModel : ReactiveObject
         {
             await RunOnUiAsync(() =>
             {
-                _settingsStore.AppSettings.PlanSlotOverrides = SlotOverrides
+                _settingsStore.AppSettings.PlanSlotOverrides = [.. SlotOverrides
                     .Where(s => !string.IsNullOrWhiteSpace(s.OverrideResource))
                     .Select(s => new PlanSlotOverride
                     {
@@ -534,8 +511,7 @@ public partial class InstrumentsViewModel : ReactiveObject
                         SlotName = s.SlotName,
                         RoleHint = s.RoleHint,
                         Resource = s.OverrideResource.Trim(),
-                    })
-                    .ToList();
+                    })];
             }).ConfigureAwait(false);
 
             await _settingsStore.SaveAppSettingsAsync().ConfigureAwait(false);

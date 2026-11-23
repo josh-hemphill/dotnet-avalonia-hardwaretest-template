@@ -77,7 +77,7 @@ public partial class ProcedureEditorWindow : Window
 
     private void OnSearchChanged(object? sender, TextChangedEventArgs e)
     {
-        if (!_updating) Attempt(() => { CommitFields(); Refresh(); });
+        if (!_updating) _ = Attempt(() => { CommitFields(); Refresh(); });
     }
 
     private void OnEntryChanged(object? sender, SelectionChangedEventArgs e)
@@ -132,7 +132,7 @@ public partial class ProcedureEditorWindow : Window
                 if (target.IsStep)
                 {
                     StepsMode.IsChecked = true;
-                    foreach (var ancestor in _session.AncestorIds(target)) _collapsedSteps.Remove(ancestor);
+                    foreach (var ancestor in _session.AncestorIds(target)) _ = _collapsedSteps.Remove(ancestor);
                 }
                 else
                 {
@@ -141,7 +141,7 @@ public partial class ProcedureEditorWindow : Window
 
                 _updating = false;
                 Refresh(target.Id);
-                ProcedureEntries.Focus();
+                _ = ProcedureEntries.Focus();
             });
             RelatedItems.Children.Add(button);
         }
@@ -152,9 +152,9 @@ public partial class ProcedureEditorWindow : Window
     {
         CommitFields();
         if (_item is not { } item) return;
-        if (!_collapsedSteps.Remove(item.Id)) _collapsedSteps.Add(item.Id);
+        if (!_collapsedSteps.Remove(item.Id)) _ = _collapsedSteps.Add(item.Id);
         Refresh();
-        ToggleChildren.Focus();
+        _ = ToggleChildren.Focus();
     });
 
     private void OnMoveUp(object? sender, RoutedEventArgs e) => Move(-1);
@@ -170,7 +170,7 @@ public partial class ProcedureEditorWindow : Window
         CommitFields();
         if (_item is not { } item || ChildType.SelectedItem is not StepChoice choice) return;
         var id = _session.AddChild(item, choice.Schema);
-        _collapsedSteps.Remove(item.Id);
+        _ = _collapsedSteps.Remove(item.Id);
         _updating = true;
         ProcedureSearch.Clear();
         _updating = false;
@@ -267,7 +267,7 @@ public partial class ProcedureEditorWindow : Window
         {
             if (choices.Length == 0) { PromptPreview.IsVisible = false; return; }
             if (pick.SelectedItem is not string choice) throw new InvalidDataException("Choose a configuration before continuing.");
-            _completedChoices.Add(choice);
+            _ = _completedChoices.Add(choice);
             RenderPrompt();
         });
         var cancel = new Button { Content = "End preview" };
@@ -276,7 +276,7 @@ public partial class ProcedureEditorWindow : Window
         actions.Children.Add(accept);
         actions.Children.Add(cancel);
         PromptPreview.Children.Add(actions);
-        pick.Focus();
+        _ = pick.Focus();
     }
 
     private bool Attempt(Action action)

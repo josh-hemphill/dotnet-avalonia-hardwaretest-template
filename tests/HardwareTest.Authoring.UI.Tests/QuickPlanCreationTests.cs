@@ -36,7 +36,7 @@ public sealed class QuickPlanCreationTests
         var palette = Assert.Single(window.OwnedWindows);
         await fixture.WaitForReadinessAsync();
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
-        Assert.Single(fixture.ViewModel.SelectedProgram.Setup.OfType<OperatorPromptSetup>());
+        _ = Assert.Single(fixture.ViewModel.SelectedProgram.Setup.OfType<OperatorPromptSetup>());
         AuthoringUiFixture.Click(fixture.Control<Button>("Add step"));
         palette = Assert.Single(window.OwnedWindows);
         var choices = fixture.Control<ListBox>("Recipe", palette);
@@ -52,8 +52,8 @@ public sealed class QuickPlanCreationTests
         await fixture.WaitForReadinessAsync();
         Assert.Equal("Power rail acceptance", fixture.ViewModel.DisplayName);
         Assert.Equal("Controller board", fixture.ViewModel.DutFamily);
-        Assert.Single(fixture.ViewModel.SelectedProgram!.Setup.OfType<OperatorPromptSetup>());
-        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
+        _ = Assert.Single(fixture.ViewModel.SelectedProgram!.Setup.OfType<OperatorPromptSetup>());
+        _ = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
     }
 
     [AvaloniaFact]

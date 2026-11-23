@@ -218,18 +218,18 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
 
-        var candidate = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
+        var (Pdf, Error) = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
             .ConfigureAwait(false);
-        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
+        if (Error is not null || Pdf is not { Length: > 0 })
         {
-            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
+            return Failure(captured, Error ?? "Certification PDF is missing. Generate reports first.");
         }
 
         if (!signer.IsMock)
         {
             var embedded = (IEmbeddedPdfSigningBroker)signer;
             var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
-            var sign = await embedded.TrySignPdfAsync(candidate.Pdf, captured, pin, signingTime, cancellationToken)
+            var sign = await embedded.TrySignPdfAsync(Pdf, captured, pin, signingTime, cancellationToken)
                 .ConfigureAwait(false);
             if (sign.PinRequired || sign.PinRetriesRemaining is not null)
             {
@@ -249,7 +249,7 @@ public sealed class ReportAttestationService : IReportAttestationService
                 AttestationKind.Signed, sign, embedded: true, cancellationToken).ConfigureAwait(false);
         }
 
-        var payload = Encoding.UTF8.GetBytes($"{HashBytes(candidate.Pdf)}:{runHash}");
+        var payload = Encoding.UTF8.GetBytes($"{HashBytes(Pdf)}:{runHash}");
         var mockSign = await signer.TrySignPayloadAsync(payload, captured, pin, cancellationToken).ConfigureAwait(false);
         if (mockSign.PinRequired || mockSign.PinRetriesRemaining is not null)
         {
@@ -267,7 +267,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             return Failure(captured, "The mock report signature did not verify.");
         }
-        return await PublishAsync(run, targetKind, mockSign.Credential ?? captured, candidate.Pdf, runHash,
+        return await PublishAsync(run, targetKind, mockSign.Credential ?? captured, Pdf, runHash,
             AttestationKind.Signed, mockSign, embedded: false, cancellationToken).ConfigureAwait(false);
     }
 
@@ -295,14 +295,14 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             return Failure(captured, "This badge cannot sign, and presence-only attestation is disabled.");
         }
-        var candidate = await CompileCandidateAsync(run, kind, captured, AttestationKind.Presence, cancellationToken)
+        var (Pdf, Error) = await CompileCandidateAsync(run, kind, captured, AttestationKind.Presence, cancellationToken)
             .ConfigureAwait(false);
-        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
+        if (Error is not null || Pdf is not { Length: > 0 })
         {
-            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
+            return Failure(captured, Error ?? "Certification PDF is missing. Generate reports first.");
         }
         var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
-        return await PublishAsync(run, kind, captured, candidate.Pdf, runHash,
+        return await PublishAsync(run, kind, captured, Pdf, runHash,
             AttestationKind.Presence, null, embedded: false, cancellationToken).ConfigureAwait(false);
     }
 
