@@ -13,12 +13,12 @@ public sealed class LibraryEditorCreationTests
         var root = Path.Combine(Path.GetTempPath(), "ht-library-editor-" + Guid.NewGuid().ToString("N"));
         try
         {
-            new AuthoringWorkspaceInitializer().Create(new(root, "Library editor", "Library editor") { IncludeLibraryPackage = true });
+            _ = new AuthoringWorkspaceInitializer().Create(new(root, "Library editor", "Library editor") { IncludeLibraryPackage = true });
             var vm = new AuthoringWorkspaceViewModel(); vm.Open(root);
             var home = new OpenTapHome(Path.Combine(root, "actual-home"));
             vm.Workspace!.Manifest.InstrumentComponentsPackage = package;
-            new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace, new() { HomeDirectory = home.Root, Offline = true });
-            vm.OpenTapHomeOverride = home.Root; vm.InitializePlan(new("editor") { Instruments = [] });
+            _ = new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace, new() { HomeDirectory = home.Root, Offline = true });
+            vm.OpenTapHomeOverride = home.Root; _ = vm.InitializePlan(new("editor") { Instruments = [] });
             vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.Discover(home).Single(adapter => adapter.DisplayName == "DC Power Supply").TypeId;
             vm.NewInstrumentSlot = "Rail";
             var before = vm.SelectedProgram;
@@ -27,7 +27,7 @@ public sealed class LibraryEditorCreationTests
                 vm.NewInstrumentVisa = blank;
                 Assert.False(vm.CanAddInstrumentSlot);
                 Assert.Contains("address", vm.NewInstrumentAvailabilityText);
-                Assert.Throws<AuthoringWorkspaceException>(vm.AddInstrumentSlot);
+                _ = Assert.Throws<AuthoringWorkspaceException>(vm.AddInstrumentSlot);
                 Assert.Same(before, vm.SelectedProgram);
                 Assert.Equal("Rail", vm.NewInstrumentSlot); Assert.Equal(blank, vm.NewInstrumentVisa);
                 Assert.DoesNotContain("Rail", vm.Workspace.Manifest.Catalogs?.InstrumentSlotNames ?? []);

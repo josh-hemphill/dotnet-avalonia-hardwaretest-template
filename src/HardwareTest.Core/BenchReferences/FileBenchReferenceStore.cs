@@ -115,7 +115,10 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
                 throw new InvalidOperationException($"Reference '{profile.Name}' is retired. Select or acquire another reference.");
             if (profile.Id != selection.ReferenceId || profile.Revision != selection.ExpectedRevision
                 || !string.Equals(profile.ContentSha256, selection.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidOperationException($"Reference '{profile.Name}' changed since selection. Reload, inspect and confirm the intended values before Run.");
+            }
+
             loaded.Add((selection, profile));
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -142,7 +145,7 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
         var path = PathFor(id);
         if (!File.Exists(path)) throw new FileNotFoundException("The selected bench reference is missing. Select or acquire it explicitly.", path);
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-        DocumentSchemaGate.ReadHeader(bytes, SchemaDocumentTypes.BenchReferenceProfile,
+        _ = DocumentSchemaGate.ReadHeader(bytes, SchemaDocumentTypes.BenchReferenceProfile,
             SchemaVersions.BenchReferenceProfile, path);
         var profile = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.BenchReferenceProfile)
             ?? throw new InvalidOperationException("Bench reference file is empty.");
@@ -158,14 +161,17 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
         var path = RetirementPath(profile.Id);
         if (!File.Exists(path)) return null;
         var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-        DocumentSchemaGate.ReadHeader(bytes, SchemaDocumentTypes.BenchReferenceRetirement,
+        _ = DocumentSchemaGate.ReadHeader(bytes, SchemaDocumentTypes.BenchReferenceRetirement,
             SchemaVersions.BenchReferenceRetirement, path);
         var marker = JsonSerializer.Deserialize(bytes, AppJsonContext.Default.BenchReferenceRetirement)
             ?? throw new InvalidOperationException("Reference retirement marker is empty.");
         if (marker.SchemaVersion != SchemaVersions.BenchReferenceRetirement
             || marker.ReferenceId != profile.Id || marker.ReferenceSha256 != profile.ContentSha256
             || marker.RetiredAt == default || string.IsNullOrWhiteSpace(marker.Reason))
+        {
             throw new InvalidOperationException("Reference retirement metadata is invalid; preserve it and correct the catalog before selection.");
+        }
+
         return marker;
     }
 
@@ -184,13 +190,13 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
         await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            Directory.CreateDirectory(_directory);
+            _ = Directory.CreateDirectory(_directory);
             // This also excludes other application processes honoring the catalog protocol.
             var file = new FileStream(Path.Combine(_directory, ".catalog.lock"), FileMode.OpenOrCreate,
                 FileAccess.ReadWrite, FileShare.None);
             return new CatalogLease(gate, file);
         }
-        catch { gate.Release(); throw; }
+        catch { _ = gate.Release(); throw; }
     }
 
     private sealed class CatalogLease(SemaphoreSlim gate, FileStream file) : IDisposable
@@ -198,14 +204,14 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
         public void Dispose()
         {
             try { file.Dispose(); }
-            finally { gate.Release(); }
+            finally { _ = gate.Release(); }
         }
     }
 
     /// Same-directory rename is the publication point; overwrite is prohibited even after a race.
     private static async Task PublishNewAsync(string path, byte[] bytes, CancellationToken cancellationToken)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var pending = path + ".pending-" + Guid.NewGuid().ToString("N");
         try
         {

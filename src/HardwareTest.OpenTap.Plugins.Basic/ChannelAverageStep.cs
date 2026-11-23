@@ -43,8 +43,8 @@ public sealed class ChannelAverageStep : RuntimeAwareTestStep
 
             var samples = _capture.RowsFor(InputChannel, StepRun, this, ProducerStepId).Select(row => row.Value).ToArray();
             var result = ChannelAverageEvaluator.Evaluate(samples, Threshold);
-            Results.Publish("Analyze", new List<string> { "Mean", "Threshold" }, result.Average, Threshold);
-            Results.Publish("Scalar", new List<string> { "Name", "Value", "Unit", "LimitLow" },
+            Results.Publish("Analyze", ["Mean", "Threshold"], result.Average, Threshold);
+            Results.Publish("Scalar", ["Name", "Value", "Unit", "LimitLow"],
                 string.IsNullOrWhiteSpace(Channel) ? Name : Channel, result.Average, Unit, Threshold);
             UpgradeVerdict(result.Passed ? Verdict.Pass : Verdict.Fail);
         }

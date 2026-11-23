@@ -19,7 +19,7 @@ public static class AtomicFile
         var directory = Path.GetDirectoryName(destinationPath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         var temp = destinationPath + ".tmp-" + Guid.NewGuid().ToString("N");

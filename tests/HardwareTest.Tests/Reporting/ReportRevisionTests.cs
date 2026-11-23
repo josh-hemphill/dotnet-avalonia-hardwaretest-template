@@ -28,8 +28,8 @@ public sealed class ReportRevisionTests : IDisposable
         await File.WriteAllTextAsync(pdf, "unchanged pdf");
         var original = JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord);
         await File.WriteAllTextAsync(Path.Combine(dir, "run.json"), original);
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(run.RunId));
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(run.RunId));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
         Assert.Equal(original, await File.ReadAllTextAsync(Path.Combine(dir, "run.json")));
         Assert.Equal("unchanged pdf", await File.ReadAllTextAsync(pdf));
     }
@@ -92,12 +92,12 @@ public sealed class ReportRevisionTests : IDisposable
         var priorSidecar = await File.ReadAllBytesAsync(run.Attestations[0].SidecarPath!);
         var failing = new FailingStore(store, cancel);
         var failingService = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), failing, new AppSettings());
-        if (cancel) await Assert.ThrowsAsync<OperationCanceledException>(() => failingService.AttestAsync(run, ReportKinds.Certification));
+        if (cancel) _ = await Assert.ThrowsAsync<OperationCanceledException>(() => failingService.AttestAsync(run, ReportKinds.Certification));
         else Assert.False((await failingService.AttestAsync(run, ReportKinds.Certification)).Succeeded);
         Assert.Equal(original, JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord));
         Assert.Equal(disk, await File.ReadAllTextAsync(Path.Combine(store.GetRunDirectory(run.RunId), "run.json")));
         Assert.Equal(priorSidecar, await File.ReadAllBytesAsync(run.Attestations[0].SidecarPath!));
-        Assert.Single((await store.LoadAsync(run.RunId))!.Attestations);
+        _ = Assert.Single((await store.LoadAsync(run.RunId))!.Attestations);
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
@@ -109,7 +109,7 @@ public sealed class ReportRevisionTests : IDisposable
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, new AppSettings());
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification,
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification,
             cancellationToken: cancellation.Token));
         Assert.Empty(run.Attestations);
         Assert.DoesNotContain(run.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
@@ -172,14 +172,14 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.True((await service.AttestAsync(run, ReportKinds.Certification)).Succeeded);
         stale.ErrorMessage = "ordinary update";
         await store.SaveAsync(stale);
-        Assert.Single(stale.Attestations);
+        _ = Assert.Single(stale.Attestations);
         Assert.Equal("ordinary update", (await store.LoadAsync(run.RunId))!.ErrorMessage);
         var suites = new FileSuiteRunStore(store, _root);
         var suite = new SuiteRunRecord { SuiteRunId = "suite", PlanRuns = [held] };
         await suites.SaveAsync(suite);
-        Assert.Single(held.Attestations);
-        Assert.Single((await store.LoadAsync(run.RunId))!.Attestations);
-        Assert.Single((await suites.LoadAsync(suite.SuiteRunId))!.PlanRuns[0].Attestations);
+        _ = Assert.Single(held.Attestations);
+        _ = Assert.Single((await store.LoadAsync(run.RunId))!.Attestations);
+        _ = Assert.Single((await suites.LoadAsync(suite.SuiteRunId))!.PlanRuns[0].Attestations);
     }
 
     [Fact]
@@ -191,7 +191,7 @@ public sealed class ReportRevisionTests : IDisposable
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, new AppSettings());
         await Task.WhenAll(service.AttestAsync(run, ReportKinds.Certification), store.SaveAsync(stale));
         var loaded = (await store.LoadAsync(run.RunId))!;
-        Assert.Single(loaded.Attestations);
+        _ = Assert.Single(loaded.Attestations);
         Assert.True(service.HasValidAttestation(loaded, ReportKinds.Certification));
     }
 
@@ -219,7 +219,7 @@ public sealed class ReportRevisionTests : IDisposable
         run.Attestations.Add(stamp);
         var sidecar = new ReportAttestationSidecar { Attestation = stamp };
         var revisions = new FileReportRevisionStore(new FailingStore(store, false));
-        await Assert.ThrowsAsync<IOException>(() => revisions.CommitAsync(run, ReportKinds.Certification, [1, 2], sidecar));
+        _ = await Assert.ThrowsAsync<IOException>(() => revisions.CommitAsync(run, ReportKinds.Certification, [1, 2], sidecar));
         Assert.Same(stamp, sidecar.Attestation);
         Assert.Same(stamp, run.Attestations[0]);
         Assert.Null(stamp.RevisionId);
@@ -235,14 +235,14 @@ public sealed class ReportRevisionTests : IDisposable
         File.SetAttributes(path, FileAttributes.ReadOnly);
         try
         {
-            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.SaveAsync(run));
+            _ = await Assert.ThrowsAsync<UnauthorizedAccessException>(() => store.SaveAsync(run));
             Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
         }
         finally { File.SetAttributes(path, FileAttributes.Normal); }
         var future = ReportRevisions.Clone(run);
         future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
         await File.WriteAllTextAsync(path, JsonSerializer.Serialize(future, AppJsonContext.Default.TestRunRecord));
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
         Assert.Equal(SchemaVersions.TestRunRecord, run.SchemaVersion);
     }
 
@@ -257,8 +257,8 @@ public sealed class ReportRevisionTests : IDisposable
         var path = Path.Combine(suites.GetSuiteRunDirectory(suite.SuiteRunId), "suite-run.json");
         var original = JsonSerializer.Serialize(suite, AppJsonContext.Default.SuiteRunRecord);
         await File.WriteAllTextAsync(path, original);
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync(suite.SuiteRunId));
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(suite));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync(suite.SuiteRunId));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(suite));
         Assert.Equal(original, await File.ReadAllTextAsync(path));
     }
 
@@ -283,7 +283,7 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.Equal(future.SchemaVersion, member.SchemaVersion);
         Assert.Equal(future.SchemaVersion, member.StoredSchemaVersion);
         Assert.Null(member.Reports[0].RevisionId);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
         Assert.Equal(future.SchemaVersion, member.SchemaVersion);
         Assert.Null(member.Reports[0].RevisionId);
         Assert.Equal(original, await File.ReadAllTextAsync(path));
@@ -308,7 +308,7 @@ public sealed class ReportRevisionTests : IDisposable
         var standalonePath = Path.Combine(runs.GetRunDirectory(stale.RunId), "run.json");
         var before = standaloneExists ? await File.ReadAllTextAsync(standalonePath) : null;
         var incoming = new SuiteRunRecord { SuiteRunId = persisted.SuiteRunId, PlanRuns = [stale] };
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(incoming));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(incoming));
         Assert.Equal(original, await File.ReadAllTextAsync(path));
         Assert.Equal(before, File.Exists(standalonePath) ? await File.ReadAllTextAsync(standalonePath) : null);
     }
@@ -328,12 +328,19 @@ public sealed class ReportRevisionTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(suites.GetSuiteRunDirectory(persisted.SuiteRunId), "suite-run.json"),
             JsonSerializer.Serialize(persisted, AppJsonContext.Default.SuiteRunRecord));
         var standalonePath = Path.Combine(runs.GetRunDirectory(run.RunId), "run.json");
-        if (standaloneExists) await File.WriteAllTextAsync(standalonePath,
+        if (standaloneExists)
+        {
+            await File.WriteAllTextAsync(standalonePath,
             JsonSerializer.Serialize(stale, AppJsonContext.Default.TestRunRecord));
-        else File.Delete(standalonePath);
+        }
+        else
+        {
+            File.Delete(standalonePath);
+        }
+
         var incoming = new SuiteRunRecord { SuiteRunId = persisted.SuiteRunId, PlanRuns = [stale] };
         await suites.SaveAsync(incoming);
-        Assert.Single(stale.Attestations);
+        _ = Assert.Single(stale.Attestations);
         Assert.True(service.HasValidAttestation((await runs.LoadAsync(run.RunId))!, ReportKinds.Certification));
         Assert.True(service.HasValidAttestation((await suites.LoadAsync(persisted.SuiteRunId))!.PlanRuns[0], ReportKinds.Certification));
     }
@@ -354,10 +361,16 @@ public sealed class ReportRevisionTests : IDisposable
         var future = ReportRevisions.Clone(later);
         future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
         if (futureOnDisk)
+        {
             await File.WriteAllTextAsync(Path.Combine(runs.GetRunDirectory(later.RunId), "run.json"),
                 JsonSerializer.Serialize(future, AppJsonContext.Default.TestRunRecord));
-        else later = future;
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord
+        }
+        else
+        {
+            later = future;
+        }
+
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord
         {
             SuiteRunId = "preflight",
             PlanRuns = [first, later],
@@ -407,7 +420,7 @@ public sealed class ReportRevisionTests : IDisposable
         Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification, older.RevisionId));
         Assert.Null(ReportAttestationService.ResolvePdfPath(run, ReportKinds.Certification));
-        Assert.Throws<IOException>(() => ReportAttestationService.ResolvePrintOrExportPdfPath(run,
+        _ = Assert.Throws<IOException>(() => ReportAttestationService.ResolvePrintOrExportPdfPath(run,
             ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification)!));
     }
 
@@ -420,7 +433,7 @@ public sealed class ReportRevisionTests : IDisposable
         var hooked = new HookedStore(store, async () =>
         {
             competingIssuance = ReportRevisions.LockAsync(store.GetRunDirectory(run.RunId), CancellationToken.None);
-            await Task.WhenAny(competingIssuance, Task.Delay(100));
+            _ = await Task.WhenAny(competingIssuance, Task.Delay(100));
             Assert.False(competingIssuance.IsCompleted);
         });
         var suites = new FileSuiteRunStore(hooked, _root);
@@ -481,7 +494,7 @@ public sealed class ReportRevisionTests : IDisposable
                 Assert.NotNull(await suites.LoadAsync(suite.SuiteRunId));
             }
         })).ToArray();
-        start.TrySetResult();
+        _ = start.TrySetResult();
         await Task.WhenAll(readers.Append(writer));
     }
 

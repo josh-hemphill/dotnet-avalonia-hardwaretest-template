@@ -15,16 +15,16 @@ public sealed class SequenceNavigationFeedbackTests
     public async Task Setup_navigation_can_add_the_first_prompt_while_measure_is_selected()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
-        vm.InitializePlan(new("empty-setup") { Instruments = [] });
+        _ = vm.InitializePlan(new("empty-setup") { Instruments = [] });
         Assert.True(vm.SelectedSequence!.IsSection);
         Assert.Empty(vm.SelectedProgram!.Setup);
         fixture.Control<Button>("Manage Setup section").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await vm.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
         vm.InsertSelectedRecipe();
-        Assert.IsType<OperatorPromptSetup>(Assert.Single(vm.SelectedProgram.Setup));
+        _ = Assert.IsType<OperatorPromptSetup>(Assert.Single(vm.SelectedProgram.Setup));
         Assert.Empty(Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure)).Children);
         Assert.Null(vm.Error);
     }

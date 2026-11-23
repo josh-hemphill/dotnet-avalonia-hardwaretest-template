@@ -80,11 +80,11 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         Assert.True(AuthoringInstrumentCatalog.TryGet(MockType, out var adapter));
         var home = new OpenTapHome(Path.Combine(_root, "home"));
         var packageDirectory = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
-        Directory.CreateDirectory(packageDirectory);
+        _ = Directory.CreateDirectory(packageDirectory);
         if (packagePresent) File.WriteAllText(Path.Combine(packageDirectory, "package.xml"), $"<Package Name=\"{adapter.RequiredPackage}\"><Files><File Path=\"{adapter.AssemblyFile}\"/></Files></Package>");
         var availability = adapter.Availability(home);
         Assert.False(availability.Available);
-        Assert.Contains(packagePresent ? adapter.AssemblyFile : "metadata", availability.Reason!);
+        Assert.Contains(packagePresent ? adapter.AssemblyFile : "metadata", availability.Reason);
         Assert.Contains(AuthoringIssueService.GetIssues(MockDraft(), home), issue => issue.Code == "INSTRUMENT_UNAVAILABLE");
         var path = Path.Combine(_root, "typed.TapPlan");
         var sidecar = PlanCompiler.SidecarPath(path);
@@ -187,8 +187,8 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         Assert.Equal("Vendor.MockDmmInstrument", instrument.TypeId);
         Assert.Equal("DMM", instrument.SlotName);
         Assert.Equal("MOCK::0", instrument.VisaAddress);
-        Assert.Contains("preserved-calibration", instrument.OpaqueResourceXml!);
-        Assert.Contains("Vendor.MockDmmInstrument", instrument.OpaqueResourceXml!);
+        Assert.Contains("preserved-calibration", instrument.OpaqueResourceXml);
+        Assert.Contains("Vendor.MockDmmInstrument", instrument.OpaqueResourceXml);
         var persisted = AuthoringDocumentDto.FromDraft(imported).ToDraft();
         Assert.Equal(instrument.OpaqueResourceXml, Assert.Single(persisted.Instruments).OpaqueResourceXml);
         var error = Assert.Throws<AuthoringWorkspaceException>(() => compiler.Save(imported, path));
@@ -248,7 +248,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         File.Copy(Path.Combine(repo!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);
-        vm.InitializePlan(new("typed") { Instruments = [] });
+        _ = vm.InitializePlan(new("typed") { Instruments = [] });
         vm.ReplaceSelected(MeanDraft());
         vm.SelectedInstrumentSlot = "FIRST";
         var impact = vm.PrepareSelectedInstrumentRemoval();
@@ -269,7 +269,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var programs = vm.Programs;
         var files = Directory.EnumerateFiles(_root, "*.TapPlan").ToDictionary(path => path, File.ReadAllBytes);
 
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyInstrumentRemoval(impact, "SECOND"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.ApplyInstrumentRemoval(impact, "SECOND"));
 
         Assert.Same(programs, vm.Programs);
         Assert.Same(changed, vm.SelectedProgram);
@@ -296,14 +296,14 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         draft = draft with { Measure = [node with { Metric = node.Metric with { Source = Assert.IsType<AlgorithmSource>(node.Metric.Source) with { InstrumentSlot = null } } }] };
         Assert.Contains(AuthoringIssueService.GetIssues(draft), issue => issue.Code == "MISSING_INSTRUMENT_BINDING" && issue.NodeId == node.NodeId);
         var path = Path.Combine(_root, "typed.TapPlan");
-        Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
         Assert.False(File.Exists(path));
     }
 
     [Fact]
     public void Current_physical_adapter_cannot_replace_mock_voltage_or_mean_dependencies()
     {
-        LibraryHome();
+        _ = LibraryHome();
         var replacement = new InstrumentRef("REAL", PhysicalType, "TCPIP::192.0.2.2::INSTR");
         Assert.False(AuthoringInstrumentCatalog.CanReplace(MeanDraft(), "SECOND", replacement));
         Assert.False(AuthoringInstrumentCatalog.CanReplace(MockDraft(), "DMM", replacement));
@@ -345,7 +345,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         Assert.False(vm.CanAddInstrumentSlot);
         Assert.Contains("registered instrument type", vm.NewInstrumentAvailabilityText);
         var count = vm.SelectedProgram.Instruments.Count;
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.AddInstrumentSlot());
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.AddInstrumentSlot);
         Assert.Equal(count, vm.SelectedProgram.Instruments.Count);
     }
 
@@ -360,9 +360,9 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         File.Delete(Path.Combine(home.Root, "Packages", adapter.RequiredPackage, missing));
         var unavailable = adapter.Availability(home);
         Assert.False(unavailable.Available);
-        Assert.Contains(missing, unavailable.Reason!);
-        Assert.Contains("missing", unavailable.Reason!);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+        Assert.Contains(missing, unavailable.Reason);
+        Assert.Contains("missing", unavailable.Reason);
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
     }
 
     [Theory]
@@ -381,26 +381,32 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var dependency = Path.Combine(directory, "HardwareTest.Core.dll");
         var external = Path.Combine(_root, "external.dll");
         File.WriteAllText(external, "readable external file");
-        if (defect == "name-only") File.WriteAllText(metadata, $"<Package Name=\"{adapter.RequiredPackage}\"/>");
+        if (defect == "name-only")
+        {
+            File.WriteAllText(metadata, $"<Package Name=\"{adapter.RequiredPackage}\"/>");
+        }
         else if (defect == "undeclared-required-payload")
         {
             var xml = XDocument.Load(metadata);
             xml.Descendants().Single(element => (string?)element.Attribute("Path") == adapter.AssemblyFile).Remove();
             xml.Save(metadata);
         }
-        else if (defect == "empty") File.WriteAllBytes(dependency, []);
+        else if (defect == "empty")
+        {
+            File.WriteAllBytes(dependency, []);
+        }
         else if (defect == "traversal")
         {
             var xml = XDocument.Load(metadata);
             xml.Root!.Elements().Single(element => element.Name.LocalName == "Files").Add(new XElement("File", new XAttribute("Path", "../../../external.dll")));
             xml.Save(metadata);
         }
-        else if (defect == "linked-payload") { File.Delete(dependency); File.CreateSymbolicLink(dependency, external); }
+        else if (defect == "linked-payload") { File.Delete(dependency); _ = File.CreateSymbolicLink(dependency, external); }
         else
         {
             var moved = Path.Combine(_root, "external-package");
             Directory.Move(directory, moved);
-            Directory.CreateSymbolicLink(directory, moved);
+            _ = Directory.CreateSymbolicLink(directory, moved);
         }
         var unavailable = adapter.Availability(home);
         Assert.False(unavailable.Available);
@@ -436,7 +442,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         vm.ApplyInstrumentRemoval(impact, "SECOND");
         var path = Path.Combine(_root, "typed.TapPlan");
         new PlanCompiler().Save(vm.SelectedProgram!, path);
-        Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)).OfType<ChannelAverageStep>());
+        _ = Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)).OfType<ChannelAverageStep>());
         Assert.DoesNotContain(AuthoringIssueService.GetIssues(vm.SelectedProgram!), issue => issue.Code is "INSTRUMENT_INCOMPATIBLE" or "MISSING_INSTRUMENT");
     }
 
@@ -464,20 +470,23 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         var actualDirectory = escape ? Path.Combine(_root, "external-payloads") : Path.Combine(package, "contained-payloads");
-        Directory.CreateDirectory(actualDirectory);
+        _ = Directory.CreateDirectory(actualDirectory);
         File.Move(payload, Path.Combine(actualDirectory, "actual.dll"));
-        Directory.CreateSymbolicLink(Path.Combine(package, "payload-link"), actualDirectory);
-        File.CreateSymbolicLink(payload, Path.Combine("payload-link", "actual.dll"));
+        _ = Directory.CreateSymbolicLink(Path.Combine(package, "payload-link"), actualDirectory);
+        _ = File.CreateSymbolicLink(payload, Path.Combine("payload-link", "actual.dll"));
 
         var availability = adapter.Availability(home);
 
         Assert.Equal(!escape, availability.Available);
         if (escape)
         {
-            Assert.Contains("outside", availability.Reason!);
-            Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+            Assert.Contains("outside", availability.Reason);
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
         }
-        else Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+        else
+        {
+            _ = Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+        }
     }
 
     [Fact]
@@ -488,11 +497,11 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         File.Delete(payload);
-        File.CreateSymbolicLink(payload, "cycle-two.dll");
-        File.CreateSymbolicLink(Path.Combine(package, "cycle-two.dll"), adapter.AssemblyFile);
+        _ = File.CreateSymbolicLink(payload, "cycle-two.dll");
+        _ = File.CreateSymbolicLink(Path.Combine(package, "cycle-two.dll"), adapter.AssemblyFile);
         var availability = adapter.Availability(home);
         Assert.False(availability.Available);
-        Assert.Contains("cycle", availability.Reason!);
+        Assert.Contains("cycle", availability.Reason);
     }
 
     [Fact]
@@ -503,21 +512,21 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var package = Path.Combine(home.Root, "Packages", adapter.RequiredPackage);
         var payload = Path.Combine(package, adapter.AssemblyFile);
         var external = Path.Combine(_root, "external");
-        Directory.CreateDirectory(Path.Combine(external, "child"));
+        _ = Directory.CreateDirectory(Path.Combine(external, "child"));
         File.Copy(payload, Path.Combine(package, "actual.dll"));
         File.Move(payload, Path.Combine(external, "actual.dll"));
-        Directory.CreateSymbolicLink(Path.Combine(package, "escape"), Path.Combine(external, "child"));
-        File.CreateSymbolicLink(payload, Path.Combine("escape", "..", "actual.dll"));
+        _ = Directory.CreateSymbolicLink(Path.Combine(package, "escape"), Path.Combine(external, "child"));
+        _ = File.CreateSymbolicLink(payload, Path.Combine("escape", "..", "actual.dll"));
         var availability = adapter.Availability(home);
         Assert.False(availability.Available);
-        Assert.Contains("outside", availability.Reason!);
+        Assert.Contains("outside", availability.Reason);
     }
 
     private OpenTapHome LibraryHome()
     {
         var home = new OpenTapHome(Path.Combine(_root, "library-home"));
         var directory = Path.Combine(home.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(home.Root, file), overwrite: true);
         File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(directory, "package.xml"), overwrite: true);
@@ -529,7 +538,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
     {
         var home = new OpenTapHome(Path.Combine(_root, "home"));
         var directory = Path.Combine(home.Root, "Packages", "HardwareTest Basic");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var files = new[] { "HardwareTest.OpenTap.Plugins.Basic.dll", "HardwareTest.Core.dll" };
         new XElement("Package", new XAttribute("Name", "HardwareTest Basic"),
             new XElement("Files", files.Select(file => new XElement("File", new XAttribute("Path", file)))))
@@ -545,7 +554,7 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         File.Copy(Path.Combine(repo!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(_root);
-        vm.InitializePlan(new("typed") { Instruments = [] });
+        _ = vm.InitializePlan(new("typed") { Instruments = [] });
         return vm;
     }
 

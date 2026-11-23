@@ -25,7 +25,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         var expected = File.ReadAllBytes(provider);
         File.WriteAllText(provider, "substituted");
         Assert.False(StandaloneVisaReadiness.Assess(home).Available);
-        Prepare(Workspace());
+        _ = Prepare(Workspace());
         Assert.Equal(expected, File.ReadAllBytes(provider));
         Assert.True(StandaloneVisaReadiness.Assess(home).Available);
     }
@@ -85,7 +85,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         document.Root!.SetAttributeValue("Version", canonicalVersion);
         document.Save(metadata);
         var alias = Path.Combine(home.Root, "Packages", "OtherOpenTap");
-        Directory.CreateDirectory(alias);
+        _ = Directory.CreateDirectory(alias);
         File.WriteAllText(Path.Combine(alias, "package.xml"), $"<Package Name=\"OpenTAP\" Version=\"{aliasVersion}\"><Files/></Package>");
         var before = Directory.GetFiles(home.Root, "*", SearchOption.AllDirectories).ToDictionary(path => Path.GetRelativePath(home.Root, path), File.ReadAllBytes);
         Assert.False(StandaloneVisaReadiness.Assess(home).Available);
@@ -145,18 +145,24 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
                 using var pe = new PEReader(stream);
                 var reader = pe.GetMetadataReader();
                 var versionFields = pe.PEHeaders.MetadataStartOffset + reader.GetTableMetadataOffset(TableIndex.Assembly) + 4;
-                var field = Enumerable.Range(0, 4).First(index => System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + index * 2, 2)) > 0);
-                var value = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + field * 2, 2));
-                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(versionFields + field * 2, 2), (ushort)(value - 1));
+                var field = Enumerable.Range(0, 4).First(index => System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + (index * 2), 2)) > 0);
+                var value = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(versionFields + (field * 2), 2));
+                System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(versionFields + (field * 2), 2), (ushort)(value - 1));
                 File.WriteAllBytes(path, bytes);
             }
-            else File.WriteAllText(path, "corrupted runtime assembly");
+            else
+            {
+                File.WriteAllText(path, "corrupted runtime assembly");
+            }
+
             var entry = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == invalid);
             entry.Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(path)));
             xml.Save(metadata);
         }
         else if (invalid.StartsWith("config-", StringComparison.Ordinal))
+        {
             File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), invalid == "config-json" ? "{" : """{"runtimeOptions":{"framework":{"name":"Unsupported.Framework","version":"99.0.0"}}}""");
+        }
         else
         {
             var hash = xml.Descendants().First(element => element.Name.LocalName == "File")
@@ -167,7 +173,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         }
         var before = Snapshot(home);
         Assert.False(StandaloneVisaReadiness.Assess(home).Available);
-        Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace()));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace()));
         AssertSnapshot(before, home);
     }
 
@@ -195,7 +201,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         }
         else
         {
-            new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
+            _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
             Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
             Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         }
@@ -220,7 +226,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.NotNull(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
         if (library) Assert.False(StandaloneVisaReadiness.Assess(home).Available);
 
-        Prepare(workspace);
+        _ = Prepare(workspace);
 
         Assert.Equal(expected, File.ReadAllBytes(missing));
         Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
@@ -244,7 +250,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         File.Delete(missing);
         Assert.NotNull(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
 
-        Prepare(workspace);
+        _ = Prepare(workspace);
 
         Assert.Equal(expected, File.ReadAllBytes(missing));
         Assert.Equal(metadataBytes, File.ReadAllBytes(metadata));
@@ -268,8 +274,12 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
             foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
             declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash", new string('0', 40)));
         }
-        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+        else
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
             new System.Xml.Linq.XAttribute("Path", "missing-required-runtime.bin"))));
+        }
+
         xml.Save(metadata);
         File.Delete(Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar)));
         var before = Snapshot(home);
@@ -280,7 +290,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.Contains("cannot be repaired", error.Message);
         AssertSnapshot(before, home);
         // The same preflight also protects direct owned preparation before any runtime copy.
-        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().BootstrapOwned(workspace,
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().BootstrapOwned(workspace,
             new() { HomeDirectory = home.Root, Offline = true }));
         AssertSnapshot(before, home);
     }
@@ -305,8 +315,12 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         var declaration = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == customRelative);
         foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
-        if (updateHash) declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash",
+        if (updateHash)
+        {
+            declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash",
             Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(customBytes))));
+        }
+
         xml.Save(metadata);
         Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
 
@@ -316,8 +330,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
             var before = Snapshot(home);
             var bootstrap = new OpenTapHomeBootstrapper();
             var options = new BootstrapOptions { HomeDirectory = home.Root, Offline = true };
-            if (owned) bootstrap.BootstrapOwned(workspace, options);
-            else bootstrap.Bootstrap(workspace, options);
+            _ = owned ? bootstrap.BootstrapOwned(workspace, options) : bootstrap.Bootstrap(workspace, options);
 
             var after = Snapshot(home);
             Assert.Equal(before.Keys.Append(missingKey).Order(), after.Keys.Order());
@@ -343,7 +356,7 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         var home = Prepare(Workspace());
         Assert.Equal(13, AuthoringInstrumentCatalog.Discover(home).Count);
         var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName);
-        new OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker(), enablePhysicalExecution: true).EnsurePlugins();
+        new OpenTapHostCatalog(new Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenBroker(), enablePhysicalExecution: true).EnsurePlugins();
         Assert.Same(original, AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == PublishedInstrumentComponents.PackageName));
     }
 
@@ -366,9 +379,9 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         Assert.Contains("cold-owned-catalog-lifecycle-and-execution-reused", output);
     }
 
-    private sealed class NeverOpenBroker : HardwareTest.Core.Hardware.IVisaBroker
+    private sealed class NeverOpenBroker : Core.Hardware.IVisaBroker
     {
-        public Task<HardwareTest.Core.Hardware.IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
+        public Task<Core.Hardware.IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
             => throw new InvalidOperationException("Discovery must not open a broker session.");
     }
 

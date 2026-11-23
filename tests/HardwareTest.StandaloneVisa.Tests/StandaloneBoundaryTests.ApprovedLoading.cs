@@ -12,9 +12,9 @@ public sealed partial class StandaloneBoundaryTests
         var home = InstalledHome();
         var before = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, mode, allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("approved-buffer-stage-replacement-refused-before-clr-load", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, mode, allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("approved-buffer-stage-replacement-refused-before-clr-load", Output);
         var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(home, path), File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));

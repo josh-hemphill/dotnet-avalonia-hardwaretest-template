@@ -20,7 +20,7 @@ public partial class ReportPreviewViewModel
         lock (_selectionLock)
         {
             if (_selectionLoading || (expectedVersion is not null && expectedVersion != _selectionVersion)
-                || (expectedToken is not null && expectedToken != _selectionCancellation.Token)) { _actionGate.Release(); return; }
+                || (expectedToken is not null && expectedToken != _selectionCancellation.Token)) { _ = _actionGate.Release(); return; }
             version = _selectionVersion;
             token = _selectionCancellation.Token;
             path = PdfPath;
@@ -101,7 +101,7 @@ public partial class ReportPreviewViewModel
         finally
         {
             try { await EndActionAsync().ConfigureAwait(false); }
-            finally { _actionGate.Release(); }
+            finally { _ = _actionGate.Release(); }
         }
     }
 
@@ -132,7 +132,7 @@ public partial class ReportPreviewViewModel
         finally
         {
             try { await EndActionAsync().ConfigureAwait(false); }
-            finally { _actionGate.Release(); }
+            finally { _ = _actionGate.Release(); }
         }
     }
 
@@ -147,7 +147,11 @@ public partial class ReportPreviewViewModel
                 var pendingAction = _pending;
                 var cancellation = _signingCancellation;
                 if (pendingAction is null || cancellation is null || pendingAction.Version != _selectionVersion
-                    || cancellation.IsCancellationRequested) return;
+                    || cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 operation = new SigningOperation(pendingAction, cancellation.Token,
                     ShowSigningPin ? SigningPin : null, _capturedCredential);
             }
@@ -190,11 +194,10 @@ public partial class ReportPreviewViewModel
                 }).ConfigureAwait(false);
                 return;
             }
-            var revision = result.Attestation?.RevisionId is { } revisionId
+            var revision = (result.Attestation?.RevisionId is { } revisionId
                 ? pending.Run.Reports.FirstOrDefault(r => r.RevisionId == revisionId
                     && ReportArtifactRoles.IsIssued(r.Role) && string.Equals(r.Kind, pending.Kind, StringComparison.OrdinalIgnoreCase))
-                : null;
-            if (revision is null) throw new InvalidOperationException("Signing did not commit a report revision.");
+                : null) ?? throw new InvalidOperationException("Signing did not commit a report revision.");
             // Consume the pending action before previewing or invoking any external operation.
             lock (_selectionLock)
             {
@@ -218,10 +221,13 @@ public partial class ReportPreviewViewModel
         }
         finally
         {
-            if (effectVersion == _selectionVersion) await RunOnUiAsync(() =>
+            if (effectVersion == _selectionVersion)
+            {
+                await RunOnUiAsync(() =>
             {
                 if (effectVersion == _selectionVersion) SigningPin = string.Empty;
             }).ConfigureAwait(false);
+            }
         }
     }
 

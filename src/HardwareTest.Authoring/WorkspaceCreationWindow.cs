@@ -75,7 +75,11 @@ public sealed class WorkspaceCreationWindow : Window
             _create.IsEnabled = false;
             var created = await owner.CreateWorkspaceAsync(_reviewed, cancellationToken);
             if (cancellationToken.IsCancellationRequested || !IsVisible || !owner.IsVisible || !ReferenceEquals(owner.DataContext, vm)
-                || (!created && session != vm?.WorkspaceSessionId)) return;
+                || (!created && session != vm?.WorkspaceSessionId))
+            {
+                return;
+            }
+
             if (created)
             {
                 CreatedWorkspaceSession = (owner.DataContext as AuthoringWorkspaceViewModel)?.WorkspaceSessionId;
@@ -85,7 +89,7 @@ public sealed class WorkspaceCreationWindow : Window
         };
         var cancel = Named(new Button { Content = "Cancel", IsCancel = true }, "Cancel workspace creation");
         cancel.Click += (_, _) => Close(false);
-        _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
+        _ = _error.Bind(TextBlock.ForegroundProperty, new Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension("AuthoringError"));
         _create.Classes.Add("authoringAction"); _create.Classes.Add("primaryAction");
         review.Classes.Add("authoringAction"); browse.Classes.Add("authoringAction"); cancel.Classes.Add("authoringAction");
         _library.Content = new TextBlock { Text = "Include Instrument Components package for physical hardware", TextWrapping = TextWrapping.Wrap };

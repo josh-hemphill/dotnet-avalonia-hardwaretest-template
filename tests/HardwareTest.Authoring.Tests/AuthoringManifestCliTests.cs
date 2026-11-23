@@ -40,7 +40,7 @@ public sealed class AuthoringManifestCliTests : IDisposable
         using var error = new StringWriter();
         var arguments = command == "--pack"
             ? new[] { command, _root, "--out", Path.Combine(_root, "dist") }
-            : new[] { command, _root };
+            : [command, _root];
         Assert.Equal(1, AuthoringCli.Run(arguments, output, error));
         Assert.Contains("requires schema 2", error.ToString(), StringComparison.Ordinal);
         Assert.Equal(original, File.ReadAllBytes(path));

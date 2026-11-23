@@ -33,7 +33,7 @@ internal static class OfflineBenchArchive
         {
             cancellationToken.ThrowIfCancellationRequested();
             var name = OfflineBenchPaths.Relative(entry.FullName.TrimEnd('/'));
-            if (!names.Add(name) || (entry.ExternalAttributes >> 16 & 0xF000) == 0xA000)
+            if (!names.Add(name) || ((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
                 throw new InvalidDataException("Offline package contains duplicate paths, case collisions or symbolic links.");
             if (entry.FullName.EndsWith('/')) continue;
             if (entry.Length > MaximumFileBytes)
@@ -42,7 +42,7 @@ internal static class OfflineBenchArchive
             var owned = OfflineBenchReadBudget.Read(stream, entry.Length, cancellationToken);
             if (owned.LongLength != entry.Length) throw new InvalidDataException("Offline archive entry length changed while reading.");
             entries.Add(name, owned);
-            var mode = (UnixFileMode)(entry.ExternalAttributes >> 16 & 0x1FF);
+            var mode = (UnixFileMode)((entry.ExternalAttributes >> 16) & 0x1FF);
             if (mode != 0) modes[name] = mode;
         }
         var metadataEntries = entries.Where(entry => Path.GetFileName(entry.Key).Equals("package.xml", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -87,24 +87,33 @@ internal static class OfflineBenchArchive
             var segments = path.Split('/');
             if (segments[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                 && (segments.Length < 3 || !segments[1].Equals(nameValue, StringComparison.Ordinal)))
+            {
                 throw new InvalidDataException("A package cannot supply another package's payload.");
+            }
+
             if (new[] { "Programs", "runs", "logs", "credentials", "bench-references", "data", "settings" }.Contains(segments[0], StringComparer.OrdinalIgnoreCase)
                 || new[] { "settings.json", "ui-state.json", OfflineBenchStartup.InstallationFileName, OfflineBenchStartup.LockFileName, OfflineBenchStartup.DataOwnershipFileName, OfflineBenchRuntime.CapabilityFileName }.Contains(path, StringComparer.OrdinalIgnoreCase)
                 || new[] { ".sys", ".inf", ".ko", ".msi", ".msix", ".deb", ".rpm" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException("Offline packages cannot write station data, installation ownership or OS driver/install payloads.");
+            }
+
             if (payload.TryGetValue(path, out var prior) && !prior.SequenceEqual(bytes))
                 throw new InvalidDataException("Package payload cannot replace its identity metadata.");
             payload[path] = bytes;
         }
         foreach (var path in payload.Keys)
+        {
             if (payload.Keys.Any(other => other.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidDataException("Package payload contains conflicting file and directory paths.");
+        }
+
         if (entries.Keys.Any(path => !declared.Contains(path)))
             throw new InvalidDataException("Offline archive contains undeclared payload. Rebuild it with a complete Files inventory.");
         if (payload.Count <= 1) throw new InvalidDataException("Offline package contains no declared payload.");
         foreach (var path in payload.Keys)
         {
-            modes.TryGetValue(path, out var mode);
+            _ = modes.TryGetValue(path, out var mode);
             var declaredMode = OfflineBenchBundle.DeclarativePayloadMode(xml, path, mode, targetOS);
             if (declaredMode != 0) modes[path] = declaredMode;
         }
@@ -129,7 +138,7 @@ internal static class OfflineBenchArchive
     public static string Name(string? value)
     {
         var name = value?.Trim() ?? string.Empty;
-        OfflineBenchPaths.Relative(name);
+        _ = OfflineBenchPaths.Relative(name);
         if (name.Contains('/')) throw new InvalidDataException("Package names must be a single portable path segment.");
         return name;
     }

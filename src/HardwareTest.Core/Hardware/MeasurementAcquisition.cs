@@ -70,7 +70,7 @@ public sealed class MeasurementAcquisition
         {
             if (_count == 0)
             {
-                return Array.Empty<MeasurementSample>();
+                return [];
             }
 
             var result = new MeasurementSample[_count];

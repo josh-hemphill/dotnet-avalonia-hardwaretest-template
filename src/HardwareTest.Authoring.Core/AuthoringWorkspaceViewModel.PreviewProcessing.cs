@@ -27,21 +27,21 @@ public sealed partial class AuthoringWorkspaceViewModel
     private Action<Action>? _previewDispatch;
     private Func<bool>? _previewOwner;
     private Func<AuthoringPreviewInput, AuthoringPreviewPresentation> _previewEvaluate = EvaluatePreview;
-    private AuthoringPreviewPresentation _previewPresentation = AuthoringPreviewPresentation.Empty;
     private AuthoringPreviewInput? _publishedPreviewInput;
     private long _previewGeneration;
     private bool _previewQueued;
     private bool _previewRunning;
     private bool _previewPending;
     private bool _previewStopped;
-    private bool _previewBusy;
     private string? _previewPlan;
     private Guid _previewSession;
     private TaskCompletionSource _previewIdle = CompletedPreview();
 
     private AuthoringPreviewPresentation CachedPreview
-        => _publishedPreviewInput is { } input && input.Generation == _previewGeneration && PreviewInputCurrent(input)
-            ? _previewPresentation : AuthoringPreviewPresentation.Empty;
+    {
+        get => _publishedPreviewInput is { } input && input.Generation == _previewGeneration && PreviewInputCurrent(input)
+            ? field : AuthoringPreviewPresentation.Empty; set;
+    } = AuthoringPreviewPresentation.Empty;
 
     private bool PreviewInputCurrent(AuthoringPreviewInput input)
         => input.Session == WorkspaceSessionId && input.PlanId == SelectedProgram?.PlanId
@@ -51,10 +51,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public bool PreviewBusy
     {
-        get => _previewBusy;
+        get;
         private set
         {
-            if (!SetField(ref _previewBusy, value)) return;
+            if (!SetField(ref field, value)) return;
             OnPropertyChanged(nameof(PreviewSourceKind));
             OnPropertyChanged(nameof(PreviewSourceName));
             OnPropertyChanged(nameof(CanInspectPreviewDetails));
@@ -89,7 +89,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _previewGeneration++;
         _previewPending = false;
         PreviewBusy = false;
-        _previewIdle.TrySetResult();
+        _ = _previewIdle.TrySetResult();
     }
 
     private void RequestPreviewRefresh()
@@ -113,7 +113,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             _previewPending = false;
             PreviewBusy = false;
-            _previewIdle.TrySetResult();
+            _ = _previewIdle.TrySetResult();
             return;
         }
         _previewPending = false;
@@ -132,7 +132,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             _previewPlan = plan;
             _previewSession = input.Session;
-            _previewPresentation = AuthoringPreviewPresentation.Empty;
+            CachedPreview = AuthoringPreviewPresentation.Empty;
             _publishedPreviewInput = null;
             PublishPreviewProperties();
         }
@@ -155,19 +155,22 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 _previewPending = false;
                 PreviewBusy = false;
-                _previewIdle.TrySetResult();
+                _ = _previewIdle.TrySetResult();
                 return;
             }
             var current = input.Generation == _previewGeneration && PreviewInputCurrent(input)
                 && input.Documents.SequenceEqual(_documents.Values.Select(document => document.Snapshot));
             if (current)
             {
-                _previewPresentation = presentation;
+                CachedPreview = presentation;
                 _publishedPreviewInput = input;
                 PublishPreviewProperties();
             }
-            if (_previewPending || !current) RequestPreviewRefresh();
-            else { PreviewBusy = false; _previewIdle.TrySetResult(); }
+            if (_previewPending || !current)
+            {
+                RequestPreviewRefresh();
+            }
+            else { PreviewBusy = false; _ = _previewIdle.TrySetResult(); }
         });
     }
 
@@ -178,7 +181,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaRecordingEvidence), nameof(ExcludedExplorationFormulas), nameof(FormulaError),
             nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind), nameof(HasRecordedReferences),
-            nameof(RecordingReferenceSummary), nameof(RecordingReferenceReview) }) OnPropertyChanged(property);
+            nameof(RecordingReferenceSummary), nameof(RecordingReferenceReview) })
+        {
+            OnPropertyChanged(property);
+        }
     }
 
     internal static AuthoringPreviewPresentation EvaluatePreview(AuthoringPreviewInput input)
@@ -203,7 +209,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 var issues = executions.Where(tile => tile.Preview.CannedSamples.Count == 0).Select(tile => tile.Preview.Note).Distinct();
                 evidence = $"Recording evidence: {available} source execution(s) evaluated separately. {string.Join(" ", issues)} Deployment requirements remain separate.";
             }
-            else evidence = FormulaDeploymentClassifier.DescribeRecording(selected, recording is null ? null : RunDatasetBinder.SeriesByMetric(recording));
+            else
+            {
+                evidence = FormulaDeploymentClassifier.DescribeRecording(selected, recording is null ? null : RunDatasetBinder.SeriesByMetric(recording));
+            }
         }
         var excluded = input.Documents.SelectMany(document =>
         {

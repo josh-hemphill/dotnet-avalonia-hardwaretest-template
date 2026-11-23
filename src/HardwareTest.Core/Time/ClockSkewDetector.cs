@@ -19,27 +19,18 @@ public interface IClockSkewDetector
 }
 
 /// Startup-only skew check. Safety Stop / worker kill must not call this (NTP wait).
-public sealed class ClockSkewDetector : IClockSkewDetector
+public sealed class ClockSkewDetector(
+    AppSettings settings,
+    IClock clock,
+    string dataDirectory,
+    INtpTimeSource? ntp = null,
+    ILogger? log = null) : IClockSkewDetector
 {
-    private readonly AppSettings _settings;
-    private readonly IClock _clock;
-    private readonly LastKnownGoodClockStore _store;
-    private readonly INtpTimeSource? _ntp;
-    private readonly ILogger? _log;
-
-    public ClockSkewDetector(
-        AppSettings settings,
-        IClock clock,
-        string dataDirectory,
-        INtpTimeSource? ntp = null,
-        ILogger? log = null)
-    {
-        _settings = settings;
-        _clock = clock;
-        _store = new LastKnownGoodClockStore(dataDirectory, log);
-        _ntp = ntp;
-        _log = log;
-    }
+    private readonly AppSettings _settings = settings;
+    private readonly IClock _clock = clock;
+    private readonly LastKnownGoodClockStore _store = new(dataDirectory, log);
+    private readonly INtpTimeSource? _ntp = ntp;
+    private readonly ILogger? _log = log;
 
     public ClockSkewResult Check()
     {

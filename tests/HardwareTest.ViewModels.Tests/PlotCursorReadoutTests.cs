@@ -29,10 +29,7 @@ public sealed class PlotCursorReadoutTests
     }
 
     [Fact]
-    public void TryNearestSample_false_when_empty()
-    {
-        Assert.False(PlotCursorReadout.TryNearestSample([], [], 0, 1, out _, out _, out _));
-    }
+    public void TryNearestSample_false_when_empty() => Assert.False(PlotCursorReadout.TryNearestSample([], [], 0, 1, out _, out _, out _));
 
     [Fact]
     public void FormatValue_includes_unit()

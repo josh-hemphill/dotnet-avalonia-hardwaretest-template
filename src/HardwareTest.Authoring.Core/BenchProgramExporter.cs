@@ -48,7 +48,7 @@ public static class BenchProgramExporter
         var destination = Path.Combine(root, planId);
         if (Path.GetFullPath(Path.GetDirectoryName(sourcePath)!) == destination)
             throw new AuthoringWorkspaceException("Choose the bench Programs folder, not the authoring source directory.");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         using var publicationLock = new FileStream(Path.Combine(root, $".bench-export-{planId}.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (Directory.Exists(destination))
         {
@@ -61,18 +61,21 @@ public static class BenchProgramExporter
         }
         var staging = Path.Combine(root, ".bench-stage-" + receipt.ExportId);
         var backup = Path.Combine(root, ".bench-backup-" + receipt.ExportId);
-        Directory.CreateDirectory(staging);
+        _ = Directory.CreateDirectory(staging);
         var published = false;
         try
         {
             File.WriteAllBytes(Path.Combine(staging, planId + ".TapPlan"), planBytes);
             File.WriteAllBytes(Path.Combine(staging, planId + ".program.json"), sidecarBytes);
             File.WriteAllText(Path.Combine(staging, BenchProgramHandoff.ReceiptFileName), JsonSerializer.Serialize(receipt, BenchHandoffJsonContext.Default.BenchProgramReceipt));
-            BenchProgramHandoff.ValidateProgram(Path.Combine(staging, planId + ".TapPlan"));
+            _ = BenchProgramHandoff.ValidateProgram(Path.Combine(staging, planId + ".TapPlan"));
             RequireCurrent();
             if (BenchProgramHandoff.Hash(File.ReadAllBytes(sourcePath)) != receipt.PlanSha256
                 || BenchProgramHandoff.Hash(File.ReadAllBytes(sidecarPath)) != receipt.SidecarSha256)
+            {
                 throw new AuthoringWorkspaceException("Compiled files changed while preparing the bench copy. Save/check them and retry.");
+            }
+
             if (Directory.Exists(destination)) Directory.Move(destination, backup);
             try { Directory.Move(staging, destination); }
             catch (Exception error)

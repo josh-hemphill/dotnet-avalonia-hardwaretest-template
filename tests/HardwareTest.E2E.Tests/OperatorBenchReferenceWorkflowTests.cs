@@ -182,7 +182,7 @@ public sealed class OperatorBenchReferenceWorkflowTests
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         Settle(window); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY") ?? Path.Combine(AppContext.BaseDirectory, "operator-persona-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         frame.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
     private sealed class ReferencePlanFixture : IDisposable
@@ -192,7 +192,7 @@ public sealed class OperatorBenchReferenceWorkflowTests
         private readonly string _sidecar;
         public ReferencePlanFixture()
         {
-            var folder = Path.Combine(AppContext.BaseDirectory, "Programs"); Directory.CreateDirectory(folder);
+            var folder = Path.Combine(AppContext.BaseDirectory, "Programs"); _ = Directory.CreateDirectory(folder);
             _plan = Path.Combine(folder, Id + ".TapPlan"); _sidecar = Path.ChangeExtension(_plan, ".program.json");
             var plan = SampleProgramFactory.Create();
             plan.ChildTestSteps[0].ChildTestSteps.Insert(0, new RequireOperatorReferenceAcceptanceStep());

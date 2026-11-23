@@ -82,7 +82,7 @@ public sealed class BoardPreviewTileView : UserControl
             {
                 _plot.SetEvents(plan.EventTicks.ToArray());
                 _plot.SetOutOfBandSpans(plan.Spans.ToArray());
-                _plot.UpdateTimeSeries(chrome.Xs.ToArray(), ys, ys.Length, followLive: true, force: true);
+                _plot.UpdateTimeSeries([.. chrome.Xs], ys, ys.Length, followLive: true, force: true);
             }
             else
             {

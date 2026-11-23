@@ -17,14 +17,17 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
             ?? "/workspace/scratch/opentap-external-integration";
         if (!OperatingSystem.IsLinux() || !File.Exists(Path.Combine(external, "tap.dll"))
             || !File.Exists("/usr/bin/script"))
+        {
             Assert.Skip("External TUI integration unavailable: install a real OpenTAP+TUI home and script PTY utility; set AUTHORING_EXTERNAL_TUI_HOME.");
+        }
+
         var root = AuthoringBuildSnapshotTests.Temp();
         var home = Path.Combine(root, "home");
         foreach (var file in Directory.EnumerateFiles(external, "*", SearchOption.AllDirectories))
         {
             if (file.Contains("SessionLogs", StringComparison.Ordinal) || file.Contains(".PackageCache", StringComparison.Ordinal)) continue;
             var destination = Path.Combine(home, Path.GetRelativePath(external, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(file, destination);
         }
         if (!Directory.GetFiles(home, "*Tui*.dll", SearchOption.AllDirectories).Any())
@@ -33,12 +36,15 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
         var plugins = AuthoringBuildSnapshotTests.Home(workspace);
         foreach (var package in new[] { "HardwareTest Basic", "HardwareTest Mixins" })
+        {
             foreach (var file in Directory.GetFiles(Path.Combine(plugins.Root, "Packages", package)))
             {
                 var destination = Path.Combine(home, "Packages", package, Path.GetFileName(file));
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 File.Copy(file, destination, true);
             }
+        }
+
         var compiler = new PlanCompiler(selectedHome: new OpenTapHome(home));
         var imported = compiler.Load(Path.Combine(workspace.Root, "sample.TapPlan"));
         var saved = imported with
@@ -110,22 +116,28 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         var external = Environment.GetEnvironmentVariable("AUTHORING_EXTERNAL_TUI_HOME") ?? "/workspace/scratch/opentap-external-integration";
         if (!OperatingSystem.IsLinux() || !File.Exists("/usr/bin/xfce4-terminal") || string.IsNullOrEmpty(Environment.GetEnvironmentVariable("DISPLAY"))
             || !File.Exists(Path.Combine(external, "tap.dll")))
+        {
             Assert.Skip("Production terminal integration requires Linux, a native display, xfce4-terminal and an installed OpenTAP TUI home.");
+        }
+
         var root = AuthoringBuildSnapshotTests.Temp(); var home = Path.Combine(root, "home");
         foreach (var file in Directory.EnumerateFiles(external, "*", SearchOption.AllDirectories))
         {
             if (file.Contains("SessionLogs", StringComparison.Ordinal) || file.Contains(".PackageCache", StringComparison.Ordinal)) continue;
             var target = Path.Combine(home, Path.GetRelativePath(external, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target);
         }
         var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace());
         var plugins = AuthoringBuildSnapshotTests.Home(workspace);
         foreach (var package in new[] { "HardwareTest Basic", "HardwareTest Mixins" })
+        {
             foreach (var file in Directory.GetFiles(Path.Combine(plugins.Root, "Packages", package)))
             {
                 var target = Path.Combine(home, "Packages", package, Path.GetFileName(file));
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(file, target, true);
             }
+        }
+
         var compiler = new PlanCompiler(selectedHome: new OpenTapHome(home));
         var draft = compiler.Load(Path.Combine(workspace.Root, "sample.TapPlan"));
         var plan = Path.Combine(root, "production-lifetime.TapPlan");
@@ -171,7 +183,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
             // End only the captured original CLI process from our private terminal, then observe terminal completion.
             var terminalExit = terminal!.WaitForExitAsync();
             child.Kill(entireProcessTree: true);
-            await launch.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await launch.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(terminalExit.IsCompletedSuccessfully);
             var state = $"/proc/{child.Id}/stat";
             Assert.True(!File.Exists(state) || ReadProc(state)[(ReadProc(state).LastIndexOf(')') + 1)..].TrimStart().StartsWith('Z'),
@@ -180,7 +192,7 @@ public sealed class AuthoringExternalTuiProcessTests : IDisposable
         finally
         {
             timeout.Cancel();
-            try { await launch; } catch (OperationCanceledException) { }
+            try { _ = await launch; } catch (OperationCanceledException) { }
             child?.Dispose();
         }
     }

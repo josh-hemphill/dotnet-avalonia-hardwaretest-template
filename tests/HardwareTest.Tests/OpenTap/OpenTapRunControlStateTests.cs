@@ -40,7 +40,9 @@ public sealed class OpenTapRunControlStateTests
         control.OperatorStateChanged += () =>
         {
             if (control.PendingInteraction?.Id == first.Id)
+            {
                 control.Resume(OperatorInteractionResponse.Continue(first.Id));
+            }
             else if (!started && !control.IsAwaitingOperator)
             {
                 started = true;
@@ -149,7 +151,7 @@ public sealed class OpenTapRunControlStateTests
                 while (!control.IsAwaitingOperator)
                 {
                     timeout.Token.ThrowIfCancellationRequested();
-                    Thread.Yield();
+                    _ = Thread.Yield();
                 }
                 control.Resume(OperatorInteractionResponse.Continue(request.Id));
             });
@@ -184,7 +186,7 @@ public sealed class OpenTapRunControlStateTests
         Assert.Null(control.OperatorPromptMessage);
         Assert.False(control.IsPaused);
         Assert.True(control.WaitPauseGate(0));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             Task.Run(control.WaitIfPaused).WaitAsync(TimeSpan.FromSeconds(2)));
     }
 

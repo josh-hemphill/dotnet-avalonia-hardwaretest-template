@@ -39,7 +39,10 @@ public static class ReportRevisions
         {
             foreach (var directory in directories.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase)
                          .Order(StringComparer.OrdinalIgnoreCase))
+            {
                 leases.Add(await LockAsync(directory, cancellationToken).ConfigureAwait(false));
+            }
+
             return new CompositeLease(leases);
         }
         catch
@@ -75,13 +78,17 @@ public static class ReportRevisions
 
     internal static void MergeHistory(TestRunRecord run, TestRunRecord committed)
     {
-        if (committed.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+        if (committed.IsSchemaReadOnly)
+        {
+            throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
             SchemaDocumentTypes.TestRunRecord, committed.StoredSchemaVersion, SchemaVersions.TestRunRecord, committed.AppVersion));
+        }
+
         var issued = committed.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)).ToList();
         issued.AddRange(run.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)
             && !issued.Any(c => c.RevisionId == r.RevisionId && (r.RevisionId is not null || c.PdfPath == r.PdfPath)
                 && string.Equals(c.Kind, r.Kind, StringComparison.OrdinalIgnoreCase))));
-        run.Reports = run.Reports.Where(r => !ReportArtifactRoles.IsIssued(r.Role)).Concat(issued).ToList();
+        run.Reports = [.. run.Reports.Where(r => !ReportArtifactRoles.IsIssued(r.Role)), .. issued];
         var stamps = committed.Attestations.ToList();
         stamps.AddRange(run.Attestations.Where(a => !stamps.Any(c => c.RevisionId == a.RevisionId
             && string.Equals(c.ReportKind, a.ReportKind, StringComparison.OrdinalIgnoreCase)
@@ -153,7 +160,7 @@ public sealed class FileReportRevisionStore(IRunStore runs, IClock? clock = null
         candidate.Reports.Add(artifact);
         candidate.Attestations.Add(document);
         if (string.IsNullOrWhiteSpace(candidate.OperatorName)) candidate.OperatorName = document.DisplayName;
-        Directory.CreateDirectory(stage);
+        _ = Directory.CreateDirectory(stage);
         try
         {
             await AtomicFile.WriteAllBytesAsync(Path.Combine(stage, kind + "-" + id + ".pdf"), pdf, cancellationToken).ConfigureAwait(false);

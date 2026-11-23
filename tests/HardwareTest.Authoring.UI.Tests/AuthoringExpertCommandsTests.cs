@@ -12,7 +12,7 @@ public sealed class AuthoringExpertCommandsTests
     private static AuthoringUiFixture Loaded()
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         return fixture;
     }
 
@@ -24,8 +24,8 @@ public sealed class AuthoringExpertCommandsTests
         CurrentHardwareUiFixture.Prepare(fixture);
         await vm.WaitForEnvironmentInspectionAsync().WaitAsync(TimeSpan.FromSeconds(15));
         var physical = AuthoringInstrumentCatalog.All.Single(adapter => adapter.TypeId == CurrentHardwareUiFixture.TypeId);
-        vm.InitializePlan(new PlanInitializationRequest("first-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "111" } }] });
-        vm.InitializePlan(new PlanInitializationRequest("later-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "777" } }] });
+        _ = vm.InitializePlan(new PlanInitializationRequest("first-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "111" } }] });
+        _ = vm.InitializePlan(new PlanInitializationRequest("later-settings") { Instruments = [new InstrumentRef("DMM", physical.TypeId, "TCPIP::127.0.0.1::INSTR") { Settings = new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "777" } }] });
         vm.SaveProgram("first-settings"); vm.SaveProgram("later-settings");
         Assert.True(vm.SaveAll().Succeeded);
         var donorBytes = new[] { "first-settings", "later-settings" }.SelectMany(id =>
@@ -37,7 +37,7 @@ public sealed class AuthoringExpertCommandsTests
             .ToDictionary(path => path, File.ReadAllBytes);
         var first = vm.Programs.Single(program => program.PlanId == "first-settings").Instruments[0];
         var later = vm.Programs.Single(program => program.PlanId == "later-settings").Instruments[0];
-        fixture.Control<Button>("Save all").Focus();
+        _ = fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         var id = fixture.Control<TextBox>("Stable plan ID", dialog); Assert.True(id.Focus()); id.SelectAll();
@@ -171,7 +171,11 @@ public sealed class AuthoringExpertCommandsTests
         var pending = new TaskCompletionSource<UnsavedChangesChoice>(); fixture.Interaction.Pending = pending;
         var opening = fixture.Window!.ReopenWorkspaceAsync();
         if (replace) { fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true); fixture.ViewModel.DisplayName = "replacement edit"; }
-        else fixture.Window.Hide();
+        else
+        {
+            fixture.Window.Hide();
+        }
+
         var selected = fixture.ViewModel.SelectedProgram;
         pending.SetResult(choice);
         Assert.False(await opening);
@@ -191,7 +195,11 @@ public sealed class AuthoringExpertCommandsTests
         var pending = new TaskCompletionSource<UnsavedChangesChoice>(); fixture.Interaction.Pending = pending;
         fixture.Window!.Close();
         if (replace) { fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true); fixture.ViewModel.DisplayName = "replacement close"; }
-        else fixture.Window.Hide();
+        else
+        {
+            fixture.Window.Hide();
+        }
+
         var closed = false; fixture.Window.Closed += (_, _) => closed = true;
         pending.SetResult(choice); AuthoringUiFixture.Drain();
         Assert.False(closed); Assert.True(fixture.ViewModel.HasUnsavedChanges);
@@ -227,7 +235,7 @@ public sealed class AuthoringExpertCommandsTests
         Assert.True(fixture.Preferences.Current.IssuesDrawerOpen);
         fixture.NavigateTask(0);
         var layout = fixture.Window.FindControl<Grid>("ProgramLayout")!;
-        layout.ColumnDefinitions[2].Width = new Avalonia.Controls.GridLength(450);
+        layout.ColumnDefinitions[2].Width = new GridLength(450);
         Assert.True(await fixture.Window.ExecuteCommandAsync("reset")); AuthoringUiFixture.Drain();
         Assert.Equal(400, layout.ColumnDefinitions[2].Width.Value);
         Assert.False(fixture.Window.FindControl<Control>("IssuesDrawer")!.IsVisible);
@@ -250,9 +258,9 @@ public sealed class AuthoringExpertCommandsTests
         fixture.Window!.KeyPress(Key.P, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
         var search = fixture.Control<TextBox>("Search commands", palette); search.Text = "Rename"; AuthoringUiFixture.Drain();
-        Assert.Single(fixture.Control<ListBox>("Authoring commands", palette).Items.Cast<object>());
+        _ = Assert.Single(fixture.Control<ListBox>("Authoring commands", palette).Items.Cast<object>());
         AuthoringUiFixture.Click(palette.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Cancel")));
-        fixture.Control<Button>("Save all").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
+        _ = fixture.Control<Button>("Save all").Focus(); fixture.Window!.KeyPress(Key.N, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel", dialog));
         Assert.Empty(new AuthoringDocumentStore(fixture.WorkspaceRoot).ListDocumentIds());
@@ -265,14 +273,14 @@ public sealed class AuthoringExpertCommandsTests
         using var fixture = Loaded();
         var vm = fixture.ViewModel; vm.SelectMeasure(0);
         var original = vm.SelectedProgram!.Measure.Count;
-        fixture.Control<Button>("Save all").Focus();
+        _ = fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.F2, RawInputModifiers.None, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         var rename = Assert.Single(fixture.Window!.OwnedWindows);
         var name = fixture.Control<TextBox>("New step name", rename);
-        name.Focus(); name.SelectAll(); rename.KeyTextInput("Keyboard renamed step");
-        fixture.Control<Button>("Rename", rename).Focus(); rename.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null); AuthoringUiFixture.Drain();
+        _ = name.Focus(); name.SelectAll(); rename.KeyTextInput("Keyboard renamed step");
+        _ = fixture.Control<Button>("Rename", rename).Focus(); rename.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal("Keyboard renamed step", vm.SequenceRename);
-        fixture.Control<Button>("Save all").Focus();
+        _ = fixture.Control<Button>("Save all").Focus();
         fixture.Window.KeyPress(Key.D, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.Equal(original + 1, vm.SelectedProgram!.Measure.Count);
         fixture.Window.KeyPress(Key.Z, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
@@ -297,7 +305,7 @@ public sealed class AuthoringExpertCommandsTests
         var node = fixture.ViewModel.SelectedSequence!.NodeId;
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7; AuthoringUiFixture.Drain();
         var box = fixture.Control<TextBox>("Display name");
-        box.Focus(); box.SelectAll(); fixture.Window!.KeyTextInput("text undo");
+        _ = box.Focus(); box.SelectAll(); fixture.Window!.KeyTextInput("text undo");
         fixture.Window!.KeyPress(Key.Z, RawInputModifiers.Control, PhysicalKey.None, null); AuthoringUiFixture.Drain();
         Assert.NotEqual("text undo", box.Text); Assert.False(fixture.ViewModel.CanRedo);
         Assert.Equal("unrelated-history-sentinel", fixture.ViewModel.ChannelKey); Assert.Equal(node, fixture.ViewModel.SelectedSequence!.NodeId);
@@ -315,7 +323,7 @@ public sealed class AuthoringExpertCommandsTests
         var vm = fixture.ViewModel;
         if (empty)
         {
-            vm.InitializePlan(new PlanInitializationRequest("keyboard-empty"));
+            _ = vm.InitializePlan(new PlanInitializationRequest("keyboard-empty"));
             vm.SelectedSequenceIndex = -1;
             vm.SelectedRecipeId = null;
             Assert.True(vm.IsSequenceEmpty);
@@ -332,17 +340,17 @@ public sealed class AuthoringExpertCommandsTests
         }
         var revision = vm.SelectedDocument!.Revision;
         var rows = vm.SequenceItems.Select(row => row.NodeId).ToArray();
-        fixture.Control<Button>("Save all").Focus();
+        _ = fixture.Control<Button>("Save all").Focus();
         fixture.Window!.KeyPress(Key.A, RawInputModifiers.Control | RawInputModifiers.Shift, PhysicalKey.None, null);
         AuthoringUiFixture.Drain();
         var palette = Assert.Single(fixture.Window!.OwnedWindows);
         Assert.Equal("Add a step", palette.Title);
         Assert.Equal(revision, vm.SelectedDocument.Revision);
-        Assert.Equal(rows, vm.SequenceItems.Select(row => row.NodeId).ToArray());
+        Assert.Equal(rows, [.. vm.SequenceItems.Select(row => row.NodeId)]);
         AuthoringUiFixture.Click(fixture.Control<Button>("Cancel add step", palette));
         Assert.Empty(fixture.Window.OwnedWindows);
         Assert.Equal(revision, vm.SelectedDocument.Revision);
-        Assert.Equal(rows, vm.SequenceItems.Select(row => row.NodeId).ToArray());
+        Assert.Equal(rows, [.. vm.SequenceItems.Select(row => row.NodeId)]);
         Assert.True(fixture.Control<Button>("Add step").IsFocused);
     }
 

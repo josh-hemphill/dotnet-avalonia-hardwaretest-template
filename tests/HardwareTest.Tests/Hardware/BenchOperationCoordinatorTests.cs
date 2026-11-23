@@ -13,7 +13,7 @@ public sealed class BenchOperationCoordinatorTests
         Assert.NotNull(lease);
         Assert.Equal(string.Empty, status);
         Assert.Equal(BenchOperation.IdQuery, bench.Current);
-        lease!.Dispose();
+        lease.Dispose();
         Assert.Null(bench.Current);
     }
 

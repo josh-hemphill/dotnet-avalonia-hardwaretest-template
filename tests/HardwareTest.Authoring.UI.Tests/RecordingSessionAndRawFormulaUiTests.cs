@@ -34,7 +34,11 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         AuthoringUiFixture.Drain();
         Assert.Equal("first", vm.SelectedDataset!.Run.RunId);
         if (replaceWorkspace) { vm.Open(second.WorkspaceRoot); vm.StopRecovery(); }
-        else vm.SelectProgram("other");
+        else
+        {
+            vm.SelectProgram("other");
+        }
+
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;
@@ -67,7 +71,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         var selectedPath = vm.SelectedDataset!.Path;
         Recording(fixture.WorkspaceRoot, draft.PlanId, "000-earlier", 91);
         vm.VisaAddress = "MOCK::EDITED";
-        Assert.Single(vm.Datasets); // Ordinary editing consumes the validated cache.
+        _ = Assert.Single(vm.Datasets); // Ordinary editing consumes the validated cache.
         PreviewUiActions.CheckRecordingSelection(fixture, 0);
         Assert.True(await vm.RefreshRecordingsAsync());
         await fixture.WaitForPreviewAsync();
@@ -89,7 +93,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         Assert.True(await vm.RefreshRecordingsAsync());
         await fixture.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
-        Assert.Single(vm.Datasets);
+        _ = Assert.Single(vm.Datasets);
         PreviewUiActions.CheckRecordingSelection(fixture, -1);
         Assert.Null(vm.SelectedDataset);
         Assert.StartsWith("Example data", vm.DataSourceDetails);
@@ -117,7 +121,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         store.Save(document);
         var sourcePath = store.GetDocumentPath(draft.PlanId);
         var bytes = File.ReadAllBytes(sourcePath);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.StopRecovery();
@@ -140,7 +144,7 @@ public sealed class RecordingSessionAndRawFormulaUiTests
     private static void Recording(string workspace, string planId, string runId, double value)
     {
         var folder = Path.Combine(workspace, "recordings", runId);
-        Directory.CreateDirectory(folder);
+        _ = Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "run.json"), JsonSerializer.Serialize(new TestRunRecord
         { PlanId = planId, RunId = runId, Samples = [new StoredSample { MetricKey = "VDC", Value = value }] }, AppJsonContext.Default.TestRunRecord));
     }

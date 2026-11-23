@@ -23,28 +23,34 @@ public static partial class AuthoringBuildService
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
         Recheck(request);
-        Directory.CreateDirectory(staging);
+        _ = Directory.CreateDirectory(staging);
         try
         {
             foreach (var tree in request.Trees.Where(t => t.Materialize))
+            {
                 foreach (var file in tree.Files)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     var destination = Path.Combine(staging, tree.StageRelativePath, file.RelativePath);
                     EnsureContained(staging, destination);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                     Materialize(file, destination);
                 }
+            }
+
             PrepareShellStage(staging, request.Trees);
             var root = Path.Combine(staging, "workspace");
-            Directory.CreateDirectory(Path.Combine(root, "plans"));
+            _ = Directory.CreateDirectory(Path.Combine(root, "plans"));
             var captured = JsonSerializer.Deserialize(File.ReadAllBytes(Path.Combine(root, AuthoringWorkspaceLoader.ManifestFileName)), AuthoringJsonContext.Default.AuthoringManifest)!;
             captured.PlansDirectory = "plans";
             File.WriteAllText(Path.Combine(root, AuthoringWorkspaceLoader.ManifestFileName), JsonSerializer.Serialize(captured, AuthoringJsonContext.Default.AuthoringManifest));
             var workspace = AuthoringWorkspaceLoader.Load(root);
             for (var i = 0; i < workspace.Manifest.PluginProjects.Count; i++)
+            {
                 workspace.Manifest.PluginProjects[i] = Path.Combine(staging, "plugins", i.ToString(),
                     Path.GetFileName(workspace.Manifest.PluginProjects[i]));
+            }
+
             for (var i = 0; i < workspace.Manifest.ShellAppProjects.Count; i++)
                 workspace.Manifest.ShellAppProjects[i] = ShellStageProject(staging, request.Trees, request.WorkspaceRoot, workspace.Manifest.ShellAppProjects[i]);
             AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
@@ -103,7 +109,10 @@ public static partial class AuthoringBuildService
                         throw new AuthoringWorkspaceException($"BUILD_INCOMPLETE: Included source '{id}' contains incomplete numeric deployment input.");
                     if (ProcedureAssetFiles.Changed(document, path) || (File.Exists(path) && document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path))
                         || (File.Exists(PlanCompiler.SidecarPath(path)) && document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path))))
+                    {
                         throw new AuthoringWorkspaceException($"BUILD_SOURCE_CONFLICT: Compiled artifacts for '{id}' disagree with saved baseline. Explicitly reconcile before building.");
+                    }
+
                     ProcedureAssetFiles.CheckDeclaration(draft, workspace.Manifest);
                     compiler.Save(draft, path);
                     document.RequiresCompilation = false;
@@ -135,11 +144,16 @@ public static partial class AuthoringBuildService
                 if (JsonSerializer.Serialize(workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest) != expectedManifest)
                     throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Manifest changed during required checks.");
                 foreach (var input in stageInputs)
+                {
                     if (Hash(File.ReadAllBytes(input.Key)) != input.Value)
                         throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Package input changed during required checks.");
+                }
+
                 foreach (var compiled in results)
+                {
                     if (Hash(File.ReadAllBytes(Path.Combine(root, "plans", compiled.PlanId + ".TapPlan"))) != compiled.PlanSha256)
                         throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Compiled staged plan changed after required checks.");
+                }
             }
             var options = new PackOptions
             {
@@ -207,10 +221,16 @@ public static partial class AuthoringBuildService
             var expectedFiles = prepared.Result.Receipt.Outputs.Select(o => o.Path).Append(ReceiptFileName).Order(StringComparer.Ordinal);
             if (!actualFiles.SequenceEqual(expectedFiles)
                 || Hash(File.ReadAllBytes(Path.Combine(artifacts, ReceiptFileName))) != prepared.ReceiptSha256)
+            {
                 throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Prepared artifact list or receipt changed.");
+            }
+
             foreach (var artifact in prepared.Result.Receipt.Outputs)
+            {
                 if (Hash(File.ReadAllBytes(Path.Combine(artifacts, artifact.Path))) != artifact.Sha256)
                     throw new AuthoringWorkspaceException("BUILD_STAGED_CHANGED: Prepared artifact identity changed.");
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             prepared.Consumed = true;
             Publish(artifacts, Path.GetFullPath(outputDirectory), cancellationToken, validate: () => Recheck(prepared.Request));
@@ -232,18 +252,25 @@ public static partial class AuthoringBuildService
             .Select(e => Guid.TryParse((string?)e.Attribute("Id"), out var id) ? id : Guid.Empty)
             .Where(id => id != Guid.Empty).Select(id => new AuthoringCompileMapEntry(id,
                 supported.Contains(id) && !opaque.Contains(id) ? id : null, opaque.Contains(id) ? "opaque" : supported.Contains(id) ? "authoring" : "generated")).ToArray());
-        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        static IEnumerable<Guid> Nodes(IEnumerable<MeasureNode> nodes)
+        {
+            return nodes.SelectMany(n => n switch
         {
             RepeatNode r => new[] { n.NodeId }.Concat(Nodes(r.Children)),
             SectionNode s => new[] { n.NodeId }.Concat(Nodes(s.Children)),
             _ => new[] { n.NodeId },
         });
-        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes) => nodes.SelectMany(n => n switch
+        }
+
+        static IEnumerable<Guid> RawNodes(IEnumerable<MeasureNode> nodes)
         {
-            RepeatNode r => RawNodes(r.Children),
-            SectionNode s => RawNodes(s.Children),
-            RawStepNode => new[] { n.NodeId },
-            _ => [],
-        });
+            return nodes.SelectMany(n => n switch
+                {
+                    RepeatNode r => RawNodes(r.Children),
+                    SectionNode s => RawNodes(s.Children),
+                    RawStepNode => new[] { n.NodeId },
+                    _ => [],
+                });
+        }
     }
 }

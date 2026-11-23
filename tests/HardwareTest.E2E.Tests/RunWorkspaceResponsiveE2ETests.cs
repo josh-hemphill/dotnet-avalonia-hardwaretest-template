@@ -83,7 +83,7 @@ public sealed class RunWorkspaceResponsiveE2ETests
         Assert.True(control.IsEffectivelyVisible);
         Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0);
         var point = control.TranslatePoint(default, window);
-        Assert.NotNull(point);
+        _ = Assert.NotNull(point);
         Assert.True(new Rect(window.ClientSize).Inflate(.75).Contains(new Rect(point.Value, control.Bounds.Size)),
             $"{control.GetType().Name} {control.Bounds.Size} at {point.Value} must fit {window.ClientSize}.");
     }

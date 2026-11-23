@@ -21,9 +21,13 @@ internal static class AuthoringInsertionFixture
         vm.InsertSelectedRecipe();
         Assert.Null(vm.Error);
         if (recipeId is AuthoringRecipeIds.Identity or AuthoringRecipeIds.Prompt or AuthoringRecipeIds.Input)
+        {
             Assert.Equal(vm.SelectedProgram!.Setup[^1].NodeId, vm.SelectedSequence!.NodeId);
-        else if (recipeId == AuthoringRecipeIds.TestGroup || parent is null && recipeId is not (AuthoringRecipeIds.Repeat or AuthoringRecipeIds.Shutdown))
+        }
+        else if (recipeId == AuthoringRecipeIds.TestGroup || (parent is null && recipeId is not (AuthoringRecipeIds.Repeat or AuthoringRecipeIds.Shutdown)))
+        {
             Assert.Equal(vm.SelectedProgram!.Measure[^1].NodeId, vm.SelectedSequence!.NodeId);
+        }
         else if (recipeId is not (AuthoringRecipeIds.Repeat or AuthoringRecipeIds.Shutdown))
         {
             var parentRow = AuthoringSequence.Flatten(vm.SelectedProgram).Single(row => row.NodeId == parent);

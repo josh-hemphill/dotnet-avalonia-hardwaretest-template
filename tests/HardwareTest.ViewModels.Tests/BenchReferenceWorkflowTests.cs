@@ -28,7 +28,7 @@ public sealed class BenchReferenceWorkflowTests
             var path = Path.Combine(root, "reference-workflow.TapPlan");
             File.WriteAllText(path, "<TestPlan />");
             File.WriteAllText(Path.ChangeExtension(path, ".program.json"), JsonSerializer.Serialize(new ProgramSidecar
-            { DisplayName = "Golden comparison test", ReferenceRules = rules.ToList(), ProgramKind = ProgramKinds.StationHealth }, ProgramCatalogJsonContext.Default.ProgramSidecar));
+            { DisplayName = "Golden comparison test", ReferenceRules = [.. rules], ProgramKind = ProgramKinds.StationHealth }, ProgramCatalogJsonContext.Default.ProgramSidecar));
             var settings = new AppSettings { DataDirectory = root, UseMockVisa = true, IsEngineerDebugMode = true };
             var clock = new FakeClock(DateTimeOffset.UtcNow);
             var references = new FileBenchReferenceStore(root, clock);
@@ -71,7 +71,7 @@ public sealed class BenchReferenceWorkflowTests
             Assert.True(vm.CanStartRunSelected); // This unrelated selected test has no declared reference input.
             SetSamples(1, 2);
             await vm.Run.RunSelectedCommand.ExecuteAsync();
-            Assert.Single(health.Written); // Partial health evidence must not refresh full qualification.
+            _ = Assert.Single(health.Written); // Partial health evidence must not refresh full qualification.
             Assert.Contains("Health qualification was not updated", vm.Status, StringComparison.Ordinal);
 
             vm.References.Rules[0].SelectedChoice = vm.References.Rules[0].Choices.Single(choice => choice.Profile.Id == second.Id);
@@ -140,7 +140,7 @@ public sealed class BenchReferenceWorkflowTests
             await vm.Run.RunCommand.ExecuteAsync();
             Assert.Equal(previousAttempts, tap.RunCount);
             Assert.Contains("still in progress", vm.Status, StringComparison.Ordinal);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => vm.References.FreezeAsync(passed.ReferenceContext!));
+            _ = await Assert.ThrowsAsync<InvalidOperationException>(() => vm.References.FreezeAsync(passed.ReferenceContext!));
             management.Continue.SetResult();
             await retirement;
             Assert.False(vm.References.IsManagementPending);
@@ -154,24 +154,31 @@ public sealed class BenchReferenceWorkflowTests
                 await vm.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
             }
             void SetSamples(double left, double right)
-                => tap.SummarySamplesFactory = (started, completed) => rules.Select((rule, index) => new StoredSample
-                {
-                    ProducerStepId = rule.ProducerStepId,
-                    MetricKey = rule.MetricKey,
-                    Channel = rule.MetricKey,
-                    Unit = rule.Unit,
-                    Timestamp = started + (completed - started) / 2,
-                    Value = index == 0 ? left : right,
-                    StepPath = "Measure/" + rule.MetricKey,
-                }).Append(new StoredSample
-                {
-                    MetricKey = StationHealthRecorder.OffsetMetric,
-                    Channel = StationHealthRecorder.OffsetMetric,
-                    Value = 0.01,
-                    Unit = "V",
-                    Timestamp = started + (completed - started) / 2,
-                    StepPath = "Measure/health",
-                }).ToList();
+            {
+                tap.SummarySamplesFactory = (started, completed) =>
+                [
+                    .. rules.Select((rule, index) => new StoredSample
+                                    {
+                                        ProducerStepId = rule.ProducerStepId,
+                                        MetricKey = rule.MetricKey,
+                                        Channel = rule.MetricKey,
+                                        Unit = rule.Unit,
+                                        Timestamp = started + ((completed - started) / 2),
+                                        Value = index == 0 ? left : right,
+                                        StepPath = "Measure/" + rule.MetricKey,
+                                    }),
+                    new StoredSample
+                    {
+                        MetricKey = StationHealthRecorder.OffsetMetric,
+                        Channel = StationHealthRecorder.OffsetMetric,
+                        Value = 0.01,
+                        Unit = "V",
+                        Timestamp = started + ((completed - started) / 2),
+                        StepPath = "Measure/health",
+                    },
+                ];
+            }
+
             async Task<BenchReferenceProfile> Acquire(string serial, double left, double right)
             {
                 vm.References.IsAcquisition = true;
@@ -217,11 +224,11 @@ public sealed class BenchReferenceWorkflowTests
         Assert.Equal("Pass", evidence.Single(node => node.Id == "reference:lower").ChipText);
         Assert.Equal("Fail", evidence.Single(node => node.Id == "reference:upper").ChipText);
         Assert.Equal("No qualified current samples", evidence.Single(node => node.Id == "reference:upper").KeyValue);
-        Assert.Single(plan.Children); // UI evidence cannot accidentally enter host Run Selected execution.
+        _ = Assert.Single(plan.Children); // UI evidence cannot accidentally enter host Run Selected execution.
         tree.ClearRunState();
         Assert.DoesNotContain(Flatten(tree.FullHierarchy), node => node.IsReadOnlyEvidence);
         Assert.Equal(1, tree.SuitePendingCount);
-        Assert.Single(plan.Children);
+        _ = Assert.Single(plan.Children);
     }
 
     [Fact]
@@ -233,7 +240,7 @@ public sealed class BenchReferenceWorkflowTests
             var path = Path.Combine(root, "reference-workflow.TapPlan");
             File.WriteAllText(path, "<TestPlan />");
             File.WriteAllText(Path.ChangeExtension(path, ".program.json"), JsonSerializer.Serialize(new ProgramSidecar
-            { ReferenceRules = Rules().ToList() }, ProgramCatalogJsonContext.Default.ProgramSidecar));
+            { ReferenceRules = [.. Rules()] }, ProgramCatalogJsonContext.Default.ProgramSidecar));
             var tap = new FakeOpenTapSession();
             var original = tap.Slots.Single();
             tap.Slots.Add(new() { Name = original.Name, TypeName = original.TypeName, ResourceName = original.ResourceName, RoleHint = original.RoleHint });
@@ -311,8 +318,8 @@ public sealed class BenchReferenceWorkflowTests
         var captured = BenchReferenceEvaluator.Capture("Golden", Source(rules, 1, 2), rules, Now);
         var profile = captured with
         {
-            Values = captured.Values.Select(value => value with
-            { ReferenceKey = value.ReferenceKey.ToUpperInvariant(), MetricKey = value.MetricKey.ToUpperInvariant() }).ToList()
+            Values = [.. captured.Values.Select(value => value with
+            { ReferenceKey = value.ReferenceKey.ToUpperInvariant(), MetricKey = value.MetricKey.ToUpperInvariant() })]
         };
         profile = profile with { ContentSha256 = BenchReferenceIdentity.ComputeProfileHash(profile) };
         var panel = Panel(new MemoryStore([profile]), new AppSettings(), null, clock);
@@ -337,7 +344,7 @@ public sealed class BenchReferenceWorkflowTests
             var frozen = await panel.FreezeAsync(context);
             await store.RetireAsync(profile.Id, "Replaced after fixture maintenance");
             Assert.All(BenchReferenceEvaluator.Evaluate(Source(rules, 1, 2), frozen.Uses), evaluation => Assert.True(evaluation.Passed));
-            await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
+            _ = await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
             await panel.RefreshAsync();
             Assert.False(panel.IsReady);
             Assert.All(panel.Rules, row => Assert.Null(row.SelectedChoice));
@@ -359,7 +366,7 @@ public sealed class BenchReferenceWorkflowTests
         clock.UtcNow = Now.AddHours(1);
         Assert.False(panel.IsReady);
         Assert.Contains("expired", panel.ReadinessText, StringComparison.OrdinalIgnoreCase);
-        await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
+        _ = await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
         Assert.All(BenchReferenceEvaluator.Evaluate(Source(rules, 1, 2), frozen.Uses), evaluation => Assert.True(evaluation.Passed));
     }
 
@@ -372,7 +379,7 @@ public sealed class BenchReferenceWorkflowTests
         var panel = Panel(store, new AppSettings(), null, clock, () => confirmations++);
         panel.Configure(Program(rules), context); await panel.RefreshAsync();
         foreach (var row in panel.Rules) row.SelectedChoice = Assert.Single(row.Choices);
-        var edited = profile with { Values = profile.Values.Select(value => value with { Value = value.Value + 10 }).ToList() };
+        var edited = profile with { Values = [.. profile.Values.Select(value => value with { Value = value.Value + 10 })] };
         store.Saved[0] = edited with { ContentSha256 = BenchReferenceIdentity.ComputeProfileHash(edited) };
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => panel.FreezeAsync(context));
         Assert.Contains("changed", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -395,7 +402,7 @@ public sealed class BenchReferenceWorkflowTests
         panel.Rules[1].SelectedChoice = panel.Rules[1].Choices.Single(choice => choice.Profile.Id == later.Id);
         Assert.True(panel.IsReady);
         store.BeforeLoad = id => { if (id == later.Id) clock.UtcNow = Now.AddHours(1); };
-        await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
+        _ = await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
     }
 
     [Fact]
@@ -411,7 +418,7 @@ public sealed class BenchReferenceWorkflowTests
         Assert.True(panel.IsReadyForRules([]));
         var selected = await panel.FreezeAsync(context, [rules[1]]);
         Assert.Equal("right-rule", Assert.Single(selected.Uses).Rule.RuleId);
-        await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
+        _ = await Assert.ThrowsAnyAsync<Exception>(() => panel.FreezeAsync(context));
     }
 
     [Fact]
@@ -475,7 +482,7 @@ public sealed class BenchReferenceWorkflowTests
         var store = new MemoryStore([]) { FailSave = true };
         var vm = new BenchReferencePromotionViewModel(store, new FakeClock(Now), () => true, OnUi);
         vm.Configure(source);
-        Assert.Single(vm.Candidates, row => row.CanSelect);
+        _ = Assert.Single(vm.Candidates, row => row.CanSelect);
         Assert.False(vm.Candidates.Single(row => row.Rule.MetricKey == "right").CanSelect);
         vm.Name = "Bench golden"; vm.ValidDays = "30";
         await vm.SaveCommand.ExecuteAsync();
@@ -561,8 +568,8 @@ public sealed class BenchReferenceWorkflowTests
         ReferenceBackendResult = RunResult.Passed,
         ExecutionScope = RunExecutionScopes.ReferenceAcquisition,
         ReferenceContext = Context(),
-        ReferenceRules = rules.ToList(),
-        Samples = rules.Select((rule, index) => new StoredSample
+        ReferenceRules = [.. rules],
+        Samples = [.. rules.Select((rule, index) => new StoredSample
         {
             ProducerStepId = rule.ProducerStepId,
             MetricKey = rule.MetricKey,
@@ -571,9 +578,9 @@ public sealed class BenchReferenceWorkflowTests
             Value = index == 0 ? left : right,
             Timestamp = Now.AddSeconds(-10),
             StepPath = "Measure/" + rule.MetricKey,
-        }).ToList(),
+        })],
     };
-    private static string Temp() { var path = Path.Combine(Path.GetTempPath(), "bench-reference-vm-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(path); return path; }
+    private static string Temp() { var path = Path.Combine(Path.GetTempPath(), "bench-reference-vm-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(path); return path; }
 
     private sealed class DeferredRetirementStore(IBenchReferenceStore inner) : IBenchReferenceStore
     {
@@ -587,7 +594,7 @@ public sealed class BenchReferenceWorkflowTests
             => inner.FreezeAsync(selections, context, cancellationToken);
         public async Task RetireAsync(string id, string reason, CancellationToken cancellationToken = default)
         {
-            Started.TrySetResult();
+            _ = Started.TrySetResult();
             if (DeferRetirement) await Continue.Task.WaitAsync(cancellationToken);
             await inner.RetireAsync(id, reason, cancellationToken);
         }
@@ -595,7 +602,7 @@ public sealed class BenchReferenceWorkflowTests
 
     private sealed class MemoryStore(IEnumerable<BenchReferenceProfile> profiles) : IBenchReferenceStore
     {
-        public List<BenchReferenceProfile> Saved { get; } = profiles.ToList();
+        public List<BenchReferenceProfile> Saved { get; } = [.. profiles];
         public FakeClock Clock { get; set; } = new(Now);
         public bool FailSave { get; set; }
         public Action<string>? BeforeLoad { get; set; }

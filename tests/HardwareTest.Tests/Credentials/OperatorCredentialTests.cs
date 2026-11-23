@@ -149,7 +149,7 @@ public sealed class ReportAttestationServiceTests
         Assert.True(result.Succeeded);
         var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
         Assert.False(string.IsNullOrWhiteSpace(issuedPath));
-        await File.WriteAllBytesAsync(issuedPath!, "%PDF-changed"u8.ToArray());
+        await File.WriteAllBytesAsync(issuedPath, "%PDF-changed"u8.ToArray());
         Assert.False(service.HasValidAttestation(run, ReportKinds.Certification));
     }
 
@@ -439,8 +439,10 @@ public sealed class ReportAttestationServiceTests
         broker.Mode = mode;
 
         if (mode == "cancel")
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+        {
+            _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 service.AttestAsync(run, ReportKinds.Certification, pin: SoftwarePdfBroker.Pin));
+        }
         else
         {
             var result = await service.AttestAsync(run, ReportKinds.Certification,
@@ -488,7 +490,7 @@ public sealed class ReportAttestationServiceTests
         var snapshot = await PublicationSnapshot.CaptureAsync(run, store);
         faultingStore.CancelSave = true;
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.AttestAsync(run, ReportKinds.Certification, pin: SoftwarePdfBroker.Pin));
 
         await snapshot.AssertUnchangedAsync(run, store);
@@ -723,7 +725,7 @@ public sealed class ReportAttestationServiceTests
             AppJsonContext.Default.ReportAttestation));
         var historicReport = Assert.Single(run.Reports, r => r.PdfPath == prior.IssuedPath);
         Assert.Equal(priorReportMetadata, JsonSerializer.Serialize(historicReport));
-        var newestPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification)!;
+        var newestPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
         Assert.Equal(newestPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, prior.WorkingPath));
         Assert.Equal(prior.IssuedPath, ReportAttestationService.ResolvePrintOrExportPdfPath(run, prior.IssuedPath));
         Assert.True(service.HasValidAttestation(run, ReportKinds.Certification, priorReport.RevisionId));
@@ -828,7 +830,7 @@ public sealed class ReportAttestationServiceTests
         Assert.Equal(originalCertBytes, await File.ReadAllBytesAsync(WorkingCertificationPath(run)));
         var issuedPath = ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification);
         Assert.False(string.IsNullOrWhiteSpace(issuedPath));
-        var stamped = await File.ReadAllBytesAsync(issuedPath!);
+        var stamped = await File.ReadAllBytesAsync(issuedPath);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(MockOperatorCredentialBroker.MockDisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
         Assert.True(File.Exists(issuedPath));
@@ -853,12 +855,12 @@ public sealed class ReportAttestationServiceTests
         run.IsSchemaReadOnly = readOnly;
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(), store, new AppSettings());
 
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => service.AttestAsync(run, ReportKinds.Certification));
+        _ = await Assert.ThrowsAnyAsync<InvalidOperationException>(() => service.AttestAsync(run, ReportKinds.Certification));
 
         Assert.Equal(priorPdf, await File.ReadAllBytesAsync(pdfPath));
         Assert.Equal("frozen stamp", await File.ReadAllTextAsync(sidecar));
         Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
-        Assert.Single(run.Attestations);
+        _ = Assert.Single(run.Attestations);
     }
 
     [Fact]
@@ -917,7 +919,7 @@ public sealed class ReportAttestationServiceTests
         var broker = new Pkcs11OperatorCredentialBroker(settings, _ => backend);
         var reports = new RecordingReportService { BeforeCompile = () => cancellation.Cancel() };
         var service = new ReportAttestationService(broker, store, settings, reports: new Lazy<IReportService>(() => reports));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
         Assert.Empty(run.Attestations); Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
         Assert.Equal(0, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
     }
@@ -932,7 +934,7 @@ public sealed class ReportAttestationServiceTests
         var backend = new PreparedPkcs11Tests.TestBackend(token);
         var settings = new AppSettings { Pkcs11LibraryPath = "injected" };
         var service = new ReportAttestationService(new Pkcs11OperatorCredentialBroker(settings, _ => backend), store, settings);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.AttestAsync(run, ReportKinds.Certification, token.Credential, "1234", cancellationToken: cancellation.Token));
         Assert.Empty(run.Attestations); Assert.Null(ReportAttestationService.ResolveIssuedPdfPath(run, ReportKinds.Certification));
         Assert.Equal(1, token.SignCount); Assert.True(token.Closed); Assert.True(backend.Closed);
     }
@@ -970,7 +972,7 @@ public sealed class ReportAttestationServiceTests
     {
         var path = ReportAttestationService.ResolveWorkingPdfPath(run, ReportKinds.Certification);
         Assert.False(string.IsNullOrWhiteSpace(path));
-        return path!;
+        return path;
     }
 
     private static async Task<TestRunRecord> SeedCertificationRunAsync(
@@ -1084,7 +1086,7 @@ internal sealed class RecordingReportService : IReportService
         _ = run;
         _ = kind;
         var stamp = compileIdentity?.DisplayName ?? "unsigned";
-        return Task.FromResult(ReturnEmptyPdf ? Array.Empty<byte>() : PdfTestFixture.CreateMinimalPdf(stamp + CompiledTitleSuffix));
+        return Task.FromResult(ReturnEmptyPdf ? [] : PdfTestFixture.CreateMinimalPdf(stamp + CompiledTitleSuffix));
     }
 }
 
@@ -1260,7 +1262,7 @@ file sealed class SoftwarePdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSig
                 "cms-only" => null,
                 "missing-pdf" => [],
                 "malformed-pdf" => "not a signed PDF"u8.ToArray(),
-                "appended-bytes" => signedPdf.Concat("unsigned trailing bytes"u8.ToArray()).ToArray(),
+                "appended-bytes" => [.. signedPdf, .. "unsigned trailing bytes"u8.ToArray()],
                 _ => signedPdf,
             },
             Signature = Mode == "missing-signature" ? null : cms,
@@ -1306,7 +1308,7 @@ file sealed record PublicationSnapshot(string Metadata, string WorkingPath, byte
         return new(JsonSerializer.Serialize(run, AppJsonContext.Default.TestRunRecord),
             working, await File.ReadAllBytesAsync(working), issued, await File.ReadAllBytesAsync(issued),
             sidecar, await File.ReadAllBytesAsync(sidecar), await File.ReadAllBytesAsync(Path.Combine(dir, "run.json")),
-            Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal).ToArray());
+            [.. Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal)]);
     }
 
     public async Task AssertUnchangedAsync(TestRunRecord run, FileRunStore store)

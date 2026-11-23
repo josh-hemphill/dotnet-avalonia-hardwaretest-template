@@ -38,11 +38,11 @@ public sealed class InstrumentsUiThreadTests
                 inScheduler = false;
             }
         };
-        vm.PropertyChanged += (_, args) =>
+        vm.PropertyChanged += (sender, args) =>
         {
             if (args.PropertyName == nameof(vm.IsBusy) && !inScheduler)
             {
-                Interlocked.Increment(ref offScheduler);
+                _ = Interlocked.Increment(ref offScheduler);
             }
         };
 

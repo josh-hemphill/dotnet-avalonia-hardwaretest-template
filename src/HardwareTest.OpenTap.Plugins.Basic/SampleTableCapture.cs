@@ -9,7 +9,7 @@ internal sealed class SampleTableCapture : IResultSink
     private readonly object _sync = new();
     // Trusted Basic repeat boundaries clear descendant captures even when a producer
     // is skipped. Unknown composite execution boundaries are rejected during retrieval.
-    private static readonly ConditionalWeakTable<TestPlanRun, List<SampleTableCapture>> Captures = new();
+    private static readonly ConditionalWeakTable<TestPlanRun, List<SampleTableCapture>> Captures = [];
     private readonly List<(TestStepRun Run, string Channel, double Value, double ElapsedMs)> _rows = [];
     private readonly Dictionary<Guid, (Guid TestStepId, Guid Parent)> _runs = [];
 
@@ -29,12 +29,14 @@ internal sealed class SampleTableCapture : IResultSink
             {
                 lock (capture._sync)
                 {
-                    capture._rows.RemoveAll(row => ids.Contains(row.Run.TestStepId));
+                    _ = capture._rows.RemoveAll(row => ids.Contains(row.Run.TestStepId));
                     // Results have drained and descendant rows are gone. Their old
                     // execution ancestry is no longer needed by any live sample.
                     foreach (var runId in capture._runs.Where(pair => ids.Contains(pair.Value.TestStepId))
                                  .Select(pair => pair.Key).ToArray())
-                        capture._runs.Remove(runId);
+                    {
+                        _ = capture._runs.Remove(runId);
+                    }
                 }
             }
         }
@@ -78,7 +80,7 @@ internal sealed class SampleTableCapture : IResultSink
     {
         lock (_sync)
         {
-            _rows.RemoveAll(row => row.Run.TestStepId == stepRun.TestStepId);
+            _ = _rows.RemoveAll(row => row.Run.TestStepId == stepRun.TestStepId);
             _runs[stepRun.Id] = (stepRun.TestStepId, stepRun.Parent);
         }
     }
@@ -139,8 +141,11 @@ internal sealed class SampleTableCapture : IResultSink
         while (parent is ITestStep step)
         {
             if (step is not TestGroupStep and not RepeatLoopStep)
+            {
                 throw new InvalidOperationException(
                     "SAMPLE_SCOPE: unsupported execution boundary; place the producer and check in a Basic Test Group or Repeat Loop.");
+            }
+
             parent = step.Parent;
         }
         if (parent is not TestPlan plan)

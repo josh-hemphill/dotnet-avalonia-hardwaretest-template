@@ -42,8 +42,8 @@ public sealed class AuthoringDocumentSessionTests
         Assert.Equal("1", Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(children[0]).Metric.Source).Settings["range"]);
         Assert.Equal("input", Assert.IsType<ExpressionAlgorithm>(Assert.IsType<MetricNode>(children[2]).Metric.Source).InputChannelKeys[0]);
         Assert.Equal(1, Assert.IsType<TransferFunctionAlgorithm>(Assert.IsType<MetricNode>(children[3]).Metric.Source).Numerator[0]);
-        Assert.Throws<NotSupportedException>(() => AuthoringDocumentSnapshot.Capture(draft with { Measure = [new UnknownNode()] }));
-        Assert.Throws<NotSupportedException>(() => AuthoringDocumentSnapshot.Capture(draft with { Measure = [Metric("x", new UnknownSource())] }));
+        _ = Assert.Throws<NotSupportedException>(() => AuthoringDocumentSnapshot.Capture(draft with { Measure = [new UnknownNode()] }));
+        _ = Assert.Throws<NotSupportedException>(() => AuthoringDocumentSnapshot.Capture(draft with { Measure = [Metric("x", new UnknownSource())] }));
     }
 
     [Fact]
@@ -52,8 +52,8 @@ public sealed class AuthoringDocumentSessionTests
         var settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["elapsedms"] = "100" };
         var draft = Draft() with { Measure = [Metric("input", new MeasureSource("meter", "read", settings))] };
         var session = new AuthoringDocumentSession(draft);
-        session.ApplyEdit("rename", d => Rename(d, "changed"));
-        session.Undo();
+        _ = session.ApplyEdit("rename", d => Rename(d, "changed"));
+        _ = session.Undo();
         var source = Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(session.Draft.Measure[0]).Metric.Source);
         Assert.True(source.Settings.TryGetValue("ElapsedMs", out var value));
         Assert.Equal("100", value);
@@ -84,7 +84,7 @@ public sealed class AuthoringDocumentSessionTests
         Assert.False(session.IsDirty);
         Assert.False(session.ApplyEdit("no change", d => d));
         Assert.True(session.CanRedo);
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("failed", _ => throw new InvalidOperationException()));
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("failed", _ => throw new InvalidOperationException()));
         Assert.True(session.CanRedo);
         Assert.True(session.Redo());
         session.MarkSaved();
@@ -102,19 +102,19 @@ public sealed class AuthoringDocumentSessionTests
     public void SidecarSaveAdvancesOnlyItsBaselineAndNewProgramRemainsUnsavedAfterUndo()
     {
         var session = new AuthoringDocumentSession(Draft(), isSaved: false);
-        session.ApplyEdit("name", d => Rename(d, "new"));
-        session.Undo();
+        _ = session.ApplyEdit("name", d => Rename(d, "new"));
+        _ = session.Undo();
         Assert.True(session.IsDirty);
         session.MarkSaved(plan: false);
         Assert.True(session.IsPlanDirty);
         Assert.False(session.IsSidecarDirty);
         session.MarkSaved();
-        session.ApplyEdit("sidecar", d => { d.Sidecar.DisplayName = "new label"; return d; });
+        _ = session.ApplyEdit("sidecar", d => { d.Sidecar.DisplayName = "new label"; return d; });
         Assert.False(session.IsPlanDirty);
         Assert.True(session.IsSidecarDirty);
         session.MarkSaved(plan: false);
         Assert.False(session.IsDirty);
-        session.Undo();
+        _ = session.Undo();
         Assert.True(session.IsSidecarDirty);
     }
 
@@ -122,7 +122,7 @@ public sealed class AuthoringDocumentSessionTests
     public void CleanupMirrorFieldsTrackExactSidecarContentAndSaveRebasesUndoRedoBoundary()
     {
         var session = new AuthoringDocumentSession(Draft());
-        session.ApplyEdit("sidecar cleanup", d => { d.Sidecar.IncludeSafeShutdown = false; return d; });
+        _ = session.ApplyEdit("sidecar cleanup", d => { d.Sidecar.IncludeSafeShutdown = false; return d; });
         Assert.False(session.IsPlanDirty);
         Assert.True(session.IsSidecarDirty);
         var persisted = session.Draft;
@@ -130,17 +130,17 @@ public sealed class AuthoringDocumentSessionTests
         session.AcceptSavedContent(persisted);
         Assert.False(session.IsDirty);
         Assert.True(session.CanUndo);
-        session.Undo();
+        _ = session.Undo();
         Assert.True(session.IsDirty);
         Assert.True(session.CanRedo);
-        session.Redo();
+        _ = session.Redo();
         Assert.False(session.IsDirty);
-        session.Undo();
+        _ = session.Undo();
         var persistedBeforeRedo = session.Draft;
         AuthoringCleanup.SyncSidecar(persistedBeforeRedo.Sidecar, persistedBeforeRedo.Cleanup);
         session.AcceptSavedContent(persistedBeforeRedo);
         Assert.True(session.CanRedo);
-        session.Redo();
+        _ = session.Redo();
         Assert.False(session.IsDirty);
     }
 
@@ -149,21 +149,21 @@ public sealed class AuthoringDocumentSessionTests
     {
         var draft = Draft();
         var readOnly = new AuthoringDocumentSession(draft, isReadOnly: true);
-        Assert.Throws<InvalidOperationException>(() => readOnly.ApplyEdit("x", d => Rename(d, "x")));
+        _ = Assert.Throws<InvalidOperationException>(() => readOnly.ApplyEdit("x", d => Rename(d, "x")));
         var session = new AuthoringDocumentSession(draft);
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("x", d => d, Guid.NewGuid()));
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("x", d => d with { PlanId = "foreign" }));
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("x", d => d, Guid.NewGuid()));
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("x", d => d with { PlanId = "foreign" }));
         Assert.False(session.History.CanUndo);
-        session.ApplyEdit("x", d => Rename(d, "x"));
+        _ = session.ApplyEdit("x", d => Rename(d, "x"));
         session.RestoreExternal(Rename(session.Draft, "external"), null);
         Assert.False(session.CanUndo);
-        Assert.Throws<InvalidOperationException>(() => session.Undo());
+        _ = Assert.Throws<InvalidOperationException>(() => session.Undo());
         session.ClearHistory();
         Assert.False(session.History.CanUndo);
         session.SelectedNodeId = draft.Measure[0].NodeId;
-        session.ApplyEdit("delete", d => d with { Measure = [] }, draft.Measure[0].NodeId);
+        _ = session.ApplyEdit("delete", d => d with { Measure = [] }, draft.Measure[0].NodeId);
         Assert.Null(session.SelectedNodeId);
-        session.Undo();
+        _ = session.Undo();
         Assert.Equal(draft.Measure[0].NodeId, session.SelectedNodeId);
     }
 
@@ -173,10 +173,10 @@ public sealed class AuthoringDocumentSessionTests
         var draft = Draft();
         var session = new AuthoringDocumentSession(draft);
         var preparedRevision = session.Revision;
-        session.ApplyEdit("rename", d => Rename(d, "changed"));
-        session.Undo();
+        _ = session.ApplyEdit("rename", d => Rename(d, "changed"));
+        _ = session.Undo();
         var current = session.Snapshot;
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("stale rename", d => Rename(d, "stale"),
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("stale rename", d => Rename(d, "stale"),
             draft.Measure[0].NodeId, preparedRevision));
         Assert.True(current.ContentEquals(session.Snapshot));
         Assert.True(session.CanRedo);
@@ -187,13 +187,13 @@ public sealed class AuthoringDocumentSessionTests
     public void NewEditAfterUndoClearsOnlyThisProgramsRedoAndInvalidIdsFailAtomically()
     {
         var session = new AuthoringDocumentSession(Draft());
-        session.ApplyEdit("first", d => Rename(d, "first"));
-        session.Undo();
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("invalid", d => d with { Measure = [d.Measure[0], d.Measure[0]] }));
+        _ = session.ApplyEdit("first", d => Rename(d, "first"));
+        _ = session.Undo();
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("invalid", d => d with { Measure = [d.Measure[0], d.Measure[0]] }));
         Assert.True(session.CanRedo);
-        Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("empty identity", d => d with { Measure = [d.Measure[0] with { NodeId = Guid.Empty }] }));
+        _ = Assert.Throws<InvalidOperationException>(() => session.ApplyEdit("empty identity", d => d with { Measure = [d.Measure[0] with { NodeId = Guid.Empty }] }));
         Assert.True(session.CanRedo);
-        session.ApplyEdit("second", d => Rename(d, "second"));
+        _ = session.ApplyEdit("second", d => Rename(d, "second"));
         Assert.False(session.CanRedo);
         Assert.Equal("second", Assert.IsType<MetricNode>(session.Draft.Measure[0]).Metric.Name);
     }
@@ -212,7 +212,7 @@ public sealed class AuthoringDocumentSessionTests
         var draft = Draft();
         var session = new AuthoringDocumentSession(draft);
         var before = session.Snapshot;
-        session.ApplyEdit(category, d =>
+        _ = session.ApplyEdit(category, d =>
         {
             var node = Assert.IsType<MetricNode>(d.Measure[0]);
             return category switch

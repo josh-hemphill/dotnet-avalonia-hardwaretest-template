@@ -12,140 +12,118 @@ public enum OperatorSessionState
 }
 
 /// Bench context: DUT identity + selected program without over-prompting.
-public sealed class OperatorSession : INotifyPropertyChanged
+public sealed class OperatorSession(IClock? clock = null) : INotifyPropertyChanged
 {
-    private string _sessionId = Guid.NewGuid().ToString("N");
-    private string _dutSerial = string.Empty;
-    private string? _dutPartNumber;
-    private string? _dutRevision;
-    private string _dutFamily = "generic";
-    private string? _programId;
-    private string? _programPath;
-    private string? _programDisplayName;
-    private string? _operatorName;
-    private string? _operatorCredentialSerial;
-    private string? _operatorCredentialTransport;
-    private DateTimeOffset? _confirmedAt;
-    private DateTimeOffset? _lastActivityAt;
-    private bool _isIdleWarning;
-    private TimeSpan? _timeUntilSoftWarn;
-    private TimeSpan? _timeUntilStale;
-    private OperatorSessionState _state = OperatorSessionState.NeedsDut;
-    private readonly IClock _clock;
+    private readonly IClock _clock = clock ?? SystemClock.Instance;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public OperatorSession(IClock? clock = null)
-    {
-        _clock = clock ?? SystemClock.Instance;
-    }
-
     public string SessionId
     {
-        get => _sessionId;
-        private set => Set(ref _sessionId, value);
-    }
+        get;
+        private set => Set(ref field, value);
+    } = Guid.NewGuid().ToString("N");
 
     public string DutSerial
     {
-        get => _dutSerial;
-        private set => Set(ref _dutSerial, value);
-    }
+        get;
+        private set => Set(ref field, value);
+    } = string.Empty;
 
     public string? DutPartNumber
     {
-        get => _dutPartNumber;
-        private set => Set(ref _dutPartNumber, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public string? DutRevision
     {
-        get => _dutRevision;
-        private set => Set(ref _dutRevision, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public string DutFamily
     {
-        get => _dutFamily;
-        private set => Set(ref _dutFamily, value);
-    }
+        get;
+        private set => Set(ref field, value);
+    } = "generic";
 
     public string? ProgramId
     {
-        get => _programId;
-        private set => Set(ref _programId, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public string? ProgramPath
     {
-        get => _programPath;
-        private set => Set(ref _programPath, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public string? ProgramDisplayName
     {
-        get => _programDisplayName;
-        private set => Set(ref _programDisplayName, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public string? OperatorName
     {
-        get => _operatorName;
-        set => Set(ref _operatorName, value);
+        get;
+        set => Set(ref field, value);
     }
 
     /// Card serial captured from a chip insert or contactless tap.
     public string? OperatorCredentialSerial
     {
-        get => _operatorCredentialSerial;
-        private set => Set(ref _operatorCredentialSerial, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     /// `contact` or `contactless` when a badge has been presented.
     public string? OperatorCredentialTransport
     {
-        get => _operatorCredentialTransport;
-        private set => Set(ref _operatorCredentialTransport, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     /// When the DUT identity was last confirmed (not refreshed by activity touches).
     public DateTimeOffset? ConfirmedAt
     {
-        get => _confirmedAt;
-        private set => Set(ref _confirmedAt, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     /// Last meaningful operator activity used for idle / stale timing.
     public DateTimeOffset? LastActivityAt
     {
-        get => _lastActivityAt;
-        private set => Set(ref _lastActivityAt, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     /// True when idle elapsed has reached the soft-warn fraction but not hard Stale.
     public bool IsIdleWarning
     {
-        get => _isIdleWarning;
-        private set => Set(ref _isIdleWarning, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public TimeSpan? TimeUntilSoftWarn
     {
-        get => _timeUntilSoftWarn;
-        private set => Set(ref _timeUntilSoftWarn, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public TimeSpan? TimeUntilStale
     {
-        get => _timeUntilStale;
-        private set => Set(ref _timeUntilStale, value);
+        get;
+        private set => Set(ref field, value);
     }
 
     public OperatorSessionState State
     {
-        get => _state;
-        private set => Set(ref _state, value);
-    }
+        get;
+        private set => Set(ref field, value);
+    } = OperatorSessionState.NeedsDut;
 
     /// Current program requirements. Default Sample still requires a DUT serial.
     public ProgramRequirements Requirements { get; private set; } = ProgramRequirements.Sample;
@@ -270,7 +248,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
 
     public void MarkStale()
     {
-        if (State == OperatorSessionState.Active || State == OperatorSessionState.Stale)
+        if (State is OperatorSessionState.Active or OperatorSessionState.Stale)
         {
             State = OperatorSessionState.Stale;
             ClearIdleCountdown();

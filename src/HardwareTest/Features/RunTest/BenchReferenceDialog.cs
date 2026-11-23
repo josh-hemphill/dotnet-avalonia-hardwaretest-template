@@ -31,7 +31,7 @@ internal static class BenchReferenceDialog
             var input = body.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(control => control.IsEffectivelyVisible && control.IsEffectivelyEnabled && !control.IsReadOnly);
             var choice = body.GetVisualDescendants().OfType<ComboBox>().FirstOrDefault(control => control.IsEffectivelyVisible && control.IsEffectivelyEnabled && control.Items.Count > 0);
             var acquisition = body.GetVisualDescendants().OfType<CheckBox>().FirstOrDefault(control => control.IsEffectivelyVisible && control.IsEffectivelyEnabled);
-            ((Control?)input ?? choice ?? (Control?)acquisition ?? close).Focus();
+            _ = ((Control?)input ?? choice ?? (Control?)acquisition ?? close).Focus();
         });
         await window.ShowDialog(owner);
     }

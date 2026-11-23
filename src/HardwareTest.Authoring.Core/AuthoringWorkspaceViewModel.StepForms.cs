@@ -44,7 +44,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 catch (AuthoringWorkspaceException ex) { errors.Add(ex.Message); }
                 if (metric.Source is AlgorithmSource algorithm
                     && AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+                {
                     errors.Add(inputIssue);
+                }
+
                 if (metric.Source is MeasureSource { FunctionId: var function } device && function.StartsWith("Device.", StringComparison.Ordinal))
                 {
                     try
@@ -54,7 +57,7 @@ public sealed partial class AuthoringWorkspaceViewModel
                         if (instrument?.TypeId == global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.RegisteredTypeId)
                             global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverCatalog.ValidateRequest(AuthoringInstrumentCatalog.DeviceBindingFor(instrument), request);
                     }
-                    catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException) { errors.Add(error.Message); }
+                    catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or InstrumentComponents.Drivers.DriverException) { errors.Add(error.Message); }
                 }
                 if (NeedsMetricInstrument && InstrumentBindingIssue(MetricInstrumentSlot, MetricFunctionId) is { } issue)
                     errors.Add(issue);
@@ -84,8 +87,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         var identity = $"{SelectedSequence?.NodeId:D}/{functionId}/{key}";
         if (_settingRows.TryGetValue(identity, out var existing)
             && (existing.Choices ?? []).SequenceEqual(row.Choices ?? [], StringComparer.Ordinal))
+        {
             row = existing;
-        else _settingRows[identity] = row;
+        }
+        else
+        {
+            _settingRows[identity] = row;
+        }
+
         row.Refresh(text, SettingError(key, AuthoringMetricSettingCatalog.Resolve(functionId, key), text));
         return row;
     }
@@ -106,9 +115,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var migrated = new Dictionary<string, string>(PlanCompiler.FunctionSettings(id), StringComparer.OrdinalIgnoreCase);
         foreach (var key in migrated.Keys.ToArray())
+        {
             if (current.TryGetValue(key, out var value)
                 && SettingError(key, AuthoringMetricSettingCatalog.Resolve(id, key), value).Length == 0)
+            {
                 migrated[key] = value;
+            }
+        }
+
         return migrated;
     }
 
@@ -134,7 +148,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         foreach (var key in state.IncompleteNumericText.Keys.Where(key =>
                      key.StartsWith($"{nodeId:D}/MetricSetting:", StringComparison.Ordinal)
                      && !settings.ContainsKey(key[(key.IndexOf("MetricSetting:", StringComparison.Ordinal) + "MetricSetting:".Length)..])).ToArray())
-            state.IncompleteNumericText.Remove(key);
+        {
+            _ = state.IncompleteNumericText.Remove(key);
+        }
+
         _pendingNumericState = state;
         try
         {

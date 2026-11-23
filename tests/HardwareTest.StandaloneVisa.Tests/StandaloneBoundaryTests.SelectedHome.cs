@@ -28,10 +28,13 @@ public sealed partial class StandaloneBoundaryTests
             bytes[versionOffset + 2] = 1;
             bytes[versionOffset + 3] = 0;
         }
-        else if (defect == "wrong-provider-name")
-            bytes = File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.dll"));
         else
-            bytes = "malformed-managed-provider"u8.ToArray();
+        {
+            bytes = defect == "wrong-provider-name"
+                ? File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.dll"))
+                : "malformed-managed-provider"u8.ToArray();
+        }
+
         File.WriteAllBytes(path, bytes);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         var document = XDocument.Load(metadata);
@@ -40,10 +43,10 @@ public sealed partial class StandaloneBoundaryTests
         document.Save(metadata);
         var before = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(file => Path.GetRelativePath(home, file), File.ReadAllBytes);
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.Contains("requires current 0.3.0-alpha.1 library assemblies", Output);
         var after = Directory.EnumerateFiles(home, "*", SearchOption.AllDirectories)
             .ToDictionary(file => Path.GetRelativePath(home, file), File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
@@ -69,7 +72,7 @@ public sealed partial class StandaloneBoundaryTests
         if (linked && OperatingSystem.IsWindows()) return;
         var home = InstalledHome();
         var plugins = Path.Combine(home, "Plugins", "Custom");
-        Directory.CreateDirectory(plugins);
+        _ = Directory.CreateDirectory(plugins);
         if (defect == "nested-dll")
             File.Copy(Path.Combine(home, "InstrumentComponents.OpenTap.dll"), Path.Combine(plugins, "InstrumentComponents.OpenTap.dll"));
         if (defect == "alias-metadata")
@@ -88,38 +91,38 @@ public sealed partial class StandaloneBoundaryTests
         if (linked)
         {
             var outside = Path.Combine(_root, "outside-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(outside);
+            _ = Directory.CreateDirectory(outside);
             if (defect == "cycle")
             {
                 linkPath = Path.Combine(plugins, "Cycle");
                 target = home;
-                Directory.CreateSymbolicLink(linkPath, target);
+                _ = Directory.CreateSymbolicLink(linkPath, target);
             }
             else if (defect == "outside-directory")
             {
                 linkPath = Path.Combine(home, "Plugins", "External");
                 target = outside;
-                Directory.CreateSymbolicLink(linkPath, target);
+                _ = Directory.CreateSymbolicLink(linkPath, target);
             }
             else
             {
                 target = Path.Combine(outside, "external.txt");
                 File.WriteAllText(target, "outside-selected-home");
                 linkPath = defect == "outside-root-file" ? Path.Combine(home, "external.txt") : Path.Combine(plugins, "external.txt");
-                File.CreateSymbolicLink(linkPath, target);
+                _ = File.CreateSymbolicLink(linkPath, target);
             }
         }
         var rootEntries = Directory.GetFileSystemEntries(home).Order(StringComparer.Ordinal).ToArray();
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home, "--invalid-selected-metadata", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
         Assert.Contains(defect switch
         {
             "nested-dll" => "cannot use obsolete package-directory library DLLs",
             "alias-metadata" => "noncanonical or duplicate installed package identities",
             "cycle" => "link cycle",
             _ => "resolves outside its root"
-        }, result.Output);
+        }, Output);
         Assert.Equal(rootEntries, Directory.GetFileSystemEntries(home).Order(StringComparer.Ordinal));
         foreach (var (file, original) in before) Assert.Equal(original, File.ReadAllBytes(Path.Combine(home, file)));
         if (linkPath is not null)
@@ -135,12 +138,12 @@ public sealed partial class StandaloneBoundaryTests
     {
         var home = InstalledHome();
         var plugins = Path.Combine(home, "Plugins", "Custom");
-        Directory.CreateDirectory(plugins);
+        _ = Directory.CreateDirectory(plugins);
         File.WriteAllText(Path.Combine(plugins, "notes.txt"), "safe-contained-plugin-data");
         File.WriteAllText(Path.Combine(plugins, "package.xml"), "<Package Name=\"UnrelatedPlugin\" Version=\"1.0.0\"/>");
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
         Assert.Equal("safe-contained-plugin-data", File.ReadAllText(Path.Combine(plugins, "notes.txt")));
     }
 }

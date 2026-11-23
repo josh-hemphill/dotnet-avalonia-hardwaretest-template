@@ -11,11 +11,11 @@ public sealed class AuthoringLoadingTests
     public async Task Program_picker_reports_progress_and_keeps_unsaved_drafts()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.DisplayName = "Unsaved sample name";
-        vm.InitializePlan(new("another-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("another-program") { Instruments = [] });
         var stages = new List<string?>();
         vm.PropertyChanged += (_, e) =>
         {
@@ -36,7 +36,7 @@ public sealed class AuthoringLoadingTests
     {
         using var compiler = new GatedCompiler();
         using var fixture = new AuthoringUiFixture(compiler: compiler);
-        fixture.Show();
+        _ = fixture.Show();
         var callerThread = Environment.CurrentManagedThreadId;
         var loading = fixture.Window!.OpenWorkspaceAsync(fixture.WorkspaceRoot);
         try
@@ -71,7 +71,7 @@ public sealed class AuthoringLoadingTests
         using var fixture = new AuthoringUiFixture();
         fixture.ViewModel.Open(fixture.WorkspaceRoot);
         fixture.ViewModel.DisplayName = "Keep this draft";
-        fixture.Show();
+        _ = fixture.Show();
         fixture.Interaction.Choice = UnsavedChangesChoice.Discard;
         var selected = fixture.ViewModel.SelectedProgram;
         Assert.False(await fixture.Window!.OpenWorkspaceAsync(Path.Combine(fixture.WorkspaceRoot, "missing")));
@@ -130,7 +130,7 @@ public sealed class AuthoringLoadingTests
         public DraftWorkspace LoadAll(AuthoringWorkspace workspace)
         {
             LoadThread = Environment.CurrentManagedThreadId;
-            Entered.TrySetResult();
+            _ = Entered.TrySetResult();
             if (!Release.Wait(TimeSpan.FromSeconds(30))) throw new TimeoutException("Test did not release workspace import.");
             return _inner.LoadAll(workspace);
         }

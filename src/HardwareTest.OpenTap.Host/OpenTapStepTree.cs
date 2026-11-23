@@ -124,7 +124,7 @@ internal static class OpenTapStepTree
 
     public static List<OpenTapStepNode> Build(TestPlan plan)
     {
-        OpenTapStepNode Map(ITestStep step, string parentPath)
+        static OpenTapStepNode Map(ITestStep step, string parentPath)
         {
             var path = string.IsNullOrEmpty(parentPath) ? step.Name : $"{parentPath}/{step.Name}";
             var node = new OpenTapStepNode
@@ -143,6 +143,6 @@ internal static class OpenTapStepTree
             return node;
         }
 
-        return plan.ChildTestSteps.Select(s => Map(s, string.Empty)).ToList();
+        return [.. plan.ChildTestSteps.Select(s => Map(s, string.Empty))];
     }
 }

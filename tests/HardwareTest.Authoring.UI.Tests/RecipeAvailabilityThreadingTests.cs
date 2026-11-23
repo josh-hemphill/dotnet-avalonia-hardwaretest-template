@@ -20,22 +20,22 @@ public sealed class RecipeAvailabilityThreadingTests
         var firstPublished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
         var changed = false;
-        System.ComponentModel.PropertyChangedEventHandler subscriber = (_, args) =>
+        void subscriber(object? unused, System.ComponentModel.PropertyChangedEventArgs args)
         {
             if (changed || args.PropertyName != nameof(vm.CanInsertRecipe) || vm.SelectedRecipePrerequisites != "First result") return;
             changed = true;
             vm.SelectedRecipeId = AuthoringRecipeIds.Formula;
             AuthoringUiFixture.Drain(); // A nested dispatcher turn starts the replacement worker before publication returns.
-            firstPublished.TrySetResult();
-        };
+            _ = firstPublished.TrySetResult();
+        }
         vm.PropertyChanged += subscriber;
         try
         {
-            vm.ConfigureRecipeAvailability(action => Dispatcher.UIThread.Post(action), () => window.IsVisible, _ =>
+            vm.ConfigureRecipeAvailability(action => Dispatcher.UIThread.Post(action), () => window.IsVisible, unused =>
             {
                 Assert.False(Dispatcher.UIThread.CheckAccess());
                 if (Interlocked.Increment(ref calls) == 1) return new("First result", null);
-                secondEntered.TrySetResult();
+                _ = secondEntered.TrySetResult();
                 if (!release.Wait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Test did not release replacement recipe worker.");
                 return new("Replacement result", null);
             });
@@ -60,7 +60,7 @@ public sealed class RecipeAvailabilityThreadingTests
     public async Task Losing_owner_after_publication_blocks_cached_recipe_insertion()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.SelectedRecipeId = AuthoringRecipeIds.Prompt;
@@ -106,8 +106,8 @@ public sealed class RecipeAvailabilityThreadingTests
         vm.ConfigureRecipeAvailability(action => Dispatcher.UIThread.Post(action), () => window.IsVisible, input =>
         {
             Assert.False(Dispatcher.UIThread.CheckAccess());
-            Interlocked.Increment(ref calls);
-            entered.TrySetResult();
+            _ = Interlocked.Increment(ref calls);
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Test did not release recipe worker.");
             var result = AuthoringWorkspaceViewModel.EvaluateRecipeAvailability(input);
             preparedNode = result.Prepared?.Measure[^1].NodeId;
@@ -130,7 +130,7 @@ public sealed class RecipeAvailabilityThreadingTests
         finally { release.Set(); }
         await vm.WaitForRecipeAvailabilityAsync().WaitAsync(TimeSpan.FromSeconds(20));
         Assert.True(vm.CanInsertRecipe, vm.SelectedRecipePrerequisites);
-        Assert.NotNull(preparedNode);
+        _ = Assert.NotNull(preparedNode);
         vm.InsertSelectedRecipe();
         Assert.Null(vm.Error);
         Assert.Equal(301, vm.SelectedProgram!.Measure.Count);
@@ -158,7 +158,7 @@ public sealed class RecipeAvailabilityThreadingTests
             Assert.False(Dispatcher.UIThread.CheckAccess());
             if (Interlocked.Increment(ref calls) == 1)
             {
-                entered.TrySetResult();
+                _ = entered.TrySetResult();
                 if (!release.Wait(TimeSpan.FromSeconds(20))) throw new TimeoutException("Test did not release recipe worker.");
                 return new("Obsolete prerequisites", null);
             }

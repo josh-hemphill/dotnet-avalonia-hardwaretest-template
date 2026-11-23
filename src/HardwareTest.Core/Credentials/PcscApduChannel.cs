@@ -55,7 +55,7 @@ internal sealed class PcscApduChannel(ICardReader reader) : IApduChannel
 
             payload.Add(sw1);
             payload.Add(sw2);
-            return payload.ToArray();
+            return [.. payload];
         }
         catch (PCSCException)
         {

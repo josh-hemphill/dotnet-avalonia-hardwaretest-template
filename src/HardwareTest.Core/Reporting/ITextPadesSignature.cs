@@ -147,7 +147,7 @@ internal static class ITextPadesSignature
                     }
 
                     docMdpCount++;
-                    Require(ReadNonnegativeInteger(transform!.GetAsDictionary(PdfName.TransformParams)
+                    Require(ReadNonnegativeInteger(transform.GetAsDictionary(PdfName.TransformParams)
                         ?.GetAsNumber(PdfName.P), 3) == 1,
                         "PDF certification must forbid changes (DocMDP P=1).");
                 }
@@ -219,7 +219,7 @@ internal static class ITextPadesSignature
 
         try
         {
-            AsnDecoder.ReadEncodedValue(contents, AsnEncodingRules.BER, out _, out _, out var consumed);
+            _ = AsnDecoder.ReadEncodedValue(contents, AsnEncodingRules.BER, out _, out _, out var consumed);
             cms = contents[..consumed];
             error = null;
             return true;

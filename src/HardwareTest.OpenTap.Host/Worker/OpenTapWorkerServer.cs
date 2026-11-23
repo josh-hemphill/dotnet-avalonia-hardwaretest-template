@@ -83,7 +83,7 @@ public static class OpenTapWorkerServer
                     if (incoming is not null)
                     {
                         CopySettings(getSettings(), incoming);
-                        getVisa()?.TryApply(incoming.UseMockVisa, out _);
+                        _ = (getVisa()?.TryApply(incoming.UseMockVisa, out _));
                     }
 
                     writeOk(
@@ -374,7 +374,7 @@ public static class OpenTapWorkerServer
                     envelope.Id,
                     method,
                     WorkerProtocol.SerializePayload(
-                        new WorkerPluginDirectoryListResult { Items = requireSession().ListPluginDirectories().ToList() },
+                        new WorkerPluginDirectoryListResult { Items = [.. requireSession().ListPluginDirectories()] },
                         WorkerJsonContext.Default.WorkerPluginDirectoryListResult));
                 return;
 
@@ -383,7 +383,7 @@ public static class OpenTapWorkerServer
                     envelope.Id,
                     method,
                     WorkerProtocol.SerializePayload(
-                        new WorkerPackageListResult { Items = requireSession().ListInstalledPackages().ToList() },
+                        new WorkerPackageListResult { Items = [.. requireSession().ListInstalledPackages()] },
                         WorkerJsonContext.Default.WorkerPackageListResult));
                 return;
 
@@ -394,7 +394,7 @@ public static class OpenTapWorkerServer
                     WorkerProtocol.SerializePayload(
                         new WorkerDiscoveredAddressListResult
                         {
-                            Items = requireSession().ListDiscoveredDeviceAddresses().ToList(),
+                            Items = [.. requireSession().ListDiscoveredDeviceAddresses()],
                         },
                         WorkerJsonContext.Default.WorkerDiscoveredAddressListResult));
                 return;
@@ -421,43 +421,51 @@ public static class OpenTapWorkerServer
                 : null;
 
             void WriteOk(long id, string method, System.Text.Json.JsonElement? payload)
-                => response = new WorkerEnvelope
+            {
+                response = new WorkerEnvelope
                 {
                     Id = id,
                     Method = method,
                     Ok = true,
                     Payload = payload,
                 };
+            }
 
             void WriteError(long id, string method, string error)
-                => response = new WorkerEnvelope
+            {
+                response = new WorkerEnvelope
                 {
                     Id = id,
                     Method = method,
                     Ok = false,
                     Error = error,
                 };
+            }
 
             void WriteEvent(long id, string method, OpenTapProgress progress)
-                => (progressPump ?? throw new InvalidOperationException("Progress requires a run request."))
-                    .Enqueue(id, method, progress);
+            {
+                (progressPump ?? throw new InvalidOperationException("Progress requires a run request."))
+                                .Enqueue(id, method, progress);
+            }
 
             try
             {
                 Task Dispatch()
-                    => DispatchAsync(
-                        envelope,
-                        session => _session = session,
-                        () => _visa,
-                        visa => _visa = visa,
-                        () => _settings,
-                        settings => _settings = settings,
-                        _log,
-                        WriteOk,
-                        WriteError,
-                        WriteEvent,
-                        RequireSession,
-                        RequireSnapshot);
+                {
+                    return DispatchAsync(
+                                        envelope,
+                                        session => _session = session,
+                                        () => _visa,
+                                        visa => _visa = visa,
+                                        () => _settings,
+                                        settings => _settings = settings,
+                                        _log,
+                                        WriteOk,
+                                        WriteError,
+                                        WriteEvent,
+                                        RequireSession,
+                                        RequireSnapshot);
+                }
 
                 try
                 {
@@ -532,15 +540,14 @@ public static class OpenTapWorkerServer
         private readonly object _enqueueGate = new();
         private readonly object _lifetimeGate = new();
         private bool _disposed;
-        private readonly Task _consumer;
 
-        public Task Completion => _consumer;
+        public Task Completion { get; }
 
         public ProgressPump(JsonRpc rpc)
         {
             _rpc = rpc;
             rpc.Disconnected += OnDisconnected;
-            _consumer = ConsumeAsync();
+            Completion = ConsumeAsync();
         }
 
         public void Enqueue(long id, string method, OpenTapProgress progress)
@@ -557,7 +564,7 @@ public static class OpenTapWorkerServer
                 if (!_queue.Writer.TryWrite(envelope))
                 {
                     var error = new IOException("Worker progress delivery stopped or its pending queue exceeded 4096 events.");
-                    _queue.Writer.TryComplete(error);
+                    _ = _queue.Writer.TryComplete(error);
                     throw error;
                 }
             }
@@ -565,8 +572,8 @@ public static class OpenTapWorkerServer
 
         public async Task CompleteAsync()
         {
-            _queue.Writer.TryComplete();
-            await _consumer.ConfigureAwait(false);
+            _ = _queue.Writer.TryComplete();
+            await Completion.ConfigureAwait(false);
         }
 
         private async Task ConsumeAsync()
@@ -589,7 +596,7 @@ public static class OpenTapWorkerServer
             }
             catch (Exception error)
             {
-                _queue.Writer.TryComplete(error);
+                _ = _queue.Writer.TryComplete(error);
                 throw;
             }
         }
@@ -600,7 +607,7 @@ public static class OpenTapWorkerServer
             {
                 if (!_disposed)
                 {
-                    _queue.Writer.TryComplete(new IOException("Worker progress connection closed."));
+                    _ = _queue.Writer.TryComplete(new IOException("Worker progress connection closed."));
                     _disconnected.Cancel();
                 }
             }
@@ -616,7 +623,7 @@ public static class OpenTapWorkerServer
                 }
                 _disposed = true;
                 _rpc.Disconnected -= OnDisconnected;
-                _queue.Writer.TryComplete();
+                _ = _queue.Writer.TryComplete();
                 _disconnected.Cancel();
                 while (_queue.Reader.TryRead(out _))
                 {

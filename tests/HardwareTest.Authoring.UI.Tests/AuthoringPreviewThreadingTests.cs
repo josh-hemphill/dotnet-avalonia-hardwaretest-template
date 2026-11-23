@@ -16,7 +16,7 @@ public sealed class AuthoringPreviewThreadingTests
     {
         using var fixture = new AuthoringUiFixture();
         var directory = Path.Combine(fixture.WorkspaceRoot, "recordings", "owned");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var run = new TestRunRecord
         {
             PlanId = "sample",
@@ -56,7 +56,7 @@ public sealed class AuthoringPreviewThreadingTests
         var vm = fixture.ViewModel;
         vm.Open(fixture.WorkspaceRoot);
         vm.DisplayName = "Edited sample retained";
-        vm.InitializePlan(new("another-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("another-program") { Instruments = [] });
         var window = fixture.Show();
         await vm.WaitForPreviewAsync().WaitAsync(TimeSpan.FromSeconds(15));
         using var release = new ManualResetEventSlim(false);
@@ -66,7 +66,7 @@ public sealed class AuthoringPreviewThreadingTests
             Assert.False(Dispatcher.UIThread.CheckAccess());
             if (input.PlanId == "sample")
             {
-                entered.TrySetResult();
+                _ = entered.TrySetResult();
                 if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview test did not release worker.");
             }
             return AuthoringPreviewPresentation.Empty with { Preview = MetricPreviewBuilder.Empty with { ChannelKey = input.PlanId ?? "" } };
@@ -104,8 +104,8 @@ public sealed class AuthoringPreviewThreadingTests
         vm.ConfigurePreviewProcessing(action => Dispatcher.UIThread.Post(action), () => true, input =>
         {
             Assert.False(Dispatcher.UIThread.CheckAccess());
-            Interlocked.Increment(ref calls);
-            entered.TrySetResult();
+            _ = Interlocked.Increment(ref calls);
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview test did not release worker.");
             return AuthoringWorkspaceViewModel.EvaluatePreview(input);
         });
@@ -155,7 +155,7 @@ public sealed class AuthoringPreviewThreadingTests
             evaluatedNames.Add(name);
             if (Interlocked.Increment(ref calls) == 1)
             {
-                entered.TrySetResult();
+                _ = entered.TrySetResult();
                 if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview test did not release worker.");
             }
             return AuthoringPreviewPresentation.Empty with { Preview = MetricPreviewBuilder.Empty with { ChannelKey = name }, SourceLabel = $"Evaluated: {name}" };
@@ -194,12 +194,12 @@ public sealed class AuthoringPreviewThreadingTests
         vm.ConfigurePreviewProcessing(action =>
         {
             Dispatcher.UIThread.Post(action);
-            if (finished.Task.IsCompleted) posted.TrySetResult();
-        }, () => window.IsVisible, _ =>
+            if (finished.Task.IsCompleted) _ = posted.TrySetResult();
+        }, () => window.IsVisible, unused =>
         {
-            entered.TrySetResult();
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Preview test did not release worker.");
-            finished.TrySetResult();
+            _ = finished.TrySetResult();
             return AuthoringPreviewPresentation.Empty with { Preview = MetricPreviewBuilder.Empty with { ChannelKey = "late" } };
         });
         AuthoringUiFixture.Drain();

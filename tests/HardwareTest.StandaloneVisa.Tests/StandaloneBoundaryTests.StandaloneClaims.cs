@@ -38,7 +38,7 @@ public sealed partial class StandaloneBoundaryTests
         var first = InstalledHome(); var second = InstalledHome();
         Assert.True(StandaloneVisaReadiness.Assess(new(first)).Available);
         Assert.True(StandaloneVisaReadiness.Assess(new(second)).Available);
-        var custom = Path.Combine(second, "Plugins", "Custom"); Directory.CreateDirectory(custom);
+        var custom = Path.Combine(second, "Plugins", "Custom"); _ = Directory.CreateDirectory(custom);
         var metadata = Path.Combine(second, "Packages", StandaloneVisaPackage.PackageName, "package.xml");
         if (!alias.StartsWith("metadata-", StringComparison.Ordinal))
         {
@@ -59,16 +59,16 @@ public sealed partial class StandaloneBoundaryTests
             var target = alias == "metadata-nested" ? Path.Combine(custom, "package.xml")
                 : alias == "metadata-file-case" ? Path.Combine(Path.GetDirectoryName(metadata)!, "PACKAGE.XML")
                 : Path.Combine(second, "Packages", StandaloneVisaPackage.PackageName.ToLowerInvariant(), "package.xml");
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(metadata, target);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!); File.Copy(metadata, target);
         }
         var before = new[] { first, second }.SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             .ToDictionary(path => path, File.ReadAllBytes);
-        var roots = reverseOrder ? new[] { second, first } : new[] { first, second };
-        var result = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("selected-metadata-refused-before-library-load", result.Output);
-        Assert.Contains("broker-binding-absent-on-cold-rejection", result.Output);
-        Assert.Contains("canonical", result.Output);
+        var roots = reverseOrder ? new[] { second, first } : [first, second];
+        var (Code, Output) = await Run(first, "HardwareTest.StandaloneVisa.ProcessFixture.dll", SerializeRoots(roots), "--invalid-multiple-roots", allowFailure: true);
+        Assert.Equal(0, Code);
+        Assert.Contains("selected-metadata-refused-before-library-load", Output);
+        Assert.Contains("broker-binding-absent-on-cold-rejection", Output);
+        Assert.Contains("canonical", Output);
         var after = new[] { first, second }.SelectMany(root => Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
             .ToDictionary(path => path, File.ReadAllBytes);
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
@@ -88,12 +88,15 @@ public sealed partial class StandaloneBoundaryTests
             .Where(path => Path.GetFileName(path) == "InstrumentComponents.Scpi.dll"
                 || Path.GetFileName(path).StartsWith("InstrumentComponents.Drivers.", StringComparison.Ordinal)
                 || Path.GetFileName(path) == "HardwareTest.OpenTap.Plugins.Instruments.dll"))
+        {
             File.Copy(source, Path.Combine(home, Path.GetFileName(source)), overwrite: true);
+        }
+
         Assert.False(File.Exists(Path.Combine(home, StandaloneVisaPackage.WrapperFileName)));
         Assert.False(File.Exists(Path.Combine(home, "Packages", StandaloneVisaPackage.PackageName, "package.xml")));
-        var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
-        Assert.Equal(0, result.Code);
-        Assert.Contains("managed-broker-bound-and-cleaned", result.Output);
-        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", result.Output);
+        var (Code, Output) = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);
+        Assert.Equal(0, Code);
+        Assert.Contains("managed-broker-bound-and-cleaned", Output);
+        Assert.Contains("published-instrument-opened-with-explicit-driver-and-closed", Output);
     }
 }

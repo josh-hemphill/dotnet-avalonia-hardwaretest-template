@@ -32,7 +32,6 @@ public sealed class NavItem
 public partial class MainWindowViewModel : ReactiveObject
 {
     private readonly ISettingsStore _settingsStore;
-    private readonly IRunControl _runControl;
     private readonly IOpenTapRunSession _openTap;
     private readonly ISafetyController? _safety;
 
@@ -52,7 +51,7 @@ public partial class MainWindowViewModel : ReactiveObject
         IReadOnlyList<ShellPage>? extraPages = null)
     {
         _settingsStore = settingsStore;
-        _runControl = runControl;
+        RunControl = runControl;
         _openTap = openTap;
         _safety = safety;
         ShellNotification = shellNotification ?? new ShellNotificationViewModel();
@@ -73,7 +72,7 @@ public partial class MainWindowViewModel : ReactiveObject
         _catalog = extraPages is { Count: > 0 }
             ? new ShellPageCatalog(builtin.Pages.Concat(extraPages))
             : builtin;
-        _allPages = _catalog.Pages.Select(ToNavItem).ToArray();
+        _allPages = [.. _catalog.Pages.Select(ToNavItem)];
         NavigationItems = [];
         ApplyNavigationPolicy();
         NavigateTo(ResolveStartupPage());
@@ -133,7 +132,7 @@ public partial class MainWindowViewModel : ReactiveObject
     public ReportPreviewViewModel ReportPreview { get; }
     public InstrumentsViewModel Instruments { get; }
     public ShellNotificationViewModel ShellNotification { get; }
-    public IRunControl RunControl => _runControl;
+    public IRunControl RunControl { get; }
 
     public ObservableCollection<NavItem> NavigationItems { get; }
 
@@ -145,9 +144,9 @@ public partial class MainWindowViewModel : ReactiveObject
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ResumeCommand { get; }
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> SafetyStopCommand { get; }
 
-    public bool IsPaused => _runControl.IsPaused;
-    public bool IsRunning => _runControl.IsRunning;
-    public bool IsSafetyStopping => _runControl.IsSafetyStopping;
+    public bool IsPaused => RunControl.IsPaused;
+    public bool IsRunning => RunControl.IsRunning;
+    public bool IsSafetyStopping => RunControl.IsSafetyStopping;
     public bool IsAwaitingOperator => _openTap.IsAwaitingOperator;
 
     /// Footer Pause/Continue stays available during a prompt; both stay off while Stop is in progress.
@@ -231,7 +230,7 @@ public partial class MainWindowViewModel : ReactiveObject
 
     private string FormatControlStatus(bool includePrompt)
     {
-        if (_runControl.IsSafetyStopping)
+        if (RunControl.IsSafetyStopping)
         {
             return "Stopping…";
         }
@@ -240,18 +239,18 @@ public partial class MainWindowViewModel : ReactiveObject
         {
             if (includePrompt && !string.IsNullOrWhiteSpace(_openTap.OperatorPromptMessage))
             {
-                return _openTap.OperatorPromptMessage!;
+                return _openTap.OperatorPromptMessage;
             }
 
             return "Awaiting operator";
         }
 
-        if (_runControl.IsPaused)
+        if (RunControl.IsPaused)
         {
             return "Paused";
         }
 
-        return _runControl.IsRunning ? "Running" : "Idle";
+        return RunControl.IsRunning ? "Running" : "Idle";
     }
 
     /// Assertive while Stop is in progress. Off while awaiting so the prompt card
@@ -461,10 +460,7 @@ public partial class MainWindowViewModel : ReactiveObject
         _ = PrintCertifiedAsync(path);
     }
 
-    private async Task PrintCertifiedAsync(string path)
-    {
-        await ReportPreview.PrintFromPathAsync(path).ConfigureAwait(true);
-    }
+    private async Task PrintCertifiedAsync(string path) => await ReportPreview.PrintFromPathAsync(path).ConfigureAwait(true);
 
     private void RaiseTransportProps()
     {
@@ -500,7 +496,7 @@ public partial class MainWindowViewModel : ReactiveObject
             return;
         }
 
-        if (_runControl.IsPaused)
+        if (RunControl.IsPaused)
         {
             Resume();
             return;
@@ -525,32 +521,32 @@ public partial class MainWindowViewModel : ReactiveObject
 
     private void Pause()
     {
-        _runControl.Pause();
+        RunControl.Pause();
         _openTap.Pause();
     }
 
     private void Resume()
     {
-        _runControl.Resume();
+        RunControl.Resume();
         _openTap.Resume();
     }
 
     private void SafetyStop()
     {
-        if (_runControl.IsSafetyStopping)
+        if (RunControl.IsSafetyStopping)
         {
-            _runControl.CancelSafetyShutdown();
+            RunControl.CancelSafetyShutdown();
             return;
         }
 
-        if (!_runControl.IsRunning && !IsAwaitingOperator)
+        if (!RunControl.IsRunning && !IsAwaitingOperator)
         {
             return;
         }
 
-        if (_runControl.IsRunning)
+        if (RunControl.IsRunning)
         {
-            _runControl.RequestSafetyStop();
+            RunControl.RequestSafetyStop();
             try
             {
                 _safety?.SafeIdle();

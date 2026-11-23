@@ -6,7 +6,7 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class PlanInitializationWindow
 {
-    private sealed record HardwareChoice(string Label, AuthoringInstrumentAdapter? Adapter = null, InstrumentRef? Resource = null, global::HardwareTest.OpenTap.Plugins.Instruments.DeviceDriverInfo? Driver = null)
+    private sealed record HardwareChoice(string Label, AuthoringInstrumentAdapter? Adapter = null, InstrumentRef? Resource = null, OpenTap.Plugins.Instruments.DeviceDriverInfo? Driver = null)
     {
         public override string ToString() => Label;
     }
@@ -64,7 +64,7 @@ public sealed partial class PlanInitializationWindow
         for (var index = 0; index < _reusable.Count; index++)
         {
             var resource = _reusable[index];
-            AuthoringInstrumentCatalog.TryGet(resource.TypeId, out var adapter);
+            _ = AuthoringInstrumentCatalog.TryGet(resource.TypeId, out var adapter);
             _hardwareChoices.Add(new($"{(index == _retainedResourceIndex ? "Retained original" : "Reuse")} {resource.SlotName} — {adapter?.DisplayName ?? resource.TypeId} ({resource.VisaAddress})"
                 + (index == _retainedResourceIndex ? " — changed or removed from catalog" : " — " + _resourceOrigins[index])
                 + " — settings: " + (resource.Settings.Count == 0 ? "defaults" : string.Join(", ", resource.Settings.Select(p => p.Key + "=" + p.Value))), adapter, resource));

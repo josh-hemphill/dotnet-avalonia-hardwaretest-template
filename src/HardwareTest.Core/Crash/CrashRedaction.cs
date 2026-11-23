@@ -24,7 +24,7 @@ public static class CrashRedaction
             {
                 if (!string.IsNullOrWhiteSpace(dataDirectory))
                 {
-                    Directory.CreateDirectory(dataDirectory);
+                    _ = Directory.CreateDirectory(dataDirectory);
                     var path = Path.Combine(dataDirectory, ".crash-redaction-salt");
                     if (File.Exists(path))
                     {

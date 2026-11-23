@@ -39,8 +39,11 @@ public sealed class HardwareBindingReviewWindow : Window
             proposed.Children.Add(Value("Device model", model, "Reviewed binding device model"));
         }
         if (current is not null && current.TypeId != replacement.TypeId)
+        {
             proposed.Children.Add(Note("Previous adapter: " + (AuthoringInstrumentCatalog.TryGet(current.TypeId, out var previous)
                 ? previous.DisplayName : "Imported instrument adapter")));
+        }
+
         proposed.Children.Add(Value("Address", replacement.VisaAddress, "Reviewed binding address"));
         if (current is not null && current.VisaAddress != replacement.VisaAddress)
             proposed.Children.Add(Note($"Previously: {current.VisaAddress}"));
@@ -63,7 +66,9 @@ public sealed class HardwareBindingReviewWindow : Window
         }
         if (impact.AffectedNodes.Any(reference => reference.StartsWith("Cleanup", StringComparison.Ordinal)
             || reference.StartsWith("Sidecar", StringComparison.Ordinal)))
+        {
             affected.Children.Add(Note("Safe shutdown continues to use this instrument slot."));
+        }
 
         var detailsText = new TextBlock
         {

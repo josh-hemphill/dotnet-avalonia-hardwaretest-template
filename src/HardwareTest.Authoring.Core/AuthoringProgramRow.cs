@@ -28,8 +28,7 @@ public sealed class AuthoringProgramRow(string planId) : INotifyPropertyChanged
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private IReadOnlyList<AuthoringProgramRow> _programRows = [];
-    public IReadOnlyList<AuthoringProgramRow> ProgramRows => _programRows;
+    public IReadOnlyList<AuthoringProgramRow> ProgramRows { get; private set; } = [];
     public AuthoringProgramRow? SelectedProgramRow
     {
         get => ProgramRows.FirstOrDefault(row => string.Equals(row.PlanId, SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase));
@@ -44,14 +43,14 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         var rows = Programs.Select(draft =>
         {
-            var row = _programRows.FirstOrDefault(existing => string.Equals(existing.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase))
+            var row = ProgramRows.FirstOrDefault(existing => string.Equals(existing.PlanId, draft.PlanId, StringComparison.OrdinalIgnoreCase))
                 ?? new AuthoringProgramRow(draft.PlanId);
             row.Update(draft, _dirtyPlans.Contains(draft.PlanId), _dirtySidecars.Contains(draft.PlanId));
             return row;
         }).ToArray();
-        if (!_programRows.SequenceEqual(rows))
+        if (!ProgramRows.SequenceEqual(rows))
         {
-            _programRows = rows;
+            ProgramRows = rows;
             OnPropertyChanged(nameof(ProgramRows));
             OnPropertyChanged(nameof(SelectedProgramRow));
         }

@@ -142,26 +142,26 @@ public sealed class BenchReferenceEvaluatorTests
     public void Unsuccessful_source_never_qualifies_reference_values(RunResult result)
     {
         var source = Source(); source.Result = result;
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Invalid source", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Invalid source", source, [Rule()], Now));
     }
 
     [Fact]
     public void Selected_production_is_not_reference_acquisition_and_unknown_legacy_context_is_not_upgraded()
     {
         var source = Source(); source.ExecutionScope = RunExecutionScopes.SelectedStep;
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Selected production", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Selected production", source, [Rule()], Now));
         source.ExecutionScope = RunExecutionScopes.ReferenceAcquisition; source.ReferenceContext = null;
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Unattributed", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Unattributed", source, [Rule()], Now));
     }
 
     [Fact]
     public void A_production_pass_without_its_required_acceptance_evidence_is_not_a_qualified_golden_source()
     {
         var source = Source(); source.ExecutionScope = RunExecutionScopes.FullSuite;
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Incomplete acceptance", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Incomplete acceptance", source, [Rule()], Now));
         source.ExecutionScope = RunExecutionScopes.ReferenceAcquisition;
         source.ReferenceBackendResult = RunResult.Failed;
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Contradictory backend", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Contradictory backend", source, [Rule()], Now));
     }
 
     [Theory]
@@ -179,7 +179,7 @@ public sealed class BenchReferenceEvaluatorTests
             else sample.StepPath = "Measure/Unselected";
         }
         Assert.Empty(BenchReferenceEvaluator.CurrentSamples(source));
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Preserved data", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Preserved data", source, [Rule()], Now));
         var evaluation = Assert.Single(BenchReferenceEvaluator.Evaluate(source, [use]));
         Assert.False(evaluation.Passed);
         Assert.Null(evaluation.MeasuredValue);
@@ -216,7 +216,7 @@ public sealed class BenchReferenceEvaluatorTests
             case "missing-producer": source.Samples[0].ProducerStepId = null; break;
             default: source.Samples.ForEach(sample => sample.ProducerStepId = Guid.NewGuid()); break;
         }
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Invalid data", source, [Rule()], Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("Invalid data", source, [Rule()], Now));
     }
 
     [Theory]
@@ -238,7 +238,7 @@ public sealed class BenchReferenceEvaluatorTests
         var source = Source(0, 0); source.ReferenceRules = [rule];
         var profile = BenchReferenceEvaluator.Capture("Zero", source, [rule], Now);
         Assert.Contains("zero", BenchReferenceEvaluator.CompatibilityError(rule, profile, Context(), Now), StringComparison.OrdinalIgnoreCase);
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(rule, profile, Context(), Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(rule, profile, Context(), Now));
         var absolute = BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), Now);
         Assert.False(Assert.Single(BenchReferenceEvaluator.Evaluate([Sample(0)], [absolute with { Rule = rule }])).Passed);
     }
@@ -262,7 +262,7 @@ public sealed class BenchReferenceEvaluatorTests
             _ => context with { PlanId = "same-name-different-program" },
         };
         Assert.NotNull(BenchReferenceEvaluator.CompatibilityError(Rule(), profile, context, Now));
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, context, Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, context, Now));
     }
 
     [Fact]
@@ -272,7 +272,7 @@ public sealed class BenchReferenceEvaluatorTests
         var profile = BenchReferenceEvaluator.Capture("Timed", Source(), [Rule()], Now, expiry);
         var use = BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), expiry.AddTicks(-1));
         Assert.NotNull(BenchReferenceEvaluator.CompatibilityError(Rule(), profile, Context(), expiry));
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), expiry));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), expiry));
         Assert.True(Assert.Single(BenchReferenceEvaluator.Evaluate([Sample(6)], [use])).Passed);
         Assert.Equal(expiry, use.ExpiresAt);
     }
@@ -283,7 +283,7 @@ public sealed class BenchReferenceEvaluatorTests
         var profile = BenchReferenceEvaluator.Capture("Protected", Source(), [Rule()], Now);
         profile.Values[0] = profile.Values[0] with { Value = 123 };
         Assert.Contains("hash", BenchReferenceEvaluator.ProfileError(profile), StringComparison.OrdinalIgnoreCase);
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), Now));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Freeze(Rule(), profile, Context(), Now));
     }
 
     [Theory]
@@ -301,7 +301,7 @@ public sealed class BenchReferenceEvaluatorTests
             BenchReferenceIdentity.ConfigurationHash([new("b", "2"), new("a", "1")]));
         Assert.NotEqual(BenchReferenceIdentity.ConfigurationHash([new("a", "b:c")]),
             BenchReferenceIdentity.ConfigurationHash([new("a:b", "c")]));
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceIdentity.ConfigurationHash([new("a", "1"), new("a", "2")]));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceIdentity.ConfigurationHash([new("a", "1"), new("a", "2")]));
     }
 
     [Fact]

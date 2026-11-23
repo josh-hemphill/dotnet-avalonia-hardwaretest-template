@@ -25,7 +25,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         shown.Main.NavigateToPageId("Settings"); await E2EHarness.PumpUiAsync();
         var window = shown.Window;
         var previous = Assert.IsType<SettingsViewModel>(shown.Main.CurrentPage);
-        var folder = Path.Combine(Path.GetTempPath(), "offline-owner-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(folder);
+        var folder = Path.Combine(Path.GetTempPath(), "offline-owner-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(folder);
         var view = Assert.Single(window.GetVisualDescendants().OfType<SettingsView>());
         SettingsViewModel? replacement = null;
         try
@@ -37,7 +37,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
             await E2EHarness.WaitUntilAsync(() => window.OwnedWindows.Any(child => child.Title == "Offline bench bundle inspection"));
             replacement = new SettingsViewModel(app.SettingsStore, app.Services.GetRequiredService<IOpenTapHostCatalog>());
             var check = Named<Button>(window, "Check offline bundle");
-            void ReplacementFocused(object? sender, EventArgs args) { check.Focus(); }
+            void ReplacementFocused(object? sender, EventArgs args) { _ = check.Focus(); }
             view.DataContextChanged += ReplacementFocused;
             view.DataContext = replacement;
             view.DataContextChanged -= ReplacementFocused;
@@ -69,7 +69,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         var main = shown.Main; main.IsNavPaneOpen = false;
         var typography = new List<(string Name, double Box, double Presenter)>();
         var root = Path.Combine(Path.GetTempPath(), "offline-ui-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         SettingsViewModel? vm = null;
         try
         {
@@ -165,7 +165,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         using var shown = E2EHarness.ShowMainWindow(); var window = shown.Window;
         window.Width = 900; window.Height = 600; window.FontSize = 20; shown.Main.IsNavPaneOpen = false;
-        var root = Path.Combine(Path.GetTempPath(), "offline-focus-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var root = Path.Combine(Path.GetTempPath(), "offline-focus-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(root);
         SettingsViewModel? vm = null;
         try
         {
@@ -186,7 +186,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
             if (ownsFlow)
             {
                 // Native async command completion can leave no focused control. The last user flow still owns recovery.
-                window.FocusManager!.Focus(null); Settle(window);
+                _ = window.FocusManager!.Focus(null); Settle(window);
                 Assert.Null(window.FocusManager.GetFocusedElement());
             }
             else
@@ -223,7 +223,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         using var shown = E2EHarness.ShowMainWindow(); var window = shown.Window;
         window.Width = 900; window.Height = 600; window.FontSize = 20; shown.Main.IsNavPaneOpen = false;
-        var root = Path.Combine(Path.GetTempPath(), "offline-outer-focus-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
+        var root = Path.Combine(Path.GetTempPath(), "offline-outer-focus-" + Guid.NewGuid().ToString("N")); _ = Directory.CreateDirectory(root);
         SettingsViewModel? vm = null;
         System.ComponentModel.PropertyChangedEventHandler? invalidated = null;
         try
@@ -238,7 +238,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
             Type(window, Named<TextBox>(window, "Fresh operator data folder"), root + " fresh data");
             var copy = Named<Button>(window, "Copy offline bundle installation command"); Enter(window, copy);
             await E2EHarness.WaitUntilAsync(() => copy.IsEnabled && vm.OfflineBundleCommandStatus.StartsWith("Copied installation command", StringComparison.Ordinal));
-            Settle(window); window.FocusManager!.Focus(null); Assert.True(copy.Focus());
+            Settle(window); _ = window.FocusManager.Focus(null); Assert.True(copy.Focus());
             var outer = Named<Button>(window, "Toggle navigation");
             Assert.DoesNotContain(outer.GetVisualAncestors(), ancestor => ancestor is SettingsView);
             var scheduled = false; var moveRan = false; var moved = false;
@@ -292,7 +292,7 @@ public sealed class OperatorOfflineBundleWorkflowTests
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         Settle(window); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY") ?? Path.Combine(AppContext.BaseDirectory, "operator-persona-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         frame.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
 }

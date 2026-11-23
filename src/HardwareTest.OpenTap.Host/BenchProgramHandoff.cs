@@ -28,14 +28,19 @@ public static class BenchProgramHandoff
     {
         if (string.IsNullOrWhiteSpace(id) || id != Path.GetFileName(id) || id is "." or ".."
             || id.StartsWith('.') || id.IndexOfAny(['/', '\\', ':']) >= 0)
+        {
             throw new InvalidOperationException("Choose a valid unique program ID before preparing bench files.");
+        }
+
         if (id.Equals("sample", StringComparison.OrdinalIgnoreCase)
             || id.Equals("board-demo", StringComparison.OrdinalIgnoreCase)
             || id.Equals("sweep-demo", StringComparison.OrdinalIgnoreCase)
             || id.Equals("timing-demo", StringComparison.OrdinalIgnoreCase)
             || id.Equals("envelope-sweep-demo", StringComparison.OrdinalIgnoreCase)
             || id.Equals("station-health", StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException($"Program ID '{id}' belongs to a built-in factory. Create a test plan with a unique ID to prepare a custom bench program.");
+        }
     }
 
     public static IEnumerable<string> EnumeratePlanFiles(string root)
@@ -63,14 +68,20 @@ public static class BenchProgramHandoff
         RequireCustomPlanId(receipt.PlanId);
         if (receipt.PlanId != Path.GetFileNameWithoutExtension(planPath)
             || string.IsNullOrWhiteSpace(receipt.ExportId))
+        {
             throw new InvalidOperationException("The bench handoff receipt belongs to another program. Copy the complete prepared program folder again.");
+        }
+
         var sidecar = Path.ChangeExtension(planPath, ".program.json");
         if (!File.Exists(sidecar) || Hash(File.ReadAllBytes(planPath)) != receipt.PlanSha256
             || Hash(File.ReadAllBytes(sidecar)) != receipt.SidecarSha256)
+        {
             throw new InvalidOperationException("The compiled plan and operator settings do not match their bench receipt. Prepare and copy the complete program folder again.");
+        }
+
         if (receipt.RequiredOperatorCapability == "bench-references-v1")
         {
-            var guard = typeof(HardwareTest.OpenTap.Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName;
+            var guard = typeof(Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName;
             var hasGuard = XDocument.Load(planPath).Descendants().Attributes()
                 .Any(attribute => attribute.Name.LocalName == "type"
                     && attribute.Value.Split(',')[0].Trim().Replace("emb:", string.Empty, StringComparison.Ordinal) == guard);

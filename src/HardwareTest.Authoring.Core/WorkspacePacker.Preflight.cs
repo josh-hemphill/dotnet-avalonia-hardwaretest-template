@@ -91,9 +91,14 @@ public static partial class WorkspacePacker
             contract = PlanContractValidator.Validate(packingWorkspace.TapPlanPaths,
                 new PlanContractOptions { Strict = true, EnablePhysicalExecution = false });
             foreach (var plan in contract.Plans)
+            {
                 foreach (var finding in plan.Findings)
+                {
                     findings.Add(new(AuthoringPackCodes.ContractFailed + "/" + finding.Code, finding.Message,
                         finding.Severity == PlanContractSeverity.Error, finding.Path ?? plan.TargetPath));
+                }
+            }
+
             if (!contract.HasErrors)
             {
                 foreach (var planPath in includedPaths)
@@ -102,8 +107,10 @@ public static partial class WorkspacePacker
                     var plan = PlanCompiler.ReadImportedForAuthoring(planPath, validate: false);
                     var declared = AuthoringProgramAssets.ForPlan(workspace.Manifest, draft.PlanId);
                     foreach (var asset in plan.ChildTestSteps.OfType<IProcedureAuthoring>().SelectMany(plugin => plugin.EditorProfile.DataFiles))
+                    {
                         if (!declared.Contains(asset.Path, StringComparer.Ordinal))
                             findings.Add(new("PROCEDURE_ASSET", $"Declare '{asset.Path}' for '{draft.PlanId}' in programAssets.", true, planPath));
+                    }
                 }
             }
         }
@@ -142,8 +149,11 @@ public static partial class WorkspacePacker
                 findings.Add(new(AuthoringPackCodes.CompatBlocked + "/CATALOG", $"Type '{delta.TypeName}' missing on {delta.MissingOn}.", single.BlocksPack()));
             }
             foreach (var item in compatibility.RoundTrips)
+            {
                 findings.Add(new(AuthoringPackCodes.CompatBlocked + "/" + item.Code, item.Message,
                     new TuiCompatReport([], [item]).BlocksPack(), item.PlanPath));
+            }
+
             findings.Add(new("PACK_COMPAT_SCOPE", "Checked plugin catalogs and in-process plan load/save round trips; no external TUI process was run.", false));
         }
         catch (Exception ex)
@@ -248,7 +258,9 @@ public static partial class WorkspacePacker
             try
             {
                 if (file.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
+                {
                     _ = AssemblyName.GetAssemblyName(path);
+                }
                 else
                 {
                     using var config = JsonDocument.Parse(File.ReadAllText(path));
@@ -272,11 +284,15 @@ public static partial class WorkspacePacker
         if (config.ValueKind != JsonValueKind.Object
             || !config.TryGetProperty("runtimeOptions", out var runtimeOptions)
             || runtimeOptions.ValueKind != JsonValueKind.Object)
+        {
             throw new InvalidDataException("The runtime configuration must contain a runtimeOptions object.");
+        }
 
         if (!runtimeOptions.TryGetProperty("framework", out _) && !runtimeOptions.TryGetProperty("frameworks", out _)
             && runtimeOptions.TryGetProperty("includedFrameworks", out _))
+        {
             throw new NotSupportedException("Self-contained OpenTAP runtime configurations using only includedFrameworks are unsupported: authoring bootstrap does not copy their native runtime payload. Bootstrap this home from a framework-dependent OpenTAP runtime declaring framework or frameworks.");
+        }
 
         var frameworks = new List<JsonElement>();
         var declarations = 0;
@@ -284,7 +300,10 @@ public static partial class WorkspacePacker
         {
             if (!runtimeOptions.TryGetProperty(property, out var value)) continue;
             declarations++;
-            if (property == "framework") frameworks.Add(value);
+            if (property == "framework")
+            {
+                frameworks.Add(value);
+            }
             else
             {
                 if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() == 0)
@@ -304,17 +323,25 @@ public static partial class WorkspacePacker
             if (framework.ValueKind != JsonValueKind.Object
                 || !framework.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String
                 || !framework.TryGetProperty("version", out var version) || version.ValueKind != JsonValueKind.String)
+            {
                 throw new InvalidDataException("Each framework declaration must contain string name and version values.");
+            }
+
             var frameworkName = name.GetString()!;
             if (frameworkName is not ("Microsoft.NETCore.App" or "Microsoft.AspNetCore.App" or "Microsoft.WindowsDesktop.App")
                 || !names.Add(frameworkName))
+            {
                 throw new InvalidDataException($"Unsupported or duplicate .NET framework '{frameworkName}'.");
+            }
+
             var frameworkVersion = version.GetString()!;
             var parts = frameworkVersion.Split('-', 2);
             if (!Version.TryParse(parts[0], out var parsed) || parsed.Build < 0 || parsed.Revision >= 0
                 || (parts.Length == 2 && (parts[1].Length == 0
                     || parts[1].Split('.').Any(p => p.Length == 0 || p.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-')))))
+            {
                 throw new InvalidDataException($"Invalid .NET framework version '{frameworkVersion}'; expected major.minor.patch with an optional prerelease suffix.");
+            }
         }
     }
 }

@@ -47,10 +47,10 @@ public sealed class PlanCompilerTests
         var tapBytes = File.ReadAllBytes(path);
         var sidecarPath = PlanCompiler.SidecarPath(path);
         var sidecarBytes = File.ReadAllBytes(sidecarPath);
-        Directory.CreateDirectory(sidecarPath + ".saving");
+        _ = Directory.CreateDirectory(sidecarPath + ".saving");
         var mutated = original with { Sidecar = PlanCompiler.CloneSidecar(original.Sidecar) };
         mutated.Sidecar.DisplayName = "should-not-land";
-        Assert.ThrowsAny<Exception>(() => compiler.Save(mutated, path));
+        _ = Assert.ThrowsAny<Exception>(() => compiler.Save(mutated, path));
         Assert.Equal(tapBytes, File.ReadAllBytes(path));
         Assert.Equal(sidecarBytes, File.ReadAllBytes(sidecarPath));
         Assert.DoesNotContain("should-not-land", File.ReadAllText(sidecarPath), StringComparison.Ordinal);
@@ -232,9 +232,9 @@ public sealed class PlanCompilerTests
         Assert.Equal(PresentationDisplayRoles.Scalar, mean.DisplayRole);
         Assert.Equal("V", mean.YUnit);
         Assert.NotNull(mean.Limits);
-        Assert.Equal(1.2, mean.Limits!.Threshold);
+        Assert.Equal(1.2, mean.Limits.Threshold);
         Assert.NotNull(mean.History);
-        Assert.True(mean.History!.Enabled);
+        Assert.True(mean.History.Enabled);
         Assert.Equal(5, mean.History.WatchPercent);
         Assert.Equal(10, mean.History.AlertPercent);
 
@@ -716,7 +716,7 @@ public sealed class PlanCompilerTests
                 && ((string?)e.Attribute("type") ?? string.Empty)
                     .Contains("ApplyTransferFunctionStep", StringComparison.Ordinal));
         Assert.NotNull(tf);
-        foreach (var ancestor in tf!.Ancestors())
+        foreach (var ancestor in tf.Ancestors())
         {
             if (ancestor.Name.LocalName != "TestStep")
             {
@@ -831,7 +831,7 @@ public sealed class PlanCompilerTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-plancompiler-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

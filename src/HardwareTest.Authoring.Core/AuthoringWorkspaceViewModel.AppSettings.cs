@@ -1,14 +1,15 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private readonly AuthoringPreferences _ephemeralPreferences = new();
     private int _formulaCaret;
 
     /// Raised after a persisted theme change so the exe can map System/Light/Dark to ThemeVariant.
     public event Action<string>? ThemePreferenceChanged;
 
-    private AuthoringPreferences Prefs => _preferences?.Current ?? _ephemeralPreferences;
+    private AuthoringPreferences Prefs { get => _preferences?.Current ?? field; } = new();
 
     public IReadOnlyList<string> ThemeOptions => AuthoringThemePreference.Options;
 
@@ -17,7 +18,6 @@ public sealed partial class AuthoringWorkspaceViewModel
     public bool PreferencesEditable => !PreferencesReadOnly;
 
     public bool PackageDownloadSettingsEditable => PreferencesEditable && !OperationBusy;
-    private string? _packageRepositoryUrlEdit;
 
     public bool DownloadRequiredPackages
     {
@@ -31,17 +31,18 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    [AllowNull]
     public string PackageRepositoryUrl
     {
-        get => _packageRepositoryUrlEdit ?? Prefs.PackageRepositoryUrl;
+        get => field ?? Prefs.PackageRepositoryUrl;
         set
         {
             if (!PackageDownloadSettingsEditable || value == PackageRepositoryUrl) return;
             var edited = value?.Trim() ?? string.Empty;
             try
             {
-                AuthoringPackageDownloads.RepositoryUri(edited);
-                _packageRepositoryUrlEdit = null;
+                _ = AuthoringPackageDownloads.RepositoryUri(edited);
+                field = null;
                 Prefs.PackageRepositoryUrl = edited;
                 PersistPreferences();
             }
@@ -49,7 +50,7 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 // Retain a rejected edit for correction, but never persist URL credentials
                 // or accidentally use the previously saved source for this operation.
-                _packageRepositoryUrlEdit = edited;
+                field = edited;
             }
             OnPropertyChanged();
             OnPropertyChanged(nameof(PackageRepositoryError));
@@ -61,7 +62,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         get
         {
-            try { AuthoringPackageDownloads.RepositoryUri(PackageRepositoryUrl); return null; }
+            try { _ = AuthoringPackageDownloads.RepositoryUri(PackageRepositoryUrl); return null; }
             catch (AuthoringWorkspaceException error) { return error.Message; }
         }
     }

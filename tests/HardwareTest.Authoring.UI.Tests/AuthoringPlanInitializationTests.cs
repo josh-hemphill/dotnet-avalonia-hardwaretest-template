@@ -28,11 +28,15 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
         var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
-        if (!skip) for (var stage = 0; stage < 5; stage++)
+        if (!skip)
         {
-            AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
-            Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+            for (var stage = 0; stage < 5; stage++)
+            {
+                AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+                Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+            }
         }
+
         var button = fixture.Control<Button>(skip ? "Skip optional guidance" : "Create test plan", dialog);
         Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
         var bytes = Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
@@ -117,7 +121,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.False(new AuthoringDocumentStore(fixture.WorkspaceRoot).Load("rail-checks").Exists);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Empty(fixture.Window!.OwnedWindows); Assert.Equal("rail-checks", fixture.ViewModel.SelectedProgram!.PlanId);
-        Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); Assert.NotNull(fixture.ViewModel.SelectedSequence?.NodeId);
+        Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments); _ = Assert.NotNull(fixture.ViewModel.SelectedSequence?.NodeId);
         Assert.False(fixture.ViewModel.HasUnsavedChanges, $"Dirty: {string.Join(", ", fixture.ViewModel.DirtyPrograms)}; catalog: {fixture.ViewModel.WorkspaceCatalogDirty}"); Assert.True(fixture.ViewModel.HasUncompiledSources);
         await fixture.WaitForReadinessAsync(); Assert.Contains(fixture.ViewModel.EditingIssues, issue => issue.Code == "MISSING_INSTRUMENT_BINDING");
         var id = fixture.ViewModel.SelectedSequence!.NodeId;
@@ -160,12 +164,15 @@ public sealed class AuthoringPlanInitializationTests
         var shutdown = fixture.Control<TextBlock>("Initialization review", dialog).Text!.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var vm = fixture.ViewModel; Assert.Equal(enabled, vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
-        Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots); Assert.Equal(enabled ? true : (bool?)null, vm.SelectedProgram.Sidecar.IncludeSafeShutdown);
+        Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots); Assert.Equal(enabled ? true : null, vm.SelectedProgram.Sidecar.IncludeSafeShutdown);
         vm.Apply(); var path = vm.Workspace!.TapPlanPaths.Single(path => Path.GetFileNameWithoutExtension(path) == "shutdown-choice");
         Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
         vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("shutdown-choice"); Assert.Equal(enabled, vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
         Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots);
-        if (enabled) Assert.Contains("DMM", shutdown);
+        if (enabled)
+        {
+            Assert.Contains("DMM", shutdown);
+        }
         else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 
@@ -187,7 +194,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Contains("rail.mean", fixture.Control<TextBlock>("Initialization review", dialog).Text); Assert.Contains("1.25", fixture.Control<TextBlock>("Initialization review", dialog).Text);
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         var draft = fixture.ViewModel.SelectedProgram!; Assert.Equal("DMM", Assert.Single(draft.Instruments).SlotName);
-        Assert.Single(draft.Setup.OfType<IdentitySetup>()); Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
+        _ = Assert.Single(draft.Setup.OfType<IdentitySetup>()); Assert.Equal(["DMM"], draft.Cleanup.InstrumentSlots);
         var section = Assert.IsType<SectionNode>(Assert.Single(draft.Measure));
         Assert.Equal("Measure", section.Name);
         var metric = Assert.IsType<MetricNode>(Assert.Single(section.Children)); Assert.Equal("rail.mean", metric.Metric.ChannelKey); Assert.Equal(1.25, metric.Metric.Limits!.Threshold);
@@ -266,7 +273,7 @@ public sealed class AuthoringPlanInitializationTests
         Assert.NotEmpty(vm.IssuesSummary);
         vm.SaveProgram("invalid-home-empty"); vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("invalid-home-empty"); AuthoringUiFixture.Drain();
         await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-empty" && issue.Code == "INVALID_OPENTAP_HOME");
-        vm.InitializePlan(new("invalid-home-unsaved") { Instruments = [] }); vm.DisplayName = "Edited incomplete plan"; AuthoringUiFixture.Drain();
+        _ = vm.InitializePlan(new("invalid-home-unsaved") { Instruments = [] }); vm.DisplayName = "Edited incomplete plan"; AuthoringUiFixture.Drain();
         Assert.True(vm.HasUnsavedChanges); await fixture.WaitForReadinessAsync(); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "invalid-home-unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = ""; AuthoringUiFixture.Drain();
         await fixture.WaitForReadinessAsync(); Assert.DoesNotContain(vm.EditingIssues, issue => issue.Code == "INVALID_OPENTAP_HOME");
@@ -279,7 +286,7 @@ public sealed class AuthoringPlanInitializationTests
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot);
         // The fixture already declares the explicit Mock package dependency.
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         Assert.False(vm.HasUnsavedChanges); Assert.Empty(vm.OpenTapHomeOverride);
         var home = Path.GetFullPath(Path.Combine(fixture.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
@@ -313,7 +320,7 @@ public sealed class AuthoringPlanInitializationTests
     public void Opening_saved_task_preserves_implicit_enum_default_but_actual_choice_commits_and_undo_redo_restore_it()
     {
         using var fixture = Loaded();
-        fixture.ViewModel.InitializePlan(new PlanInitializationRequest("enum-task") { StartingPoint = PlanStartingPoint.DemoVoltageTask });
+        _ = fixture.ViewModel.InitializePlan(new PlanInitializationRequest("enum-task") { StartingPoint = PlanStartingPoint.DemoVoltageTask });
         var sequence = fixture.Control<ListBox>("Program sequence");
         sequence.SelectedIndex = fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric);
         AuthoringUiFixture.Drain();
@@ -338,7 +345,7 @@ public sealed class AuthoringPlanInitializationTests
         var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         Type(fixture, dialog, "Stable plan ID", "collision");
         for (var stage = 0; stage < 5; stage++) AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
-        var path = new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("collision"); Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "external");
+        var path = new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("collision"); _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!); File.WriteAllText(path, "external");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create test plan", dialog));
         Assert.Same(dialog, Assert.Single(fixture.Window!.OwnedWindows)); Assert.Equal("external", File.ReadAllText(path));
         Assert.Contains("already exists", fixture.Control<TextBlock>("Initialization error", dialog).Text);
@@ -354,8 +361,8 @@ public sealed class AuthoringPlanInitializationTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var workspace = AuthoringWorkspaceLoader.Load(fixture.WorkspaceRoot); workspace.Manifest.Package.Name = "Nested source readiness";
         AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
-        fixture.Show(960, 600); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
-        vm.InitializePlan(new PlanInitializationRequest("nested-task")
+        _ = fixture.Show(960, 600); fixture.OpenRememberedWorkspace(); var vm = fixture.ViewModel;
+        _ = vm.InitializePlan(new PlanInitializationRequest("nested-task")
         {
             StartingPoint = PlanStartingPoint.DemoVoltageTask,
             IdentityInstrumentSlot = "DMM",
@@ -389,7 +396,7 @@ public sealed class AuthoringPlanInitializationTests
 
     private static AuthoringUiFixture Loaded()
     {
-        var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;
+        var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;
     }
     private static void Type(AuthoringUiFixture fixture, Window dialog, string field, string text)
     {

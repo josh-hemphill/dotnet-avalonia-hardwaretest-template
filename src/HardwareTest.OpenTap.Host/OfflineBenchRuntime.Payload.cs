@@ -8,7 +8,7 @@ public static partial class OfflineBenchRuntime
     {
         var snapshot = OfflineBenchBundle.Capture(root, targetOS ?? OfflineBenchBundle.CurrentOS,
             targetArchitecture ?? OfflineBenchBundle.CurrentArchitecture, cancellationToken);
-        Capture(operatorDirectory, snapshot, cancellationToken);
+        _ = Capture(operatorDirectory, snapshot, cancellationToken);
         return snapshot.Manifest;
     }
 
@@ -34,9 +34,9 @@ public static partial class OfflineBenchRuntime
             for (var slash = path.IndexOf('/'); slash >= 0; slash = path.IndexOf('/', slash + 1))
             {
                 var directory = path[..slash];
-                if (merged.ContainsKey(directory) || directories.TryGetValue(directory, out var previous) && directory != previous)
+                if (merged.ContainsKey(directory) || (directories.TryGetValue(directory, out var previous) && directory != previous))
                     throw new InvalidDataException($"Offline payload has conflicting file/directory paths or casing: {path}");
-                directories.TryAdd(directory, directory);
+                _ = directories.TryAdd(directory, directory);
             }
             merged.Add(path, (path, bytes, executableMode));
         }

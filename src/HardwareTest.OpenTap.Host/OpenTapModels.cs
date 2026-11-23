@@ -89,7 +89,7 @@ public sealed record MeasurementSampleEvent(
 
     /// Metric grouping key for tiles/charts.
     public string EffectiveMetricKey
-        => string.IsNullOrWhiteSpace(MetricKey) ? Channel : MetricKey!;
+        => string.IsNullOrWhiteSpace(MetricKey) ? Channel : MetricKey;
 }
 
 /// Live mark for a published Event row (bit / config change).

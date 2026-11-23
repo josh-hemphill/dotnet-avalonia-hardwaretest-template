@@ -37,7 +37,10 @@ public partial class InteractionHostView : UserControl
             if (owner is null || !ReferenceEquals(owner, _subscribed) || !IsEffectivelyVisible) return;
             var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             if (focused?.DataContext is InteractionFieldViewModel
-                && focused.GetVisualAncestors().Contains(this)) focused.BringIntoView();
+                && focused.GetVisualAncestors().Contains(this))
+            {
+                focused.BringIntoView();
+            }
         }, DispatcherPriority.Loaded);
     }
 
@@ -83,7 +86,7 @@ public partial class InteractionHostView : UserControl
                 && control.DataContext is InteractionFieldViewModel model && model.Id == id
                 && control is TextBox or ComboBox or CheckBox);
             field?.BringIntoView();
-            field?.Focus();
+            _ = (field?.Focus());
         }, DispatcherPriority.Loaded);
     }
 
@@ -98,11 +101,11 @@ public partial class InteractionHostView : UserControl
             if (field is not null)
             {
                 field.BringIntoView();
-                field.Focus(NavigationMethod.Tab);
+                _ = field.Focus(NavigationMethod.Tab);
                 return;
             }
 
-            ContinueButton.Focus(NavigationMethod.Tab);
+            _ = ContinueButton.Focus(NavigationMethod.Tab);
         }
 
         Dispatcher.UIThread.Post(FocusFirst, DispatcherPriority.Loaded);

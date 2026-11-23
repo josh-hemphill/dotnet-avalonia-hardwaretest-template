@@ -13,7 +13,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(_root, Path.GetFileName(file)));
     }
@@ -91,7 +91,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.Undo();
         Assert.True(vm.HasUnsavedChanges);
         compiler.FailSave = true;
-        Assert.Throws<IOException>(() => vm.SaveSidecar());
+        _ = Assert.Throws<IOException>(vm.SaveSidecar);
         Assert.True(vm.HasUnsavedChanges);
         vm.Redo();
         Assert.Equal("saved name", vm.DisplayName);
@@ -127,7 +127,7 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         Assert.True(vm.WorkspaceCatalogDirty);
         vm.DisplayName = "intervening edit";
         Assert.False(vm.CanUndoWorkspace);
-        Assert.Throws<InvalidOperationException>(() => vm.UndoWorkspace());
+        _ = Assert.Throws<InvalidOperationException>(vm.UndoWorkspace);
         Assert.Equal("intervening edit", vm.DisplayName);
         vm.Undo();
         Assert.True(vm.CanUndoWorkspace);
@@ -158,12 +158,12 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
     {
         var vm = Open(new RecordingCompiler { ReadOnly = true });
         var before = vm.DisplayName;
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "edit");
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "edit");
         vm.SelectedRecipeId = AuthoringRecipeIds.Acquire;
         vm.InsertionPosition = "End of section";
         Assert.False(vm.CanInsertRecipe);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.InsertSelectedRecipe());
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("new") { Instruments = [] }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.InsertSelectedRecipe);
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(new("new") { Instruments = [] }));
         Assert.Equal(before, vm.DisplayName);
         Assert.False(vm.CanUndo);
         Assert.False(vm.CanUndoWorkspace);
@@ -177,14 +177,14 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.DisplayName = "tracked edit";
         vm.SelectedProgram!.Sidecar.DisplayName = "external edit";
         Assert.False(vm.CanUndo);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Undo());
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.Undo);
         Assert.Equal("external edit", vm.DisplayName);
         vm.SaveSidecar();
         Assert.False(vm.HasUnsavedChanges);
         Assert.Equal("external edit", new PlanCompiler().Load(Path.Combine(_root, "sample.TapPlan")).Sidecar.DisplayName);
         vm.SelectedProgram!.Sidecar.DisplayName = "later external edit";
         Assert.False(vm.CanUndo);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Undo());
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.Undo);
         Assert.Equal("later external edit", vm.DisplayName);
     }
 
@@ -195,10 +195,10 @@ public sealed class AuthoringSessionIntegrationTests : IDisposable
         vm.SelectedProgram!.Sidecar.DisplayName = "external edit";
         Assert.True(vm.HasUnsavedChanges);
         Assert.True(Assert.Single(vm.DirtyPrograms).SidecarDirty);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.False(vm.CanPack);
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
         Assert.True(vm.SaveAll().Succeeded);
         Assert.False(vm.HasUnsavedChanges);
     }

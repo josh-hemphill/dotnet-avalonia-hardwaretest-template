@@ -46,7 +46,7 @@ public sealed partial class AuthoringActionableFindingsTests
         var path = Path.Combine(_root, sidecar ? "sample.program.json" : "sample.TapPlan");
         using (var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
         {
-            Assert.Throws<AuthoringWorkspaceException>(() => { if (apply) _vm.Apply(); else _vm.SaveSidecar(); });
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => { if (apply) _vm.Apply(); else _vm.SaveSidecar(); });
             Assert.True(_vm.HasUnsavedChanges);
             Assert.Equal("dirty source must remain unsaved", _vm.DisplayName);
             Assert.NotNull(_vm.Error);
@@ -61,7 +61,11 @@ public sealed partial class AuthoringActionableFindingsTests
         {
             new AuthoringDocumentStore(_root).GetDocumentPath("board-demo"),
             Path.Combine(_root, "board-demo.TapPlan"), Path.Combine(_root, "board-demo.program.json")
-        }) original.Add(path, File.ReadAllBytes(path));
+        })
+        {
+            original.Add(path, File.ReadAllBytes(path));
+        }
+
         return original;
     }
 }

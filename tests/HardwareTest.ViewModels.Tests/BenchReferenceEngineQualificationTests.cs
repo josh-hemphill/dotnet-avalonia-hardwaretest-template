@@ -23,7 +23,7 @@ public sealed class BenchReferenceEngineQualificationTests
     public async Task Same_version_engine_change_requires_fresh_acquisition_and_preserves_old_run_and_reference_bytes()
     {
         var root = Path.Combine(Path.GetTempPath(), "engine-qualification-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var engine = "9.35.0.0/e11c807c-1111-4111-8111-111111111111";
@@ -48,7 +48,7 @@ public sealed class BenchReferenceEngineQualificationTests
                 SummarySamplesFactory = (started, completed) => [new StoredSample
                 {
                     MetricKey = rule.MetricKey, ProducerStepId = rule.ProducerStepId, Channel = rule.MetricKey,
-                    Unit = rule.Unit, Value = 1, StepPath = "Measure voltage", Timestamp = started + (completed - started) / 2,
+                    Unit = rule.Unit, Value = 1, StepPath = "Measure voltage", Timestamp = started + ((completed - started) / 2),
                 }],
             };
             var vm = new RunTestViewModel(tap, tap, tap, new OperatorSession(clock), new FakeRunControl(), new FakeReportService(),

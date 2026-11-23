@@ -41,9 +41,9 @@ public sealed class AuthoringDestructiveInteraction(Window owner)
         body.Children.Add(chooser);
         confirm.IsEnabled = false;
         chooser.SelectionChanged += (_, _) => confirm.IsEnabled = chooser.SelectedItem is string;
-        cancel.Click += (_, _) => dialog.Close((string?)null);
+        cancel.Click += (_, _) => dialog.Close(null);
         confirm.Click += (_, _) => { if (chooser.SelectedItem is string replacement) dialog.Close(replacement); };
-        dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) { dialog.Close((string?)null); e.Handled = true; } };
+        dialog.KeyDown += (_, e) => { if (e.Key == Key.Escape) { dialog.Close(null); e.Handled = true; } };
         return dialog.ShowDialog<string?>(owner);
     }
 

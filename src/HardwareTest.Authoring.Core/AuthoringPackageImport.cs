@@ -16,14 +16,14 @@ internal static class AuthoringPackageImport
             var captured = AuthoringBuildService.CaptureTree(path, "import", true);
             if (captured.Files.Any(file => file.Target != file.Path)) throw new AuthoringWorkspaceException("Offline package cannot contain links.");
             var ownedFolder = Path.Combine(Path.GetTempPath(), "ht-import-folder-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(ownedFolder);
+            _ = Directory.CreateDirectory(ownedFolder);
             try
             {
                 foreach (var file in captured.Files)
                 {
                     var destination = Path.Combine(ownedFolder, file.RelativePath);
                     AuthoringBuildService.EnsureContained(ownedFolder, destination);
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                     AuthoringBuildService.Materialize(file, destination);
                 }
                 var package = Validate(ownedFolder, Path.Combine(ownedFolder, "package.xml"), manifest);
@@ -35,7 +35,7 @@ internal static class AuthoringPackageImport
         if (!path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase) && !path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             throw new AuthoringWorkspaceException("Use a .TapPackage, .zip or unpacked package folder.");
         var owned = Path.Combine(Path.GetTempPath(), "ht-import-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(owned);
+        _ = Directory.CreateDirectory(owned);
         try
         {
             using (var archive = ZipFile.OpenRead(path))
@@ -44,12 +44,12 @@ internal static class AuthoringPackageImport
                 foreach (var entry in archive.Entries)
                 {
                     var relative = SafeRelative(entry.FullName.TrimEnd('/'));
-                    if (!names.Add(relative) || (entry.ExternalAttributes >> 16 & 0xF000) == 0xA000)
+                    if (!names.Add(relative) || ((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
                         throw new AuthoringWorkspaceException("Offline archive contains duplicate paths or links.");
                     var destination = Path.Combine(owned, relative);
                     AuthoringBuildService.EnsureContained(owned, destination);
-                    if (entry.FullName.EndsWith('/')) { Directory.CreateDirectory(destination); continue; }
-                    Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                    if (entry.FullName.EndsWith('/')) { _ = Directory.CreateDirectory(destination); continue; }
+                    _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                     entry.ExtractToFile(destination);
                 }
             }
@@ -92,15 +92,18 @@ internal static class AuthoringPackageImport
         }
         if (name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase))
         {
-            try { AuthoringAdapterPayloadInspection.ValidateLibraryMetadata(root, xml); }
+            try { _ = AuthoringAdapterPayloadInspection.ValidateLibraryMetadata(root, xml); }
             catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         }
         if (name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
+        {
             foreach (var runtime in new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" })
             {
                 if (!File.Exists(Path.Combine(root, runtime))) throw new AuthoringWorkspaceException($"Offline OpenTAP runtime missing: '{runtime}'.");
-                files.Add(runtime);
+                _ = files.Add(runtime);
             }
+        }
+
         return new(name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
             ? OpenTapHomeBootstrapper.InstrumentComponentsPackageName : name, files.ToArray());
     }
@@ -116,7 +119,7 @@ internal static class AuthoringPackageImport
         var metadataTarget = homeLayout ? $"Packages/{package.Name}/package.xml" : "package.xml";
         // Only declared payload and identity are published. Extra archive entries never overwrite an existing home.
         var filtered = Path.Combine(Path.GetTempPath(), "ht-import-layout-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(filtered);
+        _ = Directory.CreateDirectory(filtered);
         try
         {
             Stage(metadata, metadataTarget);
@@ -125,7 +128,10 @@ internal static class AuthoringPackageImport
                 var parts = relative.Replace('\\', '/').Split('/');
                 if ((rooted || engine || library) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                     && (parts.Length < 3 || !parts[1].Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
+                {
                     throw new AuthoringWorkspaceException("Offline package cannot replace another package's payload.");
+                }
+
                 if ((rooted || library) && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an OpenTAP package can replace engine runtime files.");
                 if (!library && AuthoringAdapterPayloadInspection.LibraryFiles.Contains(parts[^1], StringComparer.OrdinalIgnoreCase))
@@ -151,10 +157,13 @@ internal static class AuthoringPackageImport
         {
             if (outgoing.Replace('\\', '/').Equals(metadataTarget, StringComparison.OrdinalIgnoreCase)
                 && incoming.Replace('\\', '/') != metadata)
+            {
                 throw new AuthoringWorkspaceException("Offline package payload cannot replace its validated package metadata.");
+            }
+
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
             AuthoringBuildService.EnsureContained(filtered, destination);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             File.Copy(Path.Combine(source, incoming.Replace('/', Path.DirectorySeparatorChar)), destination, overwrite: true);
         }
     }

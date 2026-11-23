@@ -119,7 +119,7 @@ public sealed class AuthoringHardwareDefinitionTests
         CurrentHardwareUiFixture.Prepare(fixture);
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
-        vm.InitializePlan(new("physical") { Instruments = [new("DMM", typeof(HardwareTest.OpenTap.Plugins.Basic.MockDmmInstrument).FullName!, "MOCK::0")], IdentityInstrumentSlot = "DMM" });
+        _ = vm.InitializePlan(new("physical") { Instruments = [new("DMM", typeof(OpenTap.Plugins.Basic.MockDmmInstrument).FullName!, "MOCK::0")], IdentityInstrumentSlot = "DMM" });
         await vm.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 1; AuthoringUiFixture.Drain();
@@ -225,7 +225,10 @@ public sealed class AuthoringHardwareDefinitionTests
             ExpandPackageDetails(table);
             Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == status);
         }
-        if (state == "valid") Assert.Equal(package + ": available", status);
+        if (state == "valid")
+        {
+            Assert.Equal(package + ": available", status);
+        }
         else
         {
             Assert.Contains(Path.GetFullPath(defaultHome), status);
@@ -274,7 +277,7 @@ public sealed class AuthoringHardwareDefinitionTests
             return;
         }
         var directory = Path.Combine(home, "Packages", adapter.RequiredPackage);
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var files = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).Distinct().ToArray();
         new System.Xml.Linq.XElement("Package", new System.Xml.Linq.XAttribute("Name", adapter.RequiredPackage),
             new System.Xml.Linq.XElement("Files", files.Select(file => new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", file)))))

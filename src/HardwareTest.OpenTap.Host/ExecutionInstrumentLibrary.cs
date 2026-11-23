@@ -24,8 +24,11 @@ internal static class ExecutionInstrumentLibrary
             var assemblies = Files.Where(IsOwnedPlugin).Select(file => AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == Path.GetFileNameWithoutExtension(file))).ToArray();
             var bundled = BundledPayload();
             for (var i = 0; i < assemblies.Length; i++)
+            {
                 if (!OwnedInstrumentLibrary.Fingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[Array.IndexOf(Files, assemblies[i].GetName().Name + ".dll")])))
                     throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.3.0-alpha.1 payload. Configure a trusted installed home to use a custom library.");
+            }
+
             return loadedDirectory;
         }
 
@@ -35,7 +38,7 @@ internal static class ExecutionInstrumentLibrary
         if (!Payloads.TryGetValue(key, out var directory))
         {
             directory = Path.Combine(Path.GetTempPath(), "ht-library-execution-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
             for (var i = 0; i < Files.Length; i++) File.WriteAllBytes(Path.Combine(directory, Files[i]), bytes[i]);
             Payloads.Add(key, directory);
             var retained = directory;
@@ -55,7 +58,7 @@ internal static class ExecutionInstrumentLibrary
             var assembly = OwnedInstrumentLibrary.Load(bytes[i], path);
             if (!OwnedInstrumentLibrary.Fingerprint(assembly).SequenceEqual(SHA256.HashData(bytes[i])))
                 throw new InvalidOperationException("The selected Instrument Components payload differs from the loaded execution library. Restart the executing process to use this home.");
-            if (i == Files.Length - 1) VerifyContract(assembly);
+            if (i == Files.Length - 1) _ = VerifyContract(assembly);
         }
         return directory;
     }
@@ -79,7 +82,9 @@ internal static class ExecutionInstrumentLibrary
                 var identity = metadata.GetAssemblyDefinition();
                 if (metadata.GetString(identity.Name) != Path.GetFileNameWithoutExtension(Files[i])
                     || identity.Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+                {
                     throw new InvalidOperationException("Instrument Components execution requires current 0.3.0-alpha.1 library assemblies.");
+                }
             }
             catch (BadImageFormatException error)
             {
@@ -100,7 +105,7 @@ internal static class ExecutionInstrumentLibrary
                 "Packages/" + PublishedInstrumentComponents.PackageName + "/package.xml"), writable: false);
             var document = XDocument.Load(metadataStream);
             var captured = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-            InstrumentLibraryMetadata.Validate(document.Root ?? throw new IOException("Library package metadata has no root element."), file =>
+            _ = InstrumentLibraryMetadata.Validate(document.Root ?? throw new IOException("Library package metadata has no root element."), file =>
             {
                 var payload = ExecutionLibraryHome.ReadPayload(directory, file.Replace('/', Path.DirectorySeparatorChar));
                 captured.Add(file, payload);
@@ -129,7 +134,10 @@ internal static class ExecutionInstrumentLibrary
             || open is null || open.ReturnType.FullName != "InstrumentComponents.Runtime.DeviceHandle" || !open.ReturnType.IsClass
             || open.ReturnType.Assembly.GetName().Name != "InstrumentComponents.Runtime"
             || open.ReturnType.Assembly.GetName().Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+        {
             throw new InvalidOperationException("The selected Instrument Components library does not support the current 0.3.0-alpha.1 broker-managed execution contract.");
+        }
+
         return open.ReturnType.Assembly;
     }
 
@@ -142,12 +150,12 @@ internal static class ExecutionInstrumentLibrary
             throw new InvalidOperationException("The bundled Instrument Components release hash does not match.");
         buffer.Position = 0;
         using var zip = new ZipArchive(buffer, ZipArchiveMode.Read);
-        return Files.Select(file =>
+        return [.. Files.Select(file =>
         {
             using var source = (zip.GetEntry(file) ?? throw new InvalidOperationException("Bundled library payload missing: " + file)).Open();
             using var payload = new MemoryStream();
             source.CopyTo(payload);
             return payload.ToArray();
-        }).ToArray();
+        })];
     }
 }

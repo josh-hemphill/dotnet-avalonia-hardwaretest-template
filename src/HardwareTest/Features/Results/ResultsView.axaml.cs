@@ -17,7 +17,7 @@ public partial class ResultsView : UserControl
         if (DataContext is not ResultsViewModel vm || TopLevel.GetTopLevel(this) is not Window owner) return;
         vm.ReferencePromotion.RefreshPermissions();
         await BenchReferenceDialog.ShowAsync(owner, "Save golden reference", new BenchReferencePromotionView { DataContext = vm.ReferencePromotion });
-        (sender as Control)?.Focus();
+        _ = ((sender as Control)?.Focus());
     }
     private ResultsViewModel? _observed;
     private bool _arranging;
@@ -35,12 +35,15 @@ public partial class ResultsView : UserControl
         RunIdentityButton.Flyout!.Opened += (_, _) =>
         {
             RunIdentityBox.FontSize = FontSize;
-            RunIdentityBox.Focus();
+            _ = RunIdentityBox.Focus();
         };
         RunIdentityButton.Flyout.Closed += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             if (RunIdentityButton.IsEffectivelyVisible && RunIdentityButton.IsEffectivelyEnabled
-                && _observed?.ShowAttestationPrompt != true) RunIdentityButton.Focus();
+                && _observed?.ShowAttestationPrompt != true)
+            {
+                _ = RunIdentityButton.Focus();
+            }
         }, DispatcherPriority.Loaded);
         DataContextChanged += (_, _) => ObserveViewModel();
         AttachedToVisualTree += (_, _) => ObserveViewModel();
@@ -55,14 +58,14 @@ public partial class ResultsView : UserControl
         _observed = DataContext as ResultsViewModel;
         _showingDetail = _observed?.ShowDetail == true;
         _closedRunId = _showingDetail ? null : _observed?.SelectedRun?.RunId;
-        if (_observed is not null) _observed.PropertyChanged += OnResultsChanged;
+        _observed?.PropertyChanged += OnResultsChanged;
         ArrangeResults();
         if (_observed?.ShowAttestationPrompt == true) FocusSigningPrompt();
     }
 
     private void StopObserving()
     {
-        if (_observed is not null) _observed.PropertyChanged -= OnResultsChanged;
+        _observed?.PropertyChanged -= OnResultsChanged;
         _observed = null;
     }
 
@@ -86,7 +89,9 @@ public partial class ResultsView : UserControl
         {
             if (!ReferenceEquals(vm, _observed) || !IsEffectivelyVisible || vm?.ShowDetail != detail) return;
             if (detail)
-                ResultsCloseButton.Focus();
+            {
+                _ = ResultsCloseButton.Focus();
+            }
             else if (wasShowing)
             {
                 Control? row = null;
@@ -95,7 +100,7 @@ public partial class ResultsView : UserControl
                     RunResultsList.ScrollIntoView(selected);
                     row = RunResultsList.ContainerFromItem(selected);
                 }
-                if (row?.Focus() != true) RunResultsList.Focus();
+                if (row?.Focus() != true) _ = RunResultsList.Focus();
             }
         }, DispatcherPriority.Loaded);
     }
@@ -108,23 +113,25 @@ public partial class ResultsView : UserControl
             _signingReturnFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             ResultsLayout.IsEnabled = false;
         }
-        else if (vm?.ShowAttestationPrompt != true) ResultsLayout.IsEnabled = true;
+        else if (vm?.ShowAttestationPrompt != true)
+        {
+            ResultsLayout.IsEnabled = true;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(vm, _observed) || !IsEffectivelyVisible) return;
             if (vm?.ShowAttestationPrompt == true)
             {
-                if (vm.ShowAttestationPin) AttestationPinBox.Focus();
-                else AttestationCaptureButton.Focus();
+                _ = vm.ShowAttestationPin ? AttestationPinBox.Focus() : AttestationCaptureButton.Focus();
             }
             else
             {
                 var previous = _signingReturnFocus;
                 _signingReturnFocus = null;
-                if (previous?.IsEffectivelyVisible == true && previous.IsEffectivelyEnabled)
-                    previous.Focus();
-                else if (ResultsExportButton.IsEffectivelyVisible) ResultsExportButton.Focus();
-                else ResultsCloseButton.Focus();
+                _ = previous?.IsEffectivelyVisible == true && previous.IsEffectivelyEnabled
+                    ? previous.Focus()
+                    : ResultsExportButton.IsEffectivelyVisible ? ResultsExportButton.Focus() : ResultsCloseButton.Focus();
             }
         }, DispatcherPriority.Loaded);
     }
@@ -195,7 +202,10 @@ public partial class ResultsView : UserControl
         // The detail can be closed while its comparison and history are loading.
         await _openRunTask;
         if (!_openRunTask.IsCompleted || !ReferenceEquals(vm, _observed) || !IsEffectivelyVisible
-            || vm.ShowDetail || vm.IsBusy || vm.SelectedRun?.RunId != selected.RunId) return;
+            || vm.ShowDetail || vm.IsBusy || vm.SelectedRun?.RunId != selected.RunId)
+        {
+            return;
+        }
 
         _openRunTask = OpenRunDetailsAsync(vm);
         await _openRunTask;

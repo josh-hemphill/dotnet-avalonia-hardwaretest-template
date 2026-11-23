@@ -45,8 +45,8 @@ public sealed class FileSuiteRunStoreTests
         var backup = JsonSerializer.SerializeToUtf8Bytes(new SuiteRunRecord { SuiteRunId = "suite" }, AppJsonContext.Default.SuiteRunRecord);
         File.WriteAllBytes(path + ".bak", backup);
 
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync("suite"));
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(new SuiteRunRecord { SuiteRunId = "suite" }));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync("suite"));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(new SuiteRunRecord { SuiteRunId = "suite" }));
         Assert.Equal(primary, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
     }
@@ -65,8 +65,8 @@ public sealed class FileSuiteRunStoreTests
         Assert.True(loaded.IsSchemaReadOnly);
         Assert.True(Assert.Single(loaded.PlanRuns).IsSchemaReadOnly);
         Assert.Equal(999, loaded.PlanRuns[0].StoredSchemaVersion);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord { SuiteRunId = "suite" }));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord { SuiteRunId = "suite" }));
         Assert.Equal(before, File.ReadAllBytes(path));
     }
 
@@ -88,8 +88,8 @@ public sealed class FileSuiteRunStoreTests
             SuiteRunId = "suite",
             PlanRuns = [new TestRunRecord { RunId = "first", PlanName = "changed" }, invalid],
         };
-        if (version > SchemaVersions.TestRunRecord) await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(candidate));
-        else await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(candidate));
+        if (version > SchemaVersions.TestRunRecord) _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(candidate));
+        else _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(candidate));
         Assert.Equal(version, invalid.SchemaVersion);
         Assert.Equal(firstBytes, File.ReadAllBytes(firstPath));
         Assert.False(File.Exists(firstPath + ".bak"));
@@ -116,8 +116,8 @@ public sealed class FileSuiteRunStoreTests
             SuiteRunId = "suite",
             PlanRuns = [new TestRunRecord { RunId = "first", PlanName = "changed" }, new TestRunRecord { RunId = "blocked" }],
         };
-        if (version > SchemaVersions.TestRunRecord) await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(candidate));
-        else await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(candidate));
+        if (version > SchemaVersions.TestRunRecord) _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(candidate));
+        else _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(candidate));
         Assert.Equal(firstBytes, File.ReadAllBytes(firstPath));
         Assert.Equal(blockedBytes, File.ReadAllBytes(blockedPath));
         Assert.False(File.Exists(firstPath + ".bak"));
@@ -161,9 +161,9 @@ public sealed class FileSuiteRunStoreTests
         var primary = File.ReadAllBytes(path);
         var backup = File.ReadAllBytes(path + ".bak");
         if (childVersion > SchemaVersions.TestRunRecord)
-            await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.LoadAsync("suite"));
+            _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.LoadAsync("suite"));
         else
-            await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync("suite"));
+            _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.LoadAsync("suite"));
         Assert.Equal(primary, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
     }
@@ -177,7 +177,7 @@ public sealed class FileSuiteRunStoreTests
         var before = File.ReadAllBytes(path);
         var backup = JsonSerializer.SerializeToUtf8Bytes(new SuiteRunRecord { SuiteRunId = "suite" }, AppJsonContext.Default.SuiteRunRecord);
         File.WriteAllBytes(path + ".bak", backup);
-        await Assert.ThrowsAsync<JsonException>(() => suites.LoadAsync("suite"));
+        _ = await Assert.ThrowsAsync<JsonException>(() => suites.LoadAsync("suite"));
         Assert.Equal(before, File.ReadAllBytes(path));
         Assert.Equal(backup, File.ReadAllBytes(path + ".bak"));
     }
@@ -202,9 +202,9 @@ public sealed class FileSuiteRunStoreTests
             SuiteRunId = "suite",
             PlanRuns = [new TestRunRecord { RunId = "first", PlanName = "changed" }, new TestRunRecord { RunId = "blocked" }],
         };
-        if (failure == "future") await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(suite));
-        else if (failure == "unsupported") await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(suite));
-        else await Assert.ThrowsAnyAsync<JsonException>(() => suites.SaveAsync(suite));
+        if (failure == "future") _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(suite));
+        else if (failure == "unsupported") _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => suites.SaveAsync(suite));
+        else _ = await Assert.ThrowsAnyAsync<JsonException>(() => suites.SaveAsync(suite));
         Assert.Equal(first, File.ReadAllBytes(firstPath));
         Assert.Equal(before, File.ReadAllBytes(blockedPath + ".bak"));
         Assert.False(File.Exists(blockedPath));

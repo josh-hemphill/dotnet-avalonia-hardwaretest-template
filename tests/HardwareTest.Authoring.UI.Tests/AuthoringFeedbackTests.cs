@@ -22,7 +22,7 @@ public sealed class AuthoringFeedbackTests
         fixture.ViewModel.DisplayName = "Edited sample";
         for (var index = 1; index < 35; index++)
         {
-            fixture.ViewModel.InitializePlan(new($"feedback-{index:00}") { Instruments = [] });
+            _ = fixture.ViewModel.InitializePlan(new($"feedback-{index:00}") { Instruments = [] });
             fixture.ViewModel.DisplayName += " edited";
         }
         fixture.ViewModel.SelectProgram("sample");
@@ -49,7 +49,7 @@ public sealed class AuthoringFeedbackTests
         if (failSaves) Assert.Contains(fixture.ViewModel.Error!, details.Text!);
         details.SelectAll();
         Assert.Equal(details.Text, details.SelectedText);
-        details.Focus();
+        _ = details.Focus();
         dialog.KeyPress(Key.End, RawInputModifiers.Control, PhysicalKey.End, null);
         AuthoringUiFixture.Drain();
         var viewport = Assert.Single(details.GetVisualDescendants().OfType<ScrollViewer>());
@@ -75,7 +75,7 @@ public sealed class AuthoringFeedbackTests
         fixture.ViewModel.DisplayName = "Unsaved sample";
         for (var index = 1; index < 35; index++)
         {
-            fixture.ViewModel.InitializePlan(new($"unsaved-{index:00}-{new string('x', 110)}") { Instruments = [] });
+            _ = fixture.ViewModel.InitializePlan(new($"unsaved-{index:00}-{new string('x', 110)}") { Instruments = [] });
             fixture.ViewModel.DisplayName += " edited";
         }
         var draft = fixture.ViewModel.SelectedProgram;
@@ -126,7 +126,7 @@ public sealed class AuthoringFeedbackTests
     private static void ScrollToEndWithWheel(ScrollViewer viewer, Window window)
     {
         var center = viewer.TranslatePoint(new Point(viewer.Bounds.Width / 2, viewer.Bounds.Height / 2), window);
-        Assert.NotNull(center);
+        _ = Assert.NotNull(center);
         window.MouseWheel(center.Value, new Vector(0, -1000), RawInputModifiers.None);
         AuthoringUiFixture.Drain();
     }
@@ -135,7 +135,7 @@ public sealed class AuthoringFeedbackTests
     {
         Assert.True(viewer.Offset.Y > 0);
         var origin = text.TranslatePoint(default, viewer);
-        Assert.NotNull(origin);
+        _ = Assert.NotNull(origin);
         var bottom = origin.Value.Y + text.Bounds.Height;
         var top = bottom - text.TextLayout.TextLines.Last().Height;
         Assert.True(top >= -1 && bottom <= viewer.Bounds.Height + 1,
@@ -148,7 +148,7 @@ public sealed class AuthoringFeedbackTests
         Assert.True(control.Bounds.Width > 0 && control.Bounds.Height > 0,
             $"{control.GetType().Name} must have visible bounds: {control.Bounds}.");
         var origin = control.TranslatePoint(default, window);
-        Assert.NotNull(origin);
+        _ = Assert.NotNull(origin);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(origin.Value, control.Bounds.Size)),
             $"{control.GetType().Name} at {origin} ({control.Bounds.Size}) must fit inside {window.ClientSize}.");
     }

@@ -65,7 +65,7 @@ public sealed class ViewRegistry : IViewRegistrar
         Func<Control>? factory;
         lock (_sync)
         {
-            _factories.TryGetValue(data.GetType(), out factory);
+            _ = _factories.TryGetValue(data.GetType(), out factory);
         }
 
         return factory is null

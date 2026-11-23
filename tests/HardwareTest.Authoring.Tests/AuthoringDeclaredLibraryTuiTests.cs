@@ -29,7 +29,7 @@ public sealed class AuthoringDeclaredLibraryTuiTests : IDisposable
                 writer.Write("<Package Name=\"Unrelated\" Version=\"1.0.0\"><Files><File Path=\"marker.txt\"/></Files></Package>");
             using (var writer = new StreamWriter(zip.CreateEntry("marker.txt").Open())) writer.Write("complete unrelated payload");
         }
-        new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
+        _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
         Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
         Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         // Presence fixture only: refusal must precede launching or loading this payload.

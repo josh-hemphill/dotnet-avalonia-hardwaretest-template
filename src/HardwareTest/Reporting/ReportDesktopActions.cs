@@ -57,7 +57,10 @@ public sealed class ReportDesktopActions(Func<Window?> window, string managedRun
             throw new IOException("Choose a different file to preserve this report.");
         if (managedRunsDirectory is not null && PathContainment.IsUnderRoot(ResolveDirectory(managedRunsDirectory),
                 Path.Combine(ResolveDirectory(Path.GetDirectoryName(Path.GetFullPath(destinationPath))!), Path.GetFileName(destinationPath))))
+        {
             throw new IOException("Save copies outside the managed run folder to preserve report history.");
+        }
+
         var bytes = await File.ReadAllBytesAsync(sourcePath, cancellationToken).ConfigureAwait(false);
         await AtomicFile.WriteAllBytesAsync(destinationPath, bytes, cancellationToken).ConfigureAwait(false);
     }

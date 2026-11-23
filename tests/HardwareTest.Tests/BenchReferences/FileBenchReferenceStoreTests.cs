@@ -43,7 +43,7 @@ public sealed class FileBenchReferenceStoreTests
         var before = await File.ReadAllBytesAsync(store.PathFor(first.Id));
         var changed = first with { Name = "Overwrite attempt" };
         changed = changed with { ContentSha256 = BenchReferenceIdentity.ComputeProfileHash(changed) };
-        await Assert.ThrowsAsync<IOException>(() => store.SaveAsync(changed));
+        _ = await Assert.ThrowsAsync<IOException>(() => store.SaveAsync(changed));
         Assert.Equal(before, await File.ReadAllBytesAsync(store.PathFor(first.Id)));
         Assert.Equal(2, (await store.ListAsync()).Count);
         Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(store.PathFor(first.Id))!, "*.pending-*"));
@@ -60,7 +60,7 @@ public sealed class FileBenchReferenceStoreTests
         var before = await File.ReadAllBytesAsync(store.PathFor(profile.Id));
         var description = BenchReferenceEvidence.DescribeUse(use);
         await store.RetireAsync(profile.Id, "Replaced after fixture service");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => new FileBenchReferenceStore(temp.Path).LoadAsync(profile.Id));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => new FileBenchReferenceStore(temp.Path).LoadAsync(profile.Id));
         var retired = Assert.Single(await store.ListAsync());
         Assert.True(retired.IsRetired);
         Assert.Equal("Replaced after fixture service", retired.Retirement?.Reason);
@@ -84,9 +84,9 @@ public sealed class FileBenchReferenceStoreTests
         var entries = await store.ListAsync();
         Assert.Equal(3, entries.Count);
         Assert.Equal(2, entries.Count(entry => entry.Error is not null));
-        Assert.Single(entries, entry => entry.Profile?.Id == healthy.Id && entry.Error is null);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync(future));
-        await Assert.ThrowsAnyAsync<JsonException>(() => store.LoadAsync(corrupt));
+        _ = Assert.Single(entries, entry => entry.Profile?.Id == healthy.Id && entry.Error is null);
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync(future));
+        _ = await Assert.ThrowsAnyAsync<JsonException>(() => store.LoadAsync(corrupt));
         Assert.Equal(futureBefore, await File.ReadAllBytesAsync(store.PathFor(future)));
         Assert.Equal(corruptBefore, await File.ReadAllBytesAsync(store.PathFor(corrupt)));
     }
@@ -98,12 +98,12 @@ public sealed class FileBenchReferenceStoreTests
         var store = new FileBenchReferenceStore(temp.Path);
         var profile = Profile(); await store.SaveAsync(profile);
         var directory = Path.Combine(temp.Path, FileBenchReferenceStore.DirectoryName, "retired");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, profile.Id + ".json");
         await File.WriteAllTextAsync(path, "{\"schemaVersion\":999}");
         var before = await File.ReadAllBytesAsync(path);
         Assert.NotNull(Assert.Single(await store.ListAsync()).Error);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync(profile.Id));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync(profile.Id));
         Assert.Equal(before, await File.ReadAllBytesAsync(path));
     }
 
@@ -115,10 +115,10 @@ public sealed class FileBenchReferenceStoreTests
         var first = Profile(); var second = Profile();
         await store.SaveAsync(first); await store.SaveAsync(second);
         File.Move(store.PathFor(first.Id), store.PathFor(first.Id) + ".bak");
-        await Assert.ThrowsAsync<FileNotFoundException>(() => store.LoadAsync(first.Id));
+        _ = await Assert.ThrowsAsync<FileNotFoundException>(() => store.LoadAsync(first.Id));
         Assert.Equal(second.Id, Assert.Single(await store.ListAsync()).Profile!.Id);
         Assert.False(File.Exists(store.PathFor(first.Id)));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync("../" + second.Id));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.LoadAsync("../" + second.Id));
     }
 
     [Fact]
@@ -130,10 +130,10 @@ public sealed class FileBenchReferenceStoreTests
         var before = await File.ReadAllBytesAsync(store.PathFor(old.Id));
         var next = Profile("Cancelled new reference");
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SaveAsync(next, cancellation.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => store.SaveAsync(next, cancellation.Token));
         Assert.False(File.Exists(store.PathFor(next.Id)));
         Assert.Equal(before, await File.ReadAllBytesAsync(store.PathFor(old.Id)));
-        Assert.Single(await store.ListAsync());
+        _ = Assert.Single(await store.ListAsync());
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public sealed class FileBenchReferenceStoreTests
         var run = BenchReferenceEvaluatorTests.Source(6, 8);
         run.RunId = "dependent-run"; run.ExecutionScope = RunExecutionScopes.FullSuite;
         run.ReferenceUses = [use];
-        run.ReferenceEvaluations = BenchReferenceEvaluator.Evaluate(run, [use]).ToList();
+        run.ReferenceEvaluations = [.. BenchReferenceEvaluator.Evaluate(run, [use])];
         await store.SaveAsync(run);
         var loaded = Assert.IsType<TestRunRecord>(await store.LoadAsync(run.RunId));
         Assert.Equal(SchemaVersions.TestRunRecord, loaded.StoredSchemaVersion);
@@ -169,10 +169,10 @@ public sealed class FileBenchReferenceStoreTests
         var loaded = Assert.IsType<TestRunRecord>(await store.LoadAsync("historical-v4"));
         Assert.True(loaded.IsSchemaReadOnly);
         Assert.Equal(4, loaded.StoredSchemaVersion);
-        Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("No invented provenance", loaded,
+        _ = Assert.Throws<InvalidOperationException>(() => BenchReferenceEvaluator.Capture("No invented provenance", loaded,
             [BenchReferenceEvaluatorTests.Rule()], BenchReferenceEvaluatorTests.Now));
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(loaded));
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(new TestRunRecord { RunId = loaded.RunId }));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(loaded));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(new TestRunRecord { RunId = loaded.RunId }));
         Assert.Equal(original, await File.ReadAllTextAsync(path));
         Assert.True(Assert.Single(await store.ListAsync()).IsSchemaReadOnly);
     }
@@ -189,7 +189,7 @@ public sealed class FileBenchReferenceStoreTests
         var loaded = Assert.IsType<SuiteRunRecord>(await suites.LoadAsync("historical-suite"));
         Assert.True(loaded.IsSchemaReadOnly);
         Assert.True(Assert.Single(loaded.PlanRuns).IsSchemaReadOnly);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(loaded));
         Assert.Equal(original, await File.ReadAllTextAsync(path));
     }
 }

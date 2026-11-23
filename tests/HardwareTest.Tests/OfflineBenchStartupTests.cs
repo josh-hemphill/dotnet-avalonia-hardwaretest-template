@@ -44,11 +44,11 @@ public sealed class OfflineBenchStartupTests
     public void External_configuration_cannot_redirect_an_installed_copy(string option)
     {
         using var fixture = new StartupFixture();
-        var outside = Path.Combine(fixture.Root, "existing station"); Directory.CreateDirectory(outside);
+        var outside = Path.Combine(fixture.Root, "existing station"); _ = Directory.CreateDirectory(outside);
         File.WriteAllText(Path.Combine(outside, "preserve.txt"), "existing evidence");
         var args = option.EndsWith('=') || option.EndsWith(':') ? new[] { option + outside } : [option, outside];
         var before = Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments(args, fixture.App, new Hashtable()));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments(args, fixture.App, new Hashtable()));
         foreach (var pair in before) Assert.Equal(pair.Value, File.ReadAllBytes(pair.Key));
         Assert.Equal(before.Count, Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories).Length);
     }
@@ -62,7 +62,7 @@ public sealed class OfflineBenchStartupTests
     {
         using var fixture = new StartupFixture();
         var environment = new Hashtable { [key] = Path.Combine(fixture.Root, "old station") };
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, environment));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, environment));
     }
 
     [Fact]
@@ -115,13 +115,13 @@ public sealed class OfflineBenchStartupTests
             _ => marker with { InstallId = "invalid-id" },
         };
         fixture.WriteMarkers(marker);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
     }
 
     [Fact]
     public void Normal_saved_runs_do_not_revoke_the_bound_installations_data_ownership()
     {
-        using var fixture = new StartupFixture(); Directory.CreateDirectory(Path.Combine(fixture.Data, "runs"));
+        using var fixture = new StartupFixture(); _ = Directory.CreateDirectory(Path.Combine(fixture.Data, "runs"));
         File.WriteAllText(Path.Combine(fixture.Data, "runs", "evidence.json"), "preserved run");
         var args = OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable());
         Assert.Contains(fixture.Data, args);
@@ -136,7 +136,7 @@ public sealed class OfflineBenchStartupTests
     {
         using var fixture = new StartupFixture();
         File.AppendAllText(Path.Combine(fixture.App, relative.Replace('/', Path.DirectorySeparatorChar)), "changed");
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
     }
 
     [Theory]
@@ -166,15 +166,15 @@ public sealed class OfflineBenchStartupTests
     public void Invalid_immutable_inventory_cannot_be_approved_by_rehashing_the_ownership_marker(string kind)
     {
         using var fixture = new StartupFixture();
-        var files = kind switch
+        List<OfflineBenchFile> files = kind switch
         {
-            "empty" => new List<OfflineBenchFile>(),
-            "duplicate" => new List<OfflineBenchFile> { fixture.Installation.RuntimeFiles[0], fixture.Installation.RuntimeFiles[0] },
+            "empty" => [],
+            "duplicate" => [fixture.Installation.RuntimeFiles[0], fixture.Installation.RuntimeFiles[0]],
             "traversal" => [fixture.Installation.RuntimeFiles[0] with { Path = "../outside.dll" }],
-            _ => new List<OfflineBenchFile> { null! },
+            _ => [null!],
         };
         fixture.WriteMarkers(fixture.Installation with { RuntimeFiles = files });
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
     }
 
     [Theory]
@@ -204,13 +204,13 @@ public sealed class OfflineBenchStartupTests
     public void Oversize_and_linked_owned_settings_fail_without_reading_an_external_settings_target()
     {
         using var fixture = new StartupFixture(); var path = Path.Combine(fixture.Data, "settings.json");
-        using (var stream = File.Create(path)) stream.SetLength(4 * 1024 * 1024 + 1);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        using (var stream = File.Create(path)) stream.SetLength((4 * 1024 * 1024) + 1);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
         File.Delete(path);
         if (OperatingSystem.IsWindows()) return;
         var outside = Path.Combine(fixture.Root, "old-settings.json"); File.WriteAllText(outside, "preserve old settings");
-        File.CreateSymbolicLink(path, outside);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        _ = File.CreateSymbolicLink(path, outside);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
         Assert.Equal("preserve old settings", File.ReadAllText(outside));
     }
 
@@ -220,11 +220,11 @@ public sealed class OfflineBenchStartupTests
         if (OperatingSystem.IsWindows()) return; // Windows link creation requires a privilege outside this contract test.
         using var fixture = new StartupFixture();
         var alternate = Path.Combine(fixture.Root, "linked data"); Directory.Move(fixture.Data, alternate);
-        Directory.CreateSymbolicLink(fixture.Data, alternate);
-        try { Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable())); }
+        _ = Directory.CreateSymbolicLink(fixture.Data, alternate);
+        try { _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable())); }
         finally { Directory.Delete(fixture.Data); Directory.Move(alternate, fixture.Data); }
-        var owner = fixture.OwnerPath + ".original"; File.Move(fixture.OwnerPath, owner); File.CreateSymbolicLink(fixture.OwnerPath, owner);
-        Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
+        var owner = fixture.OwnerPath + ".original"; File.Move(fixture.OwnerPath, owner); _ = File.CreateSymbolicLink(fixture.OwnerPath, owner);
+        _ = Assert.Throws<InvalidDataException>(() => OfflineBenchStartup.PrepareArguments([], fixture.App, new Hashtable()));
     }
 
     private sealed class StartupFixture : IDisposable
@@ -238,7 +238,7 @@ public sealed class OfflineBenchStartupTests
         public OfflineBenchInstallation Installation { get; }
         public StartupFixture(bool marked = true)
         {
-            Directory.CreateDirectory(App); Directory.CreateDirectory(Data);
+            _ = Directory.CreateDirectory(App); _ = Directory.CreateDirectory(Data);
             File.WriteAllText(LockPath, "immutable bundle lock");
             File.WriteAllText(Path.Combine(App, "HardwareTest.dll"), "synthetic operator bytes for ownership unit test");
             File.WriteAllText(Path.Combine(App, "HardwareTest.OpenTap.Host.dll"), "synthetic host bytes for ownership unit test");
@@ -248,7 +248,7 @@ public sealed class OfflineBenchStartupTests
                 HostSha256 = Hash(File.ReadAllBytes(Path.Combine(App, "HardwareTest.OpenTap.Host.dll"))),
                 RuntimeIdentifier = (OfflineBenchBundle.CurrentOS == "Windows" ? "win" : OfflineBenchBundle.CurrentOS.ToLowerInvariant()) + "-" + OfflineBenchBundle.CurrentArchitecture,
             }, OfflineBenchJsonContext.Default.OfflineBenchCapabilityReceipt));
-            var program = Path.Combine(App, "Programs", "offline-startup-fixture"); Directory.CreateDirectory(program);
+            var program = Path.Combine(App, "Programs", "offline-startup-fixture"); _ = Directory.CreateDirectory(program);
             File.WriteAllText(Path.Combine(program, "fixture.TapPlan"), "synthetic immutable program bytes");
             var inventory = Directory.GetFiles(App, "*", SearchOption.AllDirectories).Where(path => path != LockPath)
                 .Select(path => new OfflineBenchFile

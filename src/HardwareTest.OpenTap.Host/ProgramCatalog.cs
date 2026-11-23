@@ -323,18 +323,18 @@ public static class ProgramCatalog
     {
         var planHash = BenchProgramHandoff.Hash(File.ReadAllBytes(file));
         var sidecar = TryLoadSidecar(file, id, out var declarationError, out var sidecarHash);
-        var family = string.IsNullOrWhiteSpace(sidecar?.DutFamily) ? "generic" : sidecar!.DutFamily!.Trim();
+        var family = string.IsNullOrWhiteSpace(sidecar?.DutFamily) ? "generic" : sidecar.DutFamily.Trim();
         var requirements = BuildRequirements(sidecar, family);
         var kinds = sidecar?.ReportKinds is { Length: > 0 }
             ? (IReadOnlyList<string>)sidecar.ReportKinds
             : [HardwareTest.Core.Runs.ReportKinds.Status];
         var defaultKind = string.IsNullOrWhiteSpace(sidecar?.DefaultReportKind)
             ? kinds[0]
-            : sidecar!.DefaultReportKind!.Trim();
+            : sidecar.DefaultReportKind.Trim();
         return new ProgramCatalogEntry
         {
             Id = id,
-            DisplayName = string.IsNullOrWhiteSpace(sidecar?.DisplayName) ? id : sidecar!.DisplayName!.Trim(),
+            DisplayName = string.IsNullOrWhiteSpace(sidecar?.DisplayName) ? id : sidecar.DisplayName.Trim(),
             Path = file,
             DutFamily = family,
             Requirements = requirements,
@@ -346,7 +346,7 @@ public static class ProgramCatalog
             ProgramKind = ResolveProgramKind(sidecar),
             StationHealthProfileId = string.IsNullOrWhiteSpace(sidecar?.StationHealthProfileId)
                 ? FileStationHealthStore.DefaultProfileId
-                : sidecar!.StationHealthProfileId!.Trim(),
+                : sidecar.StationHealthProfileId.Trim(),
             RequireStationHealth = sidecar?.RequireStationHealth ?? false,
             StationHealthMaxAgeHours = sidecar?.StationHealthMaxAgeHours,
             StationHealthGate = sidecar?.StationHealthGate,
@@ -395,7 +395,7 @@ public static class ProgramCatalog
     private static string ResolveProgramKind(ProgramSidecar? sidecar)
         => string.IsNullOrWhiteSpace(sidecar?.ProgramKind)
             ? ProgramKinds.Dut
-            : sidecar!.ProgramKind!.Trim();
+            : sidecar.ProgramKind.Trim();
 
     private static ProgramSidecar? TryLoadSidecar(string tapPlanPath, string id, out string? declarationError, out string? sidecarHash)
     {

@@ -10,14 +10,6 @@ internal sealed record OfflineBundleInspection(string Summary, string Details);
 
 public partial class SettingsViewModel
 {
-    private string _offlineBundlePath = string.Empty;
-    private string _offlineBundleDestination = string.Empty;
-    private string _offlineBundleDataDirectory = string.Empty;
-    private string _offlineBundleStatus = "Choose a copied bundle folder to inspect its contents.";
-    private string _offlineBundleSummary = string.Empty;
-    private string _offlineBundleDetails = string.Empty;
-    private string _offlineBundleCommandStatus = string.Empty;
-    private bool _offlineBundleIsChecking;
     private long _offlineBundleGeneration;
     private CancellationTokenSource? _offlineBundleCheck;
     private FileSystemWatcher? _offlineBundleWatcher;
@@ -35,57 +27,57 @@ public partial class SettingsViewModel
 
     public string OfflineBundlePath
     {
-        get => _offlineBundlePath;
+        get;
         set
         {
             value ??= string.Empty;
-            if (value == _offlineBundlePath) return;
+            if (value == field) return;
             InvalidateOfflineBundle("Bundle selection changed. Check this folder before using its installation command.");
-            this.RaiseAndSetIfChanged(ref _offlineBundlePath, value);
+            _ = this.RaiseAndSetIfChanged(ref field, value);
         }
-    }
+    } = string.Empty;
 
     public string OfflineBundleDestination
     {
-        get => _offlineBundleDestination;
+        get;
         set
         {
             value ??= string.Empty;
-            if (value == _offlineBundleDestination) return;
-            this.RaiseAndSetIfChanged(ref _offlineBundleDestination, value);
+            if (value == field) return;
+            _ = this.RaiseAndSetIfChanged(ref field, value);
             OfflineBundleCommandStatus = string.Empty;
             this.RaisePropertyChanged(nameof(OfflineBundleInstallationCommand));
         }
-    }
+    } = string.Empty;
 
     public string OfflineBundleDataDirectory
     {
-        get => _offlineBundleDataDirectory;
+        get;
         set
         {
             value ??= string.Empty;
-            if (value == _offlineBundleDataDirectory) return;
-            this.RaiseAndSetIfChanged(ref _offlineBundleDataDirectory, value);
+            if (value == field) return;
+            _ = this.RaiseAndSetIfChanged(ref field, value);
             OfflineBundleCommandStatus = string.Empty;
             this.RaisePropertyChanged(nameof(OfflineBundleInstallationCommand));
         }
-    }
+    } = string.Empty;
 
     public bool OfflineBundleIsChecking
     {
-        get => _offlineBundleIsChecking;
+        get;
         private set
         {
-            this.RaiseAndSetIfChanged(ref _offlineBundleIsChecking, value);
+            _ = this.RaiseAndSetIfChanged(ref field, value);
             this.RaisePropertyChanged(nameof(OfflineBundleCanEdit));
         }
     }
     public bool OfflineBundleCanEdit => !OfflineBundleIsChecking;
-    public bool HasOfflineBundleInspection => _offlineBundleDetails.Length > 0;
-    public string OfflineBundleStatus { get => _offlineBundleStatus; private set => this.RaiseAndSetIfChanged(ref _offlineBundleStatus, value); }
-    public string OfflineBundleSummary => _offlineBundleSummary;
-    public string OfflineBundleDetails => _offlineBundleDetails;
-    public string OfflineBundleCommandStatus { get => _offlineBundleCommandStatus; private set => this.RaiseAndSetIfChanged(ref _offlineBundleCommandStatus, value); }
+    public bool HasOfflineBundleInspection => OfflineBundleDetails.Length > 0;
+    public string OfflineBundleStatus { get; private set => this.RaiseAndSetIfChanged(ref field, value); } = "Choose a copied bundle folder to inspect its contents.";
+    public string OfflineBundleSummary { get; private set; } = string.Empty;
+    public string OfflineBundleDetails { get; private set; } = string.Empty;
+    public string OfflineBundleCommandStatus { get; private set => this.RaiseAndSetIfChanged(ref field, value); } = string.Empty;
     public string OfflineBundleInstallationCommand => !HasOfflineBundleInspection || string.IsNullOrWhiteSpace(OfflineBundleDestination) || string.IsNullOrWhiteSpace(OfflineBundleDataDirectory)
         ? string.Empty : BuildOfflineBundleInstallationCommand(OfflineBundlePath, OfflineBundleDestination, OfflineBundleDataDirectory);
     public string OfflineBundleNextSteps => "1. Use the matching operator build and target listed above.\n"
@@ -128,8 +120,8 @@ public partial class SettingsViewModel
             await UiDispatch.RunAsync(() =>
             {
                 if (generation != OfflineBundleGeneration || cancellation.IsCancellationRequested) return;
-                _offlineBundleSummary = inspection.Summary;
-                _offlineBundleDetails = $"Inspection snapshot at {DateTimeOffset.UtcNow:O}\nFolder: {root}\n\n{inspection.Details}\n\n{OfflineBundleNextSteps}";
+                OfflineBundleSummary = inspection.Summary;
+                OfflineBundleDetails = $"Inspection snapshot at {DateTimeOffset.UtcNow:O}\nFolder: {root}\n\n{inspection.Details}\n\n{OfflineBundleNextSteps}";
                 OfflineBundleStatus = "Bundle inspection passed. Nothing has been installed; installation rechecks these files.";
                 RaiseOfflineBundleInspection();
             }, UiScheduler).ConfigureAwait(false);
@@ -166,15 +158,15 @@ public partial class SettingsViewModel
 
     private void InvalidateOfflineBundle(string message)
     {
-        Interlocked.Increment(ref _offlineBundleGeneration);
+        _ = Interlocked.Increment(ref _offlineBundleGeneration);
         if (HasOfflineBundleInspection) OfflineBundleInspectionInvalidating?.Invoke();
         var check = _offlineBundleCheck;
         _offlineBundleCheck = null;
         check?.Cancel();
         DisposeOfflineBundleWatcher();
         OfflineBundleIsChecking = false;
-        _offlineBundleSummary = string.Empty;
-        _offlineBundleDetails = string.Empty;
+        OfflineBundleSummary = string.Empty;
+        OfflineBundleDetails = string.Empty;
         OfflineBundleStatus = message;
         OfflineBundleCommandStatus = string.Empty;
         RaiseOfflineBundleInspection();
@@ -188,11 +180,15 @@ public partial class SettingsViewModel
             IncludeSubdirectories = true,
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size,
         };
-        void Changed() => UiDispatch.Post(() =>
+        void Changed()
+        {
+            UiDispatch.Post(() =>
         {
             if (generation == OfflineBundleGeneration && ReferenceEquals(_offlineBundleWatcher, watcher))
                 InvalidateOfflineBundle("Bundle files changed or could not be watched. Recheck the complete folder before installation.");
         }, UiScheduler);
+        }
+
         watcher.Changed += (_, _) => Changed();
         watcher.Created += (_, _) => Changed();
         watcher.Deleted += (_, _) => Changed();
@@ -284,7 +280,7 @@ public partial class SettingsViewModel
     {
         var useWindows = windows ?? OperatingSystem.IsWindows();
         Func<string, string> quote = useWindows ? QuotePowerShell : QuotePosix;
-        var entry = operatorEntry ?? typeof(HardwareTest.App).Assembly.Location;
+        var entry = operatorEntry ?? typeof(App).Assembly.Location;
         if (string.IsNullOrEmpty(entry)) entry = Path.Combine(AppContext.BaseDirectory, "HardwareTest.dll");
         var appHost = Path.Combine(AppContext.BaseDirectory, "HardwareTest" + (useWindows ? ".exe" : string.Empty));
         var launcher = operatorEntry is null && File.Exists(appHost) ? quote(appHost) : "dotnet " + quote(entry);

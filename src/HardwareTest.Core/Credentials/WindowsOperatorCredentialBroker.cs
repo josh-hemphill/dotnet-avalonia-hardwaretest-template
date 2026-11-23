@@ -32,7 +32,7 @@ public sealed class WindowsOperatorCredentialBroker : IOperatorCredentialBroker,
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try { return await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false); }
-        finally { _gate.Release(); }
+        finally { _ = _gate.Release(); }
     }
     public async Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
     {
@@ -53,7 +53,7 @@ public sealed class WindowsOperatorCredentialBroker : IOperatorCredentialBroker,
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex) { return CredentialPreparationResult.Failed(MapFailure(ex, "preparation")); }
-        finally { if (!transferred) { try { worker?.Dispose(); } finally { _gate.Release(); } } }
+        finally { if (!transferred) { try { worker?.Dispose(); } finally { _ = _gate.Release(); } } }
     }
     private CredentialPreparationResult PrepareOnWorker(OperatorCredential credential, nint owner, WindowsSigningWorker worker, CancellationToken ct)
     {
@@ -189,7 +189,10 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
                 ct.ThrowIfCancellationRequested();
                 if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(expected.Serial, _credential.Serial, StringComparison.OrdinalIgnoreCase))
+                {
                     return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
+                }
+
                 try { var result = action(); ct.ThrowIfCancellationRequested(); return result; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { return WindowsOperatorCredentialBroker.MapFailure(ex, "signing"); }
@@ -219,8 +222,8 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
             if (_disposed) return; _disposed = true;
             cleanup = _worker.InvokeAsync(() => { WindowsOperatorCredentialBroker.DisposeResource(() => _native.Release(_key)); WindowsOperatorCredentialBroker.DisposeResource(_certificate.Dispose); return true; });
         }
-        try { cleanup.GetAwaiter().GetResult(); }
-        finally { try { _worker.Dispose(); } finally { _gate.Release(); } }
+        try { _ = cleanup.GetAwaiter().GetResult(); }
+        finally { try { _worker.Dispose(); } finally { _ = _gate.Release(); } }
     }
 }
 

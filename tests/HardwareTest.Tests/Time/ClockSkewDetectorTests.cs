@@ -28,7 +28,7 @@ public sealed class ClockSkewDetectorTests
         using var temp = new TempDataDirectory();
         var settings = new AppSettings { ClockSkewWarnThresholdMinutes = 5 };
         var clock = new FakeClock(T0);
-        new ClockSkewDetector(settings, clock, temp.Path).Check();
+        _ = new ClockSkewDetector(settings, clock, temp.Path).Check();
 
         clock.UtcNow = T0.AddMinutes(-20);
         var result = new ClockSkewDetector(settings, clock, temp.Path).Check();
@@ -47,7 +47,7 @@ public sealed class ClockSkewDetectorTests
         using var temp = new TempDataDirectory();
         var settings = new AppSettings { ClockSkewWarnThresholdMinutes = 5 };
         var clock = new FakeClock(T0);
-        new ClockSkewDetector(settings, clock, temp.Path).Check();
+        _ = new ClockSkewDetector(settings, clock, temp.Path).Check();
 
         clock.Advance(TimeSpan.FromHours(48));
         var result = new ClockSkewDetector(settings, clock, temp.Path).Check();
@@ -104,7 +104,7 @@ public sealed class ClockSkewDetectorTests
             NtpHost = "ntp.lab.local",
         };
         var clock = new FakeClock(T0);
-        new ClockSkewDetector(settings, clock, temp.Path).Check();
+        _ = new ClockSkewDetector(settings, clock, temp.Path).Check();
 
         clock.UtcNow = T0.AddMinutes(-30);
         var ntp = new FakeNtpTimeSource { Utc = null };

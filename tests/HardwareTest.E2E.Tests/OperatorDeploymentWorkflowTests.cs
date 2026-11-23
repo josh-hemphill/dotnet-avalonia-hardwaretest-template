@@ -78,7 +78,7 @@ public sealed class OperatorDeploymentWorkflowTests
             var view = Assert.Single(window.GetVisualDescendants().OfType<InstrumentsView>(), control => control.IsEffectivelyVisible);
             var ownership = ByName<TextBlock>(view, "Station binding ownership");
             OperatorWorkflowUiTests.Inside(ownership, window);
-            Assert.Contains("Deployment controls", ownership.Text!, StringComparison.Ordinal);
+            Assert.Contains("Deployment controls", ownership.Text, StringComparison.Ordinal);
             Assert.True(vm.BindingsReadOnly);
             Assert.False(vm.CanEditBindings);
             var apply = ByName<Button>(view, "Apply selected resource");
@@ -158,7 +158,7 @@ public sealed class OperatorDeploymentWorkflowTests
         Settle(window);
         if (!OperatorGraphicalReviewCapture.CaptureEnabled) return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")!;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         using var bitmap = window.CaptureRenderedFrame();
         Assert.NotNull(bitmap);
         bitmap.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),

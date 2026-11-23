@@ -213,7 +213,7 @@ public sealed class Phase21OperatorChromeTests
                 or nameof(MainWindowViewModel.ControlStatus)
                 or nameof(MainWindowViewModel.CompactControlStatus))
             {
-                order.Add(e.PropertyName!);
+                order.Add(e.PropertyName);
             }
         };
 

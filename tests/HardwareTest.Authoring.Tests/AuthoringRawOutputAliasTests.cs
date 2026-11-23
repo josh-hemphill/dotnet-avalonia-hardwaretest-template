@@ -112,9 +112,13 @@ public sealed class AuthoringRawOutputAliasTests
                 draft = draft with { Measure = [acquire, scalar] };
                 draft = AuthoringSequenceOperations.Duplicate(draft, Row(draft, acquire.NodeId));
             }
-            else draft = operation == "palette"
+            else
+            {
+                draft = operation == "palette"
                 ? AuthoringSequenceOperations.Insert(draft, AuthoringRecipeIds.Acquire, Row(draft, scalar.NodeId), false)
                 : AuthoringRecipeCatalog.Apply(draft, AuthoringRecipeIds.Acquire);
+            }
+
             var expected = casing == "default" ? "metric_2" : operation == "duplicate" ? "VDC_3" : "VDC_2";
             var path = Path.Combine(directory, "aliases.TapPlan");
             new PlanCompiler().Save(draft, path);
@@ -242,7 +246,7 @@ public sealed class AuthoringRawOutputAliasTests
     private static string TemporaryDirectory()
     {
         var path = Path.Combine(Path.GetTempPath(), "ht-raw-alias-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         return path;
     }
     private sealed class OutputListener : ResultListener

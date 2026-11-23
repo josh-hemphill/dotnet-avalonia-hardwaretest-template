@@ -30,7 +30,7 @@ public sealed class PersistentTaskNavigationTests
             AuthoringUiFixture.Click(task);
             Assert.Equal(int.Parse((string)task.Tag!), window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
             Assert.True(task.IsChecked);
-            Assert.Single(tasks, button => button.IsChecked == true);
+            _ = Assert.Single(tasks, button => button.IsChecked == true);
         }
         fixture.NavigateTask(0);
         fixture.ViewModel.SelectSequence(fixture.ViewModel.SequenceItems.ToList().FindIndex(row => row.Label == "Acquire VDC"));

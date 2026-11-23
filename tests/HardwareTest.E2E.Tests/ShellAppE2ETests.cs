@@ -52,7 +52,7 @@ public sealed class ShellAppE2ETests
             var tile = Assert.Single(home.GuestTiles, t => t.Title == "Station notes");
             Assert.True(tile.IsVisible);
             await tile.NavigateCommand.ExecuteAsync();
-            Assert.IsType<NotesViewModel>(main.CurrentPage);
+            _ = Assert.IsType<NotesViewModel>(main.CurrentPage);
         }
         finally
         {

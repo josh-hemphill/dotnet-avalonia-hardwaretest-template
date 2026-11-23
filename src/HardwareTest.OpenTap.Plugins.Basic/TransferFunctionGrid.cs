@@ -59,7 +59,7 @@ public static class TransferFunctionGrid
         var ordered = dt.ToArray();
         Array.Sort(ordered);
         var medianDt = ordered.Length % 2 == 0
-            ? (ordered[ordered.Length / 2 - 1] + ordered[ordered.Length / 2]) / 2
+            ? (ordered[(ordered.Length / 2) - 1] + ordered[ordered.Length / 2]) / 2
             : ordered[ordered.Length / 2];
         if (medianDt <= 0)
         {

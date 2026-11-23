@@ -17,7 +17,7 @@ public sealed class AuthoringRecoveryCheckpointTests
             {
                 using (File.Open(path, FileMode.Create, FileAccess.Write, FileShare.None))
                 {
-                    entered.TrySetResult();
+                    _ = entered.TrySetResult();
                     Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
                 }
                 new AuthoringDocumentStore(workspace.Root).SaveAtPath(path, document);
@@ -37,7 +37,7 @@ public sealed class AuthoringRecoveryCheckpointTests
     {
         using var workspace = new TemporaryWorkspace();
         var session = new AuthoringDocumentSession(Draft());
-        session.ApplyEdit("rename", draft => draft with { Sidecar = new ProgramSidecar { DisplayName = "edited" } });
+        _ = session.ApplyEdit("rename", draft => draft with { Sidecar = new ProgramSidecar { DisplayName = "edited" } });
         var result = Completion();
         using var recovery = new AuthoringRecoveryCheckpointService(action => action(),
             value => result.TrySetResult(value), TimeSpan.FromMilliseconds(30));
@@ -67,9 +67,9 @@ public sealed class AuthoringRecoveryCheckpointTests
         using var workspace = new TemporaryWorkspace();
         var both = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var completed = 0;
-        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ =>
+        using var recovery = new AuthoringRecoveryCheckpointService(action => action(), checkpoint =>
         {
-            if (Interlocked.Increment(ref completed) == 2) both.TrySetResult();
+            if (Interlocked.Increment(ref completed) == 2) _ = both.TrySetResult();
         }, TimeSpan.FromMilliseconds(30));
         recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
         recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft() with { PlanId = "other" }, 4));
@@ -135,7 +135,7 @@ public sealed class AuthoringRecoveryCheckpointTests
         await Task.Delay(150);
         Assert.Equal(0, completed);
         Assert.False(File.Exists(new AuthoringDocumentStore(workspace.Root).GetRecoveryPath("test")));
-        Assert.Throws<ObjectDisposedException>(() => recovery.Schedule(workspace.Root, document));
+        _ = Assert.Throws<ObjectDisposedException>(() => recovery.Schedule(workspace.Root, document));
     }
 
     [Fact]
@@ -145,7 +145,7 @@ public sealed class AuthoringRecoveryCheckpointTests
         using var recovery = new AuthoringRecoveryCheckpointService(action => action(), _ => { });
         var document = AuthoringDocumentDto.FromDraft(Draft());
         document.SchemaVersion++;
-        Assert.Throws<InvalidDataException>(() => recovery.Schedule(workspace.Root, document));
+        _ = Assert.Throws<InvalidDataException>(() => recovery.Schedule(workspace.Root, document));
         Assert.False(Directory.Exists(Path.Combine(workspace.Root, ".authoring")));
     }
 
@@ -170,7 +170,7 @@ public sealed class AuthoringRecoveryCheckpointTests
         recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
         try
         {
-            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var clock = System.Diagnostics.Stopwatch.StartNew();
             if (dispose) recovery.Dispose(); else recovery.Cancel(workspace.Root, "test");
             Assert.True(clock.Elapsed < TimeSpan.FromMilliseconds(200));
@@ -198,8 +198,8 @@ public sealed class AuthoringRecoveryCheckpointTests
         using var release = new ManualResetEventSlim();
         using var recovery = new AuthoringRecoveryCheckpointService(action => action(), value =>
         {
-            Interlocked.Increment(ref callbacks);
-            latest.TrySetResult(value);
+            _ = Interlocked.Increment(ref callbacks);
+            _ = latest.TrySetResult(value);
         }, TimeSpan.Zero,
             (path, document) =>
             {
@@ -210,7 +210,7 @@ public sealed class AuthoringRecoveryCheckpointTests
         recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 1));
         try
         {
-            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            _ = await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             recovery.Cancel(workspace.Root, "test");
             recovery.Schedule(workspace.Root, AuthoringDocumentDto.FromDraft(Draft(), 2));
             Assert.Equal(2, (await latest.Task.WaitAsync(TimeSpan.FromSeconds(5))).Revision);

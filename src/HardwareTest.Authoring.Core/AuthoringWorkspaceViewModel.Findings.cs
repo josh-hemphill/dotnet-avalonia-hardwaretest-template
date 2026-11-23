@@ -54,12 +54,12 @@ public sealed partial class AuthoringWorkspaceViewModel
                 verified ? AuthoringBuildService.CompileMap(AuthoringFormulaDeployment.Project(draft), stream) : [],
                 AuthoringFormulaDeployment.ExcludedNodes(draft)));
         }
-        return new(_workspaceSession, _findingRevision, identity, programs);
+        return new(WorkspaceSessionId, _findingRevision, identity, programs);
     }
 
     private void AcceptFindings(PlanContractBatchReport report, FindingCheck check)
     {
-        if (check.Session != _workspaceSession) return;
+        if (check.Session != WorkspaceSessionId) return;
         var identity = VerifyFindingInputs(FindingIdentity);
         var stale = check.Generation != _findingRevision || check.Identity != identity;
         _lastFindingCheck = check;
@@ -68,7 +68,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         Findings = stale ? [] : report.Plans.SelectMany(plan => plan.Findings).ToArray();
         FindingRows = report.Plans.SelectMany(plan => plan.Findings.Select(finding =>
         {
-            check.Programs.TryGetValue(plan.TargetPath, out var program);
+            _ = check.Programs.TryGetValue(plan.TargetPath, out var program);
             var target = finding.Target;
             Guid? node = null;
             if (program is not null && (target?.ProgramId is null || target.ProgramId == program.PlanId))
@@ -97,7 +97,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public PlanContractTarget? NavigateFinding(AuthoringFindingRow row)
     {
         string? identity = null;
-        if (Workspace is not null && !row.IsStale && row.SessionId == _workspaceSession)
+        if (Workspace is not null && !row.IsStale && row.SessionId == WorkspaceSessionId)
         {
             try { identity = VerifyFindingInputs(FindingIdentity); }
             catch (AuthoringWorkspaceException)
@@ -105,10 +105,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 return null;
             }
         }
-        if (Workspace is null || row.IsStale || row.SessionId != _workspaceSession || row.CheckedIdentity != identity
+        if (Workspace is null || row.IsStale || row.SessionId != WorkspaceSessionId || row.CheckedIdentity != identity
             || !FindingRows.Contains(row) || !Programs.Any(program => program.PlanId == row.ProgramId))
         {
-            if (Workspace is not null && row.SessionId == _workspaceSession) InvalidateContractFindings();
+            if (Workspace is not null && row.SessionId == WorkspaceSessionId) InvalidateContractFindings();
             ReportError("This finding is stale or its program was removed. Validate again before navigating.");
             return null;
         }
@@ -117,7 +117,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         SelectProgram(row.ProgramId);
         if (destination.Target.NodeId is { } id)
         {
-            var index = _sequenceItems.ToList().FindIndex(item => item.NodeId == id);
+            var index = SequenceItems.ToList().FindIndex(item => item.NodeId == id);
             SelectSequence(index);
         }
         Status = destination.Reason;
@@ -126,7 +126,7 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private string? InvalidateFindingsAfterSave()
     {
-        if (_lastFindingCheck is not { } check || check.Session != _workspaceSession || _lastFindingCheckStale) return null;
+        if (_lastFindingCheck is not { } check || check.Session != WorkspaceSessionId || _lastFindingCheckStale) return null;
         try
         {
             if (check.Identity == VerifyFindingInputs(FindingIdentity)) return null;
@@ -150,12 +150,12 @@ public sealed partial class AuthoringWorkspaceViewModel
                 new(ProgramId: issue.PlanId, NodeId: issue.NodeId, Section: issue.Section, Field: issue.Field));
             SelectProgram(issue.PlanId);
             if (destination.Target.NodeId is { } id)
-                SelectSequence(_sequenceItems.ToList().FindIndex(item => item.NodeId == id));
+                SelectSequence(SequenceItems.ToList().FindIndex(item => item.NodeId == id));
             Status = destination.Target.Field is not null ? "Opens the supported editing field." : destination.Reason;
             return destination.Target;
         }
         SelectProgram(issue.PlanId);
-        var matches = _sequenceItems.Select((item, index) => (item, index)).Where(pair => pair.item.NodeId == issue.NodeId).ToArray();
+        var matches = SequenceItems.Select((item, index) => (item, index)).Where(pair => pair.item.NodeId == issue.NodeId).ToArray();
         if (matches.Length != 1) return new(ProgramId: issue.PlanId, Section: "ProgramSettings");
         SelectSequence(matches[0].index);
         return new(ProgramId: issue.PlanId, NodeId: issue.NodeId, Section: issue.Section, Field: issue.Field);

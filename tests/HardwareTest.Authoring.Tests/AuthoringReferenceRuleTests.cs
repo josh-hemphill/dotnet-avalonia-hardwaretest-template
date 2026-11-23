@@ -121,8 +121,8 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
         draft.Sidecar.ReferenceRules = [rule];
         var beforePlan = File.ReadAllBytes(path);
         var beforeSidecar = File.ReadAllBytes(PlanCompiler.SidecarPath(path));
-        Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
-        Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().SaveSidecar(path, draft.Sidecar));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().SaveSidecar(path, draft.Sidecar));
         Assert.Equal(beforePlan, File.ReadAllBytes(path));
         Assert.Equal(beforeSidecar, File.ReadAllBytes(PlanCompiler.SidecarPath(path)));
     }
@@ -214,7 +214,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
         var setup = plan.ChildTestSteps.First();
         Assert.Equal(PlanCompiler.SetupGroupName, setup.Name);
         var guard = Assert.IsType<RequireOperatorReferenceAcceptanceStep>(setup.ChildTestSteps.First());
-        Assert.Single(PlanCompiler.FlattenSteps(plan).OfType<RequireOperatorReferenceAcceptanceStep>());
+        _ = Assert.Single(PlanCompiler.FlattenSteps(plan).OfType<RequireOperatorReferenceAcceptanceStep>());
         var reopened = compiler.Load(path);
         Assert.Equal(originalSetup, reopened.Setup);
         Assert.DoesNotContain(AuthoringSequence.Flatten(reopened), row => row.NodeId == guard.Id);
@@ -235,7 +235,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
             vm.RequireGoldenReference = true;
             vm.ReferenceTolerance = "0.5";
             vm.SaveProgram("sample");
-            Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)).OfType<RequireOperatorReferenceAcceptanceStep>());
+            _ = Assert.Single(PlanCompiler.FlattenSteps(TestPlan.Load(path)).OfType<RequireOperatorReferenceAcceptanceStep>());
             var beforePlan = File.ReadAllBytes(path);
             var beforeSidecar = File.ReadAllBytes(PlanCompiler.SidecarPath(path));
             vm.RequireGoldenReference = false;
@@ -400,7 +400,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
             Assert.Contains("Historical schema 4", vm.DataSourceDetails);
             Assert.Contains("read-only sample preview", vm.DataSourceDetails);
             Assert.Contains("read-only", Assert.Single(vm.DatasetItems));
-            Assert.Single(vm.SelectedDataset!.Run.Samples);
+            _ = Assert.Single(vm.SelectedDataset!.Run.Samples);
         }
         finally { vm.StopRecovery(); }
     }
@@ -413,7 +413,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
         var record = new TestRunRecord { SchemaVersion = SchemaVersions.TestRunRecord + 1, RunId = "future-run", PlanId = "sample" };
         File.WriteAllText(source, JsonSerializer.Serialize(record, AppJsonContext.Default.TestRunRecord));
         var bytes = File.ReadAllBytes(source);
-        Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(AuthoringWorkspaceLoader.Load(root), source, "future-preview", "sample"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(AuthoringWorkspaceLoader.Load(root), source, "future-preview", "sample"));
         Assert.Equal(bytes, File.ReadAllBytes(source));
     }
 
@@ -502,7 +502,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
                 Assert.Equal(first.Unit, reopened.SelectedProgram.Sidecar.ReferenceRules!.Single(rule => rule.RuleId == first.RuleId).Unit);
                 reopened.ReferenceTolerance = "3e-";
                 reopened.RemoveSelectedReferenceCriterion();
-                Assert.Single(reopened.SelectedProgram.Sidecar.ReferenceRules!);
+                _ = Assert.Single(reopened.SelectedProgram.Sidecar.ReferenceRules!);
                 Assert.DoesNotContain(reopened.SelectedProgram.AuthoringState.IncompleteNumericText.Keys, key => key.EndsWith(":" + second.RuleId, StringComparison.Ordinal));
                 reopened.Undo();
                 Assert.Equal(second.RuleId, reopened.SelectedReferenceCriterion!.RuleId);
@@ -528,7 +528,7 @@ public sealed class AuthoringReferenceRuleTests : IDisposable
         var source = Path.Combine(AuthoringBuildSnapshotTests.Temp(), "run.json");
         var record = new TestRunRecord { RunId = "expected-run", PlanId = "sample" };
         File.WriteAllText(source, JsonSerializer.Serialize(record, AppJsonContext.Default.TestRunRecord));
-        Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(AuthoringWorkspaceLoader.Load(root), source, "changed-preview", "sample", () =>
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => RunDatasetCatalog.Import(AuthoringWorkspaceLoader.Load(root), source, "changed-preview", "sample", () =>
         {
             record.RunId = "different-run";
             File.WriteAllText(source, JsonSerializer.Serialize(record, AppJsonContext.Default.TestRunRecord));

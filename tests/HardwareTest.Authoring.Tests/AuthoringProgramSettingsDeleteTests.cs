@@ -43,11 +43,11 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_required_field_strips_every_program_and_the_catalog()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("fields-a") { Instruments = [] });
+        _ = vm.InitializePlan(new("fields-a") { Instruments = [] });
         vm.NewRequiredField = "fixtureId";
         vm.AddRequiredField();
         Assert.True(vm.RequiredFieldChoices.Single(row => row.Id == "fixtureId").CanRemove);
-        vm.InitializePlan(new("fields-b") { Instruments = [] });
+        _ = vm.InitializePlan(new("fields-b") { Instruments = [] });
         vm.SetRequiredFieldIncluded("fixtureId", true);
         Assert.Contains("fixtureId", vm.SelectedProgram!.Sidecar.RequiredFields!);
         vm.SelectProgram("fields-a");
@@ -72,12 +72,12 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_report_kind_rewrites_defaults_and_forgets_the_catalog()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("reports-a") { Instruments = [] });
+        _ = vm.InitializePlan(new("reports-a") { Instruments = [] });
         vm.NewReportKind = "traceability";
         vm.AddReportKind();
         vm.DefaultReportKind = "traceability";
         Assert.True(vm.ReportKindChoices.Single(row => row.Id == "traceability").CanRemove);
-        vm.InitializePlan(new("reports-b") { Instruments = [] });
+        _ = vm.InitializePlan(new("reports-b") { Instruments = [] });
         vm.SetReportKindIncluded("traceability", true);
         vm.DefaultReportKind = "traceability";
         vm.SelectProgram("reports-a");
@@ -106,10 +106,10 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_program_kind_resets_users_to_dut()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("kinds-a") { Instruments = [] });
+        _ = vm.InitializePlan(new("kinds-a") { Instruments = [] });
         vm.NewProgramKind = "incomingInspect";
         vm.AddProgramKind();
-        vm.InitializePlan(new("kinds-b") { Instruments = [] });
+        _ = vm.InitializePlan(new("kinds-b") { Instruments = [] });
         vm.ProgramKind = "incomingInspect";
         vm.SelectProgram("kinds-a");
         vm.Apply();
@@ -244,7 +244,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Blank_catalog_deletion_preparation_rejects_without_mutation()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("blank") { Instruments = [] });
+        _ = vm.InitializePlan(new("blank") { Instruments = [] });
         var programs = vm.Programs;
         var catalogDirty = vm.WorkspaceCatalogDirty;
         var field = Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareRequiredFieldDeletion("   "));
@@ -319,7 +319,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_does_not_materialize_implicit_sidecar_arrays()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("implicit") { Instruments = [] });
+        _ = vm.InitializePlan(new("implicit") { Instruments = [] });
         vm.SelectedProgram!.Sidecar.ReportKinds = null;
         vm.SelectedProgram.Sidecar.RequiredFields = null;
         vm.NewReportKind = "traceability";
@@ -365,7 +365,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_program_kind_can_forget_an_unselected_catalog_entry()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("kinds-unselected") { Instruments = [] });
+        _ = vm.InitializePlan(new("kinds-unselected") { Instruments = [] });
         vm.NewProgramKind = "incomingInspect";
         vm.AddProgramKind();
         vm.ProgramKind = "dut";
@@ -379,7 +379,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Catalog_delete_stages_source_only_program_without_inventing_compiled_sidecar()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("unsaved") { Instruments = [] });
+        _ = vm.InitializePlan(new("unsaved") { Instruments = [] });
         var source = new AuthoringDocumentStore(vm.Workspace!.Root).GetDocumentPath("unsaved");
         var savedSource = File.ReadAllBytes(source);
         vm.NewReportKind = "traceability";
@@ -394,13 +394,13 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Catalog_delete_stages_compiled_sidecars_and_source_only_programs_until_SaveAll()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("saved-a") { Instruments = [] });
+        _ = vm.InitializePlan(new("saved-a") { Instruments = [] });
         vm.NewRequiredField = "fixtureId";
         vm.AddRequiredField();
         vm.Apply();
         var savedSidecar = PlanCompiler.SidecarPath(Path.Combine(vm.Workspace!.Root, "saved-a.TapPlan"));
         Assert.Contains("fixtureId", File.ReadAllText(savedSidecar), StringComparison.OrdinalIgnoreCase);
-        vm.InitializePlan(new("unsaved-b") { Instruments = [] });
+        _ = vm.InitializePlan(new("unsaved-b") { Instruments = [] });
         var sourceOnly = new AuthoringDocumentStore(vm.Workspace.Root).GetDocumentPath("unsaved-b");
         var savedSource = File.ReadAllBytes(sourceOnly);
         vm.SetRequiredFieldIncluded("fixtureId", true);
@@ -418,8 +418,8 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_selected_program_deletes_orphan_sidecar_in_the_default_plans_directory()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-setdel-plans-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
-        Directory.CreateDirectory(Path.Combine(dest, AuthoringManifest.DefaultPlansDirectory));
+        _ = Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(Path.Combine(dest, AuthoringManifest.DefaultPlansDirectory));
         File.WriteAllText(
             Path.Combine(dest, "authoring.json"),
             """
@@ -431,7 +431,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
             """);
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(dest);
-        vm.InitializePlan(new("orphan") { Instruments = [] });
+        _ = vm.InitializePlan(new("orphan") { Instruments = [] });
         var plansSidecar = PlanCompiler.SidecarPath(
             Path.Combine(dest, AuthoringManifest.DefaultPlansDirectory, "orphan.TapPlan"));
         var decoy = PlanCompiler.SidecarPath(Path.Combine(dest, "orphan.TapPlan"));
@@ -477,7 +477,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
         Assert.False(vm.HasUnsavedChanges);
         Assert.True(vm.HasUncompiledSources);
         Assert.False(vm.CanPack);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, vm.Error, StringComparison.Ordinal);
         Assert.Contains("SCOPE", vm.Workspace.Manifest.Catalogs!.InstrumentSlotNames);
         Assert.Equal(sidecarBefore, File.ReadAllText(sidecarPath));
@@ -531,7 +531,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     public void Remove_selected_program_deletes_orphan_sidecar_without_a_tapplan()
     {
         var vm = OpenEmpty();
-        vm.InitializePlan(new("orphan") { Instruments = [] });
+        _ = vm.InitializePlan(new("orphan") { Instruments = [] });
         var invented = Path.Combine(vm.Workspace!.Root, "orphan.TapPlan");
         var sidecar = PlanCompiler.SidecarPath(invented);
         File.WriteAllText(sidecar, """{"schemaVersion":1,"displayName":"orphan"}""");
@@ -657,7 +657,7 @@ public sealed class AuthoringProgramSettingsDeleteTests
     private static AuthoringWorkspaceViewModel OpenEmpty()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-setdel-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var schema = Path.Combine(src, "authoring.schema.json");

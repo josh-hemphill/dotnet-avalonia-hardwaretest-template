@@ -486,7 +486,7 @@ public sealed partial class RunExecutionViewModel
             Samples = summary.Samples,
             Events = summary.Events,
             Steps = BuildRolledUpSteps(),
-            StepAttempts = _attemptLedger.Values.OrderBy(a => a.StepPath).ToList(),
+            StepAttempts = [.. _attemptLedger.Values.OrderBy(a => a.StepPath)],
             AppVersion = _buildInfo.InformationalVersion,
             AppCommitSha = _buildInfo.CommitSha,
         };

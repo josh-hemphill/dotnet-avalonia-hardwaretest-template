@@ -38,7 +38,7 @@ public sealed class RunTestUiThreadTests
             {
                 if (!inScheduler)
                 {
-                    Interlocked.Increment(ref offScheduler);
+                    _ = Interlocked.Increment(ref offScheduler);
                 }
             };
 

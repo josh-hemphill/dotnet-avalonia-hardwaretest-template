@@ -185,13 +185,13 @@ public sealed class ResultsComparisonTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
-        Directory.CreateDirectory(store.GetRunDirectory("exp-1"));
+        _ = Directory.CreateDirectory(store.GetRunDirectory("exp-1"));
         await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("exp-1"), "run.json"),
             JsonSerializer.Serialize(Assert.IsType<TestRunRecord>(vm.OpenedRun), AppJsonContext.Default.TestRunRecord));
         await vm.ExportPackageCommand.ExecuteAsync();
 
         Assert.NotNull(export.LastPackageDir);
-        var diagnostics = Path.Combine(export.LastPackageDir!, "diagnostics.txt");
+        var diagnostics = Path.Combine(export.LastPackageDir, "diagnostics.txt");
         Assert.True(File.Exists(diagnostics));
         var text = await File.ReadAllTextAsync(diagnostics);
         Assert.Contains("HardwareTest diagnostics", text, StringComparison.Ordinal);
@@ -228,14 +228,14 @@ internal sealed class CapturingExportTargetService : IExportTargetService
             Path.GetTempPath(),
             "ht-cmp-export-" + Guid.NewGuid().ToString("N"),
             packageFolderName);
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         foreach (var (source, relative) in files)
         {
             var outPath = Path.Combine(dest, relative);
             var parent = Path.GetDirectoryName(outPath);
             if (!string.IsNullOrWhiteSpace(parent))
             {
-                Directory.CreateDirectory(parent);
+                _ = Directory.CreateDirectory(parent);
             }
 
             File.Copy(source, outPath, overwrite: true);

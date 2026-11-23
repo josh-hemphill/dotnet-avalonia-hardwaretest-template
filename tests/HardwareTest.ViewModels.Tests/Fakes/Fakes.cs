@@ -217,7 +217,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         });
     }
 
-    public Task LoadPlanShapeAsync(string fixtureFileName, CancellationToken cancellationToken = default)
+    public Task LoadPlanShapeAsync(string fixtureFileName)
     {
         LoadedPlanPath = fixtureFileName;
         LoadedPlanName = Path.GetFileNameWithoutExtension(fixtureFileName);
@@ -299,21 +299,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static IEnumerable<OpenTapStepNode> BuildPlanShapeTreesCore(string fixtureFileName)
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         if (string.Equals(fixtureFileName, PlanShapeFixtures.FlatLeavesName, StringComparison.OrdinalIgnoreCase))
         {
@@ -446,21 +452,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static OpenTapStepNode BuildBoardDemoTree()
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         var root = BoardDemoProgramFactory.DisplayName;
         return Group(
@@ -513,21 +525,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static IEnumerable<OpenTapStepNode> BuildSweepDemoTrees()
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         yield return Group(
             "repeat",
@@ -539,21 +557,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static IEnumerable<OpenTapStepNode> BuildTimingDemoTrees()
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         var root = TimingDemoProgramFactory.DisplayName;
         yield return Group(
@@ -582,21 +606,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static IEnumerable<OpenTapStepNode> BuildEnvelopeSweepDemoTrees()
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         var root = EnvelopeSweepDemoProgramFactory.DisplayName;
         yield return Group(
@@ -619,21 +649,27 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private static IEnumerable<OpenTapStepNode> BuildStationHealthDemoTrees()
     {
-        static OpenTapStepNode Leaf(string id, string name, string path) => new()
+        static OpenTapStepNode Leaf(string id, string name, string path)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+            };
+        }
 
-        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children) => new()
+        static OpenTapStepNode Group(string id, string name, string path, params OpenTapStepNode[] children)
         {
-            Id = id,
-            Name = name,
-            Path = path,
-            IsStage = true,
-            Children = children.ToList(),
-        };
+            return new()
+            {
+                Id = id,
+                Name = name,
+                Path = path,
+                IsStage = true,
+                Children = [.. children],
+            };
+        }
 
         var root = StationHealthDemoProgramFactory.DisplayName;
         yield return Group(
@@ -664,7 +700,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         {
             if (station.SlotToResource.TryGetValue(slot.Name, out var resource))
             {
-                TryBindSlotResource(slot.Name, resource);
+                _ = TryBindSlotResource(slot.Name, resource);
             }
         }
         LastDut = dut;
@@ -835,7 +871,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                     Value = 1.25,
                 },
             ],
-            Steps = Flatten(Tree)
+            Steps = [.. Flatten(Tree)
                 .Where(n => n.Children.Count == 0)
                 .Select(n => new StepResultRecord
                 {
@@ -856,8 +892,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                     Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
                     StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
                     CompletedAt = DateTimeOffset.UtcNow,
-                })
-                .ToList(),
+                })],
         };
         progress?.Report(new OpenTapProgress
         {
@@ -1030,7 +1065,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             [
                 new StoredSample { Channel = "VDC", Timestamp = DateTimeOffset.UtcNow, Value = 1.25, StepPath = leaf?.Path ?? stepPath },
             ],
-            Steps = scopeLeaves
+            Steps = [.. scopeLeaves
                 .Select(n => new StepResultRecord
                 {
                     StepId = n.Id,
@@ -1050,8 +1085,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
                     Message = CompletionResult == RunResult.Passed ? "Pass" : "Fail",
                     StartedAt = DateTimeOffset.UtcNow.AddSeconds(-1),
                     CompletedAt = DateTimeOffset.UtcNow,
-                })
-                .ToList(),
+                })],
         };
         progress?.Report(new OpenTapProgress
         {
@@ -1085,7 +1119,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
     /// Simulates a step requesting interaction (for ViewModel tests without OpenTAP).
     public void BeginInteraction(OperatorInteractionRequest request)
     {
-        _simulatedInteractions.Add(request.Id);
+        _ = _simulatedInteractions.Add(request.Id);
         _runControl.BeginPendingInteraction(request);
         if (InteractionResponses.Count > 0)
         {
@@ -1108,7 +1142,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         // Direct UI simulations have no running step to consume the response.
         // Real fake runs consume it in EmitAndWaitForInteractionAsync instead.
         if (requestId is not null && _simulatedInteractions.Remove(requestId))
-            _runControl.WaitForInteractionResponse(requestId);
+            _ = _runControl.WaitForInteractionResponse(requestId);
     }
 
     private void EnterRunGate()
@@ -1123,7 +1157,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
 
     private void ExitRunGate()
     {
-        Interlocked.Exchange(ref _runGate, 0);
+        _ = Interlocked.Exchange(ref _runGate, 0);
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsExecuting)));
     }
 
@@ -1155,7 +1189,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             OverallPercent = 10,
         });
 
-        await Task.Run(() => _runControl.WaitForInteractionResponse(request.Id));
+        _ = await Task.Run(() => _runControl.WaitForInteractionResponse(request.Id));
         cancellationToken.ThrowIfCancellationRequested();
     }
 
@@ -1169,7 +1203,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
             while (_runControl.IsPaused)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await Task.Run(() => _runControl.WaitPauseGate(50), cancellationToken);
+                _ = await Task.Run(() => _runControl.WaitPauseGate(50), cancellationToken);
             }
 
             var step = remaining < slice ? remaining : slice;
@@ -1187,7 +1221,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         if (IsExecuting) return false;
         LastStepEnabledPatch = (stepPath, enabled);
         var node = FindNode(Tree, stepPath);
-        if (node is not null) node.Enabled = enabled;
+        _ = (node?.Enabled = enabled);
         return true;
     }
 
@@ -1448,10 +1482,7 @@ public sealed class FakeOpenTapSession : IOpenTapSession
         {
             var node = Flatten(Tree).FirstOrDefault(n =>
                 string.Equals(n.Id, ownerKey, StringComparison.OrdinalIgnoreCase));
-            if (node is not null)
-            {
-                node.Enabled = enabled;
-            }
+            _ = (node?.Enabled = enabled);
         }
 
         return true;
@@ -1643,7 +1674,7 @@ public sealed class FakeRunControl : IRunControl
         while (!_pauseEvent.IsSet)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            _pauseEvent.Wait(50);
+            _ = _pauseEvent.Wait(50);
         }
 
         return Task.CompletedTask;
@@ -1749,7 +1780,7 @@ public sealed class FakeRunStore : IRunStore, IDisposable
     {
         if (run.IsSchemaReadOnly)
         {
-            throw new HardwareTest.Core.Serialization.SchemaReadOnlyException(
+            throw new Core.Serialization.SchemaReadOnlyException(
                 HardwareTest.Core.Serialization.DocumentSchemaGate.Evaluate(
                     HardwareTest.Core.Serialization.SchemaDocumentTypes.TestRunRecord,
                     run.StoredSchemaVersion > 0 ? run.StoredSchemaVersion : run.SchemaVersion,

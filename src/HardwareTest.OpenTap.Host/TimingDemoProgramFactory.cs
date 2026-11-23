@@ -25,7 +25,7 @@ public static class TimingDemoProgramFactory
             IntervalMs = 1,
             Channel = "bump.v",
         };
-        OpenTapMixinAttach.AttachPresentation(
+        _ = OpenTapMixinAttach.AttachPresentation(
             waveform,
             "bump.v",
             PresentationDisplayRoles.Timeseries,
@@ -40,7 +40,7 @@ public static class TimingDemoProgramFactory
             LimitLow = 5,
             LimitHigh = 15,
         };
-        OpenTapMixinAttach.AttachPresentation(
+        _ = OpenTapMixinAttach.AttachPresentation(
             rise,
             "bump.rise.ms",
             PresentationDisplayRoles.Passband,
@@ -55,7 +55,7 @@ public static class TimingDemoProgramFactory
             LimitLow = null,
             LimitHigh = 50,
         };
-        OpenTapMixinAttach.AttachPresentation(
+        _ = OpenTapMixinAttach.AttachPresentation(
             returnLow,
             "return.low.at.ms",
             PresentationDisplayRoles.Passband,
@@ -70,7 +70,7 @@ public static class TimingDemoProgramFactory
             LimitLow = 0,
             LimitHigh = 0.1,
         };
-        OpenTapMixinAttach.AttachPresentation(
+        _ = OpenTapMixinAttach.AttachPresentation(
             envelope,
             "envelope.error",
             PresentationDisplayRoles.Passband,
@@ -87,7 +87,7 @@ public static class TimingDemoProgramFactory
             LimitHigh = 0.1,
             FailWhenOutOfBand = false,
         };
-        OpenTapMixinAttach.AttachPresentation(
+        _ = OpenTapMixinAttach.AttachPresentation(
             overshoot,
             "bump.overshoot.v",
             PresentationDisplayRoles.Passband,
@@ -117,7 +117,7 @@ public static class TimingDemoProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         OpenTapPluginSearch.SearchSerialized();
         Create().Save(Path.Combine(directory, FixtureFileName));
     }

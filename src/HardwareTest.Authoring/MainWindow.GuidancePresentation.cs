@@ -17,7 +17,7 @@ public partial class MainWindow
     private readonly StackPanel _guidanceBlockers = new() { Spacing = 8 };
     private readonly Expander _guidanceDetails = new() { Header = "Details to resolve", HorizontalContentAlignment = HorizontalAlignment.Stretch };
     private readonly Button _guidancePrimary = new() { ContentTemplate = AuthoringActionLabels.WrappedText, HorizontalAlignment = HorizontalAlignment.Stretch };
-    private System.Action? _guidancePrimaryAction;
+    private Action? _guidancePrimaryAction;
 
     private static TextBlock GuidanceText(string name)
     {
@@ -41,7 +41,7 @@ public partial class MainWindow
         AutomationProperties.SetName(_guidanceBlockers, "Guidance blocker items");
         AutomationProperties.SetName(_guidanceDetails, "Guidance recovery details");
         _guidanceDetails.Content = _guidanceBlockers;
-        Expander Group(string title, Control content)
+        static Expander Group(string title, Control content)
         {
             var expander = new Expander { Header = title, Content = content, HorizontalContentAlignment = HorizontalAlignment.Stretch };
             AutomationProperties.SetName(expander, title);
@@ -62,7 +62,7 @@ public partial class MainWindow
         };
     }
 
-    private void PresentGuidance(string status, string next, string actionLabel, System.Action action, IEnumerable<string> details)
+    private void PresentGuidance(string status, string next, string actionLabel, Action action, IEnumerable<string> details)
     {
         _guidanceFeedback.Text = status;
         _guidanceNext.Text = next;
@@ -87,6 +87,6 @@ public partial class MainWindow
         _guidanceWarning.IsVisible = !string.IsNullOrWhiteSpace(_guidanceWarning.Text);
     }
 
-    private void GuidanceSave() { CommitFocusedEditor(); TryRun(() => _viewModel.Apply()); }
+    private void GuidanceSave() { CommitFocusedEditor(); TryRun(_viewModel.Apply); }
     private void GuidanceIssues() => WorkspaceTabs.SelectedIndex = 2;
 }

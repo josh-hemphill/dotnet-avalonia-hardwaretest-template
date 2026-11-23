@@ -29,7 +29,7 @@ public partial class MainWindow
         var checks = new StackPanel { Spacing = 6 };
         var deployment = new StackPanel { Spacing = 6 };
         var preferences = new StackPanel { Spacing = 6 };
-        void Action(string name, System.Action action)
+        void Action(string name, Action action)
         {
             var button = new Button { Content = name, ContentTemplate = AuthoringActionLabels.WrappedText, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Left };
             button.Classes.Add("authoringAction");
@@ -93,13 +93,13 @@ public partial class MainWindow
             if (host.IsVisible)
             {
                 _guidanceReturnFocus = FocusManager?.GetFocusedElement() as Control;
-                Dispatcher.UIThread.Post(() => { if (host.IsEffectivelyVisible) _guidanceClose?.Focus(); });
+                Dispatcher.UIThread.Post(() => { if (host.IsEffectivelyVisible) _ = (_guidanceClose?.Focus()); });
             }
             else if (IsVisible && !_ownerClosed)
             {
                 var target = _guidanceReturnFocus is { IsEffectivelyVisible: true } previous ? previous
                     : this.GetVisualDescendants().OfType<Button>().SingleOrDefault(button => AutomationProperties.GetName(button) == "Resume guidance");
-                target?.Focus();
+                _ = (target?.Focus());
                 _guidanceReturnFocus = null;
             }
         }
@@ -132,14 +132,20 @@ public partial class MainWindow
         {
             _explicitGuidanceSession = _viewModel.WorkspaceSessionId;
             if (_viewModel.SkipGuidance && _viewModel.PreferencesEditable) _viewModel.SkipGuidance = false;
-            if (_guidedForm is not null && _guidedSession == _viewModel.WorkspaceSessionId) await ShowGuidedInitializationAsync();
+            if (_guidedForm is not null && _guidedSession == _viewModel.WorkspaceSessionId)
+            {
+                await ShowGuidedInitializationAsync();
+            }
             else if (_viewModel.SelectedProgram is { } selected)
             {
                 _guidedSession = _viewModel.WorkspaceSessionId; _guidedPlan = selected.PlanId; _guidanceVisible = true;
                 _guidanceAssessmentIdentity = null; // Explicit resume also checks external file changes.
                 RefreshGuidance();
             }
-            else await ShowGuidedInitializationAsync();
+            else
+            {
+                await ShowGuidedInitializationAsync();
+            }
         }
         catch (Exception error) { _viewModel.ReportError(AuthoringWorkspaceViewModel.PersistenceError(error)); }
     }

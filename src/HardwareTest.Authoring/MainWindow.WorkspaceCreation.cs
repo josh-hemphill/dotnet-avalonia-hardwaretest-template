@@ -31,7 +31,10 @@ public partial class MainWindow
         {
             cancellationToken.ThrowIfCancellationRequested();
             var originalDocument = _viewModel.SelectedDocument;
-            bool ContextIsCurrent() => current() && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
+            bool ContextIsCurrent()
+            {
+                return current() && ReferenceEquals(originalDocument, _viewModel.SelectedDocument);
+            }
             // Validate and review conflicts before asking to leave the current document.
             var initializer = new AuthoringWorkspaceInitializer();
             _ = initializer.Preview(request);

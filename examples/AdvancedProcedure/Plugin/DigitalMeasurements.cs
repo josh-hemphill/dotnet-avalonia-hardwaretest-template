@@ -19,13 +19,17 @@ public sealed class CounterTriggerStep : FixtureMeasurementStep
         ProcedureTables.Require(row.Levels.All(level => level > 0 && level == Math.Truncate(level)),
             $"Case '{row.Id}' requires positive integer trigger increments.");
         if (route.CounterReadings is { } readings)
+        {
             ProcedureTables.Require(readings.Length == row.Levels.Length + 1
                 && readings.All(value => double.IsFinite(value) && value >= 0 && value == Math.Truncate(value))
                 && readings.SequenceEqual(readings.Order()),
                 $"Case '{row.Id}' needs a recorded baseline and one nondecreasing integer reading per trigger.");
+        }
         else
+        {
             ProcedureTables.Require(!row.Criteria.Any(band => band.Id == "observedIncrement"),
                 $"Case '{row.Id}' needs recorded counter readings to evaluate observed increments.");
+        }
     }
 
     internal override void Measure(FixtureProcedureStep fixture, CaseTable row, MeasurementEvidence evidence)
@@ -75,7 +79,7 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
 
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "V", "V", "V");
+        _ = RequireRoutes(tables, row, "V", "V", "V");
         RequireLevels(row, 4, 8);
         ProcedureTables.Require(FirstRiseSamples is >= 1 and <= 3,
             $"Case '{row.Id}' needs one to three samples in the simulated first rising edge.");
@@ -87,7 +91,7 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         var routes = fixture.ActiveRoutes;
         const double dt = 0.1;
         const int window = 20;
-        var samples = row.Levels.Length * window + 5;
+        var samples = (row.Levels.Length * window) + 5;
         var generatorA = new double[samples];
         var generatorB = new double[samples];
         var signal = new double[samples];
@@ -101,8 +105,8 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
             var high = generatorA[i] + generatorB[i] > 0;
             const double low = 0.08;
             var transition = bit == 0 && high ? Math.Min(1.0, (phase + 1) / (double)FirstRiseSamples) : 1.0;
-            var voltage = high ? low + (routes[2].Nominal - low) * transition : low;
-            signal[i] = voltage + 0.02 * Math.Sin(i);
+            var voltage = high ? low + ((routes[2].Nominal - low) * transition) : low;
+            signal[i] = voltage + (0.02 * Math.Sin(i));
         }
 
         var capturedAt = CompleteSimulatedCapture((samples - 1) * dt);
@@ -126,16 +130,16 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         var compliant = complete && pulses.Count == row.Levels.Length;
         for (var i = 0; i < pulses.Count; i++)
         {
-            var pulse = pulses[i];
+            var (Start, Width) = pulses[i];
             var coordinate = $"pulse-{i + 1}";
-            var width = pulse.Width;
+            var width = Width;
             var center = width >= 0.8 ? 1.2 : 0.5;
             compliant &= Math.Abs(width - center) <= 0.15;
             evidence.Evaluate("width", width, "ms", coordinate);
             if (i > 0)
             {
-                var period = pulse.Start - pulses[i - 1].Start;
-                compliant &= Math.Abs(period - window * dt) <= 0.15;
+                var period = Start - pulses[i - 1].Start;
+                compliant &= Math.Abs(period - (window * dt)) <= 0.15;
                 evidence.Evaluate("period", period, "ms", coordinate);
                 evidence.Evaluate("frequency", 1000 / period, "Hz", coordinate);
             }
@@ -160,7 +164,9 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         for (var i = 0; i < trace.Length; i++)
         {
             if (trace[i] >= ThresholdVolts)
+            {
                 start ??= i;
+            }
             else if (start is { } first)
             {
                 pulses.Add((first * intervalMs, (i - first) * intervalMs));
@@ -183,7 +189,7 @@ public sealed class ConfigurationMeasurementStep : FixtureMeasurementStep
 
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "V");
+        _ = RequireRoutes(tables, row, "V");
         RequireLevels(row, 1, 1);
     }
 

@@ -19,9 +19,12 @@ public partial class StepTreeViewModel
         var clearScope = ActiveScopeStep?.IsReadOnlyEvidence == true;
         if (_referenceAcceptanceStage is { } previous)
         {
-            if (_referenceAcceptanceParent is { } parent) parent.Children.Remove(previous);
-            else { _fullHierarchy.Remove(previous); Hierarchy.Remove(previous); }
-            foreach (var stage in Stages.Where(stage => stage.Step?.IsReadOnlyEvidence == true).ToArray()) Stages.Remove(stage);
+            if (_referenceAcceptanceParent is { } parent)
+            {
+                _ = parent.Children.Remove(previous);
+            }
+            else { _ = _fullHierarchy.Remove(previous); _ = Hierarchy.Remove(previous); }
+            foreach (var stage in Stages.Where(stage => stage.Step?.IsReadOnlyEvidence == true).ToArray()) _ = Stages.Remove(stage);
         }
         _referenceAcceptanceStage = null;
         _referenceAcceptanceParent = null;
@@ -36,7 +39,7 @@ public partial class StepTreeViewModel
                 Path = "Reference acceptance",
                 IsStage = true,
                 KeyValue = "Read-only acceptance evidence. Rerun the measured test or the full program to evaluate again.",
-                Children = results.Select(result => new OpenTapStepNode
+                Children = [.. results.Select(result => new OpenTapStepNode
                 {
                     Id = result.StepId,
                     Path = result.StepPath,
@@ -44,7 +47,7 @@ public partial class StepTreeViewModel
                     StatusText = result.Passed ? "Pass" : "Fail",
                     Verdict = result.Passed ? "Pass" : "Fail",
                     KeyValue = result.Message,
-                }).ToList(),
+                })],
             };
             var evidence = new HierarchyStepViewModel(node);
             _referenceAcceptanceStage = evidence;

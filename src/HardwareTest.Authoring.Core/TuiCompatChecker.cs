@@ -9,7 +9,6 @@ namespace HardwareTest.Authoring;
 /// Compares authoring vs TUI OpenTAP homes: catalog, round-trip mixins, and plan contract.
 public sealed class TuiCompatChecker : ITuiCompatChecker
 {
-    private static readonly XNamespace PackageNs = "http://opentap.io/schemas/package";
 
     public TuiCompatReport Compare(AuthoringWorkspace workspace, OpenTapHome authoringHome, OpenTapHome tuiHome)
     {
@@ -159,7 +158,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
                 TrustConfiguredPluginDirectories = true,
                 Settings = new AppSettings
                 {
-                    OpenTapPluginDirectories = EnumeratePluginDirectories(tuiHome).ToList(),
+                    OpenTapPluginDirectories = [.. EnumeratePluginDirectories(tuiHome)],
                 },
             });
         if (contract.HasErrors)
@@ -233,7 +232,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
         }
         catch (ReflectionTypeLoadException ex)
         {
-            types = ex.Types.Where(t => t is not null).Cast<Type>().ToArray();
+            types = [.. ex.Types.Where(t => t is not null).Cast<Type>()];
         }
         catch
         {
@@ -263,7 +262,7 @@ public sealed class TuiCompatChecker : ITuiCompatChecker
     }
 
     internal static string[] ReadChannelKeys(string planPath)
-        => EnumerateChannelKeys(XDocument.Load(planPath)).ToArray();
+        => [.. EnumerateChannelKeys(XDocument.Load(planPath))];
 
     internal static string[] RoundTripChannelKeys(string planPath, OpenTapHome tuiHome)
     {

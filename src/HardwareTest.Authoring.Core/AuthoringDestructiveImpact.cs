@@ -75,9 +75,9 @@ internal static class AuthoringContentFingerprint
         var text = new StringBuilder();
         void Add(object? value)
         {
-            if (value is null) { text.Append("N;"); return; }
+            if (value is null) { _ = text.Append("N;"); return; }
             var token = value switch { IFormattable f => f.ToString(null, CultureInfo.InvariantCulture), _ => value.ToString()! };
-            text.Append('V').Append(token.Length).Append(':').Append(token);
+            _ = text.Append('V').Append(token.Length).Append(':').Append(token);
         }
         void Strings(IEnumerable<string> values) { var array = values.ToArray(); Add(array.Length); foreach (var v in array) Add(v); }
         void Settings(IReadOnlyDictionary<string, string> settings) { Add(settings.Count); foreach (var p in settings.OrderBy(p => p.Key, StringComparer.Ordinal)) { Add(p.Key); Add(p.Value); } }
@@ -121,11 +121,14 @@ internal static class AuthoringContentFingerprint
             JsonSerializer.Serialize(workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
             AuthoringJsonContext.Default.AuthoringManifest)!;
         if (manifest.Catalogs is { } catalogs)
-            catalogs.Hardware = catalogs.Hardware.Select(definition => definition with
+        {
+            catalogs.Hardware = [.. catalogs.Hardware.Select(definition => definition with
             {
                 Settings = definition.Settings.OrderBy(p => p.Key, StringComparer.Ordinal)
                     .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal),
-            }).ToList();
+            })];
+        }
+
         Add(JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest));
         Strings(workspace.TapPlanPaths); Add(programs.Count);
         foreach (var program in programs)

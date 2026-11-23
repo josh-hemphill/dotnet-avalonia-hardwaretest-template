@@ -70,18 +70,11 @@ public partial class HierarchyStepViewModel : ReactiveObject
 }
 
 /// A stage / section entry in the right-hand scope lists.
-public partial class StageItemViewModel : ReactiveObject
+public partial class StageItemViewModel(HierarchyStepViewModel? step, string displayName) : ReactiveObject
 {
-    public StageItemViewModel(HierarchyStepViewModel? step, string displayName)
-    {
-        Step = step;
-        DisplayName = displayName;
-        Path = step?.Path;
-    }
-
-    public HierarchyStepViewModel? Step { get; }
-    public string DisplayName { get; }
-    public string? Path { get; }
+    public HierarchyStepViewModel? Step { get; } = step;
+    public string DisplayName { get; } = displayName;
+    public string? Path { get; } = step?.Path;
 
     [Reactive] private string _statusText = "Pending";
     [Reactive] private string _verdict = "NotSet";

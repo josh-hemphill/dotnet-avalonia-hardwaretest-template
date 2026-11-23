@@ -21,28 +21,20 @@ public interface IRunRetentionService
 }
 
 /// Age + count retention for runs/ (and suites/).
-public sealed class RunRetentionService : IRunRetentionService
+public sealed class RunRetentionService(
+    AppSettings settings,
+    string runsDirectory,
+    ILogger? log = null,
+    IClock? clock = null) : IRunRetentionService
 {
-    private readonly AppSettings _settings;
-    private readonly string _runsDirectory;
-    private readonly ILogger? _log;
-    private readonly IClock _clock;
-
-    public RunRetentionService(
-        AppSettings settings,
-        string runsDirectory,
-        ILogger? log = null,
-        IClock? clock = null)
-    {
-        _settings = settings;
-        _runsDirectory = runsDirectory;
-        _log = log;
-        _clock = clock ?? SystemClock.Instance;
-    }
+    private readonly AppSettings _settings = settings;
+    private readonly string _runsDirectory = runsDirectory;
+    private readonly ILogger? _log = log;
+    private readonly IClock _clock = clock ?? SystemClock.Instance;
 
     public RunRetentionResult Prune(bool dryRun = false)
     {
-        Directory.CreateDirectory(_runsDirectory);
+        _ = Directory.CreateDirectory(_runsDirectory);
         var candidates = EnumerateRunFolders()
             .Select(Analyze)
             .Where(c => c is not null)
@@ -66,7 +58,7 @@ public sealed class RunRetentionService : IRunRetentionService
 
             if (maxAgeDays > 0 && folder.StartedAt < now.AddDays(-maxAgeDays))
             {
-                toDelete.Add(folder.DirectoryPath);
+                _ = toDelete.Add(folder.DirectoryPath);
             }
         }
 
@@ -78,7 +70,7 @@ public sealed class RunRetentionService : IRunRetentionService
                 .ToList();
             foreach (var excess in keepable.Skip(maxCount))
             {
-                toDelete.Add(excess.DirectoryPath);
+                _ = toDelete.Add(excess.DirectoryPath);
             }
         }
 

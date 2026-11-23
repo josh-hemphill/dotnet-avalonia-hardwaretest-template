@@ -17,9 +17,13 @@ public sealed class ResponsivePreviewTests
     public static IEnumerable<object[]> PreviewCases()
     {
         foreach (var (width, height, font, scale) in new[] { (960, 600, 14, 1d), (1280, 800, 14, 1d), (960, 600, 20, 1.5), (1280, 800, 20, 1.5) })
+        {
             foreach (var role in new[] { "timeseries", "scalar", "timing" })
+            {
                 foreach (var busy in new[] { false, true })
                     yield return [width, height, font, scale, role, busy];
+            }
+        }
     }
 
     [AvaloniaTheory]
@@ -110,7 +114,7 @@ public sealed class ResponsivePreviewTests
                 Assert.True(scroll.Offset.Y > 0);
                 // The board owns its wheel input; source controls stay outside its viewport.
                 var center = preview.TranslatePoint(new Point(8, 8), window);
-                Assert.NotNull(center);
+                _ = Assert.NotNull(center);
                 window.MouseWheel(center.Value, new Vector(0, 1000), RawInputModifiers.None);
                 AuthoringUiFixture.Drain();
                 Assert.Equal(0, scroll.Offset.Y);

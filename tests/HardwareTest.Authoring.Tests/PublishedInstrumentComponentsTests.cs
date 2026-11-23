@@ -48,7 +48,7 @@ public sealed class PublishedInstrumentComponentsTests
             using (var stream = File.OpenRead(path))
                 Assert.Equal(PublishedInstrumentComponents.Sha256, Convert.ToHexStringLower(SHA256.HashData(stream)));
             var original = File.ReadAllBytes(path);
-            Assert.Throws<IOException>(() => PublishedInstrumentComponents.MaterializeArchive(path));
+            _ = Assert.Throws<IOException>(() => PublishedInstrumentComponents.MaterializeArchive(path));
             Assert.Equal(original, File.ReadAllBytes(path));
         }
         finally { File.Delete(path); }
@@ -61,8 +61,8 @@ public sealed class PublishedInstrumentComponentsTests
         using var second = PublishedInstrumentComponents.OpenArchive();
         Assert.False(first.CanWrite);
         Assert.False(second.CanWrite);
-        Assert.Throws<NotSupportedException>(() => first.WriteByte(0));
-        first.ReadByte();
+        _ = Assert.Throws<NotSupportedException>(() => first.WriteByte(0));
+        _ = first.ReadByte();
         Assert.Equal(0, second.Position);
         first.Dispose();
         Assert.Equal(PublishedInstrumentComponents.Sha256, Convert.ToHexStringLower(SHA256.HashData(second)));
@@ -73,7 +73,7 @@ public sealed class PublishedInstrumentComponentsTests
     public async Task Bundled_archive_keeps_cold_authoring_library_free()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-published-isolation-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             var draft = new AuthoringPlanInitializer().Construct(new("isolated")

@@ -17,13 +17,15 @@ public static class BenchReferenceIdentity
         var ordered = inputs.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
         if (ordered.Any(item => string.IsNullOrWhiteSpace(item.Key))
             || ordered.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count() != ordered.Length)
+        {
             throw new InvalidOperationException("Reference configuration needs unique nonempty input keys.");
+        }
         // Length-prefix every field so embedded delimiters cannot alias another configuration.
         var text = new StringBuilder();
         foreach (var item in ordered)
         {
             var value = item.Value ?? string.Empty;
-            text.Append(item.Key.Length).Append(':').Append(item.Key)
+            _ = text.Append(item.Key.Length).Append(':').Append(item.Key)
                 .Append(value.Length).Append(':').Append(value);
         }
         return HashText(text.ToString());
@@ -35,15 +37,15 @@ public static class BenchReferenceIdentity
         {
             ContentSha256 = string.Empty,
             Context = profile.Context with { },
-            Values = profile.Values.OrderBy(value => value.ReferenceKey, StringComparer.Ordinal)
+            Values = [.. profile.Values.OrderBy(value => value.ReferenceKey, StringComparer.Ordinal)
                 .ThenBy(value => value.MetricKey, StringComparer.Ordinal)
                 .ThenBy(value => value.ProducerStepId)
                 .ThenBy(value => value.Unit, StringComparer.Ordinal)
-                .Select(value => value with { }).ToList(),
+                .Select(value => value with { })],
         };
         return Sha256(JsonSerializer.SerializeToUtf8Bytes(canonical, AppJsonContext.Default.BenchReferenceProfile));
     }
 
     internal static bool IsHash(string? hash)
-        => hash is { Length: 64 } && hash.All(character => char.IsAsciiHexDigit(character));
+        => hash is { Length: 64 } && hash.All(char.IsAsciiHexDigit);
 }

@@ -11,7 +11,7 @@ public sealed class AuthoringHistoryControlsTests
     public void Program_and_catalog_controls_are_visible_and_restore_their_scoped_content()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         var undo = fixture.Control<Button>("Undo selected program");
         var redo = fixture.Control<Button>("Redo selected program");

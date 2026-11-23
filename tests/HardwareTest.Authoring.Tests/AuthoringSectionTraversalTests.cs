@@ -67,7 +67,7 @@ public sealed class AuthoringSectionTraversalTests
         Assert.Equal(section.NodeId, projectedSection.NodeId);
         Assert.Empty(Assert.IsType<SectionNode>(projectedSection.Children[2]).Children);
         Assert.Equal(3, section.Children.Count);
-        Assert.Single(nested.Children);
+        _ = Assert.Single(nested.Children);
         var generated = Guid.NewGuid();
         var xml = new XDocument(new XElement("TestPlan", new[] { section.NodeId, input.NodeId, raw.NodeId, nested.NodeId, generated }
             .Select(id => new XElement("TestStep", new XAttribute("Id", id)))));

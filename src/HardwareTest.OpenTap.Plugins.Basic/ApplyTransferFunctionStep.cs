@@ -13,10 +13,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
 {
     private readonly SampleTableCapture _capture = new();
 
-    public ApplyTransferFunctionStep()
-    {
-        SampleCapture = _capture;
-    }
+    public ApplyTransferFunctionStep() => SampleCapture = _capture;
 
     [Display("Input channel", Order: 1)]
     public string InputChannel { get; set; } = string.Empty;
@@ -56,7 +53,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
             {
                 Results.Publish(
                     "Sample",
-                    new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                    ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
                     string.IsNullOrWhiteSpace(Channel) ? Name : Channel,
                     i,
                     filtered[i].Value,

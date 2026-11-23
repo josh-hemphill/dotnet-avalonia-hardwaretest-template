@@ -114,7 +114,7 @@ public sealed class RecordingPickerTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         using var replacement = new AuthoringUiFixture();
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.StopRecoveryAsync();
         replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
         var source = Recording(fixture.WorkspaceRoot, fixture.ViewModel.SelectedProgram!.PlanId);
@@ -149,15 +149,15 @@ public sealed class RecordingPickerTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         using var replacement = new AuthoringUiFixture();
-        fixture.Show(); fixture.OpenRememberedWorkspace(); await fixture.ViewModel.StopRecoveryAsync();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); await fixture.ViewModel.StopRecoveryAsync();
         replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
-        Directory.CreateDirectory(Path.Combine(fixture.WorkspaceRoot, "recordings"));
+        _ = Directory.CreateDirectory(Path.Combine(fixture.WorkspaceRoot, "recordings"));
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var preview = new WorkspacePreviewView(new ControlledRecordingPicker(), (owner, directory) =>
         {
             Assert.Same(fixture.Window, owner); Assert.Equal(Path.Combine(fixture.WorkspaceRoot, "recordings"), directory.FullName);
-            requested.TrySetResult(); return completed.Task;
+            _ = requested.TrySetResult(); return completed.Task;
         })
         { DataContext = fixture.ViewModel };
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;

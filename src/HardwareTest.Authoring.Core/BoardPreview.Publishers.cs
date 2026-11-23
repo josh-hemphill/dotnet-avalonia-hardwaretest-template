@@ -16,7 +16,7 @@ public static partial class BoardPreviewBuilder
                     var members = iteration.SelectMany(group => group).ToHashSet();
                     // Runtime consumes published rows in order, even when their times are invalid.
                     var samples = recording is null ? iteration.SelectMany(group => group).ToArray()
-                        : recording.Samples.Where(members.Contains).ToArray();
+                        : [.. recording.Samples.Where(members.Contains)];
                     if (samples.GroupBy(sample => sample.ProducerStepId).Any(producer => producer.Select(sample => sample.StepRunId).Distinct().Count() > 1))
                     {
                         available[key] = [];

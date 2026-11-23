@@ -31,8 +31,10 @@ public static class ProgramReferenceDeclarations
                     throw new InvalidDataException("A reference criterion must be an object.");
                 var names = new HashSet<string>(StringComparer.Ordinal);
                 foreach (var field in rule.EnumerateObject())
+                {
                     if (!RuleFields.Contains(field.Name) || !names.Add(field.Name))
                         throw new InvalidDataException($"Unsupported or duplicate reference field '{field.Name}'. Restore a supported sidecar before Run.");
+                }
             }
         }
     }

@@ -17,7 +17,7 @@ public sealed class FileStationHealthStore : IStationHealthStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataDirectory);
         _rootDirectory = PathContainment.CombineUnderRoot(dataDirectory, DirectoryName);
-        Directory.CreateDirectory(_rootDirectory);
+        _ = Directory.CreateDirectory(_rootDirectory);
     }
 
     public StationHealthRecord? TryRead(string profileId)

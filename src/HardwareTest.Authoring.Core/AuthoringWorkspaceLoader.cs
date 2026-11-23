@@ -85,8 +85,11 @@ public static class AuthoringWorkspaceLoader
 
             var schemaVersion = ReadSchemaVersion(document.RootElement, manifestPath);
             if (schemaVersion < AuthoringSchemaVersions.Manifest)
+            {
                 throw new AuthoringWorkspaceException(
                     $"Unsupported {ManifestFileName} schema {schemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
+            }
+
             var isFuture = schemaVersion > AuthoringSchemaVersions.Manifest;
             if (!isFuture)
             {
@@ -140,10 +143,12 @@ public static class AuthoringWorkspaceLoader
         }
 
         if (manifest.SchemaVersion != AuthoringSchemaVersions.Manifest)
+        {
             throw new AuthoringWorkspaceException(
                 $"Cannot write {ManifestFileName} schema {manifest.SchemaVersion}; this app requires schema {AuthoringSchemaVersions.Manifest}.");
+        }
 
-        Directory.CreateDirectory(fullRoot);
+        _ = Directory.CreateDirectory(fullRoot);
 
         var json = JsonSerializer.Serialize(manifest, AuthoringJsonContext.Default.AuthoringManifest);
         var temporaryPath = paths.ValidatePath(manifestPath + "." + Guid.NewGuid().ToString("N") + ".saving");

@@ -26,7 +26,7 @@ public sealed class AuthoringWorkspaceHistoryTests
         var history = new AuthoringWorkspaceHistory();
         var before = State("old", "a", "b");
         var after = State("new", "a", "b");
-        history.Commit("Change", before, after);
+        _ = history.Commit("Change", before, after);
         var restored = history.Undo(after);
         Assert.False(history.Commit("Noop", restored, State("old", "a", "b")));
         Assert.True(history.CanRedo(restored));
@@ -42,13 +42,13 @@ public sealed class AuthoringWorkspaceHistoryTests
         var history = new AuthoringWorkspaceHistory();
         var before = State("old", "a", "b");
         var after = State("new", "a", "b");
-        history.Commit("Change", before, after);
+        _ = history.Commit("Change", before, after);
         var stale = State("new", "a", "external");
         Assert.False(history.CanUndo(stale));
         Assert.Contains("stale", Assert.Throws<InvalidOperationException>(() => history.Undo(stale)).Message);
         Assert.True(history.CanUndo(after));
-        history.Undo(after);
-        Assert.Throws<InvalidOperationException>(() => history.Redo(stale));
+        _ = history.Undo(after);
+        _ = Assert.Throws<InvalidOperationException>(() => history.Redo(stale));
         Assert.True(history.CanRedo(before));
         history.Clear();
         Assert.False(history.CanRedo(before));
@@ -61,13 +61,13 @@ public sealed class AuthoringWorkspaceHistoryTests
         var history = new AuthoringWorkspaceHistory();
         var initial = State("old", "a", "b");
         var catalogChanged = State("new", "a", "b");
-        history.Commit("First catalog edit", initial, catalogChanged);
+        _ = history.Commit("First catalog edit", initial, catalogChanged);
         var programChanged = State("new", "edited-a", "b");
         var secondCatalogChanged = State("newer", "edited-a", "b");
         Assert.True(history.Commit("Second catalog edit", programChanged, secondCatalogChanged));
         Assert.True(programChanged.ContentEquals(history.Undo(secondCatalogChanged)));
         Assert.False(history.CanUndo(programChanged));
-        Assert.Throws<InvalidOperationException>(() => history.Undo(programChanged));
+        _ = Assert.Throws<InvalidOperationException>(() => history.Undo(programChanged));
         Assert.True(initial.ContentEquals(history.Undo(catalogChanged)));
     }
 

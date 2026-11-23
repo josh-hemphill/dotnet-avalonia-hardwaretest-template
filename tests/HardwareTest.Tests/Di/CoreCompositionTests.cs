@@ -24,13 +24,13 @@ public sealed class CoreCompositionTests
         store.AppSettings.UseMockVisa = true;
 
         var services = new ServiceCollection();
-        services.AddHardwareTestCore(store);
+        _ = services.AddHardwareTestCore(store);
         await using var sp = services.BuildServiceProvider();
 
         Assert.NotNull(sp.GetRequiredService<IVisaSessionFactory>());
         Assert.NotNull(sp.GetRequiredService<IRunStore>());
         Assert.NotNull(sp.GetRequiredService<IRunComparisonService>());
-        Assert.IsType<RunComparisonService>(sp.GetRequiredService<IRunComparisonService>());
+        _ = Assert.IsType<RunComparisonService>(sp.GetRequiredService<IRunComparisonService>());
         Assert.NotNull(sp.GetRequiredService<IReportService>());
         Assert.NotNull(sp.GetRequiredService<ISuiteRunStore>());
         Assert.NotNull(sp.GetRequiredService<IVisaResourceDiscovery>());
@@ -39,16 +39,16 @@ public sealed class CoreCompositionTests
         Assert.NotNull(sp.GetRequiredService<MeasurementAcquisition>());
         Assert.NotNull(sp.GetRequiredService<IDutHistoryService>());
         Assert.NotNull(sp.GetRequiredService<IStationIdnStore>());
-        Assert.IsType<FileStationIdnStore>(sp.GetRequiredService<IStationIdnStore>());
-        Assert.IsType<FileStationHealthStore>(sp.GetRequiredService<IStationHealthStore>());
-        Assert.IsType<StationHealthGate>(sp.GetRequiredService<IStationHealthGate>());
+        _ = Assert.IsType<FileStationIdnStore>(sp.GetRequiredService<IStationIdnStore>());
+        _ = Assert.IsType<FileStationHealthStore>(sp.GetRequiredService<IStationHealthStore>());
+        _ = Assert.IsType<StationHealthGate>(sp.GetRequiredService<IStationHealthGate>());
         Assert.NotNull(sp.GetRequiredService<ISafetyController>());
-        Assert.IsType<NoOpSafetyController>(sp.GetRequiredService<ISafetyController>());
+        _ = Assert.IsType<NoOpSafetyController>(sp.GetRequiredService<ISafetyController>());
         Assert.False(sp.GetRequiredService<ISafetyController>().IsArmed);
-        Assert.IsType<HardwareTest.Core.Credentials.PcscOperatorCredentialBroker>(
-            sp.GetRequiredService<HardwareTest.Core.Credentials.IOperatorCredentialPresenceBroker>());
-        Assert.IsType<HardwareTest.Core.Credentials.SettingsBackedCredentialBroker>(
-            sp.GetRequiredService<HardwareTest.Core.Credentials.IOperatorCredentialBroker>());
-        Assert.NotNull(sp.GetRequiredService<HardwareTest.Core.Credentials.IReportAttestationService>());
+        _ = Assert.IsType<Core.Credentials.PcscOperatorCredentialBroker>(
+            sp.GetRequiredService<Core.Credentials.IOperatorCredentialPresenceBroker>());
+        _ = Assert.IsType<Core.Credentials.SettingsBackedCredentialBroker>(
+            sp.GetRequiredService<Core.Credentials.IOperatorCredentialBroker>());
+        Assert.NotNull(sp.GetRequiredService<Core.Credentials.IReportAttestationService>());
     }
 }

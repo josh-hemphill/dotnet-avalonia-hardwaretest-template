@@ -86,7 +86,7 @@ internal static class Program
 #if DEBUG
         if (!string.IsNullOrWhiteSpace(parsed.SimulateCrash))
         {
-            var mode = parsed.SimulateCrash!;
+            var mode = parsed.SimulateCrash;
             var isFatal = string.Equals(mode, "fatal", StringComparison.OrdinalIgnoreCase);
             var dir = CrashHandler.Capture(
                 new InvalidOperationException($"Simulated crash (--simulate-crash {mode})"),
@@ -114,7 +114,7 @@ internal static class Program
         try
         {
             BuildAvaloniaApp(store)
-                .StartWithClassicDesktopLifetime(parsed.PassthroughArgs.ToArray());
+                .StartWithClassicDesktopLifetime([.. parsed.PassthroughArgs]);
             return 0;
         }
         catch (Exception ex)

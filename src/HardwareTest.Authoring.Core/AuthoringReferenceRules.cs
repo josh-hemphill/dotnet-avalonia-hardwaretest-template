@@ -35,7 +35,11 @@ public static class AuthoringReferenceRules
                 findings.Add(new("A reference criterion is empty. Remove it or configure its measurement.", Guid.Empty, "ReferenceKey"));
                 continue;
             }
-            void Add(string message, Guid nodeId, string field) => findings.Add(new(message, nodeId, field) { RuleId = rule.RuleId });
+            void Add(string message, Guid nodeId, string field)
+            {
+                findings.Add(new(message, nodeId, field) { RuleId = rule.RuleId });
+            }
+
             var matching = metrics.Where(metric => metric.NodeId == rule.ProducerStepId).ToArray();
             var node = matching.Length == 1 ? matching[0] : null;
             if (node is null || excluded.Contains(rule.ProducerStepId))
@@ -48,11 +52,16 @@ public static class AuthoringReferenceRules
             if (string.IsNullOrWhiteSpace(rule.ReferenceKey))
                 Add("Name the reference input for this measurement.", node.NodeId, "ReferenceKey");
             if (string.IsNullOrWhiteSpace(node.Metric.YUnit))
+            {
                 Add("Set the measurement Y unit (1 if dimensionless), then rebind this reference criterion before compiling.", node.NodeId, "ReferenceMeasurementUnit");
+            }
             else if (!string.Equals(rule.MetricKey, node.Metric.ChannelKey, StringComparison.Ordinal)
                 || !string.Equals(rule.Unit, node.Metric.YUnit, StringComparison.Ordinal)
                 || string.IsNullOrWhiteSpace(rule.Unit))
+            {
                 Add("Measurement identity changed. Use the current measurement identity to rebind this criterion before compiling.", node.NodeId, "ReferenceTarget");
+            }
+
             if (rule.Comparison is not ("absolute" or "percent"))
                 Add("Choose absolute difference or relative difference for the reference criterion.", node.NodeId, "ReferenceComparison");
             if (rule.Tolerance is not { } tolerance || !double.IsFinite(tolerance) || tolerance < 0)

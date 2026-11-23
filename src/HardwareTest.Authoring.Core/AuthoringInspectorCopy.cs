@@ -198,6 +198,6 @@ public static class AuthoringInspectorCopy
             chars.Add(chars[^1] == ' ' ? char.ToLowerInvariant(current) : current);
         }
 
-        return new string(chars.ToArray());
+        return new string([.. chars]);
     }
 }

@@ -133,7 +133,7 @@ public sealed class VisaModeController : IVisaModeController, IVisaSessionFactor
         }
 
         var inner = await factory.OpenAsync(resourceName, cancellationToken).ConfigureAwait(false);
-        Interlocked.Increment(ref _openSessions);
+        _ = Interlocked.Increment(ref _openSessions);
         return new TrackedVisaSession(inner, this);
     }
 

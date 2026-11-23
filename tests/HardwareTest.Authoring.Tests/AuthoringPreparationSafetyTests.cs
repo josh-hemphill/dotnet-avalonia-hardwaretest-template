@@ -12,8 +12,11 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
     public static IEnumerable<object[]> UnsafePrepareCases()
     {
         foreach (var optional in new[] { true, false })
+        {
             foreach (var entrypoint in new[] { "public", "vm", "cli", "coordinator" })
                 foreach (var path in new[] { "parent", "absolute", "escape" }) yield return [optional, entrypoint, path];
+        }
+
         foreach (var optional in new[] { true, false })
             foreach (var entrypoint in new[] { "public-import", "coordinator-import" }) yield return [optional, entrypoint, "parent"];
     }
@@ -30,11 +33,13 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
         var archive = Path.Combine(workspace.Root, "unrelated.TapPackage"); WriteArchive(archive, "Unrelated");
         var before = Snapshot(home.Root, outside); var source = File.ReadAllBytes(Path.Combine(workspace.Root, "sample.TapPlan")); var manifest = File.ReadAllBytes(Path.Combine(workspace.Root, AuthoringWorkspaceLoader.ManifestFileName));
         if (entrypoint.StartsWith("public", StringComparison.Ordinal))
-            Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = entrypoint.EndsWith("import", StringComparison.Ordinal) ? archive : null }));
+        {
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = entrypoint.EndsWith("import", StringComparison.Ordinal) ? archive : null }));
+        }
         else if (entrypoint == "vm")
         {
             var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
-            Assert.Throws<AuthoringWorkspaceException>(() => vm.Bootstrap(new() { Offline = true }));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Bootstrap(new() { Offline = true }));
             Assert.DoesNotContain("OpenTAP home " + home.Root, vm.Status ?? ""); Assert.Null(vm.LastBuildReceipt); Assert.False(vm.HasUnsavedChanges); vm.StopRecovery();
         }
         else if (entrypoint == "cli")
@@ -46,7 +51,7 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
         else
         {
             using var coordinator = Coordinator();
-            await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, workspace.Root, home: home.Root, offlinePackagePath: entrypoint.EndsWith("import", StringComparison.Ordinal) ? archive : null));
+            _ = await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, workspace.Root, home: home.Root, offlinePackagePath: entrypoint.EndsWith("import", StringComparison.Ordinal) ? archive : null));
         }
         Assert.Equal(before, Snapshot(home.Root, outside)); Assert.Equal(source, File.ReadAllBytes(Path.Combine(workspace.Root, "sample.TapPlan")));
         Assert.Equal(manifest, File.ReadAllBytes(Path.Combine(workspace.Root, AuthoringWorkspaceLoader.ManifestFileName)));
@@ -62,7 +67,7 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
         workspace.Manifest.Dependencies.Add(new() { Package = "Still missing", Version = "^1.0.0" });
         workspace.Manifest.Dependencies.Add(new() { Package = OpenTapHomeBootstrapper.InstrumentComponentsPackageName, Version = "^1.0.0" });
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
-        var package = Path.Combine(home.Root, "Packages", "Repairable"); Directory.CreateDirectory(package);
+        var package = Path.Combine(home.Root, "Packages", "Repairable"); _ = Directory.CreateDirectory(package);
         File.WriteAllText(Path.Combine(package, "package.xml"), "<Package Name=\"Repairable\" Version=\"1.0.0\"><Files><File Path=\"../../../unsafe.txt\"/></Files></Package>");
         var archive = Path.Combine(workspace.Root, "repair.TapPackage"); WriteArchive(archive, "Repairable");
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
@@ -72,7 +77,7 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
         Assert.Contains(vm.EnvironmentPackages, p => p.Package == "Repairable" && p.Satisfied && p.InstalledVersion == "1.1.0");
         Assert.Contains(vm.EnvironmentPackages, p => p.Package == "Still missing" && !p.Satisfied); Assert.False(vm.CanPack);
         Assert.Equal("safe incoming payload", File.ReadAllText(Path.Combine(package, "payload.txt")));
-        var before = Snapshot(home.Root); Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        var before = Snapshot(home.Root); _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
         Assert.Equal(before, Snapshot(home.Root)); await vm.StopOperationsAsync(); vm.StopRecovery();
     }
 
@@ -81,11 +86,11 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
     {
         if (OperatingSystem.IsWindows()) return;
         var workspace = AuthoringWorkspaceLoader.Load(AuthoringBuildSnapshotTests.Workspace()); var outside = AuthoringBuildSnapshotTests.Temp();
-        var alias = Path.Combine(workspace.Root, "outside-alias"); Directory.CreateSymbolicLink(alias, outside);
+        var alias = Path.Combine(workspace.Root, "outside-alias"); _ = Directory.CreateSymbolicLink(alias, outside);
         var selected = Path.Combine(alias, "absent-home"); Assert.False(Directory.Exists(selected)); Assert.False(File.Exists(selected));
         Assert.False(File.Exists(alias)); Assert.True(Directory.Exists(alias));
         var before = Snapshot(workspace.Root, outside);
-        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = selected, Offline = true }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = selected, Offline = true }));
         Assert.Equal(before, Snapshot(workspace.Root, outside)); Assert.False(Directory.Exists(Path.Combine(outside, "absent-home")));
     }
 
@@ -109,13 +114,16 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
     }
     private static string[] Snapshot(params string[] roots)
     {
-        var entries = new List<string>(); foreach (var root in roots) Walk(root); return entries.Order(StringComparer.Ordinal).ToArray();
+        var entries = new List<string>(); foreach (var root in roots) Walk(root); return [.. entries.Order(StringComparer.Ordinal)];
         void Walk(string path)
         {
             FileSystemInfo entry = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
             if (entry.LinkTarget is { } link) { entries.Add(path + "=>" + link); return; }
             if (entry is DirectoryInfo) { entries.Add(path + "=directory"); foreach (var child in Directory.EnumerateFileSystemEntries(path)) Walk(child); }
-            else entries.Add(path + "=" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))));
+            else
+            {
+                entries.Add(path + "=" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))));
+            }
         }
     }
 }

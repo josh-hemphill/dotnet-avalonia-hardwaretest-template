@@ -81,7 +81,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
             var elapsed = Stopwatch.StartNew();
             while (!File.Exists(marker))
             {
-                if (launching.IsCompleted) await launching;
+                if (launching.IsCompleted) _ = await launching;
                 Assert.True(elapsed.Elapsed < TimeSpan.FromSeconds(5), "Literal-argument child did not publish readiness.");
                 await Task.Delay(20);
             }
@@ -93,7 +93,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
             if (cancel)
             {
                 cancellation.Cancel();
-                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => launching.WaitAsync(TimeSpan.FromSeconds(5)));
+                _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => launching.WaitAsync(TimeSpan.FromSeconds(5)));
             }
             else
             {
@@ -110,7 +110,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
         finally
         {
             cancellation.Cancel();
-            try { await launching.WaitAsync(TimeSpan.FromSeconds(5)); }
+            try { _ = await launching.WaitAsync(TimeSpan.FromSeconds(5)); }
             catch (OperationCanceledException) { }
         }
     }
@@ -118,7 +118,7 @@ public sealed class AuthoringWindowsTuiLauncherTests : IDisposable
     {
         var root = AuthoringBuildSnapshotTests.Temp();
         var home = Path.Combine(root, "Installed homes R&D %PATH%");
-        Directory.CreateDirectory(home);
+        _ = Directory.CreateDirectory(home);
         // A real executable protocol fixture substitutes for tap.dll and records its exact argv.
         foreach (var file in Directory.GetFiles(AppContext.BaseDirectory, "*.dll").Where(file => !Path.GetFileName(file).StartsWith("InstrumentComponents.", StringComparison.Ordinal)))
             File.Copy(file, Path.Combine(home, Path.GetFileName(file)));

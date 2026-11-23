@@ -38,14 +38,9 @@ public static class CrashHandler
             _buildInfo = buildInfo;
             _safeStop = safeStop;
             _sessionSnapshot = sessionSnapshot;
-            if (settingsStore.AppSettings.CrashEnabled)
-            {
-                _writer = CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory);
-            }
-            else
-            {
-                _writer = null;
-            }
+            _writer = settingsStore.AppSettings.CrashEnabled
+                ? CrashDossierWriter.FromSettings(settingsStore.AppSettings, settingsStore.RootDirectory)
+                : null;
         }
     }
 
@@ -62,11 +57,11 @@ public static class CrashHandler
             _processHooksInstalled = true;
         }
 
-        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
         {
             try
             {
-                Handle(e.ExceptionObject as Exception, isFatal: true, source: "AppDomain.UnhandledException");
+                _ = Handle(e.ExceptionObject as Exception, isFatal: true, source: "AppDomain.UnhandledException");
             }
             catch
             {
@@ -74,13 +69,13 @@ public static class CrashHandler
             }
         };
 
-        TaskScheduler.UnobservedTaskException += (_, e) =>
+        TaskScheduler.UnobservedTaskException += (sender, e) =>
         {
             try
             {
                 e.SetObserved();
                 Log.Warning(e.Exception, "Unobserved task exception");
-                Handle(e.Exception, isFatal: false, source: "TaskScheduler.UnobservedTaskException", rateLimit: true);
+                _ = Handle(e.Exception, isFatal: false, source: "TaskScheduler.UnobservedTaskException", rateLimit: true);
             }
             catch
             {
@@ -104,11 +99,11 @@ public static class CrashHandler
 
         try
         {
-            Dispatcher.UIThread.UnhandledException += (_, e) =>
+            Dispatcher.UIThread.UnhandledException += (sender, e) =>
             {
                 try
                 {
-                    Handle(e.Exception, isFatal: false, source: "Dispatcher.UIThread.UnhandledException", rateLimit: true);
+                    _ = Handle(e.Exception, isFatal: false, source: "Dispatcher.UIThread.UnhandledException", rateLimit: true);
                     e.Handled = true;
                     LastRecoverableMessage = FormatBanner(e.Exception, fatal: false);
                     RecoverableCrashOccurred?.Invoke(null, EventArgs.Empty);
@@ -145,7 +140,7 @@ public static class CrashHandler
     {
         try
         {
-            builder.WithExceptionHandler(new CrashRxExceptionHandler());
+            _ = builder.WithExceptionHandler(new CrashRxExceptionHandler());
         }
         catch (Exception ex)
         {
@@ -366,7 +361,7 @@ public static class CrashHandler
         {
             try
             {
-                Handle(value, isFatal: false, source: "RxState.DefaultExceptionHandler", rateLimit: true);
+                _ = Handle(value, isFatal: false, source: "RxState.DefaultExceptionHandler", rateLimit: true);
                 LastRecoverableMessage = FormatBanner(value, fatal: false);
                 RecoverableCrashOccurred?.Invoke(null, EventArgs.Empty);
                 Log.Error(value, "Unhandled ReactiveUI exception (recovered)");
@@ -377,10 +372,7 @@ public static class CrashHandler
             }
         }
 
-        public void OnError(Exception error)
-        {
-            OnNext(error);
-        }
+        public void OnError(Exception error) => OnNext(error);
 
         public void OnCompleted()
         {

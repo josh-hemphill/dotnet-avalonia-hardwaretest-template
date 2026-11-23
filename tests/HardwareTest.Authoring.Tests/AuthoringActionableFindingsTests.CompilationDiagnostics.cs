@@ -30,9 +30,13 @@ public sealed partial class AuthoringActionableFindingsTests
         if (asynchronous)
         {
             ConfigureValidationChild();
-            await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => _vm.RunOperationAsync(AuthoringOperationKind.Validate));
+            _ = await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => _vm.RunOperationAsync(AuthoringOperationKind.Validate));
         }
-        else Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        else
+        {
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        }
+
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error, StringComparison.Ordinal);
         for (var i = 0; i < paths.Length; i++) Assert.Equal(before[i], File.ReadAllBytes(paths[i]));
         Assert.False(_vm.HasUnsavedChanges);
@@ -40,7 +44,7 @@ public sealed partial class AuthoringActionableFindingsTests
         _vm.SelectProgram("a-duplicate");
         _vm.ReplaceSelected(_vm.SelectedProgram! with { Measure = [metric] });
         _vm.Apply();
-        _vm.Validate();
+        _ = _vm.Validate();
         Assert.DoesNotContain(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error ?? "", StringComparison.Ordinal);
         Assert.False(_vm.HasUncompiledSources);
     }
@@ -57,7 +61,7 @@ public sealed partial class AuthoringActionableFindingsTests
             Measure = [metric, new MetricNode(metric.Metric with { Name = "duplicate" })],
         });
         Assert.True(_vm.SaveAll().Succeeded);
-        Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error, StringComparison.Ordinal);
         var store = new AuthoringDocumentStore(_root);
         if (change == "saved-bytes")
@@ -72,7 +76,7 @@ public sealed partial class AuthoringActionableFindingsTests
             await _vm.StopRecoveryAsync();
         }
         var before = File.ReadAllBytes(store.GetDocumentPath("duplicate"));
-        Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
         Assert.Contains("SOURCE_COMPILE_REQUIRED", _vm.Error, StringComparison.Ordinal);
         Assert.DoesNotContain(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error, StringComparison.Ordinal);
         Assert.Equal(before, File.ReadAllBytes(store.GetDocumentPath("duplicate")));

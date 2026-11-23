@@ -49,7 +49,7 @@ public sealed class AuthoringReferenceWorkflowTests
         var window = fixture.Show(width, height);
         using var theme = new RequestedThemeScope(dark);
         window.FontSize = font;
-        Assert.Equal((double)width, window.ClientSize.Width);
+        Assert.Equal(width, window.ClientSize.Width);
         Assert.True(window.Bounds.Width <= width);
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         fixture.OpenRememberedWorkspace();
@@ -117,7 +117,11 @@ public sealed class AuthoringReferenceWorkflowTests
                 window.KeyPress(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null);
                 window.KeyRelease(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null);
             }
-            else window.KeyTextInput(value);
+            else
+            {
+                window.KeyTextInput(value);
+            }
+
             AuthoringUiFixture.Drain();
         }
     }
@@ -149,7 +153,7 @@ public sealed class AuthoringReferenceWorkflowTests
         using var theme = new RequestedThemeScope(dark);
         window.FontSize = font;
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
-        Assert.Equal((double)width, window.ClientSize.Width);
+        Assert.Equal(width, window.ClientSize.Width);
         Assert.True(window.Bounds.Width <= width);
         fixture.OpenRememberedWorkspace();
         await fixture.WaitForReadinessAsync();
@@ -245,7 +249,7 @@ public sealed class AuthoringReferenceWorkflowTests
         var window = fixture.Show(width, height);
         using var theme = new RequestedThemeScope(dark);
         window.FontSize = font;
-        Assert.Equal((double)width, window.ClientSize.Width);
+        Assert.Equal(width, window.ClientSize.Width);
         Assert.True(window.Bounds.Width <= width);
         window.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         fixture.OpenRememberedWorkspace();
@@ -323,7 +327,7 @@ public sealed class AuthoringReferenceWorkflowTests
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_UI") != "1") return;
         var root = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(root)) return;
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         Dispatcher.UIThread.RunJobs();
         using var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
@@ -333,7 +337,7 @@ public sealed class AuthoringReferenceWorkflowTests
     private sealed class RequestedThemeScope : IDisposable
     {
         private readonly ThemeVariant? _original = Application.Current!.RequestedThemeVariant;
-        public RequestedThemeScope(bool dark) => Application.Current!.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
+        public RequestedThemeScope(bool dark) => Application.Current.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
         public void Dispose() => Application.Current!.RequestedThemeVariant = _original;
     }
 
@@ -343,7 +347,7 @@ public sealed class AuthoringReferenceWorkflowTests
         foreach (var viewport in control.GetVisualAncestors().OfType<ScrollContentPresenter>())
         {
             var origin = control.TranslatePoint(default, viewport);
-            Assert.NotNull(origin);
+            _ = Assert.NotNull(origin);
             Assert.True(origin.Value.Y >= -1, $"{control.GetType().Name} is clipped above its viewport.");
             Assert.True(origin.Value.Y + control.Bounds.Height <= viewport.Bounds.Height + 1,
                 $"{control.GetType().Name} is clipped below its viewport: {origin.Value.Y}+{control.Bounds.Height}>{viewport.Bounds.Height}");

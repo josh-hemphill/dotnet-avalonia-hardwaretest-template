@@ -19,7 +19,7 @@ public sealed class OperatorHandoffCredentialTests
         var panel = CreatePanel(session, broker);
         var departing = panel.CaptureCredentialCommand.ExecuteAsync();
         Assert.True(panel.IsCapturingCredential);
-        Assert.Single(broker.Requests);
+        _ = Assert.Single(broker.Requests);
 
         await panel.ChangeSessionCommand.ExecuteAsync();
         await departing.WaitAsync(TimeSpan.FromSeconds(2));

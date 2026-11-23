@@ -22,7 +22,7 @@ public sealed class SmokeNavigationTests
         Assert.DoesNotContain(main.NavigationItems, i => i.Id == "ReportPreview");
         Assert.DoesNotContain(main.NavigationItems, i => i.Id == "Instruments");
         Assert.Contains(main.NavigationItems, i => i.Id == "Settings");
-        Assert.IsType<HomeViewModel>(main.CurrentPage);
+        _ = Assert.IsType<HomeViewModel>(main.CurrentPage);
 
         main.NavigateToPageId("RunTest");
         Assert.Equal("RunTest", main.SelectedItem?.Id);

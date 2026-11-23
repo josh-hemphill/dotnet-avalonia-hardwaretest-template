@@ -26,7 +26,7 @@ internal sealed class OpenTapFileResultExportListener : ResultListener
     {
         try
         {
-            Directory.CreateDirectory(_outputDirectory);
+            _ = Directory.CreateDirectory(_outputDirectory);
         }
         catch (Exception ex)
         {
@@ -115,7 +115,7 @@ internal sealed class OpenTapFileResultExportListener : ResultListener
 
         try
         {
-            Directory.CreateDirectory(_outputDirectory);
+            _ = Directory.CreateDirectory(_outputDirectory);
             var path = Path.Combine(_outputDirectory, SanitizeFileName(tableName) + ".csv");
             var writer = new StreamWriter(File.Open(path, FileMode.Append, FileAccess.Write, FileShare.Read), Encoding.UTF8)
             {

@@ -32,7 +32,7 @@ public sealed class DeviceOperationStep : TestStep, IFormatName
     {
         try
         {
-            if (LimitLow is { } low && !double.IsFinite(low) || LimitHigh is { } high && !double.IsFinite(high) || LimitLow > LimitHigh)
+            if ((LimitLow is { } low && !double.IsFinite(low)) || (LimitHigh is { } high && !double.IsFinite(high)) || LimitLow > LimitHigh)
                 return "Limits must be finite and low must not exceed high.";
             var request = DeviceOperationRequests.Create(Operation, Arguments);
             if (Instrument is not null && !Instrument.AvailableOperations.Contains(Operation, StringComparer.Ordinal))
@@ -40,7 +40,7 @@ public sealed class DeviceOperationStep : TestStep, IFormatName
             if (Instrument is not null) DeviceDriverCatalog.ValidateRequest(Instrument.Binding, request);
             return null;
         }
-        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or global::InstrumentComponents.Drivers.DriverException)
+        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException or InstrumentComponents.Drivers.DriverException)
         { return error.Message; }
     }
 
@@ -52,7 +52,7 @@ public sealed class DeviceOperationStep : TestStep, IFormatName
         var reply = Instrument.Invoke(DeviceOperationRequests.Create(Operation, Arguments));
         switch (reply)
         {
-            case CatalogReply.Numeric { Value.Status: global::InstrumentComponents.Drivers.MeasurementStatus.Overload } overloaded:
+            case CatalogReply.Numeric { Value.Status: InstrumentComponents.Drivers.MeasurementStatus.Overload } overloaded:
                 Results.Publish("MeasurementOutcome", ["Channel", "Status", "Unit", "Resource", "Driver", "Operation"],
                     Channel, "Overload", Symbol(overloaded.Value.Unit), Instrument.VisaAddress, Instrument.DriverId, Operation);
                 UpgradeVerdict(Verdict.Fail);
@@ -74,7 +74,7 @@ public sealed class DeviceOperationStep : TestStep, IFormatName
                     Results.Publish("Sample", ["Channel", "Index", "Value", "Unit", "ElapsedMs"], Channel, i, trace.Value.Values[i], Symbol(trace.Value.Unit), trace.Value.SampleIntervalS is { } interval ? i * interval * 1000 : (double?)null);
                 break;
         }
-        var scalar = reply switch { CatalogReply.Numeric numeric => numeric.Value.Value, CatalogReply.State state => state.Value ? 1.0 : 0.0, CatalogReply.Count count => (double)count.Value, _ => (double?)null };
+        var scalar = reply switch { CatalogReply.Numeric numeric => numeric.Value.Value, CatalogReply.State state => state.Value ? 1.0 : 0.0, CatalogReply.Count count => count.Value, _ => (double?)null };
         UpgradeVerdict(scalar is { } value && (value < LimitLow || value > LimitHigh) ? Verdict.Fail : Verdict.Pass);
     }
 

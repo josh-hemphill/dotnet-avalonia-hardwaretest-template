@@ -17,7 +17,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (SelectedProgram is null || original.PlanId != edited.PlanId || SelectedProgram.PlanId != original.PlanId
             || !AuthoringDocumentSnapshot.Capture(original).ContentEquals(AuthoringDocumentSnapshot.Capture(SelectedProgram)))
+        {
             throw new AuthoringWorkspaceException("The selected procedure changed. Reopen its editor before applying the edit.");
+        }
+
         if (CommitDocument(edited, "Edit imported procedure and data", procedureEdit: true))
         {
             PresentSession(_documents[edited.PlanId]);

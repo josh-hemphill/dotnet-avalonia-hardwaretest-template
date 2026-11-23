@@ -37,11 +37,11 @@ public static partial class DeviceDriverCatalog
 
     private static IReadOnlyList<IDriverFactory> GenericFactories(IScpiConnector connector) =>
     [
-        .. global::InstrumentComponents.Drivers.Keysight.Drivers.Factories(connector),
-        .. global::InstrumentComponents.Drivers.Keithley.Drivers.Factories(connector),
-        .. global::InstrumentComponents.Drivers.Rigol.Drivers.Factories(connector),
-        .. global::InstrumentComponents.Drivers.Siglent.Drivers.Factories(connector),
-        .. global::InstrumentComponents.Drivers.Tektronix.Drivers.Factories(connector)
+        .. InstrumentComponents.Drivers.Keysight.Drivers.Factories(connector),
+        .. InstrumentComponents.Drivers.Keithley.Drivers.Factories(connector),
+        .. InstrumentComponents.Drivers.Rigol.Drivers.Factories(connector),
+        .. InstrumentComponents.Drivers.Siglent.Drivers.Factories(connector),
+        .. InstrumentComponents.Drivers.Tektronix.Drivers.Factories(connector)
     ];
 
     private static IReadOnlyList<DeviceDriverInfo> BuildCatalog()
@@ -75,8 +75,8 @@ public static partial class DeviceDriverCatalog
             }, Operations(descriptor.Operations));
     }
 
-    private static string[] Operations(IReadOnlySet<Operation> operations) => Enum.GetValues<CatalogOperation>()
-        .Where(operation => operations.Contains(operation.Runtime())).Select(operation => operation.ToString()).ToArray();
+    private static string[] Operations(IReadOnlySet<Operation> operations) => [.. Enum.GetValues<CatalogOperation>()
+        .Where(operation => operations.Contains(operation.Runtime())).Select(operation => operation.ToString())];
 
     public static IDriverFactory CreateFactory(DeviceBinding binding, IScpiConnector connector)
     {
@@ -115,11 +115,11 @@ public static partial class DeviceDriverCatalog
 
     private static IEnumerable<ScpiProfile> Profiles() =>
     [
-        .. global::InstrumentComponents.Drivers.Keysight.Drivers.Profiles(),
-        .. global::InstrumentComponents.Drivers.Keithley.Drivers.Profiles(),
-        .. global::InstrumentComponents.Drivers.Rigol.Drivers.Profiles(),
-        .. global::InstrumentComponents.Drivers.Siglent.Drivers.Profiles(),
-        .. global::InstrumentComponents.Drivers.Tektronix.Drivers.Profiles()
+        .. InstrumentComponents.Drivers.Keysight.Drivers.Profiles(),
+        .. InstrumentComponents.Drivers.Keithley.Drivers.Profiles(),
+        .. InstrumentComponents.Drivers.Rigol.Drivers.Profiles(),
+        .. InstrumentComponents.Drivers.Siglent.Drivers.Profiles(),
+        .. InstrumentComponents.Drivers.Tektronix.Drivers.Profiles()
     ];
 
     public static IReadOnlyList<string> AvailableOperations(DeviceBinding binding)
@@ -146,11 +146,11 @@ public static partial class DeviceDriverCatalog
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         if (text.Trim().Equals("none", StringComparison.OrdinalIgnoreCase)) return [];
-        return text.Split(',', StringSplitOptions.TrimEntries).Select(value => value == "fgen"
+        return [.. text.Split(',', StringSplitOptions.TrimEntries).Select(value => value == "fgen"
             ? new Output(OutputKind.FunctionGenerator)
             : value.StartsWith("psu:", StringComparison.Ordinal) && uint.TryParse(value.AsSpan(4), out var channel) && channel > 0
                 ? new Output(OutputKind.DcPowerSupply, channel)
-                : throw new ArgumentException("Outputs: use none, fgen, or psu:1,psu:2 after confirming every physical output.")).ToArray();
+                : throw new ArgumentException("Outputs: use none, fgen, or psu:1,psu:2 after confirming every physical output."))];
     }
 
     private sealed class PassiveConnector : IScpiConnector

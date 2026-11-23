@@ -11,7 +11,7 @@ public sealed partial class PlanCompiler
         {
             MeasureSource measure => (measure.FunctionId, measure.Settings),
             AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.Settings),
-            _ => (string.Empty, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>())
+            _ => (string.Empty, new Dictionary<string, string>())
         };
         if (id.Length == 0) return true;
         var step = AuthoringFunctionCatalog.CreateStep(id);
@@ -33,7 +33,7 @@ public sealed partial class PlanCompiler
         ApplySettings(step, source switch { MeasureSource m => m.Settings, AlgorithmSource a => a.Settings, _ => new Dictionary<string, string>() });
         step.Name = metric.Name;
         step.GetType().GetProperty("Channel")?.SetValue(step, metric.ChannelKey);
-        if (step is HardwareTest.OpenTap.Plugins.Basic.ChannelAverageStep average && source is AlgorithmSource algorithm && algorithm.InputChannelKeys.Count == 1)
+        if (step is OpenTap.Plugins.Basic.ChannelAverageStep average && source is AlgorithmSource algorithm && algorithm.InputChannelKeys.Count == 1)
             average.InputChannel = algorithm.InputChannelKeys[0];
         PresentationAttach.Apply(step, metric);
         return step;

@@ -18,7 +18,7 @@ public sealed class AuthoringSectionUiTests
         var legacy = System.Xml.Linq.XDocument.Load(legacyPath);
         legacy.Root!.Attribute(System.Xml.Linq.XName.Get("measureSections", "urn:hardwaretest:authoring"))?.Remove();
         legacy.Save(legacyPath);
-        fixture.Show(1280, 800);
+        _ = fixture.Show(1280, 800);
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         var measure = Assert.Single(vm.SelectedProgram!.Measure.OfType<SectionNode>(), section => section.Name == "Measure");
@@ -45,7 +45,7 @@ public sealed class AuthoringSectionUiTests
     public async Task Named_section_can_be_added_renamed_and_populated_from_the_editor()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(1280, 800);
+        _ = fixture.Show(1280, 800);
         fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("device-sections");
@@ -62,7 +62,7 @@ public sealed class AuthoringSectionUiTests
         await vm.WaitForRecipeAvailabilityAsync();
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe"));
         section = Assert.IsType<SectionNode>(vm.SelectedProgram.Measure.Last());
-        Assert.Single(section.Children);
+        _ = Assert.Single(section.Children);
         vm.NewSectionName = "Display";
         vm.AddSection();
         AuthoringUiFixture.Drain();

@@ -20,7 +20,7 @@ public sealed class AuthoringSequenceRowDiscoveryTests
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(width, height);
         window.FontSize = font;
-        Assert.Equal((double)width, window.ClientSize.Width);
+        Assert.Equal(width, window.ClientSize.Width);
         fixture.OpenRememberedWorkspace();
         await fixture.WaitForReadinessAsync();
         var list = fixture.Control<AuthoringSequenceListBox>("Program sequence");
@@ -32,7 +32,7 @@ public sealed class AuthoringSequenceRowDiscoveryTests
         var add = fixture.Control<Button>("Add step");
         Assert.True(add.Focus());
         var vm = fixture.ViewModel;
-        vm.InitializePlan(new("native-sequence-discovery")
+        _ = vm.InitializePlan(new("native-sequence-discovery")
         {
             StartingPoint = PlanStartingPoint.Empty,
             UseTemplateHardware = false,
@@ -89,14 +89,14 @@ public sealed class AuthoringSequenceRowDiscoveryTests
             window.Show();
             Settle(window);
             var peer = ControlAutomationPeer.CreatePeerForElement(list);
-            Assert.Single(ListItems(peer), item => item.GetName() == items[0]);
+            _ = Assert.Single(ListItems(peer), item => item.GetName() == items[0]);
             var changes = 0;
             peer.ChildrenChanged += (_, _) => changes++;
             list.ScrollIntoView(items[^1]);
             Settle(window);
             Assert.True(changes > 0);
-            Assert.Single(ListItems(peer), item => item.GetName() == items[^1]);
-            Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
+            _ = Assert.Single(ListItems(peer), item => item.GetName() == items[^1]);
+            _ = Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
             Assert.InRange(list.GetRealizedContainers().Count(), 1, 30);
             Assert.Null(list.SelectedItem);
             var beforeReplace = changes;

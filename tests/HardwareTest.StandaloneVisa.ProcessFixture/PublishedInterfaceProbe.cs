@@ -23,7 +23,7 @@ public static class PublishedInterfaceProbe
         Console.WriteLine("published-instrument-broker-measured-voltage-dc-1.25");
         Console.WriteLine("published-instrument-opened-with-explicit-driver-and-closed");
         broker.FailTimeout = true;
-        try { OpenTapDevices.Provider!.Open("MOCK::DMM", TimeSpan.FromMilliseconds(900), new DriverSelection("keysight.34461a")); throw new InvalidOperationException("Setup should fail."); }
+        try { _ = OpenTapDevices.Provider!.Open("MOCK::DMM", TimeSpan.FromMilliseconds(900), new DriverSelection("keysight.34461a")); throw new InvalidOperationException("Setup should fail."); }
         catch (IOException error) when (error.Message == "timeout-setup") { }
         if (broker.Session is not { Closed: true }) throw new InvalidOperationException("Acquired broker lease leaked.");
         Console.WriteLine("managed-broker-bound-and-cleaned");

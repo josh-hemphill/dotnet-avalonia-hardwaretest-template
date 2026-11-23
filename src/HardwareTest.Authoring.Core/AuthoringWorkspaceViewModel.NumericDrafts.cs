@@ -13,11 +13,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (SelectedProgram is null || SelectedSequence is not { } row) return;
         var key = $"{row.NodeId:D}/{field}";
-        var valid = string.IsNullOrWhiteSpace(text) || double.TryParse(text, NumberStyles.Float,
-            CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed);
+        var valid = string.IsNullOrWhiteSpace(text) || (double.TryParse(text, NumberStyles.Float,
+            CultureInfo.InvariantCulture, out var parsed) && double.IsFinite(parsed));
         var state = SelectedProgram.AuthoringState.Clone();
-        if (legacyField is not null) state.IncompleteNumericText.Remove($"{row.NodeId:D}/{legacyField}");
-        if (valid) state.IncompleteNumericText.Remove(key);
+        if (legacyField is not null) _ = state.IncompleteNumericText.Remove($"{row.NodeId:D}/{legacyField}");
+        if (valid) _ = state.IncompleteNumericText.Remove(key);
         else state.IncompleteNumericText[key] = text;
         if (valid)
         {
@@ -25,7 +25,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             try { apply(string.IsNullOrWhiteSpace(text) ? null : double.Parse(text, CultureInfo.InvariantCulture)); }
             finally { _pendingNumericState = null; }
         }
-        else ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
+        else
+        {
+            ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
+        }
+
         OnPropertyChanged(field);
     }
 

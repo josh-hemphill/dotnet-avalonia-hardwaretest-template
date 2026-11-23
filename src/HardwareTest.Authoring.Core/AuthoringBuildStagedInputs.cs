@@ -14,10 +14,13 @@ public static partial class AuthoringBuildService
             {
                 var relative = Path.GetRelativePath(staging, path).Replace('\\', '/');
                 if ((relative.StartsWith("home/", StringComparison.Ordinal) || relative.StartsWith("tui-home/", StringComparison.Ordinal))
-                    && !EnvironmentInput(path)) continue;
+                    && !EnvironmentInput(path))
+                {
+                    continue;
+                }
                 // package.xml is generated from the frozen manifest by the existing packer.
                 if (relative == "workspace/plans/package.xml") continue;
-                var target = ResolvedPath(path, false);
+                var target = ResolvedPath(path);
                 EnsureContained(staging, target);
                 files.Add((relative, Path.GetRelativePath(staging, target), Hash(File.ReadAllBytes(path)),
                     OperatingSystem.IsWindows() ? null : (int)File.GetUnixFileMode(path)));
@@ -29,7 +32,11 @@ public static partial class AuthoringBuildService
                 // ephemeral OpenTAP logs/cache may change. Source/config/package bytes may not.
                 if (generatedDirectories is not null && (relative == "output" || generatedDirectories.Contains(relative))) continue;
                 if ((relative.StartsWith("home/", StringComparison.Ordinal) || relative.StartsWith("tui-home/", StringComparison.Ordinal))
-                    && !EnvironmentInput(path)) continue;
+                    && !EnvironmentInput(path))
+                {
+                    continue;
+                }
+
                 if (new DirectoryInfo(path).LinkTarget is not null)
                     throw new AuthoringWorkspaceException($"BUILD_STAGED_CHANGED: Staged directory link '{relative}' is unsupported.");
                 Walk(path);

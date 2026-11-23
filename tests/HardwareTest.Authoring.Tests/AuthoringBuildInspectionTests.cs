@@ -11,7 +11,7 @@ public sealed class AuthoringBuildInspectionTests : IDisposable
     private readonly AuthoringWorkspaceViewModel _vm = new();
     public AuthoringBuildInspectionTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(_root, "plans"));
         File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Build\"}");
         _vm.Open(_root);
         _vm.CreateDemoProgram("build");
@@ -140,11 +140,11 @@ public sealed class AuthoringBuildInspectionTests : IDisposable
             requested = true;
             _vm.RequestBuildInspection();
         };
-        _vm.ConfigureBuildInspection(queue.Post, () => true, _ =>
+        _vm.ConfigureBuildInspection(queue.Post, () => true, inspectionInput =>
         {
             if (Interlocked.Increment(ref calls) > 1)
             {
-                entered.TrySetResult();
+                _ = entered.TrySetResult();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(15)));
             }
             return new(WorkspacePackPlan.Empty, [new("build", true, 1, "ready", true)], false, true, "identity");
@@ -170,11 +170,11 @@ public sealed class AuthoringBuildInspectionTests : IDisposable
         using var queue = new OwnerQueue();
         var outside = Path.GetTempFileName();
         var link = Path.Combine(_root, "authoring-drafts", "excluded.authoring.json");
-        Directory.CreateDirectory(Path.GetDirectoryName(link)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(link)!);
         try
         {
             File.WriteAllText(outside, "unreadable deployment source");
-            File.CreateSymbolicLink(link, outside);
+            _ = File.CreateSymbolicLink(link, outside);
             _vm.Workspace!.Manifest.ExcludedProgramIds.Add("excluded");
             _vm.ConfigureBuildInspection(queue.Post, () => true);
             queue.Complete(_vm.WaitForBuildInspectionAsync());
@@ -189,7 +189,7 @@ public sealed class AuthoringBuildInspectionTests : IDisposable
 
     private sealed class OwnerQueue : IDisposable
     {
-        private readonly BlockingCollection<Action> _queue = new();
+        private readonly BlockingCollection<Action> _queue = [];
         public void Post(Action callback) => _queue.Add(callback);
         public void Complete(Task task)
         {

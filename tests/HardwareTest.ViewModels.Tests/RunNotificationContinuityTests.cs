@@ -86,8 +86,12 @@ public sealed class RunNotificationContinuityTests
     [InlineData("Pending")]
     public void Active_filter_banner_retains_text_contrast_after_a_theme_change(string filter)
     {
-        IBrush Fill(ThemeVariant theme) => (IBrush)ChipBrushConverter.BannerFillForTheme.Convert(
+        IBrush Fill(ThemeVariant theme)
+        {
+            return (IBrush)ChipBrushConverter.BannerFillForTheme.Convert(
             new object?[] { filter, theme }, typeof(IBrush), null, CultureInfo.InvariantCulture)!;
+        }
+
         var light = Assert.IsAssignableFrom<ISolidColorBrush>(Fill(ThemeVariant.Light)).Color;
         var dark = Assert.IsAssignableFrom<ISolidColorBrush>(Fill(ThemeVariant.Dark)).Color;
         Assert.NotEqual(light, dark);

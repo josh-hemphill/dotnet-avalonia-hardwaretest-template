@@ -18,7 +18,7 @@ public interface IAuthoringPreferencesStore
 }
 
 /// Load/save versioned authoring-preferences.json. Missing file is defaults; unknown props fail closed.
-public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
+public sealed class AuthoringPreferencesStore(string? filePath = null) : IAuthoringPreferencesStore
 {
     public const string FileName = "authoring-preferences.json";
 
@@ -39,21 +39,15 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
         "packageRepositoryUrl",
     };
 
-    public AuthoringPreferencesStore(string? filePath = null)
-    {
-        FilePath = string.IsNullOrWhiteSpace(filePath)
-            ? DefaultFilePath()
-            : Path.GetFullPath(filePath);
-        Current = new AuthoringPreferences();
-    }
-
-    public AuthoringPreferences Current { get; private set; }
+    public AuthoringPreferences Current { get; private set; } = new AuthoringPreferences();
 
     public bool IsReadOnly { get; private set; }
 
     public string? Warning { get; private set; }
 
-    public string FilePath { get; }
+    public string FilePath { get; } = string.IsNullOrWhiteSpace(filePath)
+            ? DefaultFilePath()
+            : Path.GetFullPath(filePath);
 
     public static string DefaultFilePath()
         => Path.Combine(
@@ -122,7 +116,7 @@ public sealed class AuthoringPreferencesStore : IAuthoringPreferencesStore
         var directory = Path.GetDirectoryName(FilePath);
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         var json = JsonSerializer.Serialize(Current, AuthoringJsonContext.Default.AuthoringPreferences);

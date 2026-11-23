@@ -36,7 +36,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _recipeAvailabilityStopped = true;
         _recipeAvailabilityGeneration++;
         _recipeAvailabilityPending = false;
-        _recipeAvailabilityIdle.TrySetResult();
+        _ = _recipeAvailabilityIdle.TrySetResult();
     }
 
     public Task WaitForRecipeAvailabilityAsync() => _recipeAvailabilityIdle.Task;
@@ -92,10 +92,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _recipeAvailabilityQueued = false;
                 if (_recipeAvailabilityRunning) return;
                 if (_recipeAvailabilityStopped || _recipeAvailabilityOwner?.Invoke() != true)
-                { _recipeAvailabilityPending = false; _recipeAvailabilityIdle.TrySetResult(); return; }
+                { _recipeAvailabilityPending = false; _ = _recipeAvailabilityIdle.TrySetResult(); return; }
                 var input = _requestedRecipeInput;
                 if (input is not { Editable: true, Snapshot: not null, RecipeId: not null })
-                { _recipeAvailabilityPending = false; _recipeAvailabilityIdle.TrySetResult(); return; }
+                { _recipeAvailabilityPending = false; _ = _recipeAvailabilityIdle.TrySetResult(); return; }
                 _recipeAvailabilityPending = false;
                 _recipeAvailabilityRunning = true;
                 _ = EvaluateRecipeAvailabilityAsync(input, _recipeAvailabilityGeneration, _evaluateRecipeAvailability);
@@ -124,14 +124,18 @@ public sealed partial class AuthoringWorkspaceViewModel
             {
                 _recipeAvailabilityRunning = false;
                 if (_recipeAvailabilityStopped || _recipeAvailabilityOwner?.Invoke() != true)
-                { _recipeAvailabilityPending = false; _recipeAvailabilityIdle.TrySetResult(); return; }
+                { _recipeAvailabilityPending = false; _ = _recipeAvailabilityIdle.TrySetResult(); return; }
                 if (generation == _recipeAvailabilityGeneration && input == CurrentRecipeInput())
                 {
                     _recipeAvailability = result;
                     _publishedRecipeInput = input;
                     PublishRecipeAvailability();
                 }
-                else RequestRecipeAvailability();
+                else
+                {
+                    RequestRecipeAvailability();
+                }
+
                 if (_recipeAvailabilityPending) QueueRecipeAvailability();
                 CompleteRecipeAvailabilityIfIdle();
             });
@@ -139,7 +143,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         catch (Exception error)
         {
             // Dispatcher shutdown must release awaiters without publishing from this worker.
-            _recipeAvailabilityIdle.TrySetException(error);
+            _ = _recipeAvailabilityIdle.TrySetException(error);
         }
     }
 
@@ -179,7 +183,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void CompleteRecipeAvailabilityIfIdle()
     {
         if (!_recipeAvailabilityRunning && !_recipeAvailabilityQueued && !_recipeAvailabilityPending)
-            _recipeAvailabilityIdle.TrySetResult();
+            _ = _recipeAvailabilityIdle.TrySetResult();
     }
 
     private static TaskCompletionSource CompletedRecipeAvailability()

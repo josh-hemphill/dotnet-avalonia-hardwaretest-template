@@ -10,9 +10,7 @@ public partial class RunTestViewModel
     {
         Status = "Confirm DUT, then Run.";
         IsEngineerDebugMode = settings.IsEngineerDebugMode;
-        if (settingsStore is not null)
-        {
-            settingsStore.AppSettingsSaved += (_, _) => UiDispatch.Post(() =>
+        settingsStore?.AppSettingsSaved += (_, _) => UiDispatch.Post(() =>
             {
                 IsEngineerDebugMode = settingsStore.AppSettings.IsEngineerDebugMode;
                 if (SessionPanel is { } panel)
@@ -23,6 +21,5 @@ public partial class RunTestViewModel
                 RefreshVisaMode();
                 RefreshStationHealthGate();
             }, UiScheduler);
-        }
     }
 }

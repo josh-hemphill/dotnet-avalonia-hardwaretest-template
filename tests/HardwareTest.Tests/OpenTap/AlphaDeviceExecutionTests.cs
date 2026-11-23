@@ -46,12 +46,12 @@ public sealed class AlphaDeviceExecutionTests
             Assert.Null(step.OutcomeDetail);
         }
         var store = new FileRunStore(root.RunsDirectory);
-        var record = new TestRunRecord { RunId = result.RunId, PlanId = "qualified-dmm", PlanName = "Qualified DMM (simulated)", StartedAt = result.StartedAt, CompletedAt = result.CompletedAt, Result = result.Result, Samples = result.Samples.ToList(), Steps = result.Steps.ToList() };
+        var record = new TestRunRecord { RunId = result.RunId, PlanId = "qualified-dmm", PlanName = "Qualified DMM (simulated)", StartedAt = result.StartedAt, CompletedAt = result.CompletedAt, Result = result.Result, Samples = [.. result.Samples], Steps = [.. result.Steps] };
         await store.SaveAsync(record);
         var saved = (await store.LoadAsync(record.RunId))!;
         Assert.Equal(overload ? 0 : 1, saved.Samples.Count);
         Assert.Equal(step.OutcomeDetail, Assert.Single(saved.Steps).OutcomeDetail);
-        using var reports = new HardwareTest.Core.Reporting.TypstReportService(store, settings);
+        using var reports = new Core.Reporting.TypstReportService(store, settings);
         var reportFiles = await reports.GenerateReportsAsync(saved, [ReportKinds.Status, ReportKinds.Certification]);
         Assert.Equal(2, reportFiles.Count);
         foreach (var report in reportFiles)
@@ -88,7 +88,7 @@ public sealed class AlphaDeviceExecutionTests
         var run = session.RunAsync();
         await broker.Entered.Task.WaitAsync(TimeSpan.FromSeconds(15));
         session.Pause();
-        broker.Release.TrySetResult();
+        _ = broker.Release.TrySetResult();
         await broker.Returned.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await Task.Delay(300);
         Assert.False(broker.Following.Task.IsCompleted);
@@ -105,7 +105,7 @@ public sealed class AlphaDeviceExecutionTests
             Assert.Equal(new[] { "V", "A" }, result.Samples.Select(sample => sample.Unit));
         }
         Assert.Equal(1, broker.Opens); Assert.Equal(1, broker.Closes);
-        broker.Arm(); broker.Release.TrySetResult();
+        broker.Arm(); _ = broker.Release.TrySetResult();
         var next = await session.RunAsync().WaitAsync(TimeSpan.FromSeconds(15));
         Assert.Equal(RunResult.Passed, next.Result);
         Assert.Equal(2, next.Samples.Count);
@@ -127,14 +127,14 @@ public sealed class AlphaDeviceExecutionTests
         var summary = await session.RunAsync().WaitAsync(TimeSpan.FromSeconds(30));
         Assert.True(summary.Result == RunResult.Passed, summary.ErrorMessage);
         Assert.Equal(5, summary.Samples.Count);
-        foreach (var item in Cases)
+        foreach (var (Driver, Operation, Arguments, Query, Reply, Unit) in Cases)
         {
-            var value = Assert.Single(summary.Samples, sample => sample.Channel == item.Driver);
-            Assert.Equal(double.Parse(item.Reply, System.Globalization.CultureInfo.InvariantCulture), value.Value);
-            Assert.Equal(item.Unit, value.Unit);
-            var leaf = session.StepTree.SelectMany(node => node.Children).Single(node => node.Name == item.Driver + " measurement");
+            var value = Assert.Single(summary.Samples, sample => sample.Channel == Driver);
+            Assert.Equal(double.Parse(Reply, System.Globalization.CultureInfo.InvariantCulture), value.Value);
+            Assert.Equal(Unit, value.Unit);
+            var leaf = session.StepTree.SelectMany(node => node.Children).Single(node => node.Name == Driver + " measurement");
             Assert.Equal(leaf.Path, value.StepPath);
-            Assert.Contains(item.Driver + " [scalar]", leaf.KeyValue);
+            Assert.Contains(Driver + " [scalar]", leaf.KeyValue);
             Assert.Equal("Pass", leaf.Verdict);
         }
         Assert.Equal(5, broker.Opens);
@@ -188,18 +188,18 @@ public sealed class AlphaDeviceExecutionTests
         plan.ChildTestSteps.Add(new DeviceOperationStep { Name = "SMU DMM view", Instrument = device, Operation = "DmmMeasureVoltageDc", Channel = "smu.dmm" });
         plan.ChildTestSteps.Add(new DeviceOperationStep { Name = "SMU supply view", Instrument = device, Operation = "DcPowerSupplyReadVoltage", Arguments = "channel=1", Channel = "smu.psu" });
         var path = Path.Combine(root.Path, "multifunction.TapPlan"); plan.Save(path);
-        Assert.Single(InstrumentSlotCollector.FromPlan(TestPlan.Load(path)));
+        _ = Assert.Single(InstrumentSlotCollector.FromPlan(TestPlan.Load(path)));
         var broker = new TranscriptBroker();
         var host = new OpenTapSession(new() { UseMockVisa = true, DataDirectory = root.Path }, visaBroker: broker);
         await host.LoadPlanAsync(path);
-        Assert.Single(host.InstrumentSlots);
+        _ = Assert.Single(host.InstrumentSlots);
         var result = await host.RunAsync();
         Assert.Equal(RunResult.Passed, result.Result);
         Assert.Equal(new[] { 1.25, 2.5 }, result.Samples.Select(sample => sample.Value));
         Assert.Equal(1, broker.Closes);
         using var worker = new OpenTapWorkerClient(new AppSettings { UseMockVisa = true, CrashEnabled = false, DataDirectory = root.Path });
         await worker.LoadPlanAsync(path);
-        Assert.Single(worker.InstrumentSlots);
+        _ = Assert.Single(worker.InstrumentSlots);
         var remote = await worker.RunAsync().WaitAsync(TimeSpan.FromSeconds(30));
         Assert.Equal(RunResult.Passed, remote.Result);
         Assert.Equal(new[] { "smu.dmm", "smu.psu" }, remote.Samples.Select(sample => sample.Channel));
@@ -309,7 +309,7 @@ public sealed class AlphaDeviceExecutionTests
         public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
         {
             if (Fault == "open" && resourceName.Contains("rigol", StringComparison.Ordinal)) throw new IOException("Simulated missing Rigol device");
-            Interlocked.Increment(ref Opens);
+            _ = Interlocked.Increment(ref Opens);
             return Task.FromResult<IVisaSession>(new Lease(this, resourceName));
         }
         private sealed class Lease(FaultBroker owner, string resource) : IVisaSession
@@ -320,18 +320,18 @@ public sealed class AlphaDeviceExecutionTests
             public Task WriteAsync(string command, CancellationToken cancellationToken = default) => throw new IOException("Simulated write failure");
             public async Task<string> QueryAsync(string command, CancellationToken cancellationToken = default)
             {
-                owner.QueryEntered.TrySetResult();
+                _ = owner.QueryEntered.TrySetResult();
                 if (owner.Fault is "cancel" or "cancel-close" or "timeout") await Task.Delay(Timeout.Infinite, cancellationToken);
                 if (owner.Fault == "query") throw new IOException("Simulated command failure");
                 if (owner.Fault == "parse") return "not-a-number";
-                var item = Cases.Single(item => resource == "MOCK::" + item.Driver);
-                Assert.Equal(item.Query, command);
-                return item.Reply;
+                var (Driver, Operation, Arguments, Query, Reply, Unit) = Cases.Single(item => resource == "MOCK::" + item.Driver);
+                Assert.Equal(Query, command);
+                return Reply;
             }
             public ValueTask DisposeAsync()
             {
                 Assert.Equal(0, Interlocked.Exchange(ref _disposed, 1));
-                Interlocked.Increment(ref owner.Closes);
+                _ = Interlocked.Increment(ref owner.Closes);
                 if (owner.Fault is "close" or "cancel-close") throw new IOException("Simulated transport close failure");
                 return ValueTask.CompletedTask;
             }
@@ -345,9 +345,9 @@ public sealed class AlphaDeviceExecutionTests
         public int Queries;
         public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
         {
-            Interlocked.Increment(ref Opens);
-            var item = Cases.Single(item => resourceName == "MOCK::" + item.Driver);
-            return Task.FromResult<IVisaSession>(new Lease(this, resourceName, item.Query, item.Reply));
+            _ = Interlocked.Increment(ref Opens);
+            var (Driver, Operation, Arguments, Query, Reply, Unit) = Cases.Single(item => resourceName == "MOCK::" + item.Driver);
+            return Task.FromResult<IVisaSession>(new Lease(this, resourceName, Query, Reply));
         }
         private sealed class Lease(StrictBroker owner, string resource, string query, string reply) : IVisaSession
         {
@@ -358,13 +358,13 @@ public sealed class AlphaDeviceExecutionTests
             public Task<string> QueryAsync(string command, CancellationToken cancellationToken = default)
             {
                 Assert.Equal(query, command);
-                Interlocked.Increment(ref owner.Queries);
+                _ = Interlocked.Increment(ref owner.Queries);
                 return Task.FromResult(reply);
             }
             public ValueTask DisposeAsync()
             {
                 Assert.Equal(0, Interlocked.Exchange(ref _disposed, 1));
-                Interlocked.Increment(ref owner.Closes);
+                _ = Interlocked.Increment(ref owner.Closes);
                 return ValueTask.CompletedTask;
             }
         }

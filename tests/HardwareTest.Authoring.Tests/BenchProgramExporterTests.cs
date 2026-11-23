@@ -38,7 +38,7 @@ public sealed class BenchProgramExporterTests : IDisposable
         var target = sidecar ? PlanCompiler.SidecarPath(result.PlanPath) : result.PlanPath;
         File.AppendAllText(target, " ");
         var bytes = File.ReadAllBytes(target);
-        Assert.Throws<InvalidOperationException>(() => BenchProgramHandoff.ValidateProgram(result.PlanPath));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchProgramHandoff.ValidateProgram(result.PlanPath));
         Assert.Equal(bytes, File.ReadAllBytes(target));
     }
 
@@ -63,12 +63,12 @@ public sealed class BenchProgramExporterTests : IDisposable
         var first = BenchProgramExporter.Export(workspace, PlanId, _destination);
         var receiptPath = Path.Combine(first.Directory, BenchProgramHandoff.ReceiptFileName);
         var receipt = File.ReadAllBytes(receiptPath);
-        Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination, () => false));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination, () => false));
         var ownerChecks = 0;
-        Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination, () => ++ownerChecks < 2));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination, () => ++ownerChecks < 2));
         Assert.Equal(2, ownerChecks);
         File.WriteAllText(Path.Combine(first.Directory, "unrelated.txt"), "Keep this file.");
-        Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
         Assert.Equal(receipt, File.ReadAllBytes(receiptPath));
         Assert.Equal("Keep this file.", File.ReadAllText(Path.Combine(first.Directory, "unrelated.txt")));
     }
@@ -81,14 +81,14 @@ public sealed class BenchProgramExporterTests : IDisposable
         var path = Path.Combine(first.Directory, BenchProgramHandoff.ReceiptFileName);
         File.WriteAllText(path, JsonSerializer.Serialize(first.Receipt with { SchemaVersion = 2 }, BenchHandoffJsonContext.Default.BenchProgramReceipt));
         var bytes = File.ReadAllBytes(path);
-        Assert.Throws<InvalidOperationException>(() => BenchProgramHandoff.ValidateProgram(first.PlanPath));
-        Assert.Throws<InvalidOperationException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchProgramHandoff.ValidateProgram(first.PlanPath));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
         Assert.Equal(bytes, File.ReadAllBytes(path));
         var store = new AuthoringDocumentStore(_root);
         var source = store.Load(PlanId).Document!;
         source.RequiresCompilation = true;
         store.Save(source);
-        Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => BenchProgramExporter.Export(workspace, PlanId, _destination));
         Assert.Equal(bytes, File.ReadAllBytes(path));
     }
 
@@ -98,7 +98,7 @@ public sealed class BenchProgramExporterTests : IDisposable
     [InlineData("../outside")]
     public void Factory_or_escaping_ids_are_refused_before_any_publication(string id)
     {
-        Assert.Throws<InvalidOperationException>(() => BenchProgramExporter.Export(SavedProgram(), id, _destination));
+        _ = Assert.Throws<InvalidOperationException>(() => BenchProgramExporter.Export(SavedProgram(), id, _destination));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_destination));
     }
 

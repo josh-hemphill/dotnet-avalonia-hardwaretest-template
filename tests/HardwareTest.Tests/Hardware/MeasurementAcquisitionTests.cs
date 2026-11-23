@@ -6,10 +6,7 @@ namespace HardwareTest.Tests.Hardware;
 public sealed class MeasurementAcquisitionTests
 {
     [Fact]
-    public void Capacity_below_16_throws()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new MeasurementAcquisition(8));
-    }
+    public void Capacity_below_16_throws() => Assert.Throws<ArgumentOutOfRangeException>(() => new MeasurementAcquisition(8));
 
     [Fact]
     public void Snapshot_and_copy_reflect_ring_buffer_wrap()
@@ -62,7 +59,7 @@ public sealed class MeasurementAcquisitionTests
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(30);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await foreach (var _ in acq.AcquireAsync(session, "VDC", 1000, 20, "READ?", cts.Token))
             {

@@ -162,7 +162,7 @@ public static class AuthoringCleanup
         ArgumentNullException.ThrowIfNull(sidecar);
         sidecar.IncludeSafeShutdown = cleanup.IncludeSafeShutdown ? true : null;
         sidecar.IncludeMeasureSlots = cleanup.IncludeMeasureSlots ? true : null;
-        sidecar.CleanupInstrumentSlots = cleanup.InstrumentSlots.ToArray();
+        sidecar.CleanupInstrumentSlots = [.. cleanup.InstrumentSlots];
     }
 
     /// Rebuilds CleanupPolicy from compiled SafeShutdown steps plus sidecar explicit membership.

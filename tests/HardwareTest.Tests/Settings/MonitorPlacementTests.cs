@@ -15,8 +15,8 @@ public sealed class MonitorPlacementTests
         };
 
         var resolved = MonitorPlacement.ResolveScreen("Secondary", screens);
-        Assert.NotNull(resolved);
-        Assert.Equal("Secondary", resolved!.Value.DeviceName);
+        _ = Assert.NotNull(resolved);
+        Assert.Equal("Secondary", resolved.Value.DeviceName);
     }
 
     [Fact]

@@ -12,10 +12,7 @@ public partial class ReportPreviewView : UserControl
 {
     private Window? _details;
 
-    public ReportPreviewView()
-    {
-        InitializeComponent();
-    }
+    public ReportPreviewView() => InitializeComponent();
 
     private async void OnShowDetails(object? sender, RoutedEventArgs e)
     {
@@ -60,6 +57,6 @@ public partial class ReportPreviewView : UserControl
         _details = dialog;
         try { await dialog.ShowDialog(owner); }
         finally { _details = null; }
-        if (sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) trigger.Focus();
+        if (sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) _ = trigger.Focus();
     }
 }

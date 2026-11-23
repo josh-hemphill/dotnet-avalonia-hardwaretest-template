@@ -11,7 +11,7 @@ public sealed class ResultsReportHistoryTests
     public void Package_exports_latest_and_history_while_print_preserves_explicit_issue()
     {
         var directory = Path.Combine(Path.GetTempPath(), "HardwareTestReportHistory", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var working = Path.Combine(directory, "working.pdf");

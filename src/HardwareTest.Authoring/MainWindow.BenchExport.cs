@@ -27,6 +27,6 @@ public partial class MainWindow
             await dialog.ShowDialog(this);
         }
         catch (Exception error) { if (current()) _viewModel.ReportError(error.Message); }
-        finally { _benchExport = null; if (current() && sender is Control trigger) trigger.Focus(); }
+        finally { _benchExport = null; if (current() && sender is Control trigger) _ = trigger.Focus(); }
     }
 }

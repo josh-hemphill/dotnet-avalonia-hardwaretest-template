@@ -86,7 +86,7 @@ public sealed class ReportStationHealthStep : RuntimeAwareTestStep
     {
         Results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh", "ResultSource" },
+            ["Name", "Value", "Unit", "LimitLow", "LimitHigh", "ResultSource"],
             name,
             value,
             unit,

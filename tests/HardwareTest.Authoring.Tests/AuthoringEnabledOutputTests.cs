@@ -17,18 +17,22 @@ public sealed class AuthoringEnabledOutputTests
     public void Effective_enabled_setting_controls_actual_outputs_and_collision_history(string recipe, bool algorithm, string mode)
     {
         var directory = Path.Combine(Path.GetTempPath(), "ht-enabled-outputs-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var enabled = mode is "default" or "on" or "off-then-on";
             var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("enabled"), AuthoringRecipeIds.Acquire);
             draft = AuthoringRecipeCatalog.Apply(draft, recipe == "sweep" ? AuthoringRecipeIds.MeanGte : recipe) with { Setup = [], Cleanup = new CleanupPolicy(false, []) };
             var publisher = Assert.IsType<MetricNode>(draft.Measure[1]);
-            if (recipe == "sweep") publisher = publisher with
+            if (recipe == "sweep")
             {
-                Metric = new MetricDraft("Sweep", "sweep", "timeseries", "V", null, null,
+                publisher = publisher with
+                {
+                    Metric = new MetricDraft("Sweep", "sweep", "timeseries", "V", null, null,
                 new AlgorithmSource(AuthoringFunctionIds.BasicBitSweepAcquire, [], new Dictionary<string, string>()) { InstrumentSlot = "DMM" })
-            };
+                };
+            }
+
             var source = Assert.IsType<AlgorithmSource>(publisher.Metric.Source);
             var settings = new Dictionary<string, string>(source.Settings, StringComparer.Ordinal);
             if (recipe == "sweep") { settings["PublishSummaries"] = "true"; settings["BitCount"] = "2"; settings["IntervalMs"] = "5"; settings["ScriptedValues"] = "1.25,1.26"; }
@@ -47,32 +51,32 @@ public sealed class AuthoringEnabledOutputTests
             var baseline = Execute(draft, directory);
             Assert.Equal(enabled ? Aliases(recipe) : [], baseline);
             var session = new AuthoringDocumentSession(draft);
-            session.ApplyEdit("checkpoint", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
-            session.Undo();
+            _ = session.ApplyEdit("checkpoint", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
+            _ = session.Undo();
             var before = session.Snapshot;
             var revision = session.Revision;
             var addedRecipe = recipe == "sweep" ? AuthoringRecipeIds.SeriesCompliance : recipe;
             if (enabled)
             {
-                Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
+                _ = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
                     AuthoringSequenceOperations.Duplicate(current, Row(current, publisher.NodeId))));
-                Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("add", current => AuthoringRecipeCatalog.Apply(current, addedRecipe)));
+                _ = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("add", current => AuthoringRecipeCatalog.Apply(current, addedRecipe)));
                 Assert.True(before.ContentEquals(session.Snapshot));
                 Assert.Equal(revision, session.Revision);
                 Assert.True(session.CanRedo);
             }
             else
             {
-                session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, publisher.NodeId)));
+                _ = session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, publisher.NodeId)));
                 Assert.Empty(Execute(session.Draft, directory));
-                session.Undo();
+                _ = session.Undo();
                 Assert.True(before.ContentEquals(session.Snapshot));
-                session.ApplyEdit("insert", current => AuthoringSequenceOperations.Insert(current, addedRecipe, Row(current, publisher.NodeId), false));
+                _ = session.ApplyEdit("insert", current => AuthoringSequenceOperations.Insert(current, addedRecipe, Row(current, publisher.NodeId), false));
                 Assert.Equal(Aliases(addedRecipe), Execute(session.Draft, directory));
-                session.Undo();
-                session.ApplyEdit("legacy add", current => AuthoringRecipeCatalog.Apply(current, addedRecipe));
+                _ = session.Undo();
+                _ = session.ApplyEdit("legacy add", current => AuthoringRecipeCatalog.Apply(current, addedRecipe));
                 Assert.Equal(Aliases(addedRecipe), Execute(session.Draft, directory));
-                session.Undo();
+                _ = session.Undo();
                 Assert.True(before.ContentEquals(session.Snapshot));
                 Assert.True(session.CanRedo);
             }

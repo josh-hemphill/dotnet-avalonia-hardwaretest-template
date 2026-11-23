@@ -88,13 +88,8 @@ public static class PresentationRoleMap
             }
 
             var last = ordered[^1];
-            var kind = TryMapRole(last.DisplayRole);
-            if (kind is null)
-            {
-                // No role: treat multi-point as timeseries, single as text skip for widgets.
-                kind = ordered.Length > 1 ? PresentationTileKind.Timeseries : null;
-            }
-
+            // No role: treat multi-point as timeseries, single as text skip for widgets.
+            var kind = TryMapRole(last.DisplayRole) ?? (ordered.Length > 1 ? PresentationTileKind.Timeseries : null);
             if (kind is null)
             {
                 continue;

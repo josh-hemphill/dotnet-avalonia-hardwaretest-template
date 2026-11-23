@@ -10,7 +10,7 @@ using Serilog;
 namespace HardwareTest.Core.Crash;
 
 /// Writes offline crash dossiers under {CrashDirectory}/{utc}-{id}/.
-public sealed class CrashDossierWriter
+public sealed class CrashDossierWriter(string crashRoot, int retentionCount = 20, bool redactIdentifiers = true)
 {
     public const string ReviewedMarkerFileName = ".reviewed";
     public const int DefaultMaxLogTailChars = 256 * 1024;
@@ -18,16 +18,9 @@ public sealed class CrashDossierWriter
 
     private static int _reentrancy;
 
-    public string CrashRoot { get; }
-    public int RetentionCount { get; }
-    public bool RedactIdentifiers { get; }
-
-    public CrashDossierWriter(string crashRoot, int retentionCount = 20, bool redactIdentifiers = true)
-    {
-        CrashRoot = crashRoot;
-        RetentionCount = Math.Clamp(retentionCount, 1, 500);
-        RedactIdentifiers = redactIdentifiers;
-    }
+    public string CrashRoot { get; } = crashRoot;
+    public int RetentionCount { get; } = Math.Clamp(retentionCount, 1, 500);
+    public bool RedactIdentifiers { get; } = redactIdentifiers;
 
     /// Test helper: hold the write gate without writing.
     public static bool TryEnterWriteGateForTests()
@@ -71,7 +64,7 @@ public sealed class CrashDossierWriter
         }
         finally
         {
-            Interlocked.Exchange(ref _reentrancy, 0);
+            _ = Interlocked.Exchange(ref _reentrancy, 0);
         }
     }
 
@@ -80,7 +73,7 @@ public sealed class CrashDossierWriter
         DocumentSchemaGate.RequireWritable(
             "CrashReport", context.Report.SchemaVersion, SchemaVersions.CrashReport);
         CrashRedaction.EnsureSalt(Path.GetDirectoryName(CrashRoot));
-        Directory.CreateDirectory(CrashRoot);
+        _ = Directory.CreateDirectory(CrashRoot);
 
         var report = context.Report;
         if (string.IsNullOrWhiteSpace(report.DossierId))
@@ -97,7 +90,7 @@ public sealed class CrashDossierWriter
 
         var stamp = report.CapturedAtUtc.UtcDateTime.ToString("yyyyMMddTHHmmssZ");
         var dir = Path.Combine(CrashRoot, $"{stamp}-{report.DossierId}");
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
 
         CurrentDocumentFile.WriteAsync(
                 Path.Combine(dir, "crash.json"), report, AppJsonContext.Default.CrashReportDocument,
@@ -255,7 +248,7 @@ public sealed class CrashDossierWriter
             var destDir = Path.GetDirectoryName(destinationZipPath);
             if (!string.IsNullOrWhiteSpace(destDir))
             {
-                Directory.CreateDirectory(destDir);
+                _ = Directory.CreateDirectory(destDir);
             }
 
             if (File.Exists(destinationZipPath))

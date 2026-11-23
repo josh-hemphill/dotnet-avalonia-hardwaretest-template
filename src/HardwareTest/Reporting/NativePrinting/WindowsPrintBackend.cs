@@ -93,7 +93,7 @@ public sealed class WindowsPrintBackend : IWindowsPrintBackend
                 if (dialog.PageRangeCount > 64) throw new InvalidDataException("The printer returned too many page ranges.");
                 for (var i = 0; i < dialog.PageRangeCount; i++)
                 {
-                    var range = Marshal.PtrToStructure<NativePageRange>(ranges + i * Marshal.SizeOf<NativePageRange>());
+                    var range = Marshal.PtrToStructure<NativePageRange>(ranges + (i * Marshal.SizeOf<NativePageRange>()));
                     selected.Add(new(checked((int)range.From), checked((int)range.To)));
                 }
                 Metrics = new(GetDeviceCaps(dialog.DeviceContext, 8), GetDeviceCaps(dialog.DeviceContext, 10),
@@ -120,7 +120,10 @@ public sealed class WindowsPrintBackend : IWindowsPrintBackend
         {
             if (page.Width < 1 || page.Height < 1 || page.Stride != checked(page.Width * 4) || page.Pixels == 0
                 || (long)page.Width * page.Height > PrintGeometry.MaxPixels)
+            {
                 throw new InvalidDataException("The printer requires a tightly packed BGRA32 bitmap.");
+            }
+
             var info = new BitmapInfo
             {
                 Size = 40,
@@ -148,15 +151,15 @@ public sealed class WindowsPrintBackend : IWindowsPrintBackend
     private static Win32Exception Failure(string operation) => new(Marshal.GetLastWin32Error(), operation + " failed.");
     private static void Release(ref NativePrintDialog dialog, nint ranges)
     {
-        try { if (dialog.DeviceContext != 0) DeleteDC(dialog.DeviceContext); }
+        try { if (dialog.DeviceContext != 0) _ = DeleteDC(dialog.DeviceContext); }
         finally
         {
             dialog.DeviceContext = 0;
-            try { if (dialog.DevMode != 0) GlobalFree(dialog.DevMode); }
+            try { if (dialog.DevMode != 0) _ = GlobalFree(dialog.DevMode); }
             finally
             {
                 dialog.DevMode = 0;
-                try { if (dialog.DevNames != 0) GlobalFree(dialog.DevNames); }
+                try { if (dialog.DevNames != 0) _ = GlobalFree(dialog.DevNames); }
                 finally { dialog.DevNames = 0; Marshal.FreeHGlobal(ranges); }
             }
         }

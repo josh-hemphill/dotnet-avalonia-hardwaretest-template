@@ -39,7 +39,7 @@ public static class ShellAppStorage
         }
 
         var path = PathContainment.CombineUnderRoot(dataDirectory, DirectoryName, appId);
-        Directory.CreateDirectory(path);
+        _ = Directory.CreateDirectory(path);
         return path;
     }
 }

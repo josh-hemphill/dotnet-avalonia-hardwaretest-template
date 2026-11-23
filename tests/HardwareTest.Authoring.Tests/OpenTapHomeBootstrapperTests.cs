@@ -23,8 +23,7 @@ public sealed class OpenTapHomeBootstrapperTests
             workspace, new BootstrapOptions { HomeDirectory = homeRoot, Offline = true }));
 
         Assert.Contains("Unavailable test package", error.Message);
-        Assert.Equal(["preserved.txt"], Directory.GetFiles(homeRoot, "*", SearchOption.AllDirectories)
-            .Select(path => Path.GetRelativePath(homeRoot, path)).ToArray());
+        Assert.Equal(["preserved.txt"], [.. Directory.GetFiles(homeRoot, "*", SearchOption.AllDirectories).Select(path => Path.GetRelativePath(homeRoot, path))]);
         Assert.Equal("selected home", File.ReadAllText(Path.Combine(homeRoot, "preserved.txt")));
     }
 
@@ -58,7 +57,7 @@ public sealed class OpenTapHomeBootstrapperTests
         try
         {
             var dir = NewTempDir();
-            Directory.CreateDirectory(Path.Combine(dir, "plans"));
+            _ = Directory.CreateDirectory(Path.Combine(dir, "plans"));
             File.WriteAllText(
                 Path.Combine(dir, "authoring.json"),
                 """
@@ -97,8 +96,8 @@ public sealed class OpenTapHomeBootstrapperTests
     public void Bootstrap_resolves_instrument_components_path_relative_to_workspace()
     {
         var workspaceRoot = NewTempDir();
-        Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
-        Directory.CreateDirectory(Path.Combine(workspaceRoot, "packs", "ic"));
+        _ = Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(workspaceRoot, "packs", "ic"));
         CopyLibraryInput(Path.Combine(workspaceRoot, "packs", "ic"));
         File.WriteAllText(
             Path.Combine(workspaceRoot, "authoring.json"),
@@ -130,7 +129,7 @@ public sealed class OpenTapHomeBootstrapperTests
     public void Bootstrap_installs_instrument_components_from_unpacked_folder()
     {
         var workspaceRoot = NewTempDir();
-        Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(workspaceRoot, "plans"));
         File.WriteAllText(
             Path.Combine(workspaceRoot, "authoring.json"),
             """
@@ -146,7 +145,7 @@ public sealed class OpenTapHomeBootstrapperTests
             }
             """);
         var icDir = Path.Combine(NewTempDir(), "ic");
-        Directory.CreateDirectory(icDir);
+        _ = Directory.CreateDirectory(icDir);
         CopyLibraryInput(icDir);
 
         var workspace = AuthoringWorkspaceLoader.Load(workspaceRoot);
@@ -201,7 +200,7 @@ public sealed class OpenTapHomeBootstrapperTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-otaphome-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

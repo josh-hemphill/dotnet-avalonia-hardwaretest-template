@@ -52,7 +52,7 @@ public sealed class StableNodeIdentityTests
         }
         draft = draft with { Setup = [.. draft.Setup, new OperatorInputSetup("input", "title", "message", "serial", null)] };
         var directory = Path.Combine(Path.GetTempPath(), "ht-stable-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var path = Path.Combine(directory, "stable.TapPlan");

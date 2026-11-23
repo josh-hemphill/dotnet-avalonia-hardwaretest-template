@@ -23,24 +23,16 @@ public interface IExportTargetService
 }
 
 /// Removable media + configured ExportDirectory targets with atomic writes.
-public sealed class ExportTargetService : IExportTargetService
+public sealed class ExportTargetService(
+    AppSettings settings,
+    string dataDirectory,
+    ILogger? log = null,
+    Func<IEnumerable<ExportTarget>>? removableRoots = null) : IExportTargetService
 {
-    private readonly AppSettings _settings;
-    private readonly string _dataDirectory;
-    private readonly ILogger? _log;
-    private readonly Func<IEnumerable<ExportTarget>>? _removableRoots;
-
-    public ExportTargetService(
-        AppSettings settings,
-        string dataDirectory,
-        ILogger? log = null,
-        Func<IEnumerable<ExportTarget>>? removableRoots = null)
-    {
-        _settings = settings;
-        _dataDirectory = dataDirectory;
-        _log = log;
-        _removableRoots = removableRoots;
-    }
+    private readonly AppSettings _settings = settings;
+    private readonly string _dataDirectory = dataDirectory;
+    private readonly ILogger? _log = log;
+    private readonly Func<IEnumerable<ExportTarget>>? _removableRoots = removableRoots;
 
     public IReadOnlyList<ExportTarget> ListTargets()
     {
@@ -108,7 +100,7 @@ public sealed class ExportTargetService : IExportTargetService
             StringSplitOptions.RemoveEmptyEntries);
         var dest = PathContainment.CombineUnderRoot(target.RootPath, segments);
         var dir = Path.GetDirectoryName(dest) ?? NormalizeRootPath(target.RootPath);
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         var temp = dest + ".tmp-" + Guid.NewGuid().ToString("N");
         try
         {
@@ -150,7 +142,7 @@ public sealed class ExportTargetService : IExportTargetService
         ArgumentNullException.ThrowIfNull(target);
         var safeName = Sanitize(packageFolderName);
         var packageRoot = PathContainment.CombineUnderRoot(target.RootPath, safeName);
-        Directory.CreateDirectory(NormalizeRootPath(target.RootPath));
+        _ = Directory.CreateDirectory(NormalizeRootPath(target.RootPath));
 
         long total = 0;
         var fileList = files.ToList();
@@ -165,7 +157,7 @@ public sealed class ExportTargetService : IExportTargetService
         EnsureSpace(target, total, minFreeBytes: null);
 
         var staging = packageRoot + ".tmp-" + Guid.NewGuid().ToString("N");
-        Directory.CreateDirectory(staging);
+        _ = Directory.CreateDirectory(staging);
         try
         {
             foreach (var (source, relative) in fileList)
@@ -181,7 +173,7 @@ public sealed class ExportTargetService : IExportTargetService
                     SanitizeRelative(relative).Split(
                         [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
                         StringSplitOptions.RemoveEmptyEntries));
-                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
                 File.Copy(source, dest, overwrite: true);
             }
 

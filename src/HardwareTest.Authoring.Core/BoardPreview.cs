@@ -17,7 +17,10 @@ public static partial class BoardPreviewBuilder
             {
                 foreach (var child in FlattenSections(section.Children)) yield return child;
             }
-            else yield return node;
+            else
+            {
+                yield return node;
+            }
         }
     }
 
@@ -61,7 +64,10 @@ public static partial class BoardPreviewBuilder
                             groups.AddRange(RunDatasetBinder.SeriesForProducer(recording, metric.ChannelKey, node.NodeId));
                             if (groups.Count == 0) throw new AuthoringWorkspaceException($"Missing recording channel '{metric.ChannelKey}' for this acquisition.");
                         }
-                        else groups.Add(Example(metric));
+                        else
+                        {
+                            groups.Add(Example(metric));
+                        }
                     }
                     else
                     {
@@ -133,7 +139,10 @@ public static partial class BoardPreviewBuilder
             }
         }
         void Add(MetricNode node, MetricPreview preview, string scope, IReadOnlyList<StoredSample>? group = null)
-            => tiles.Add(new(node.NodeId, node.Metric.Name, scope, preview, AuthoringPreviewChromeBuilder.From(preview, EventsForGroup(recording, group))));
+        {
+            tiles.Add(new(node.NodeId, node.Metric.Name, scope, preview, AuthoringPreviewChromeBuilder.From(preview, EventsForGroup(recording, group))));
+        }
+
         Scope(program.Measure);
         return tiles;
     }
@@ -170,7 +179,7 @@ public static partial class BoardPreviewBuilder
         {
             AcquireVoltageStep acquire => (acquire.FailWhenOutOfBand, acquire.LimitLow, acquire.LimitHigh, acquire.DwellLimitMs, acquire.IntervalMs),
             BitSweepAcquireStep sweep => (sweep.FailWhenOutOfBand, sweep.LimitLow, sweep.LimitHigh, sweep.DwellLimitMs, sweep.IntervalMs),
-            _ => (false, (double?)null, (double?)null, (double?)null, 0),
+            _ => (false, null, null, null, 0),
         };
         var dwellMs = 0d;
         var passed = true;
@@ -183,7 +192,7 @@ public static partial class BoardPreviewBuilder
     {
         var step = PlanCompiler.PreviewStep(metric);
         if (!step.Enabled) throw new AuthoringWorkspaceException("Step is disabled in the source plan.");
-        var nominal = metric.Limits is { Low: { } low, High: { } high } ? low / 2 + high / 2 : metric.Limits?.Threshold ?? 1;
+        var nominal = metric.Limits is { Low: { } low, High: { } high } ? (low / 2) + (high / 2) : metric.Limits?.Threshold ?? 1;
         var (values, elapsed, unit) = step switch
         {
             PublishTimedSampleStep timed => (new[] { timed.Value }, new double?[] { timed.ElapsedMs }, metric.YUnit),

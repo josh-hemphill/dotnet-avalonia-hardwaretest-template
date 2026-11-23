@@ -144,7 +144,7 @@ public sealed class BoardPreviewIdentityTests : IDisposable
                 new StoredEvent { Name = "unrelated", StepRunId = Guid.NewGuid(), LoopRunId = loop ? Guid.NewGuid() : null, IterationIndex = loop ? 1 : null },
             ],
         };
-        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord), AppJsonContext.Default.TestRunRecord)!;
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord), AppJsonContext.Default.TestRunRecord);
         var board = BoardPreviewBuilder.Build(draft, restored);
         Assert.Equal(2, board.Count);
         Assert.Equal("first", Assert.Single(board[0].Chrome.Events).Name);

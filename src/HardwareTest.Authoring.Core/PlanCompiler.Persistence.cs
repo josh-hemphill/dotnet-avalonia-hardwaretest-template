@@ -15,12 +15,15 @@ public sealed partial class PlanCompiler
             (SidecarPath(tapFull), stream => JsonSerializer.Serialize(stream, sidecar, ProgramCatalogJsonContext.Default.ProgramSidecar))
         };
         if (data is not null)
+        {
             foreach (var (relative, contents) in data.OrderBy(pair => pair.Key, StringComparer.Ordinal))
             {
                 var path = AuthoringProgramAssets.ResolvePath(Path.GetDirectoryName(tapFull)!, relative);
                 if (!File.Exists(path) || File.ReadAllText(path) != contents)
                     files.Add((path, stream => stream.Write(System.Text.Encoding.UTF8.GetBytes(contents))));
             }
+        }
+
         WriteCompilation(files, data is not null);
     }
 
@@ -35,7 +38,7 @@ public sealed partial class PlanCompiler
         {
             foreach (var (path, write) in files)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
                 var temporary = importedProcedure ? path + "." + Guid.NewGuid().ToString("N") + ".saving" : path + ".saving";
                 using var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 staged.Add(temporary);

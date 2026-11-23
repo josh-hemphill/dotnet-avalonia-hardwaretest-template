@@ -50,7 +50,7 @@ public sealed class OperatorProgramOwnershipTests
             await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
             await vm.ProgramSelection.OpenPlanFileCommand.ExecuteAsync();
             Assert.Equal(0, pickerCalls);
-            Assert.Equal(programs, vm.ProgramSelection.Programs.ToArray());
+            Assert.Equal(programs, [.. vm.ProgramSelection.Programs]);
             Assert.Same(selected, vm.ProgramSelection.SelectedProgram);
             Assert.Equal(loadedPath, tap.LoadedPlanPath);
             Assert.Equal(session, vm.Session.SessionId);
@@ -98,7 +98,7 @@ public sealed class OperatorProgramOwnershipTests
         picked.SetResult("late-selection.TapPlan");
         await opening;
         Assert.Same(selected, programs.SelectedProgram);
-        Assert.Equal(snapshot, programs.Programs.ToArray());
+        Assert.Equal(snapshot, [.. programs.Programs]);
         Assert.Equal(initialLoads, loads);
         Assert.Contains("Finish or Stop Run", status, StringComparison.Ordinal);
         Assert.False(programs.IsBusy);

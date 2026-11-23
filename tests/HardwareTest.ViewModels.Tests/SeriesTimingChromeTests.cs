@@ -28,9 +28,9 @@ public sealed class SeriesTimingChromeTests
         double[] xs = [0, 0.005, 0.010, 0.015];
         double[] ys = [3.3, 3.6, 3.61, 3.3];
         var spans = SeriesTimingChrome.OutOfBandSpans(xs, ys, 4, 3.2, 3.5);
-        var span = Assert.Single(spans);
-        Assert.Equal(0.005, span.T0);
-        Assert.Equal(0.010, span.T1);
+        var (T0, T1) = Assert.Single(spans);
+        Assert.Equal(0.005, T0);
+        Assert.Equal(0.010, T1);
     }
 
     [Fact]
@@ -44,12 +44,12 @@ public sealed class SeriesTimingChromeTests
             Path = "Suite/Acquire",
         });
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent("rail.x", 0, 3.3, t0, DisplayRole: "timeseries", ElapsedMs: 12.5),
             step.Path,
             null,
             step);
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent("rail.x", 1, 3.6, t0.AddSeconds(10), DisplayRole: "timeseries", LimitLow: 3.2, LimitHigh: 3.5, ElapsedMs: 17.5),
             step.Path,
             null,
@@ -71,7 +71,7 @@ public sealed class SeriesTimingChromeTests
         Assert.True(live.HasTimingStrip);
         Assert.Equal("cfg:bit2", live.ChartEventLabel);
         Assert.Equal("10 ms", live.ChartElapsedText);
-        Assert.Single(live.Events);
+        _ = Assert.Single(live.Events);
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class SeriesTimingChromeTests
             Name = "Acquire",
             Path = "Suite/Acquire",
         });
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent("rail.x", 0, 3.3, DateTimeOffset.UtcNow, DisplayRole: "timeseries", ElapsedMs: 0),
             step.Path,
             null,
@@ -92,7 +92,7 @@ public sealed class SeriesTimingChromeTests
         live.ApplyEvent(new MeasurementEventMark("cfg", 0, "bit0", 1, step.Path));
         live.RefreshChrome(step);
         Assert.True(live.HasTimingStrip);
-        Assert.Single(live.Events);
+        _ = Assert.Single(live.Events);
         Assert.Equal(1, live.PlotYsLength);
         Assert.False(live.HasChartAttention);
         Assert.True(live.HasChartData);
@@ -110,12 +110,12 @@ public sealed class SeriesTimingChromeTests
             Path = "Suite/Acquire",
         });
         var t0 = new DateTimeOffset(2026, 9, 10, 12, 0, 0, TimeSpan.Zero);
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent("rail.x", 0, 3.3, t0, DisplayRole: "timeseries"),
             step.Path,
             null,
             step);
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent("rail.x", 1, 3.31, t0.AddMilliseconds(250), DisplayRole: "timeseries"),
             step.Path,
             null,
@@ -145,7 +145,7 @@ public sealed class SeriesTimingChromeTests
             }
         };
 
-        live.ApplySample(
+        _ = live.ApplySample(
             new MeasurementSampleEvent(
                 "rail.x",
                 0,
@@ -211,7 +211,7 @@ public sealed class SeriesTimingChromeTests
                 timedTile.YsLength,
                 timedTile.LimitLow,
                 timedTile.LimitHigh));
-        Assert.Single(timedTile.TimingMarks);
+        _ = Assert.Single(timedTile.TimingMarks);
         Assert.NotEmpty(timedTile.OutOfBandSpans);
 
         var mixed = PresentationRoleMap.BuildFromStoredSamples(
@@ -294,7 +294,7 @@ public sealed class SeriesTimingChromeTests
         Assert.Empty(vm.TimingSpans);
         Assert.Equal(0.05, vm.TimingDurationSec, 6);
         Assert.True(vm.HasTimingStrip);
-        Assert.Single(vm.TimingEvents);
+        _ = Assert.Single(vm.TimingEvents);
     }
 
     [Fact]
@@ -329,9 +329,9 @@ public sealed class SeriesTimingChromeTests
 
         Assert.Equal(0, plotFrames);
         Assert.Equal(1, collectionChanged);
-        var tick = Assert.Single(SeriesTimingChrome.ToPlotTicks(live.Events));
-        Assert.Equal(0.010, tick.ElapsedSec, 6);
-        Assert.Equal("cfg:bit2", tick.Label);
+        var (ElapsedSec, Label) = Assert.Single(SeriesTimingChrome.ToPlotTicks(live.Events));
+        Assert.Equal(0.010, ElapsedSec, 6);
+        Assert.Equal("cfg:bit2", Label);
     }
 
     [Fact]
@@ -393,7 +393,7 @@ public sealed class SeriesTimingChromeTests
         Assert.False(strip.IsChart);
         Assert.False(vm.HasPresentationTiles);
         Assert.True(vm.HasTimingStrip);
-        Assert.Single(vm.TimingEvents);
+        _ = Assert.Single(vm.TimingEvents);
 
         await vm.CloseDetailCommand.ExecuteAsync();
         Assert.False(vm.HasTimingStrip);

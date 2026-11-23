@@ -159,7 +159,7 @@ public partial class ResultsViewModel
         finally
         {
             IsBusy = false;
-            _busyGate.Release();
+            _ = _busyGate.Release();
         }
     }
 
@@ -254,7 +254,10 @@ public partial class ResultsViewModel
                 Add(working?.PdfPath, Path.Combine("working", $"{kind}.pdf"));
             }
             else
+            {
                 Add(working?.PdfPath, $"{kind}.pdf");
+            }
+
             foreach (var revision in group.Where(r => ReportArtifactRoles.IsIssued(r.Role)))
             {
                 var id = Uri.EscapeDataString(revision.RevisionId ?? Path.GetFileNameWithoutExtension(revision.PdfPath) ?? "unidentified");

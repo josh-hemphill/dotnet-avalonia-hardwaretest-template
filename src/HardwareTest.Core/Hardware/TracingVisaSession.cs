@@ -6,19 +6,12 @@ using Serilog;
 namespace HardwareTest.Core.Hardware;
 
 /// Decorates an IVisaSession with structured timing and payload tracing.
-public sealed class TracingVisaSession : IVisaSession
+public sealed class TracingVisaSession(IVisaSession inner, VisaSessionGate gate, ILogger? logger = null) : IVisaSession
 {
-    private readonly IVisaSession _inner;
-    private readonly ILogger _logger;
-    private readonly VisaSessionGate _gate;
-
-    public TracingVisaSession(IVisaSession inner, VisaSessionGate gate, ILogger? logger = null)
-    {
-        _inner = inner;
-        _gate = gate;
-        _logger = (logger ?? Log.ForContext<TracingVisaSession>())
+    private readonly IVisaSession _inner = inner;
+    private readonly ILogger _logger = (logger ?? Log.ForContext<TracingVisaSession>())
             .ForContext("VisaResource", inner.ResourceName);
-    }
+    private readonly VisaSessionGate _gate = gate;
 
     public string ResourceName => _inner.ResourceName;
 
@@ -48,7 +41,7 @@ public sealed class TracingVisaSession : IVisaSession
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    _ = (activity?.SetStatus(ActivityStatusCode.Error, ex.Message));
                     _logger.Error(
                         ex,
                         "VISA WRITE failed after {DurationMs}ms cmd={Command}",
@@ -82,7 +75,7 @@ public sealed class TracingVisaSession : IVisaSession
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                    _ = (activity?.SetStatus(ActivityStatusCode.Error, ex.Message));
                     _logger.Error(
                         ex,
                         "VISA QUERY failed after {DurationMs}ms cmd={Command}",
@@ -121,15 +114,15 @@ public sealed class TracingVisaSession : IVisaSession
         {
             if (i > 0)
             {
-                sb.Append(' ');
+                _ = sb.Append(' ');
             }
 
-            sb.Append(bytes[i].ToString("X2"));
+            _ = sb.Append(bytes[i].ToString("X2"));
         }
 
         if (bytes.Length > maxBytes)
         {
-            sb.Append(" …");
+            _ = sb.Append(" …");
         }
 
         return sb.ToString();

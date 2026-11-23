@@ -99,7 +99,7 @@ public sealed class AuthoringFirstSaveGuidanceTests
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         if (missingSidecar) File.Delete(PlanCompiler.SidecarPath(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan")));
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.ViewModel.SelectProgram("sample");
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.ViewModel.SelectProgram("sample");
         AuthoringUiFixture.Drain();
         return fixture;
     }

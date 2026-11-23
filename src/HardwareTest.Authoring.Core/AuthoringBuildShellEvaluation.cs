@@ -32,33 +32,42 @@ public static partial class AuthoringBuildService
                     && ShellContains(Path.GetDirectoryName(path)!, project);
                 if (Path.IsPathRooted(ShellJsonProperty(entry, "Identity").GetString()!)
                     && !ancestorConfiguration && !ShellContains(sdkRoot, path) && !packageFolders.Any(f => ShellContains(f, path)))
+                {
                     Unsupported(project, $"evaluated {item} input '{path}' cannot be relocated");
+                }
+
                 paths.Add(path);
             }
-            return paths.ToArray();
+            return [.. paths];
         }
         var properties = document.RootElement.GetProperty("Properties");
         foreach (var name in ShellOutputIdentityProperties)
+        {
             if (!SafeAssemblyOutputName(ShellJsonProperty(properties, name).GetString()!))
                 Unsupported(project, $"evaluated {name} contains output path components");
+        }
+
         var imports = new HashSet<string>(StringComparer.Ordinal);
         foreach (var property in new[] { "DirectoryBuildPropsPath", "DirectoryBuildTargetsPath", "DirectoryPackagesPropsPath" })
         {
             var value = ShellJsonProperty(properties, property).GetString();
-            if (!string.IsNullOrWhiteSpace(value) && File.Exists(value)) imports.Add(Path.GetFullPath(value));
+            if (!string.IsNullOrWhiteSpace(value) && File.Exists(value)) _ = imports.Add(Path.GetFullPath(value));
         }
         // Preprocessing expands imports without invoking targets, including imports from central configs.
         var temporary = Path.Combine(Path.GetTempPath(), "authoring-shell-evaluation-" + Guid.NewGuid().ToString("N") + ".xml");
         try
         {
-            RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary], environment);
+            _ = RunShellDotNet(Path.GetDirectoryName(project)!, ["msbuild", project, "-nologo", "-p:Configuration=Release", "-preprocess:" + temporary], environment);
             foreach (var line in File.ReadLines(temporary))
             {
                 var path = line.Trim();
                 if (!Path.IsPathRooted(path) || !File.Exists(path)) continue;
                 path = Path.GetFullPath(path);
                 if (!ShellContains(sdkRoot, path) && !packageFolders.Any(f => ShellContains(f, path))
-                    && !path.Split(Path.DirectorySeparatorChar).Contains("obj", StringComparer.Ordinal)) imports.Add(path);
+                    && !path.Split(Path.DirectorySeparatorChar).Contains("obj", StringComparer.Ordinal))
+                {
+                    _ = imports.Add(path);
+                }
             }
         }
         finally { File.Delete(temporary); }
@@ -81,12 +90,15 @@ public static partial class AuthoringBuildService
             "AnalyzerConfigFiles", "EditorConfigFiles", "Resource", "AvaloniaResource" }
             .SelectMany(Paths).Concat(rawInputs).Concat(declaredFiles).Where(File.Exists).Distinct(StringComparer.Ordinal).ToArray();
         foreach (var reference in ShellJsonProperty(items, "Reference").EnumerateArray())
+        {
             if (TryShellJsonProperty(reference, "HintPath", out var hint) && !string.IsNullOrWhiteSpace(hint.GetString()))
-                inputs = inputs.Append(Resolve(Path.GetDirectoryName(project)!, hint.GetString()!)).ToArray();
+                inputs = [.. inputs, Resolve(Path.GetDirectoryName(project)!, hint.GetString()!)];
+        }
+
         var references = Paths("ProjectReference").Concat(projectFiles.SelectMany(p => XDocument.Load(p).Descendants().Where(e => ShellIdentifierIs(e.Name.LocalName, "ProjectReference")))
             .Select(e => Resolve(Path.GetDirectoryName(project)!, ((string?)e.Attribute("Include") ?? "").Replace('\\', Path.DirectorySeparatorChar))))
             .Distinct(StringComparer.Ordinal).ToArray();
-        return new(references, imports.ToArray(), inputs,
+        return new(references, [.. imports], inputs,
             ShellJsonProperty(properties, "MSBuildProjectExtensionsPath").GetString()!, ShellJsonProperty(items, "PackageReference").GetArrayLength() > 0);
     }
 
@@ -129,8 +141,11 @@ public static partial class AuthoringBuildService
         var pending = new Queue<string>();
         pending.Enqueue(project);
         for (var directory = Path.GetDirectoryName(project); directory is not null; directory = Path.GetDirectoryName(directory))
+        {
             foreach (var name in ShellConfigurationNames)
                 if (File.Exists(Path.Combine(directory, name))) pending.Enqueue(Path.Combine(directory, name));
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         while (pending.TryDequeue(out var path))
         {
@@ -139,7 +154,11 @@ public static partial class AuthoringBuildService
             ValidateShellConfiguration(path);
             if (Path.GetFileName(path).Equals("global.json", StringComparison.Ordinal)
                 || Path.GetFileName(path).Equals("NuGet.Config", StringComparison.OrdinalIgnoreCase)
-                || Path.GetFileName(path) is ".editorconfig" or ".globalconfig") continue;
+                || Path.GetFileName(path) is ".editorconfig" or ".globalconfig")
+            {
+                continue;
+            }
+
             foreach (var import in XDocument.Load(path).Descendants().Where(e => e.Name.LocalName == "Import"))
             {
                 var referenced = Resolve(Path.GetDirectoryName(path)!, ((string?)import.Attribute("Project") ?? "").Replace('\\', Path.DirectorySeparatorChar));
@@ -162,25 +181,40 @@ public static partial class AuthoringBuildService
         var xml = XDocument.Load(path);
         foreach (var text in xml.DescendantNodes().OfType<XText>().Select(n => n.Value)
             .Concat(xml.Descendants().Attributes().Select(a => a.Value)))
+        {
             foreach (Match function in Regex.Matches(text, @"\$\(\[([^\]]+)\]::([A-Za-z0-9_]+)"))
+            {
                 if ((function.Groups[1].Value, function.Groups[2].Value) is not
                     (("System.String", "Copy") or
                      ("System.Runtime.InteropServices.RuntimeInformation", "RuntimeIdentifier") or
                      ("MSBuild", "IsOSUnixLike")))
+                {
                     Unsupported(path, "custom evaluation property functions have undeclared inputs");
+                }
+            }
+        }
+
         if (name.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
             && (string?)xml.Root?.Attribute("Sdk") != "Microsoft.NET.Sdk")
+        {
             Unsupported(path, "only Microsoft.NET.Sdk projects are supported");
+        }
+
         foreach (var element in xml.Descendants())
         {
             if (element.Parent?.Name.LocalName == "PropertyGroup" && element.Name.LocalName.StartsWith('_')
                 && !ShellIdentifierIs(element.Name.LocalName, "_GitCommitDate", "_GitCommitDateLooksIso"))
+            {
                 Unsupported(path, "private SDK property overrides are unsupported");
+            }
             // Supported pure property expressions are resolved by the read-only evaluation;
             // validate their resulting identity before running restore or any write target.
             if (ShellOutputIdentityProperties.Contains(element.Name.LocalName, StringComparer.OrdinalIgnoreCase)
                 && !element.Value.Contains("$(", StringComparison.Ordinal) && !SafeAssemblyOutputName(element.Value))
+            {
                 Unsupported(path, $"{element.Name.LocalName} must be a plain SDK identity without path components");
+            }
+
             if (IsShellCopyMetadata(element.Name.LocalName)) ValidateShellCopyMetadata(path, element.Value);
             foreach (var metadata in element.Attributes().Where(a => IsShellCopyMetadata(a.Name.LocalName)))
                 ValidateShellCopyMetadata(path, metadata.Value);
@@ -192,12 +226,17 @@ public static partial class AuthoringBuildService
                 var reference = (string?)element.Attribute("Include") ?? "";
                 if (reference.Contains("$(", StringComparison.Ordinal) || reference.Contains("@(", StringComparison.Ordinal)
                     || reference.Contains('*') || reference.Contains(';'))
+                {
                     Unsupported(path, "project references must use literal relative paths");
+                }
+
                 if (element.Descendants().Any(e => ShellIdentifierIs(e.Name.LocalName, "AdditionalProperties", "GlobalPropertiesToRemove",
                     "SetConfiguration", "SetPlatform", "SetTargetFramework", "Targets", "Properties", "UndefineProperties"))
                     || element.Attributes().Any(a => ShellIdentifierIs(a.Name.LocalName, "AdditionalProperties", "GlobalPropertiesToRemove",
                     "SetConfiguration", "SetPlatform", "SetTargetFramework", "Targets", "Properties", "UndefineProperties")))
+                {
                     Unsupported(path, "project-reference write-profile overrides are unsupported");
+                }
             }
             if (ShellIdentifierIs(element.Name.LocalName, "HintPath")) ValidateShellHintPath(path, element.Value);
             foreach (var hint in element.Attributes().Where(a => ShellIdentifierIs(a.Name.LocalName, "HintPath")))
@@ -209,14 +248,26 @@ public static partial class AuthoringBuildService
                 // values explicitly, so their git invocations never access the live repository.
                 var target = (string?)element.Attribute("Name");
                 if (target is not ("ResolveHardwareTestSourceRevision" or "StampHardwareTestInformationalVersion")
-                    || name != "Directory.Build.props") Unsupported(path, "custom build targets have undeclared inputs");
+                    || name != "Directory.Build.props")
+                {
+                    Unsupported(path, "custom build targets have undeclared inputs");
+                }
+
                 foreach (var child in element.Elements())
+                {
                     if (child.Name.LocalName is not ("PropertyGroup" or "ItemGroup" or "Exec"))
                         Unsupported(path, "custom revision target task is unsupported");
+                }
+
                 foreach (var property in element.Descendants().Where(e => e.Parent?.Name.LocalName == "PropertyGroup"))
+                {
                     if (!ShellIdentifierIs(property.Name.LocalName, "SourceRevisionId", "SourceRevisionDate", "InformationalVersion",
                         "_GitCommitDate", "_GitCommitDateLooksIso"))
+                    {
                         Unsupported(path, "revision targets cannot change SDK output identities or paths");
+                    }
+                }
+
                 foreach (var task in element.Descendants().Where(e => e.Name.LocalName == "Exec"))
                 {
                     var command = (string?)task.Attribute("Command");
@@ -233,7 +284,9 @@ public static partial class AuthoringBuildService
                 var import = (string?)element.Attribute("Project") ?? "";
                 if (Path.IsPathRooted(import) || import.Contains("$(", StringComparison.Ordinal)
                     || import.Contains('*') || import.Contains("@(", StringComparison.Ordinal))
+                {
                     Unsupported(path, "custom imports must use literal relative paths");
+                }
             }
             foreach (var attribute in element.Attributes().Where(a => ShellIdentifierIs(a.Name.LocalName, "Include", "Update", "Remove", "HintPath")))
             {
@@ -242,10 +295,15 @@ public static partial class AuthoringBuildService
                     Unsupported(path, "dynamic source item paths require framework-specific graph evaluation");
                 if ((attribute.Value.Contains('*') || attribute.Value.Contains('?'))
                     && attribute.Value.Replace('\\', '/').Split('/').Contains("..", StringComparer.Ordinal))
+                {
                     Unsupported(path, "source globs outside their project directory cannot be relocated safely");
+                }
             }
             if (!element.HasElements && element.Parent?.Name.LocalName == "PropertyGroup"
-                && Path.IsPathRooted(element.Value.Trim())) Unsupported(path, "absolute project property paths cannot be relocated");
+                && Path.IsPathRooted(element.Value.Trim()))
+            {
+                Unsupported(path, "absolute project property paths cannot be relocated");
+            }
         }
     }
 
@@ -257,7 +315,9 @@ public static partial class AuthoringBuildService
         var normalized = value.Trim().Replace('\\', '/');
         if (normalized.StartsWith('/') || normalized.Contains(':') || normalized.Contains('%')
             || normalized.Contains("$(", StringComparison.Ordinal) || normalized.Contains("@(", StringComparison.Ordinal))
+        {
             Unsupported(path, "assembly hint paths must be literal relative paths");
+        }
     }
 
     // Reject evaluation/escaping syntax rather than trusting a pre-target item projection:
@@ -269,6 +329,8 @@ public static partial class AuthoringBuildService
             || normalized.Contains("$(", StringComparison.Ordinal) || normalized.Contains("@(", StringComparison.Ordinal)
             || normalized.Split('/').Any(segment => segment.Trim() == "..") || normalized.Contains(';')
             || normalized.IndexOfAny(['*', '?']) >= 0)
+        {
             Unsupported(path, "copy-output metadata must use contained literal relative paths without expressions or escapes");
+        }
     }
 }

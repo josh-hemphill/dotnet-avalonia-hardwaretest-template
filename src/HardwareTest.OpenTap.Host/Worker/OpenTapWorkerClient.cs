@@ -28,12 +28,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     private readonly object _killLock = new();
     private List<OpenTapStepNode> _stepTree = [];
     private List<OpenTapInstrumentSlot> _slots = [];
-    private bool _isExecuting;
     private int _runGate;
     private readonly object _interactionSync = new();
     private int _interactionVersion;
-    private bool _awaitingOperator;
-    private string? _operatorPrompt;
     private OperatorInteractionRequest? _pendingInteraction;
     private CancellationTokenSource? _killCts;
     private Task _killTask = Task.CompletedTask;
@@ -73,9 +70,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     public string? LoadedPlanName { get; private set; }
     public IReadOnlyList<OpenTapStepNode> StepTree => _stepTree;
     public IReadOnlyList<OpenTapInstrumentSlot> InstrumentSlots => _slots;
-    public bool IsExecuting => _isExecuting;
-    public bool IsAwaitingOperator => _awaitingOperator;
-    public string? OperatorPromptMessage => _operatorPrompt;
+    public bool IsExecuting { get; private set; }
+    public bool IsAwaitingOperator { get; private set; }
+    public string? OperatorPromptMessage { get; private set; }
     public OperatorInteractionRequest? PendingInteraction => Volatile.Read(ref _pendingInteraction);
 
     internal int InteractionVersion => Volatile.Read(ref _interactionVersion);
@@ -389,7 +386,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
         }
         finally
         {
-            Interlocked.Exchange(ref _runGate, 0);
+            _ = Interlocked.Exchange(ref _runGate, 0);
         }
     }
 
@@ -412,7 +409,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             _killEligible = true;
         }
 
-        _isExecuting = true;
+        IsExecuting = true;
         Raise(nameof(IsExecuting));
         try
         {
@@ -455,9 +452,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             try
             {
                 await CompleteRunKillTimerAsync().ConfigureAwait(false);
-                if (_isExecuting)
+                if (IsExecuting)
                 {
-                    _isExecuting = false;
+                    IsExecuting = false;
                     Raise(nameof(IsExecuting));
                 }
                 ClearInteractionState();
@@ -495,8 +492,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             if (!progress.AwaitingOperator && !progress.IsCompleted && _pendingInteraction is not null)
                 return;
 
-            _awaitingOperator = progress.AwaitingOperator;
-            _operatorPrompt = progress.OperatorPromptMessage;
+            IsAwaitingOperator = progress.AwaitingOperator;
+            OperatorPromptMessage = progress.OperatorPromptMessage;
             if (progress.InteractionRequest is not null)
                 _pendingInteraction = progress.InteractionRequest;
             else if (!progress.AwaitingOperator)
@@ -568,7 +565,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             return;
         }
 
-        if (_process.IsAlive && !_isExecuting)
+        if (_process.IsAlive && !IsExecuting)
         {
             _process.Stop(writeDossier: false);
         }
@@ -598,9 +595,9 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
             LoadedPlanName = snapshot.LoadedPlanName;
             _stepTree = snapshot.StepTree;
             _slots = snapshot.InstrumentSlots;
-            _isExecuting = snapshot.IsExecuting;
-            _awaitingOperator = snapshot.IsAwaitingOperator;
-            _operatorPrompt = snapshot.OperatorPromptMessage;
+            IsExecuting = snapshot.IsExecuting;
+            IsAwaitingOperator = snapshot.IsAwaitingOperator;
+            OperatorPromptMessage = snapshot.OperatorPromptMessage;
             if (_pendingInteraction?.Id != snapshot.PendingInteraction?.Id)
                 _interactionVersion++;
             _pendingInteraction = snapshot.PendingInteraction;
@@ -730,7 +727,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
 
     private void ApplyDeadSnapshot()
     {
-        _isExecuting = false;
+        IsExecuting = false;
         Raise(nameof(IsExecuting));
         ClearInteractionState();
     }
@@ -739,8 +736,8 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
     {
         lock (_interactionSync)
         {
-            _awaitingOperator = false;
-            _operatorPrompt = null;
+            IsAwaitingOperator = false;
+            OperatorPromptMessage = null;
             _pendingInteraction = null;
             _interactionVersion++;
         }
@@ -775,7 +772,7 @@ public sealed class OpenTapWorkerClient : IOpenTapSession, INotifyPropertyChange
                 redact: _settings.RedactIdentifiersInDiagnostics);
             report.WorkerExitCode = exitCode;
             report.WorkerStdErrTail = string.IsNullOrWhiteSpace(stderr) ? null : stderr;
-            _crashWriter.TryWrite(new CrashCaptureContext
+            _ = _crashWriter.TryWrite(new CrashCaptureContext
             {
                 Report = report,
                 LogTail = CrashDossierWriter.CaptureLogTail() + Environment.NewLine + stderr,

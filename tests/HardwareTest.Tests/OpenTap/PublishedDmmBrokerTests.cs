@@ -28,9 +28,9 @@ public sealed class PublishedDmmBrokerTests
             Assert.Equal("SN-1", identity.GetType().GetProperty("Serial")!.GetValue(identity));
             Assert.Equal("0", identity.GetType().GetProperty("Revision")!.GetValue(identity));
             var view = dmm.GetType().GetProperty("Dmm")!.GetValue(dmm)!;
-            var voltage = PublishedLibraryFixture.Call(view, "MeasureVoltageDc", new object?[] { null })!;
+            var voltage = PublishedLibraryFixture.Call(view, "MeasureVoltageDc", [null])!;
             Assert.Equal(1.25, voltage.GetType().GetProperty("Value")!.GetValue(voltage));
-            PublishedLibraryFixture.Call(dmm, "Reset");
+            _ = PublishedLibraryFixture.Call(dmm, "Reset");
             Assert.Contains("*IDN?", broker.LastSession!.Queries);
             Assert.Contains(broker.LastSession.Queries, command => command.Contains("MEAS", StringComparison.OrdinalIgnoreCase));
             Assert.Contains("*RST", broker.LastSession.Writes);
@@ -61,7 +61,7 @@ public sealed class PublishedDmmBrokerTests
             Assert.True(InstrumentComponentsScpiIo.TryRegisterProvider(broker));
             dmm.Open();
             Assert.Equal(expected, broker.LastSession!.IoTimeoutMilliseconds);
-            PublishedLibraryFixture.Call(dmm, "QueryIdentity");
+            _ = PublishedLibraryFixture.Call(dmm, "QueryIdentity");
             Assert.Equal(expected, broker.LastSession.IoTimeoutMilliseconds);
             dmm.Close();
             Assert.True(broker.LastSession.Disposed);
@@ -99,7 +99,7 @@ public sealed class PublishedDmmBrokerTests
         try
         {
             Assert.True(InstrumentComponentsScpiIo.TryRegisterProvider(broker));
-            Assert.Throws<InvalidOperationException>(dmm.Open);
+            _ = Assert.Throws<InvalidOperationException>(dmm.Open);
             Assert.Equal(0, broker.OpenCount);
             dmm.Close();
         }
@@ -141,11 +141,9 @@ file sealed class RecordingVisaBroker : IVisaBroker
     }
 }
 
-file sealed class RecordingVisaSession : IVisaSession
+file sealed class RecordingVisaSession(string resourceName) : IVisaSession
 {
-    public RecordingVisaSession(string resourceName) => ResourceName = resourceName;
-
-    public string ResourceName { get; }
+    public string ResourceName { get; } = resourceName;
     public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
     public List<string> Queries { get; } = [];
     public List<string> Writes { get; } = [];

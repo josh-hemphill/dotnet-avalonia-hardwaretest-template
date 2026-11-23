@@ -27,7 +27,7 @@ public sealed class AuthoringHistory
     {
         if (_undo.TryPeek(out var entry) && entry.After.ContentEquals(current))
         {
-            _undo.Pop();
+            _ = _undo.Pop();
             _undo.Push(entry with { AfterSelection = selection });
         }
     }
@@ -35,12 +35,12 @@ public sealed class AuthoringHistory
     {
         if (_undo.TryPeek(out var undo) && undo.After.ContentEquals(current))
         {
-            _undo.Pop();
+            _ = _undo.Pop();
             _undo.Push(undo with { After = persisted });
         }
         if (_redo.TryPeek(out var redo) && redo.Before.ContentEquals(current))
         {
-            _redo.Pop();
+            _ = _redo.Pop();
             _redo.Push(redo with { Before = persisted });
         }
     }

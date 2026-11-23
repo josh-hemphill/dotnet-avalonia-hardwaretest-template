@@ -123,9 +123,9 @@ public sealed class SettingsViewModelTests
         var vm = new SettingsViewModel(new FakeSettingsStore(), openTap);
         vm.EnsurePackagesLoaded();
 
-        Assert.Single(vm.Packages);
+        _ = Assert.Single(vm.Packages);
         Assert.Equal("DemoPkg", vm.Packages[0].Name);
-        Assert.Single(vm.PluginDirectories);
+        _ = Assert.Single(vm.PluginDirectories);
         Assert.Equal("/tmp/plugins", vm.PluginDirectories[0].Path);
         Assert.Equal("Instrument package list refreshed.", vm.Status);
     }

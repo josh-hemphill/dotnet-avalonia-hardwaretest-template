@@ -23,7 +23,7 @@ public static class SweepDemoProgramFactory
             SampleCount = 2,
             IntervalMs = 1,
         };
-        OpenTapMixinAttach.AttachPresentation(body, "sweep.vdc", PresentationDisplayRoles.Timeseries, "V");
+        _ = OpenTapMixinAttach.AttachPresentation(body, "sweep.vdc", PresentationDisplayRoles.Timeseries, "V");
 
         var repeat = new RepeatLoopStep
         {
@@ -40,7 +40,7 @@ public static class SweepDemoProgramFactory
 
     public static void SaveBeside(string directory)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         OpenTapPluginSearch.SearchSerialized();
         Create().Save(Path.Combine(directory, FixtureFileName));
     }

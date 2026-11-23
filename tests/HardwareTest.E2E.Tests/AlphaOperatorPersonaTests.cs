@@ -25,7 +25,7 @@ public sealed class AlphaOperatorPersonaTests
     [InlineData(false)]
     public async Task Operator_sees_overload_without_a_fake_zero_and_a_genuine_zero_remains_a_measurement(bool overload)
     {
-        var programs = Path.Combine(AppContext.BaseDirectory, "Programs"); Directory.CreateDirectory(programs);
+        var programs = Path.Combine(AppContext.BaseDirectory, "Programs"); _ = Directory.CreateDirectory(programs);
         var path = AlphaDevicePlanFixture.SaveOverloadPlan(programs, overload);
         var id = Path.GetFileNameWithoutExtension(path);
         var sidecar = Path.ChangeExtension(path, ".program.json");
@@ -67,7 +67,7 @@ public sealed class AlphaOperatorPersonaTests
             window.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == line).BringIntoView();
             await E2EHarness.PumpUiAsync();
             Capture(window, "operator-results-" + tag + "-steps-900");
-            var reportService = E2EHarness.RequireApp().Services.GetRequiredService<HardwareTest.Core.Reporting.IReportService>();
+            var reportService = E2EHarness.RequireApp().Services.GetRequiredService<Core.Reporting.IReportService>();
             var pdf = await reportService.GeneratePdfAsync(record);
             var reportText = AlphaDevicePlanFixture.ReadPdfText(pdf);
             if (overload) Assert.Contains("Overload: no valid measurement", reportText);
@@ -75,7 +75,7 @@ public sealed class AlphaOperatorPersonaTests
             var evidence = Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY");
             if (evidence is not null)
             {
-                var output = Path.Combine(evidence, "qualified-dmm-" + tag); Directory.CreateDirectory(output);
+                var output = Path.Combine(evidence, "qualified-dmm-" + tag); _ = Directory.CreateDirectory(output);
                 File.Copy(pdf, Path.Combine(output, "status.pdf"), overwrite: true);
                 File.WriteAllText(Path.Combine(output, "report.txt"), reportText);
                 File.WriteAllText(Path.Combine(output, "run.json"), System.Text.Json.JsonSerializer.Serialize(record, HardwareTest.Core.Serialization.AppJsonContext.Default.TestRunRecord));
@@ -88,7 +88,7 @@ public sealed class AlphaOperatorPersonaTests
     public async Task Operator_pauses_between_real_device_operations_resumes_and_stops_while_paused()
     {
         var programs = Path.Combine(AppContext.BaseDirectory, "Programs");
-        Directory.CreateDirectory(programs);
+        _ = Directory.CreateDirectory(programs);
         var path = AlphaDevicePlanFixture.SavePausePlan(programs);
         var sidecar = Path.ChangeExtension(path, ".program.json");
         File.WriteAllText(sidecar, """{"displayName":"Alpha pause (simulated)","requireSerial":true,"requireOperator":false}""");
@@ -116,13 +116,13 @@ public sealed class AlphaOperatorPersonaTests
                 await E2EHarness.WaitUntilAsync(() => broker.Entered.Task.IsCompleted);
                 if (attempt == 2)
                 {
-                    broker.Release.TrySetResult();
+                    _ = broker.Release.TrySetResult();
                 }
                 else
                 {
                     Activate(window, window.GetVisualDescendants().OfType<Button>().First(button => AutomationProperties.GetName(button) == "Pause" && button.IsEffectivelyVisible));
                     await E2EHarness.WaitUntilAsync(() => main.IsPaused && main.PauseResumeLabel == "Resume");
-                    broker.Release.TrySetResult();
+                    _ = broker.Release.TrySetResult();
                     await E2EHarness.WaitUntilAsync(() => broker.Returned.Task.IsCompleted);
                     await Task.Delay(300); await E2EHarness.PumpUiAsync();
                     Assert.False(broker.Following.Task.IsCompleted);
@@ -176,7 +176,7 @@ public sealed class AlphaOperatorPersonaTests
     public async Task Operator_commissions_mixed_bench_runs_and_QA_inspects_results(double width, double height)
     {
         var programs = Path.Combine(AppContext.BaseDirectory, "Programs");
-        Directory.CreateDirectory(programs);
+        _ = Directory.CreateDirectory(programs);
         var path = AlphaDevicePlanFixture.SavePlan(programs);
         File.WriteAllText(path, File.ReadAllText(path).Replace("MOCK::keysight.34461a", "", StringComparison.Ordinal));
         var sidecar = Path.ChangeExtension(path, ".program.json");
@@ -259,8 +259,8 @@ public sealed class AlphaOperatorPersonaTests
             foreach (var item in run.StepTree.StepListItems.Where(item => item.Step is not null && item.Step.Children.Count == 0))
             {
                 var step = item.Step!;
-                var driver = AlphaDevicePlanFixture.Cases.FirstOrDefault(device => step.Name.Contains(device.Driver, StringComparison.Ordinal));
-                if (driver.Driver is not null) Assert.Contains(driver.Driver, step.KeyValue, StringComparison.Ordinal);
+                var (Driver, Operation, Arguments, Query, Reply, Unit) = AlphaDevicePlanFixture.Cases.FirstOrDefault(device => step.Name.Contains(device.Driver, StringComparison.Ordinal));
+                if (Driver is not null) Assert.Contains(Driver, step.KeyValue, StringComparison.Ordinal);
             }
             Capture(window, $"operator-run-complete-{width}");
             main.NavigateToPageId("Results");
@@ -278,12 +278,12 @@ public sealed class AlphaOperatorPersonaTests
     public async Task Service_engineer_repairs_commissioning_stops_a_prompt_then_inspects_a_failed_run()
     {
         var programs = Path.Combine(AppContext.BaseDirectory, "Programs");
-        Directory.CreateDirectory(programs);
+        _ = Directory.CreateDirectory(programs);
         var path = Path.Combine(programs, "alpha-service.TapPlan");
         var sidecar = Path.ChangeExtension(path, ".program.json");
         void Save(bool commissioned)
         {
-            var instrument = new HardwareTest.OpenTap.Plugins.Instruments.RegisteredInstrument
+            var instrument = new OpenTap.Plugins.Instruments.RegisteredInstrument
             {
                 Name = "Commissioned Agilent DMM",
                 DriverId = "keysight.34401a",
@@ -291,8 +291,8 @@ public sealed class AlphaOperatorPersonaTests
                 Commissioning = commissioned ? "GpibScpiConfirmed" : ""
             };
             var plan = new global::OpenTap.TestPlan();
-            plan.ChildTestSteps.Add(new HardwareTest.OpenTap.Plugins.Basic.OperatorPromptStep { Name = "Confirm serviced fixture", Message = "Simulated service workflow: confirm fixture before measurement." });
-            plan.ChildTestSteps.Add(new HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
+            plan.ChildTestSteps.Add(new OpenTap.Plugins.Basic.OperatorPromptStep { Name = "Confirm serviced fixture", Message = "Simulated service workflow: confirm fixture before measurement." });
+            plan.ChildTestSteps.Add(new OpenTap.Plugins.Instruments.DeviceOperationStep
             {
                 Name = "Commissioned voltage",
                 Instrument = instrument,
@@ -331,7 +331,7 @@ public sealed class AlphaOperatorPersonaTests
             Assert.False(repaired.Readiness.BlocksRun);
             Assert.Same(repaired, instruments.SelectedSlot);
             var repairedPlan = global::OpenTap.TestPlan.Load(path);
-            var repairedDevice = Assert.IsType<HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>(repairedPlan.ChildTestSteps[1]).Instrument;
+            var repairedDevice = Assert.IsType<OpenTap.Plugins.Instruments.DeviceOperationStep>(repairedPlan.ChildTestSteps[1]).Instrument;
             Assert.Equal("keysight.34401a", repairedDevice.DriverId);
             Assert.Equal("GpibScpiConfirmed", repairedDevice.Commissioning);
             Assert.False(repaired.SupportsIdentityQuery);
@@ -372,7 +372,7 @@ public sealed class AlphaOperatorPersonaTests
             main.NavigateToPageId("Results"); await main.Results.RefreshCommand.ExecuteAsync();
             main.Results.SelectedRun = main.Results.Runs.Single(result => result.RunId == run.LastRunId);
             await main.Results.OpenSelectedRunAsync(); await E2EHarness.PumpUiAsync();
-            Assert.Single(main.Results.OpenedRun!.Samples);
+            _ = Assert.Single(main.Results.OpenedRun!.Samples);
             Capture(window, "operator-results-failed-900");
             var lastDetail = main.Results.StepDetails.Last();
             window.GetVisualDescendants().OfType<TextBlock>().First(block => block.Text == lastDetail).BringIntoView();
@@ -433,8 +433,11 @@ public sealed class AlphaOperatorPersonaTests
                 {
                     // Simulated fixture responses for the original sample's prompt/input setup.
                     foreach (var field in run.Interaction.InteractionFields)
+                    {
                         if (field.IsBoolean) field.BoolValue = true;
                         else if (string.IsNullOrWhiteSpace(field.Value)) field.Value = field.IsNumber ? "0" : "alpha-fixture";
+                    }
+
                     run.ContinueOperatorAttention();
                 }
                 return !run.IsRunning && !string.IsNullOrWhiteSpace(run.LastRunId);
@@ -457,7 +460,7 @@ public sealed class AlphaOperatorPersonaTests
         var path = Path.Combine(AppContext.BaseDirectory, "Programs", "alpha-error.TapPlan");
         var sidecar = Path.ChangeExtension(path, ".program.json");
         var plan = new global::OpenTap.TestPlan();
-        plan.ChildTestSteps.Add(new HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
+        plan.ChildTestSteps.Add(new OpenTap.Plugins.Instruments.DeviceOperationStep
         {
             Name = "Current measurement (simulated error)",
             Operation = "DmmMeasureCurrentDc",
@@ -518,7 +521,11 @@ public sealed class AlphaOperatorPersonaTests
         box.BringIntoView(); Dispatcher.UIThread.RunJobs(); Assert.True(box.Focus());
         box.SelectAll();
         if (value.Length == 0) { window.KeyPress(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null); window.KeyRelease(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null); }
-        else window.KeyTextInput(value);
+        else
+        {
+            window.KeyTextInput(value);
+        }
+
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(value, box.Text);
     }
@@ -534,7 +541,7 @@ public sealed class AlphaOperatorPersonaTests
     {
         var directory = Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
-        Directory.CreateDirectory(directory); Dispatcher.UIThread.RunJobs();
+        _ = Directory.CreateDirectory(directory); Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick(3);
         using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
         frame.Save(Path.Combine(directory, name + ".png"), PngBitmapEncoderOptions.Default);

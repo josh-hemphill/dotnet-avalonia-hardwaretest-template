@@ -57,10 +57,7 @@ public sealed class BitSweepAcquireStep : RuntimeAwareTestStep
         var failed = false;
         var dwellMs = 0.0;
 
-        if (Instrument is not null)
-        {
-            Instrument.ConfigureDcVolts();
-        }
+        Instrument?.ConfigureDcVolts();
 
         for (var i = 0; i < count; i++)
         {
@@ -70,7 +67,7 @@ public sealed class BitSweepAcquireStep : RuntimeAwareTestStep
             var word = 1 << i;
             Results.Publish(
                 "Event",
-                new List<string> { "Name", "ElapsedMs", "Label", "Value" },
+                ["Name", "ElapsedMs", "Label", "Value"],
                 "cfg",
                 (double)elapsed,
                 $"bit{i}",
@@ -84,7 +81,7 @@ public sealed class BitSweepAcquireStep : RuntimeAwareTestStep
             values.Add(value);
             Results.Publish(
                 "Sample",
-                new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
                 Channel,
                 i,
                 value,
@@ -185,7 +182,7 @@ public sealed class PublishSeriesComplianceStep : RuntimeAwareTestStep
         var outMs = SeriesComplianceModes.MaxOutOfBandMs(values, limitLow, limitHigh, intervalMs);
         results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
+            ["Name", "Value", "Unit", "LimitLow", "LimitHigh"],
             "series.inband.pct",
             inBand,
             "%",
@@ -193,7 +190,7 @@ public sealed class PublishSeriesComplianceStep : RuntimeAwareTestStep
             double.NaN);
         results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
+            ["Name", "Value", "Unit", "LimitLow", "LimitHigh"],
             "series.excursion.max",
             excursion,
             string.Empty,
@@ -201,7 +198,7 @@ public sealed class PublishSeriesComplianceStep : RuntimeAwareTestStep
             0.0);
         results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
+            ["Name", "Value", "Unit", "LimitLow", "LimitHigh"],
             "series.outband.ms",
             outMs,
             "ms",

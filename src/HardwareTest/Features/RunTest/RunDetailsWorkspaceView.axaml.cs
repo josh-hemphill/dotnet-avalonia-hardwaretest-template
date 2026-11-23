@@ -4,8 +4,5 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunDetailsWorkspaceView : UserControl
 {
-    public RunDetailsWorkspaceView()
-    {
-        InitializeComponent();
-    }
+    public RunDetailsWorkspaceView() => InitializeComponent();
 }

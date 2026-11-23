@@ -2,12 +2,9 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    private WorkspacePackPreview _packPreview = WorkspacePackPlan.Empty;
+    public WorkspacePackPreview PackPreview { get; private set; } = WorkspacePackPlan.Empty;
 
-    public WorkspacePackPreview PackPreview => _packPreview;
-
-    public IReadOnlyList<string> ExcludedPackPlans => _buildInspectionDispatch is not null ? _buildProgramCache.Where(program => !program.Included).Select(program => program.PlanId).ToArray() : Workspace is null ? [] : AuthoringBuildInclusion.ProgramIds(Workspace)
-        .Where(id => !AuthoringBuildInclusion.Includes(Workspace.Manifest, id)).ToArray();
+    public IReadOnlyList<string> ExcludedPackPlans => _buildInspectionDispatch is not null ? _buildProgramCache.Where(program => !program.Included).Select(program => program.PlanId).ToArray() : Workspace is null ? [] : [.. AuthoringBuildInclusion.ProgramIds(Workspace).Where(id => !AuthoringBuildInclusion.Includes(Workspace.Manifest, id))];
 
     public bool HasExcludedPackPlans => ExcludedPackPlans.Count > 0;
 
@@ -21,42 +18,42 @@ public sealed partial class AuthoringWorkspaceViewModel
     public string RawStepsBanner
         => string.Format(System.Globalization.CultureInfo.InvariantCulture, AuthoringChrome.RawStepsBanner, RawStepCount);
 
-    public bool HasLastPack => _packPreview.LastShipManifest is not null;
+    public bool HasLastPack => PackPreview.LastShipManifest is not null;
 
-    public bool HasDeclaredPlugins => _packPreview.PluginProjects.Count > 0;
+    public bool HasDeclaredPlugins => PackPreview.PluginProjects.Count > 0;
 
-    public bool HasDeclaredShellApps => _packPreview.ShellAppProjects.Count > 0;
+    public bool HasDeclaredShellApps => PackPreview.ShellAppProjects.Count > 0;
 
-    public bool HasAuthoringHomePackages => _packPreview.AuthoringHomePackages.Count > 0;
+    public bool HasAuthoringHomePackages => PackPreview.AuthoringHomePackages.Count > 0;
 
-    public IReadOnlyList<string> LastShippedFiles => _packPreview.LastShipManifest?.Files ?? [];
+    public IReadOnlyList<string> LastShippedFiles => PackPreview.LastShipManifest?.Files ?? [];
 
     public IReadOnlyList<string> LastShippedBakeTimeFiles
         => LastShippedFiles
             .Where(file => file.Contains(WorkspacePacker.BakeTimeSuffix, StringComparison.Ordinal))
             .ToArray();
 
-    public bool HasPackageDependencies => _packPreview.PackageDependencies.Count > 0;
+    public bool HasPackageDependencies => PackPreview.PackageDependencies.Count > 0;
 
     public bool HasLastShippedBakeTimeFiles => LastShippedBakeTimeFiles.Count > 0;
 
     public bool HasInstrumentComponentsPackage
-        => !string.IsNullOrWhiteSpace(_packPreview.InstrumentComponentsPackagePath);
+        => !string.IsNullOrWhiteSpace(PackPreview.InstrumentComponentsPackagePath);
 
     public string InstrumentComponentsText
         => HasInstrumentComponentsPackage
-            ? $"InstrumentComponents package: {_packPreview.InstrumentComponentsPackagePath}"
+            ? $"InstrumentComponents package: {PackPreview.InstrumentComponentsPackagePath}"
             : string.Empty;
 
     public string OpenTapPinText
-        => string.IsNullOrWhiteSpace(_packPreview.OpenTapVersionPin)
+        => string.IsNullOrWhiteSpace(PackPreview.OpenTapVersionPin)
             ? "OpenTAP pin not declared in authoring.json"
-            : $"OpenTAP {_packPreview.OpenTapVersionPin}";
+            : $"OpenTAP {PackPreview.OpenTapVersionPin}";
 
     public string AuthoringHomeText
-        => string.IsNullOrWhiteSpace(_packPreview.AuthoringHomePath)
+        => string.IsNullOrWhiteSpace(PackPreview.AuthoringHomePath)
             ? "OpenTAP home not bootstrapped yet (.authoring/opentap)"
-            : _packPreview.AuthoringHomePath;
+            : PackPreview.AuthoringHomePath;
 
     public void RefreshPackPreview()
     {
@@ -68,17 +65,17 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
         if (Workspace is null)
         {
-            _packPreview = WorkspacePackPlan.Empty;
+            PackPreview = WorkspacePackPlan.Empty;
             RaisePackPreviewProperties();
             return;
         }
 
         var home = Prefs.OpenTapHomeOverride;
-        _packPreview = WorkspacePackPlan.Describe(
+        PackPreview = WorkspacePackPlan.Describe(
             Workspace,
             string.IsNullOrWhiteSpace(home) ? null : home);
         if (LastCompletedBuild is { } completed)
-            _packPreview = WorkspacePackPlan.WithLastPack(_packPreview, completed.Result.Manifest, completed.OutputDirectory);
+            PackPreview = WorkspacePackPlan.WithLastPack(PackPreview, completed.Result.Manifest, completed.OutputDirectory);
         ClearResolvedHomePreviewWarning();
         RaisePackPreviewProperties();
     }

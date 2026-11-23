@@ -1,22 +1,17 @@
 namespace HardwareTest.Authoring;
 
 /// Publishes a single durable file, retaining the previous committed bytes as a backup.
-public sealed class AuthoringAtomicWriter
+public sealed class AuthoringAtomicWriter(Action<string, string>? replace = null, Action? beforeCreate = null)
 {
-    private readonly Action<string, string> _replace;
-    private readonly Action? _beforeCreate;
-    public AuthoringAtomicWriter(Action<string, string>? replace = null, Action? beforeCreate = null)
-    {
-        _replace = replace ?? ((temporary, destination) => File.Move(temporary, destination, true));
-        _beforeCreate = beforeCreate;
-    }
+    private readonly Action<string, string> _replace = replace ?? ((temporary, destination) => File.Move(temporary, destination, true));
+    private readonly Action? _beforeCreate = beforeCreate;
 
     public void WriteNew(string path, ReadOnlySpan<byte> bytes, Action validate, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         validate();
         var directory = Path.GetDirectoryName(path)!;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var temporary = Path.Combine(directory, ".initialize-" + Guid.NewGuid().ToString("N") + ".tmp");
         var ownsTemporary = false;
         try
@@ -42,7 +37,7 @@ public sealed class AuthoringAtomicWriter
     public void Write(string path, ReadOnlySpan<byte> bytes)
     {
         var directory = Path.GetDirectoryName(path) ?? throw new ArgumentException("A file directory is required.", nameof(path));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         var backupTemp = path + "." + Guid.NewGuid().ToString("N") + ".backup.tmp";
         try

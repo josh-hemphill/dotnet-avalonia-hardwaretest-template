@@ -155,7 +155,7 @@ public sealed class OperatorRequirementTransitionUiTests
         Assert.NotNull(bitmap);
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "operator-persona-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         bitmap.Save(Path.Combine(directory, $"{state}-{(dark ? "dark" : "light")}-{width}x{height}-font{font}.png"),
             Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }

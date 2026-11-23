@@ -54,11 +54,17 @@ internal sealed class ShownMainWindow : IDisposable
     private void ScheduleSessionUpdate(Action action)
     {
         if (Volatile.Read(ref _disposed) != 0) return;
-        if (_dispatcher.CheckAccess()) action();
-        else _dispatcher.Post(() =>
+        if (_dispatcher.CheckAccess())
+        {
+            action();
+        }
+        else
+        {
+            _dispatcher.Post(() =>
         {
             if (Volatile.Read(ref _disposed) == 0) action();
         });
+        }
     }
 }
 

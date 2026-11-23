@@ -58,14 +58,17 @@ public static class PrintGeometry
         var height = Math.Ceiling(size.HeightPoints * RenderDpi / 72d);
         if (!double.IsFinite(width) || !double.IsFinite(height) || width < 1 || height < 1
             || width > int.MaxValue || height > int.MaxValue || width * height > MaxPixels)
+        {
             throw new InvalidDataException("PDF page exceeds the 64 million pixel printing limit at 300 dpi.");
+        }
+
         return ((int)width, (int)height);
     }
 
     /// GDI printer coordinates start at the printable area's origin, already excluding physical margins.
     public static PrintRectangle Fit(PdfPageSize size, PrinterMetrics metrics)
     {
-        ValidateRasterSize(size);
+        _ = ValidateRasterSize(size);
         if (metrics.WidthPixels <= 0 || metrics.HeightPixels <= 0 || metrics.DpiX <= 0 || metrics.DpiY <= 0)
             throw new InvalidDataException("The printer returned invalid printable dimensions or resolution.");
         var widthInches = size.WidthPoints / 72d;

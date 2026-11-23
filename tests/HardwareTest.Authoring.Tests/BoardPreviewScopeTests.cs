@@ -48,8 +48,8 @@ public sealed class BoardPreviewScopeTests : IDisposable
         // typed channels remains subject to the existing compiler guard; this exercises import.
         var imported = compiler.Load(path);
         var repeat = Assert.IsType<RepeatNode>(Assert.Single(imported.Measure));
-        Assert.IsType<MetricNode>(repeat.Children[0]);
-        Assert.IsType<MetricNode>(repeat.Children[1]);
+        _ = Assert.IsType<MetricNode>(repeat.Children[0]);
+        _ = Assert.IsType<MetricNode>(repeat.Children[1]);
         imported = imported with { Measure = [repeat with { Children = [sourceShape == "raw-typed" ? first : repeat.Children[0], sourceShape == "typed-raw" ? second : repeat.Children[1], .. repeat.Children.Skip(2)] }] };
         var board = BoardPreviewBuilder.Build(imported, recording);
         var runtimeMeans = actual.Samples.Where(sample => sample.ProducerStepId == mean.NodeId).Select(sample => sample.Value).ToArray();
@@ -93,7 +93,7 @@ public sealed class BoardPreviewScopeTests : IDisposable
         var preview = Assert.Single(board, tile => tile.NodeId == healthy.NodeId).Preview;
         Assert.NotEmpty(preview.CannedSamples);
         Assert.Equal(scalar ? 1.25 : 1, preview.CannedValue);
-        if (scalar) Assert.Contains("Preview only", preview.Note!);
+        if (scalar) Assert.Contains("Preview only", preview.Note);
         Assert.Empty(Assert.Single(board, tile => tile.NodeId == broken.NodeId).Preview.CannedSamples);
         Assert.NotEmpty(MetricPreviewBuilder.From(healthy.Metric, sourceContext: draft, nodeId: healthy.NodeId).CannedSamples);
         if (!scalar)
@@ -106,8 +106,12 @@ public sealed class BoardPreviewScopeTests : IDisposable
             var recording = new TestRunRecord { PlanId = "board", Samples = [new StoredSample { MetricKey = "healthy", ProducerStepId = healthyInput.NodeId, Value = 1 }, new StoredSample { MetricKey = "healthy", ProducerStepId = healthyInput.NodeId, Value = 3 }] };
             Assert.Equal(2, BoardPreviewBuilder.Build(draft, recording).Single(tile => tile.NodeId == healthy.NodeId).Preview.CannedValue);
         }
-        else Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, FormulaDeploymentClassifier.Classify(healthy.Metric, draft).Kind);
-        Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, Path.Combine(_root, "board.TapPlan")));
+        else
+        {
+            Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, FormulaDeploymentClassifier.Classify(healthy.Metric, draft).Kind);
+        }
+
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, Path.Combine(_root, "board.TapPlan")));
     }
 
     [Fact]
@@ -137,7 +141,11 @@ public sealed class BoardPreviewScopeTests : IDisposable
             var path = Path.Combine(_root, "scoped.json");
             File.WriteAllText(path, JsonSerializer.Serialize(recording, AppJsonContext.Default.TestRunRecord));
             vm.ImportRecording(path, "scoped");
-            void Select(Guid id) => vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id));
+            void Select(Guid id)
+            {
+                vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.NodeId == id));
+            }
+
             Select(first.NodeId);
             Assert.Contains("2 source execution(s)", vm.FormulaRecordingEvidence);
             Select(second.NodeId);

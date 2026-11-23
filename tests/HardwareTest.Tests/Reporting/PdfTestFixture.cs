@@ -23,33 +23,33 @@ internal static class PdfTestFixture
         }
 
         var builder = new StringBuilder();
-        builder.Append("%PDF-1.4\n");
+        _ = builder.Append("%PDF-1.4\n");
         var offsets = new int[objects.Count + 1];
         for (var i = 0; i < objects.Count; i++)
         {
             offsets[i + 1] = builder.Length;
-            builder.Append((i + 1).ToString(CultureInfo.InvariantCulture));
-            builder.Append(" 0 obj\n");
-            builder.Append(objects[i]);
-            builder.Append("\nendobj\n");
+            _ = builder.Append((i + 1).ToString(CultureInfo.InvariantCulture));
+            _ = builder.Append(" 0 obj\n");
+            _ = builder.Append(objects[i]);
+            _ = builder.Append("\nendobj\n");
         }
 
         var xref = builder.Length;
-        builder.Append("xref\n0 ");
-        builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
-        builder.Append('\n');
-        builder.Append("0000000000 65535 f \n");
+        _ = builder.Append("xref\n0 ");
+        _ = builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
+        _ = builder.Append('\n');
+        _ = builder.Append("0000000000 65535 f \n");
         for (var i = 1; i <= objects.Count; i++)
         {
-            builder.Append(offsets[i].ToString("D10", CultureInfo.InvariantCulture));
-            builder.Append(" 00000 n \n");
+            _ = builder.Append(offsets[i].ToString("D10", CultureInfo.InvariantCulture));
+            _ = builder.Append(" 00000 n \n");
         }
 
-        builder.Append("trailer << /Size ");
-        builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
-        builder.Append(" /Root 1 0 R >>\nstartxref\n");
-        builder.Append(xref.ToString(CultureInfo.InvariantCulture));
-        builder.Append("\n%%EOF\n");
+        _ = builder.Append("trailer << /Size ");
+        _ = builder.Append((objects.Count + 1).ToString(CultureInfo.InvariantCulture));
+        _ = builder.Append(" /Root 1 0 R >>\nstartxref\n");
+        _ = builder.Append(xref.ToString(CultureInfo.InvariantCulture));
+        _ = builder.Append("\n%%EOF\n");
         return Encoding.ASCII.GetBytes(builder.ToString());
     }
 
@@ -58,9 +58,9 @@ internal static class PdfTestFixture
         var builder = new StringBuilder(value.Length);
         foreach (var ch in value)
         {
-            if (ch is >= ' ' and <= '~' && ch is not '(' and not ')' and not '\\')
+            if (ch is >= ' ' and <= '~' and not '(' and not ')' and not '\\')
             {
-                builder.Append(ch);
+                _ = builder.Append(ch);
             }
         }
 

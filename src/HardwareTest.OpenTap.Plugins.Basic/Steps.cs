@@ -23,7 +23,7 @@ public sealed class IdentityCheckStep : TestStep
 
         var idn = Instrument.QueryIdn();
         Log.Info("IDN={0}; DUT={1}", idn, Dut?.SerialNumber ?? "(none)");
-        Results.Publish("Identity", new List<string> { "Idn", "DutSerial" }, idn, Dut?.SerialNumber ?? string.Empty);
+        Results.Publish("Identity", ["Idn", "DutSerial"], idn, Dut?.SerialNumber ?? string.Empty);
         UpgradeVerdict(Verdict.Pass);
     }
 }
@@ -82,7 +82,7 @@ public sealed class AcquireVoltageStep : RuntimeAwareTestStep
             var elapsed = (double)(i * Math.Max(0, IntervalMs));
             Results.Publish(
                 "Sample",
-                new List<string> { "Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs" },
+                ["Channel", "Index", "Value", "LimitLow", "LimitHigh", "ElapsedMs"],
                 Channel,
                 i,
                 v,
@@ -144,10 +144,10 @@ public sealed class MeanGteStep : RuntimeAwareTestStep
         }
 
         var mean = values.Average();
-        Results.Publish("Analyze", new List<string> { "Mean", "Threshold" }, mean, Threshold);
+        Results.Publish("Analyze", ["Mean", "Threshold"], mean, Threshold);
         Results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow" },
+            ["Name", "Value", "Unit", "LimitLow"],
             "Mean",
             mean,
             string.Empty,
@@ -218,7 +218,7 @@ public sealed class OperatorPromptStep : RuntimeAwareTestStep
         Log.Info("Operator prompt: {0}", Message);
         RequestOperatorAttention(Message);
         WaitIfPaused();
-        Results.Publish("OperatorPrompt", new List<string> { "Message" }, Message);
+        Results.Publish("OperatorPrompt", ["Message"], Message);
         UpgradeVerdict(Verdict.Pass);
     }
 }
@@ -299,18 +299,18 @@ public sealed class OperatorInputStep : RuntimeAwareTestStep
         }
 
         var stringId = fields[0].Id;
-        response.Values.TryGetValue(stringId, out var stringValue);
+        _ = response.Values.TryGetValue(stringId, out var stringValue);
         stringValue ??= string.Empty;
         var numberValue = string.Empty;
         if (fields.Count > 1)
         {
-            response.Values.TryGetValue(fields[1].Id, out numberValue);
+            _ = response.Values.TryGetValue(fields[1].Id, out numberValue);
             numberValue ??= string.Empty;
         }
 
         Results.Publish(
             "OperatorInput",
-            new List<string> { "StringId", "StringValue", "NumberId", "NumberValue" },
+            ["StringId", "StringValue", "NumberId", "NumberValue"],
             stringId,
             stringValue,
             fields.Count > 1 ? fields[1].Id : string.Empty,
@@ -355,7 +355,7 @@ public sealed class PublishBandScalarStep : RuntimeAwareTestStep
         WaitIfPaused();
         Results.Publish(
             "Scalar",
-            new List<string> { "Name", "Value", "Unit", "LimitLow", "LimitHigh" },
+            ["Name", "Value", "Unit", "LimitLow", "LimitHigh"],
             MetricName,
             Value,
             Unit ?? string.Empty,
@@ -398,7 +398,7 @@ public sealed class TestGroupStep : RuntimeAwareTestStep
     public override void Run()
     {
         WaitIfPaused();
-        RunChildSteps();
+        _ = RunChildSteps();
         UpgradeVerdict(Verdict.Pass);
     }
 }
@@ -424,7 +424,7 @@ public sealed class RepeatLoopStep : RuntimeAwareTestStep
                 SampleTableCapture.BeginIteration(PlanRun, this);
             }
 
-            RunChildSteps();
+            _ = RunChildSteps();
         }
 
         UpgradeVerdict(Verdict.Pass);
@@ -440,7 +440,7 @@ public sealed class HangForeverStep : TestStep
     {
         Results.Publish(
             "Event",
-            new List<string> { "Name", "ElapsedMs", "Label", "Value" },
+            ["Name", "ElapsedMs", "Label", "Value"],
             "hang-entered",
             0d,
             "entered",

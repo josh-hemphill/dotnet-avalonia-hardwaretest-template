@@ -9,13 +9,10 @@ namespace HardwareTest.Features.RunTest;
 public partial class LivePresentationViewModel
 {
     public const string CursorHint = "Tap the plot to place a readout line for an exact sample.";
-
-    private double? _cursorX;
-
     [Reactive] private bool _hasCursor;
 
     /// Elapsed-seconds (or sample index) of the snapped readout, if any.
-    public double? CursorX => _cursorX;
+    public double? CursorX { get; private set; }
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> ClearCursorCommand { get; private set; } = null!;
 
@@ -34,7 +31,7 @@ public partial class LivePresentationViewModel
             return;
         }
 
-        _cursorX = sampleX;
+        CursorX = sampleX;
         HasCursor = true;
         FollowLive = false;
         ApplyCursorReadout(sampleX, sampleY);
@@ -43,26 +40,23 @@ public partial class LivePresentationViewModel
     /// Restores latest-sample toolbar text, drops the readout, and resumes follow-live.
     public void ClearCursor()
     {
-        if (!HasCursor && _cursorX is null)
+        if (!HasCursor && CursorX is null)
         {
             return;
         }
 
-        _cursorX = null;
+        CursorX = null;
         HasCursor = false;
         FollowLive = true;
         PublishSelectedSnapshot(_lastSelectedStep);
     }
 
-    private void EnsureCursorCommand()
-    {
-        ClearCursorCommand = ReactiveCommand.Create(ClearCursor);
-    }
+    private void EnsureCursorCommand() => ClearCursorCommand = ReactiveCommand.Create(ClearCursor);
 
     private void ResetCursorState()
     {
-        var hadCursor = HasCursor || _cursorX is not null;
-        _cursorX = null;
+        var hadCursor = HasCursor || CursorX is not null;
+        CursorX = null;
         HasCursor = false;
         if (hadCursor)
         {
@@ -72,7 +66,7 @@ public partial class LivePresentationViewModel
 
     private void ResnapCursorAfterPublish()
     {
-        if (_cursorX is not { } x)
+        if (CursorX is not { } x)
         {
             return;
         }
@@ -86,13 +80,13 @@ public partial class LivePresentationViewModel
                 out var sampleX,
                 out var sampleY))
         {
-            _cursorX = null;
+            CursorX = null;
             HasCursor = false;
             FollowLive = true;
             return;
         }
 
-        _cursorX = sampleX;
+        CursorX = sampleX;
         HasCursor = true;
         ApplyCursorReadout(sampleX, sampleY);
     }

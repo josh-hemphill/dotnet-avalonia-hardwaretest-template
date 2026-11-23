@@ -175,12 +175,12 @@ public sealed class AlphaDevicePersonaUiTests
         }
         var arguments = fixture.Control<TextBox>("Arguments");
         fixture.Type(arguments, "unknown=1");
-        fixture.Control<Button>("Save all").Focus(); AuthoringUiFixture.Drain();
+        _ = fixture.Control<Button>("Save all").Focus(); AuthoringUiFixture.Drain();
         ResponsiveShellTests.Inside(fixture.Control<TextBlock>("Selected step errors"), window);
         Capture(window, $"authoring-sequence-invalid-{width}");
         Assert.Contains("unknown", fixture.ViewModel.SelectedStepErrors, StringComparison.OrdinalIgnoreCase);
         fixture.Type(arguments, "");
-        fixture.Control<Button>("Save all").Focus(); AuthoringUiFixture.Drain();
+        _ = fixture.Control<Button>("Save all").Focus(); AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Save all"));
         await fixture.WaitForReadinessAsync();
         Assert.True(fixture.ViewModel.Error is null, fixture.ViewModel.Error);
@@ -198,13 +198,13 @@ public sealed class AlphaDevicePersonaUiTests
         Capture(window, $"authoring-build-handoff-{width}");
         if (Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY") is { Length: > 0 } evidenceDirectory)
         {
-            var handoff = Path.Combine(evidenceDirectory, $"handoff-{width}"); Directory.CreateDirectory(handoff);
+            var handoff = Path.Combine(evidenceDirectory, $"handoff-{width}"); _ = Directory.CreateDirectory(handoff);
             foreach (var file in Directory.GetFiles(output)) File.Copy(file, Path.Combine(handoff, Path.GetFileName(file)), overwrite: true);
             File.Copy(Path.Combine(fixture.WorkspaceRoot, "sample.TapPlan"), Path.Combine(handoff, "sample.TapPlan"), overwrite: true);
             File.Copy(Path.Combine(fixture.WorkspaceRoot, "sample.program.json"), Path.Combine(handoff, "sample.program.json"), overwrite: true);
         }
 
-        fixture.ViewModel.InitializePlan(new("alpha-empty-state") { Instruments = [], IncludeSafeShutdown = false });
+        _ = fixture.ViewModel.InitializePlan(new("alpha-empty-state") { Instruments = [], IncludeSafeShutdown = false });
         fixture.NavigateTask(1); await fixture.WaitForReadinessAsync();
         Assert.Empty(fixture.ViewModel.Instruments);
         Capture(window, $"authoring-hardware-empty-{width}");
@@ -238,13 +238,13 @@ public sealed class AlphaDevicePersonaUiTests
     {
         var directory = Environment.GetEnvironmentVariable("HARDWARETEST_UI_EVIDENCE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory)) return;
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         Dispatcher.UIThread.RunJobs();
         AvaloniaHeadlessPlatform.ForceRenderTimerTick(3);
         Dispatcher.UIThread.RunJobs();
         using var frame = window.CaptureRenderedFrame();
         Assert.NotNull(frame);
-        frame.Save(Path.Combine(directory, name + ".png"), global::Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+        frame.Save(Path.Combine(directory, name + ".png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
         var controls = window.GetVisualDescendants().OfType<Control>().Where(control => control.IsEffectivelyVisible)
             .Select(control => $"{control.GetType().Name}\t{AutomationProperties.GetName(control)}\t{control.Bounds}\t{control.IsEnabled}");
         File.WriteAllLines(Path.Combine(directory, name + ".controls.tsv"), controls);

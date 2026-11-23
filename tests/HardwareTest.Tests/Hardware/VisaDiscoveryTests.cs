@@ -36,7 +36,7 @@ public sealed class VisaDiscoveryTests
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => new MockVisaResourceDiscovery().FindAsync(cancellation.Token));
     }
 }

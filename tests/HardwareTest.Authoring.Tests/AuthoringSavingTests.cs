@@ -13,7 +13,7 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(_root, Path.GetFileName(file)));
         // Saving tests use current flat plans; migration persistence has its own coverage.
@@ -112,7 +112,7 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open();
         vm.DisplayName = "saved sample with preview warning";
-        vm.InitializePlan(new("new-preview-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("new-preview-program") { Instruments = [] });
         vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
@@ -141,7 +141,7 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open(new RecordingCompiler { FailId = "failed-program" });
         vm.DisplayName = "success alongside failures";
-        vm.InitializePlan(new("failed-program") { Instruments = [] });
+        _ = vm.InitializePlan(new("failed-program") { Instruments = [] });
         vm.DisplayName += " edited";
         var selected = vm.SelectedProgram;
         vm.OpenTapHomeOverride = "invalid\0home";
@@ -170,7 +170,7 @@ public sealed class AuthoringSavingTests : IDisposable
         vm.ChannelKey = "edited-channel";
         vm.SaveSidecar();
         Assert.Equal(new DirtyProgramSummary("sample", true, false), Assert.Single(vm.DirtyPrograms));
-        vm.SaveAll();
+        _ = vm.SaveAll();
         Assert.False(vm.HasUnsavedChanges);
         Assert.Equal(["sample"], compiler.PlanSaves);
     }
@@ -182,7 +182,7 @@ public sealed class AuthoringSavingTests : IDisposable
         var vm = Open(compiler);
         vm.DisplayName = "saved other";
         // Retain the initialized layout so this remains a sidecar-only dirty draft.
-        vm.InitializePlan(new PlanInitializationRequest("new-program")
+        _ = vm.InitializePlan(new PlanInitializationRequest("new-program")
         {
             Instruments = [new InstrumentRef("DMM", AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId, "MOCK::INSTR0")],
             IdentityInstrumentSlot = "DMM"
@@ -244,7 +244,7 @@ public sealed class AuthoringSavingTests : IDisposable
             File.Move(source, destination, overwrite: true);
         });
         var vm = Open(compiler);
-        vm.InitializePlan(new("failed-new") { Instruments = [] });
+        _ = vm.InitializePlan(new("failed-new") { Instruments = [] });
         vm.DisplayName += " edited";
         var draft = vm.SelectedProgram;
         Assert.False(vm.SaveAll().Succeeded);
@@ -277,9 +277,9 @@ public sealed class AuthoringSavingTests : IDisposable
         var prepared = vm.PrepareOpen(_root);
         vm.DisplayName = "keep edit";
         var selected = vm.SelectedProgram;
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.CommitOpen(prepared));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareOpen(Path.Combine(_root, "missing")));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Open(_root));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.CommitOpen(prepared));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareOpen(Path.Combine(_root, "missing")));
         Assert.Same(selected, vm.SelectedProgram);
         Assert.Equal("keep edit", vm.DisplayName);
         vm.CommitOpen(prepared, discardUnsavedChanges: true);
@@ -296,7 +296,7 @@ public sealed class AuthoringSavingTests : IDisposable
         var manifest = AuthoringWorkspaceLoader.Load(_root).Manifest;
         manifest.RecordingsDirectory = "../outside-workspace";
         AuthoringWorkspaceLoader.SaveManifest(_root, manifest);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareOpen(_root));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareOpen(_root));
         Assert.Same(selected, vm.SelectedProgram);
         Assert.Equal("keep edited session", vm.DisplayName);
         Assert.True(vm.HasUnsavedChanges);
@@ -308,10 +308,10 @@ public sealed class AuthoringSavingTests : IDisposable
     {
         var vm = Open();
         File.Delete(Path.Combine(_root, "sample.program.json"));
-        vm.Validate();
+        _ = vm.Validate();
         Assert.NotEmpty(vm.Findings);
         vm.DisplayName = "dirty";
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
         Assert.NotNull(vm.LastPackPreflight);
         vm.CommitOpen(vm.PrepareOpen(_root), discardUnsavedChanges: true);
         Assert.Empty(vm.Findings);
@@ -327,12 +327,12 @@ public sealed class AuthoringSavingTests : IDisposable
         File.WriteAllText(manifest, File.ReadAllText(manifest).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 999", StringComparison.Ordinal));
         var vm = Open();
         Assert.True(vm.Workspace!.IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "read only edit");
-        Assert.Throws<AuthoringWorkspaceException>(vm.Apply);
-        Assert.Throws<AuthoringWorkspaceException>(vm.SaveSidecar);
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.DisplayName = "read only edit");
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.Apply);
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.SaveSidecar);
         Assert.True(vm.SaveAll().Succeeded);
         Assert.False(vm.HasUnsavedChanges);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.SaveProgram("unknown"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.SaveProgram("unknown"));
     }
 
     private readonly List<AuthoringWorkspaceViewModel> _owned = [];

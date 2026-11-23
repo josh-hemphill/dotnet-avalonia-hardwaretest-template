@@ -9,7 +9,7 @@ public sealed class RunComparisonServiceTests
     public async Task CompareToPrevious_uses_latest_earlier_same_dut_and_plan()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-cmp-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -32,8 +32,8 @@ public sealed class RunComparisonServiceTests
             Assert.Equal(9.0, vdc.CurrentMean);
             Assert.Equal(8.0, vdc.PreviousMean);
             Assert.False(vdc.Unavailable);
-            Assert.NotNull(vdc.PercentDelta);
-            Assert.Equal(12.5, vdc.PercentDelta!.Value);
+            _ = Assert.NotNull(vdc.PercentDelta);
+            Assert.Equal(12.5, vdc.PercentDelta.Value);
         }
         finally
         {
@@ -45,7 +45,7 @@ public sealed class RunComparisonServiceTests
     public async Task CompareToPrevious_lists_missing_metrics_as_unavailable()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-cmp-miss-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -76,7 +76,7 @@ public sealed class RunComparisonServiceTests
     public async Task CompareToPrevious_groups_by_effective_metric_key()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-cmp-key-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -141,7 +141,7 @@ public sealed class RunComparisonServiceTests
     public async Task CompareToPrevious_returns_empty_when_no_prior_run()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-cmp-none-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -169,7 +169,7 @@ public sealed class RunComparisonServiceTests
     public async Task CompareToPrevious_ignores_different_plan()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-cmp-plan-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var store = new FileRunStore(dir);
@@ -203,13 +203,12 @@ public sealed class RunComparisonServiceTests
             DutSerial = dut,
             StartedAt = started,
             Result = RunResult.Passed,
-            Samples = samples
+            Samples = [.. samples
                 .Select(s => new StoredSample
                 {
                     Channel = s.Channel,
                     Value = s.Value,
                     Timestamp = started,
-                })
-                .ToList(),
+                })],
         };
 }

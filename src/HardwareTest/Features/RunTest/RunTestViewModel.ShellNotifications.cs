@@ -17,7 +17,7 @@ public partial class RunTestViewModel
 
     private void ClearResolvedSessionGateNotice()
     {
-        if (SessionPanel.SessionBlocked || !_session.CanRun) return;
+        if (SessionPanel.SessionBlocked || !Session.CanRun) return;
         var message = _sessionGateMessage;
         _sessionGateMessage = null;
         if (message is null) return;

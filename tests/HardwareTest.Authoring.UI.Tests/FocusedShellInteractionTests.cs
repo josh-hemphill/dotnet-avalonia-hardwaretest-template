@@ -48,7 +48,7 @@ public sealed class FocusedShellInteractionTests
         {
             search.Text = query;
             AuthoringUiFixture.Drain();
-            Assert.Single(results.Items);
+            _ = Assert.Single(results.Items);
             Assert.Equal(0, results.SelectedIndex);
             var row = Assert.IsAssignableFrom<Control>(results.ContainerFromIndex(0));
             var texts = row.GetVisualDescendants().OfType<TextBlock>().ToArray();
@@ -103,7 +103,7 @@ public sealed class FocusedShellInteractionTests
         search.Text = "Operator Prompt";
         AuthoringUiFixture.Drain();
         var recipe = fixture.Control<ListBox>("Recipe", palette);
-        Assert.Single(recipe.Items);
+        _ = Assert.Single(recipe.Items);
         recipe.SelectedIndex = 0;
         ResponsiveShellTests.Inside(recipe, palette);
         Assert.Equal(fontSize, recipe.FontSize);

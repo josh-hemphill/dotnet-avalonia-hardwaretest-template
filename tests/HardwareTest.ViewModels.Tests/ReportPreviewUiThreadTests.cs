@@ -30,11 +30,11 @@ public sealed class ReportPreviewUiThreadTests
                 inScheduler = false;
             }
         };
-        vm.PropertyChanged += (_, args) =>
+        vm.PropertyChanged += (sender, args) =>
         {
             if (args.PropertyName == nameof(vm.Status) && !inScheduler)
             {
-                Interlocked.Increment(ref offScheduler);
+                _ = Interlocked.Increment(ref offScheduler);
             }
         };
 
@@ -62,11 +62,11 @@ public sealed class ReportPreviewUiThreadTests
                 inScheduler = false;
             }
         };
-        vm.PropertyChanged += (_, args) =>
+        vm.PropertyChanged += (sender, args) =>
         {
             if (args.PropertyName == nameof(vm.IsBusy) && !inScheduler)
             {
-                Interlocked.Increment(ref offScheduler);
+                _ = Interlocked.Increment(ref offScheduler);
             }
         };
 
@@ -103,7 +103,7 @@ public sealed class ReportPreviewUiThreadTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-preview-print"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {

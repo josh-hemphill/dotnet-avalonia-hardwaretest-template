@@ -37,7 +37,7 @@ public sealed partial class PlanCompiler : IPlanCompiler
         _replaceFile = replaceFile;
         _extraPluginDirectories = extraPluginDirectories is null
             ? []
-            : extraPluginDirectories.Where(dir => !string.IsNullOrWhiteSpace(dir)).ToArray();
+            : [.. extraPluginDirectories.Where(dir => !string.IsNullOrWhiteSpace(dir))];
     }
 
     public void Save(ProgramDraft draft, string tapPlanPath)
@@ -69,11 +69,11 @@ public sealed partial class PlanCompiler : IPlanCompiler
         var directory = Path.GetDirectoryName(Path.GetFullPath(tapPlanPath));
         if (!string.IsNullOrWhiteSpace(directory))
         {
-            Directory.CreateDirectory(directory);
+            _ = Directory.CreateDirectory(directory);
         }
 
         var libraryHome = LibraryHome;
-        if (libraryHome is not null) AuthoringInstrumentCatalog.Discover(libraryHome);
+        if (libraryHome is not null) _ = AuthoringInstrumentCatalog.Discover(libraryHome);
         var plan = BuildPlan(draft, libraryHome);
         AssertNoDialog(plan);
         var sidecar = CloneSidecar(draft.Sidecar);

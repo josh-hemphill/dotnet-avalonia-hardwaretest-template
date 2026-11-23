@@ -28,7 +28,7 @@ public sealed class SchemaVersioningTests
         var error = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.LoadAsync(runId));
         Assert.Contains($"requires schema {SchemaVersions.TestRunRecord}", error.Message);
         Assert.Contains(dest, error.Message);
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(new TestRunRecord { RunId = runId }));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(new TestRunRecord { RunId = runId }));
         Assert.Equal(before, File.ReadAllBytes(dest));
         Assert.Empty(await store.ListAsync());
         Assert.False(File.Exists(dest + ".bak"));
@@ -48,8 +48,8 @@ public sealed class SchemaVersioningTests
         Assert.True(run.IsSchemaReadOnly);
         Assert.Equal(999, run.StoredSchemaVersion);
         Assert.Equal("9.9.9+ffff.20990101000000", run.AppVersion);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(new TestRunRecord { RunId = run.RunId }));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(run));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.SaveAsync(new TestRunRecord { RunId = run.RunId }));
         Assert.Equal(before, File.ReadAllBytes(dest));
         Assert.True(Assert.Single(await store.ListAsync()).IsSchemaReadOnly);
     }
@@ -88,7 +88,7 @@ public sealed class SchemaVersioningTests
         using var temp = new TempDataDirectory();
         var store = new FileRunStore(temp.RunsDirectory);
         var run = new TestRunRecord { RunId = "unsupported", SchemaVersion = version };
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(() => store.SaveAsync(run));
         Assert.Equal(version, run.SchemaVersion);
         Assert.False(File.Exists(Path.Combine(store.GetRunDirectory(run.RunId), "run.json")));
     }
@@ -131,10 +131,7 @@ public sealed class SchemaVersioningTests
     [InlineData("null")]
     [InlineData("[]")]
     [InlineData("{invalid")]
-    public void Malformed_headers_are_errors_before_deserialization(string json)
-    {
-        Assert.ThrowsAny<JsonException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
-    }
+    public void Malformed_headers_are_errors_before_deserialization(string json) => Assert.ThrowsAny<JsonException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
 
     [Theory]
     [InlineData("settings-v0-legacy.json", false)]

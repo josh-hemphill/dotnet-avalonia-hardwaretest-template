@@ -12,10 +12,16 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     public static IEnumerable<object[]> UnsafeMetadata()
     {
         foreach (var name in new[] { "Link", "LinkBase", "TargetPath", "RelativePath", "DestinationSubDirectory" })
+        {
             foreach (var casing in new[] { 0, 1, 2 })
+            {
                 foreach (var attribute in new[] { false, true })
+                {
                     foreach (var form in new[] { "literal", "property", "metadata", "escape" })
                         yield return [CaseName(name, casing), attribute, form, casing];
+                }
+            }
+        }
     }
 
     [Theory]
@@ -45,16 +51,20 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
         Assert.Contains("copy-output metadata", error.Message);
         Assert.Equal("previous", File.ReadAllText(sentinel));
         Assert.Equal("keep", File.ReadAllText(Path.Combine(output, "previous")));
-        Assert.Single(Directory.GetFiles(output));
+        _ = Assert.Single(Directory.GetFiles(output));
         Assert.False(Directory.Exists(Path.Combine(Path.GetDirectoryName(project)!, "obj")));
     }
 
     public static IEnumerable<object[]> ReferenceOverrides()
     {
         foreach (var name in new[] { "AdditionalProperties", "GlobalPropertiesToRemove", "SetConfiguration", "SetPlatform", "SetTargetFramework", "Targets", "Properties", "UndefineProperties" })
+        {
             foreach (var casing in new[] { 0, 1, 2 })
+            {
                 foreach (var attribute in new[] { false, true })
                     yield return [CaseName(name, casing), attribute, casing];
+            }
+        }
     }
 
     [Theory]
@@ -84,7 +94,7 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
         // A sibling is absent from the initial project tree: resolving HintPath must
         // expand the owned source graph rather than incidentally capturing a local file.
         var assembly = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(project)!, "..", "lib", "SavedReference.dll"));
-        Directory.CreateDirectory(Path.GetDirectoryName(assembly)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(assembly)!);
         File.Copy(typeof(AuthoringBuildService).Assembly.Location, assembly);
         var reference = new XElement(CaseName("Reference", casing), new XAttribute("Include", "SavedReference"));
         if (attribute) reference.Add(new XAttribute(CaseName("HintPath", casing), "../lib/SavedReference.dll"));
@@ -115,7 +125,7 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
         var request = AuthoringBuildService.CaptureSaved(workspace,
             new PackOptions { Home = AuthoringBuildSnapshotTests.Home(workspace), Offline = true });
         var output = AuthoringBuildSnapshotTests.Temp();
-        AuthoringBuildService.Execute(request, output);
+        _ = AuthoringBuildService.Execute(request, output);
         Assert.Equal("saved payload", File.ReadAllText(Path.Combine(output, "shell-apps", "Shell", "assets", "payload.txt")));
         Assert.False(Directory.Exists(Path.Combine(Path.GetDirectoryName(project)!, "obj")));
     }
@@ -130,7 +140,7 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     private static (AuthoringWorkspace Workspace, string Project) Workspace(bool siblingReference = false)
     {
         var root = AuthoringBuildSnapshotTests.Temp();
-        if (siblingReference) { root = Path.Combine(root, "project"); Directory.CreateDirectory(root); }
+        if (siblingReference) { root = Path.Combine(root, "project"); _ = Directory.CreateDirectory(root); }
         var project = Path.Combine(root, "Shell.csproj");
         File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup></Project>");
         File.WriteAllText(Path.Combine(root, "Program.cs"), "System.Console.WriteLine(\"saved\");");

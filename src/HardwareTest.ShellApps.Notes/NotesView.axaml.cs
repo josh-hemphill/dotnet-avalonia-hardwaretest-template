@@ -4,8 +4,5 @@ namespace HardwareTest.ShellApps.Notes;
 
 public partial class NotesView : UserControl
 {
-    public NotesView()
-    {
-        InitializeComponent();
-    }
+    public NotesView() => InitializeComponent();
 }

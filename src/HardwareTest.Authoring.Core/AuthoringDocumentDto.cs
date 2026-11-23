@@ -55,9 +55,9 @@ public sealed record AuthoringDocumentDto
             HasConfigurableMeasureSections = true,
             Revision = revision,
             Sidecar = isolated.Sidecar,
-            Instruments = isolated.Instruments.ToArray(),
-            Setup = isolated.Setup.Select(AuthoringSetupDto.From).ToArray(),
-            Measure = isolated.Measure.Select(AuthoringMeasureDto.From).ToArray(),
+            Instruments = [.. isolated.Instruments],
+            Setup = [.. isolated.Setup.Select(AuthoringSetupDto.From)],
+            Measure = [.. isolated.Measure.Select(AuthoringMeasureDto.From)],
             Cleanup = AuthoringCleanupDto.From(isolated.Cleanup),
             ImportedPlanXml = isolated.ImportedPlanXml,
             ImportedData = isolated.ImportedData.Count == 0 ? null : new(isolated.ImportedData),
@@ -72,14 +72,17 @@ public sealed record AuthoringDocumentDto
         if (SchemaVersion is < 1 or > CurrentSchemaVersion) throw new InvalidDataException($"Unsupported draft schema {SchemaVersion}.");
         if (Revision < 0 || Sidecar is null || Instruments is null || Setup is null || Measure is null || Cleanup is null || State is null ||
             State.IncompleteNumericText is null || State.FormulaIntent is null)
+        {
             throw new InvalidDataException("The authoring source document is incomplete.");
+        }
+
         if (Instruments.Any(instrument => instrument is null || instrument.Settings is null))
             throw new InvalidDataException("Instrument source configuration is incomplete.");
         if (Sidecar.ReferenceRules?.Any(rule => rule is null) == true)
             throw new InvalidDataException("The reference criteria contain an empty declaration.");
         var draft = new ProgramDraft(PlanId, Sidecar, Instruments, Setup.Select(s => s.ToAction()).ToArray(),
             Measure.Select(m => m.ToNode()).ToArray(), Cleanup.ToPolicy())
-        { AuthoringState = State.Clone(), ImportedPlanXml = ImportedPlanXml, ImportedData = ImportedData ?? new() };
+        { AuthoringState = State.Clone(), ImportedPlanXml = ImportedPlanXml, ImportedData = ImportedData ?? [] };
         var ids = AuthoringDependencyIndex.Build(draft).Nodes.Select(n => n.NodeId).ToArray();
         if (ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             throw new InvalidDataException("Draft node identities must be unique and nonempty.");
@@ -132,15 +135,15 @@ public sealed class AuthoringMeasureDto
     public AuthoringSourceDto? Source { get; set; }
     internal static AuthoringMeasureDto From(MeasureNode node) => node switch
     {
-        SectionNode n => new() { Kind = "section", NodeId = n.NodeId, Name = n.Name, Children = n.Children.Select(From).ToArray() },
-        RepeatNode n => new() { Kind = "repeat", NodeId = n.NodeId, Count = n.Count, Children = n.Children.Select(From).ToArray() },
+        SectionNode n => new() { Kind = "section", NodeId = n.NodeId, Name = n.Name, Children = [.. n.Children.Select(From)] },
+        RepeatNode n => new() { Kind = "repeat", NodeId = n.NodeId, Count = n.Count, Children = [.. n.Children.Select(From)] },
         RawStepNode n => new() { Kind = "raw", NodeId = n.NodeId, TypeName = n.TypeName, XmlFragment = n.XmlFragment },
         MetricNode n => new() { Kind = "metric", NodeId = n.NodeId, Name = n.Metric.Name, ChannelKey = n.Metric.ChannelKey, DisplayRole = n.Metric.DisplayRole, YUnit = n.Metric.YUnit, Limits = n.Metric.Limits, History = n.Metric.History, Source = AuthoringSourceDto.From(n.Metric.Source) },
         _ => throw new InvalidDataException("Unknown measure variant.")
     };
     internal MeasureNode ToNode() => (Kind switch
     {
-        "section" => (MeasureNode)new SectionNode(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(Children).Select(n => n.ToNode()).ToArray()),
+        "section" => new SectionNode(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(Children).Select(n => n.ToNode()).ToArray()),
         "repeat" => (MeasureNode)new RepeatNode(Count ?? throw new InvalidDataException("Missing repeat count."), AuthoringSetupDto.Need(Children).Select(n => n.ToNode()).ToArray()),
         "raw" => new RawStepNode(AuthoringSetupDto.Need(TypeName), AuthoringSetupDto.Need(XmlFragment)),
         "metric" => new MetricNode(new(AuthoringSetupDto.Need(Name), AuthoringSetupDto.Need(ChannelKey), AuthoringSetupDto.Need(DisplayRole), AuthoringSetupDto.Need(YUnit), Limits, History, AuthoringSetupDto.Need(Source).ToSource())),
@@ -167,9 +170,9 @@ public sealed class AuthoringSourceDto
     internal static AuthoringSourceDto From(MetricSource source) => source switch
     {
         MeasureSource s => new() { Kind = "measure", InstrumentSlot = s.InstrumentSlot, FunctionId = s.FunctionId, Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
-        AlgorithmSource s => new() { Kind = "algorithm", InstrumentSlot = s.InstrumentSlot, AlgorithmId = s.AlgorithmId, InputChannelKeys = s.InputChannelKeys.ToArray(), Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
-        ExpressionAlgorithm s => new() { Kind = "expression", InputChannelKeys = s.InputChannelKeys.ToArray(), Expression = s.Source },
-        TransferFunctionAlgorithm s => new() { Kind = "transferFunction", InputChannelKey = s.InputChannelKey, Numerator = s.Numerator.ToArray(), Denominator = s.Denominator.ToArray(), TsSeconds = s.TsSeconds, Method = s.Method },
+        AlgorithmSource s => new() { Kind = "algorithm", InstrumentSlot = s.InstrumentSlot, AlgorithmId = s.AlgorithmId, InputChannelKeys = [.. s.InputChannelKeys], Settings = new(s.Settings, StringComparer.Ordinal), SettingsIgnoreCase = IgnoreCase(s.Settings) },
+        ExpressionAlgorithm s => new() { Kind = "expression", InputChannelKeys = [.. s.InputChannelKeys], Expression = s.Source },
+        TransferFunctionAlgorithm s => new() { Kind = "transferFunction", InputChannelKey = s.InputChannelKey, Numerator = [.. s.Numerator], Denominator = [.. s.Denominator], TsSeconds = s.TsSeconds, Method = s.Method },
         _ => throw new InvalidDataException("Unknown source variant.")
     };
     private static bool IgnoreCase(IReadOnlyDictionary<string, string> settings) => settings switch
@@ -214,7 +217,7 @@ public sealed class AuthoringCleanupDto
     {
         NodeId = policy.NodeId,
         IncludeSafeShutdown = policy.IncludeSafeShutdown,
-        InstrumentSlots = policy.InstrumentSlots.ToArray(),
+        InstrumentSlots = [.. policy.InstrumentSlots],
         IncludeMeasureSlots = policy.IncludeMeasureSlots
     };
     internal CleanupPolicy ToPolicy() => new(IncludeSafeShutdown, AuthoringSetupDto.Need(InstrumentSlots), IncludeMeasureSlots) { NodeId = NodeId };

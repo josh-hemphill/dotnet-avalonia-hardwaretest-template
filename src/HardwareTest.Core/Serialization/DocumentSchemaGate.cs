@@ -28,8 +28,11 @@ public sealed class DocumentSchemaStatus
         }
 
         if (Kind == DocumentSchemaKind.PreviousReadOnly)
+        {
             return $"Read-only: {DocumentType} schema {StoredVersion} predates this app ({CurrentVersion}). "
                 + "Historical evidence remains readable; preserve the original bytes instead of rewriting it.";
+        }
+
         if (!IsReadOnly) return string.Empty;
         var writer = string.IsNullOrWhiteSpace(WriterAppVersion) ? "unknown" : WriterAppVersion;
         return $"Read-only: {DocumentType} schema {StoredVersion} is newer than this app ({CurrentVersion}). "
@@ -65,7 +68,7 @@ public static class DocumentSchemaGate
         {
             if (children.ValueKind != JsonValueKind.Array) throw new JsonException("planRuns must be an array.");
             foreach (var child in children.EnumerateArray())
-                ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path);
+                _ = ReadElementHeader(child, SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord, path);
         }
         return status;
     }
@@ -76,7 +79,10 @@ public static class DocumentSchemaGate
         var version = 0;
         if (root.TryGetProperty("schemaVersion", out var header)
             && (header.ValueKind != JsonValueKind.Number || !header.TryGetInt32(out version)))
+        {
             throw new JsonException($"{documentType} schemaVersion must be an integer.");
+        }
+
         var writer = root.TryGetProperty("appVersion", out var appVersion) && appVersion.ValueKind == JsonValueKind.String
             ? appVersion.GetString() : null;
         var status = Evaluate(documentType, version, currentVersion, writer);
@@ -110,15 +116,12 @@ public static class DocumentSchemaGate
     }
 }
 
-public sealed class UnsupportedDocumentSchemaException : InvalidOperationException
+public sealed class UnsupportedDocumentSchemaException(DocumentSchemaStatus status, string? path = null) : InvalidOperationException(status.FormatOperatorWarning() + (path is null ? string.Empty : $" File: {path}"))
 {
-    public UnsupportedDocumentSchemaException(DocumentSchemaStatus status, string? path = null)
-        : base(status.FormatOperatorWarning() + (path is null ? string.Empty : $" File: {path}")) => Status = status;
-    public DocumentSchemaStatus Status { get; }
+    public DocumentSchemaStatus Status { get; } = status;
 }
 
-public sealed class SchemaReadOnlyException : InvalidOperationException
+public sealed class SchemaReadOnlyException(DocumentSchemaStatus status) : InvalidOperationException(status.FormatOperatorWarning())
 {
-    public SchemaReadOnlyException(DocumentSchemaStatus status) : base(status.FormatOperatorWarning()) => Status = status;
-    public DocumentSchemaStatus Status { get; }
+    public DocumentSchemaStatus Status { get; } = status;
 }

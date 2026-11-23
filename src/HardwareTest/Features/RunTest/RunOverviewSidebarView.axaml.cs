@@ -5,10 +5,7 @@ namespace HardwareTest.Features.RunTest;
 
 public partial class RunOverviewSidebarView : UserControl
 {
-    public RunOverviewSidebarView()
-    {
-        InitializeComponent();
-    }
+    public RunOverviewSidebarView() => InitializeComponent();
 
     private void OnStageDoubleTapped(object? sender, TappedEventArgs e)
     {

@@ -15,14 +15,14 @@ public sealed class RunTriageSummary
     {
         var ledgers = run.StepAttempts.Count > 0
             ? run.StepAttempts
-            : run.Steps.GroupBy(step => string.IsNullOrWhiteSpace(step.StepPath) ? step.StepId : step.StepPath,
+            : [.. run.Steps.GroupBy(step => string.IsNullOrWhiteSpace(step.StepPath) ? step.StepId : step.StepPath,
                 StringComparer.OrdinalIgnoreCase)
                 .Select(group => new StepAttemptSummary
                 {
                     StepPath = group.Key,
                     StepName = group.First().StepType,
                     Attempts = [.. group],
-                }).ToList();
+                })];
         var chronology = ledgers
             .SelectMany(l => l.Attempts)
             .OrderBy(ChronologyInstant)

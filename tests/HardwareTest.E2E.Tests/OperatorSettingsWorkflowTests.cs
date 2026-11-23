@@ -26,15 +26,15 @@ public sealed class OperatorSettingsWorkflowTests
         var offThread = 0;
         void Observe(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
         {
-            if (!Dispatcher.UIThread.CheckAccess()) Interlocked.Increment(ref offThread);
+            if (!Dispatcher.UIThread.CheckAccess()) _ = Interlocked.Increment(ref offThread);
         }
         settings.PropertyChanged += Observe;
         home.PropertyChanged += Observe;
         main.RunTest.PropertyChanged += Observe;
-        System.Collections.Specialized.NotifyCollectionChangedEventHandler navigationChanged = (_, _) =>
+        void navigationChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs args)
         {
-            if (!Dispatcher.UIThread.CheckAccess()) Interlocked.Increment(ref offThread);
-        };
+            if (!Dispatcher.UIThread.CheckAccess()) _ = Interlocked.Increment(ref offThread);
+        }
         main.NavigationItems.CollectionChanged += navigationChanged;
         try
         {
@@ -81,7 +81,7 @@ public sealed class OperatorSettingsWorkflowTests
             .Single(control => Avalonia.Automation.AutomationProperties.GetName(control) == "Open station readiness on Run");
         Assert.True(open.IsEffectivelyVisible);
         var position = open.TranslatePoint(default, window);
-        Assert.NotNull(position);
+        _ = Assert.NotNull(position);
         Assert.True(new Rect(window.ClientSize).Contains(new Rect(position.Value, open.Bounds.Size)));
         open.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         await E2EHarness.PumpUiAsync();

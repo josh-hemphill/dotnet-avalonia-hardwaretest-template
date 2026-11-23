@@ -66,7 +66,7 @@ public sealed class ResultsExportDestinationTests
         fixture.AssertPackage(fixture.SecondRoot);
         Assert.False(Directory.Exists(fixture.FirstRoot));
         Assert.Equal(sourceJson, File.ReadAllBytes(fixture.RunJsonPath));
-        foreach (var source in sourceReports) Assert.Equal(source.Bytes, File.ReadAllBytes(source.PdfPath));
+        foreach (var (PdfPath, Bytes) in sourceReports) Assert.Equal(Bytes, File.ReadAllBytes(PdfPath));
         var defaultReport = ReportRevisions.Latest(fixture.Record, ReportKinds.Status)?.PdfPath
             ?? fixture.Record.Reports[0].PdfPath;
         Assert.Equal(File.ReadAllBytes(defaultReport), File.ReadAllBytes(Path.Combine(fixture.SecondRoot, "run-export-source", "status.pdf")));
@@ -213,7 +213,10 @@ public sealed class ResultsExportDestinationTests
             Assert.False(Directory.Exists(fixture.FirstRoot));
             Assert.False(Directory.Exists(fixture.SecondRoot));
 
-            Task Refresh() => saveSettings ? settings.SaveAppSettingsAsync() : vm.RefreshCommand.ExecuteAsync();
+            Task Refresh()
+            {
+                return saveSettings ? settings.SaveAppSettingsAsync() : vm.RefreshCommand.ExecuteAsync();
+            }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
@@ -250,7 +253,10 @@ public sealed class ResultsExportDestinationTests
                 Assert.Contains("no longer available", vm.Status, StringComparison.Ordinal);
                 Assert.False(Directory.Exists(fixture.SecondRoot));
             }
-            else fixture.AssertPackage(fixture.SecondRoot);
+            else
+            {
+                fixture.AssertPackage(fixture.SecondRoot);
+            }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
@@ -270,10 +276,9 @@ public sealed class ResultsExportDestinationTests
         private readonly string _root = Path.Combine(Path.GetTempPath(), "operator-export-" + Guid.NewGuid().ToString("N"));
         private readonly FakeRunStore _store = new();
         private readonly bool _certified;
-        private readonly TestRunRecord _run;
         private string _runJson;
-        internal TestRunRecord Record => _run;
-        internal string RunJsonPath => Path.Combine(_store.GetRunDirectory(_run.RunId), "run.json");
+        internal TestRunRecord Record { get; }
+        internal string RunJsonPath => Path.Combine(_store.GetRunDirectory(Record.RunId), "run.json");
         private readonly SettingsStore? _persistentSettings;
         internal AppSettings Settings { get; }
         internal bool SecondPresent { get; set; } = true;
@@ -290,10 +295,10 @@ public sealed class ResultsExportDestinationTests
             Settings.RequireAttestationBeforeExport = certified;
             Settings.AllowPresenceInLieuOfSigning = certified;
             var runDirectory = _store.GetRunDirectory("export-source");
-            Directory.CreateDirectory(runDirectory);
+            _ = Directory.CreateDirectory(runDirectory);
             var report = Path.Combine(runDirectory, certified ? "certification.pdf" : "status.pdf");
             File.WriteAllBytes(report, "%PDF-1.4 operator export evidence"u8.ToArray());
-            _run = new TestRunRecord
+            Record = new TestRunRecord
             {
                 SchemaVersion = SchemaVersions.TestRunRecord,
                 RunId = "export-source",
@@ -315,21 +320,21 @@ public sealed class ResultsExportDestinationTests
                     },
                 ],
             };
-            _runJson = JsonSerializer.Serialize(_run, AppJsonContext.Default.TestRunRecord);
+            _runJson = JsonSerializer.Serialize(Record, AppJsonContext.Default.TestRunRecord);
             File.WriteAllText(Path.Combine(runDirectory, "run.json"), _runJson);
-            _store.Seed(_run);
+            _store.Seed(Record);
         }
 
         internal Task<ReportAttestationResult> IssueAsync()
         {
             Settings.AllowPresenceInLieuOfSigning = true;
             return new ReportAttestationService(new MockOperatorCredentialBroker(canSign: false), _store, Settings)
-                .AttestAsync(_run, _run.Reports[0].Kind);
+                .AttestAsync(Record, Record.Reports[0].Kind);
         }
 
         internal void PersistRecord()
         {
-            _runJson = JsonSerializer.Serialize(_run, AppJsonContext.Default.TestRunRecord);
+            _runJson = JsonSerializer.Serialize(Record, AppJsonContext.Default.TestRunRecord);
             File.WriteAllText(RunJsonPath, _runJson);
         }
 
@@ -352,9 +357,9 @@ public sealed class ResultsExportDestinationTests
                 settings: Settings, settingsStore: _persistentSettings)
             { UiScheduler = action => action() };
             // Open once: selecting a run also schedules an automatic detail load.
-            await vm.OpenRunByIdAsync(_run.RunId);
-            Assert.Single(vm.Runs);
-            Assert.Equal(_run.RunId, vm.OpenedRun?.RunId);
+            await vm.OpenRunByIdAsync(Record.RunId);
+            _ = Assert.Single(vm.Runs);
+            Assert.Equal(Record.RunId, vm.OpenedRun?.RunId);
             await WaitForReportVerificationAsync(vm);
             return vm;
         }

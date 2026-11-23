@@ -90,8 +90,8 @@ public sealed class MetricEditorTests
         Assert.False(vm.HasUnsavedChanges);
         Assert.True(vm.HasUncompiledSources);
         Assert.False(vm.CanPack);
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(root, "dist")));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(root, "dist")));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         Assert.False(File.Exists(Path.Combine(root, "no-limits.TapPlan")));
         var document = new AuthoringDocumentStore(root).Load("no-limits").Document!;
         Assert.True(document.RequiresCompilation);
@@ -137,7 +137,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.InitializePlan(new("series") { Instruments = [] });
+        _ = vm.InitializePlan(new("series") { Instruments = [] });
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.SeriesCompliance);
         Assert.Equal("1.1", vm.LimitLow);
         Assert.Equal("1.4", vm.LimitHigh);
@@ -163,7 +163,7 @@ public sealed class MetricEditorTests
         var root = EmptyWorkspace();
         var vm = new AuthoringWorkspaceViewModel();
         vm.Open(root);
-        vm.InitializePlan(new("health") { Instruments = [] });
+        _ = vm.InitializePlan(new("health") { Instruments = [] });
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.StationHealth);
         Assert.Equal(PresentationRoles.Scalar, vm.DisplayRole);
         vm.Apply();
@@ -217,7 +217,7 @@ public sealed class MetricEditorTests
         vm.Open(root);
         vm.CreateDemoProgram("saved");
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.MeanGte);
-        vm.InitializePlan(new("pending") { Instruments = [] });
+        _ = vm.InitializePlan(new("pending") { Instruments = [] });
         vm.DisplayName += " edited";
         vm.SelectProgram("saved");
         vm.Apply();
@@ -301,7 +301,7 @@ public sealed class MetricEditorTests
         vm.Open(root);
         vm.CreateDemoProgram("acquire");
         vm.InsertRecipeAtSectionEnd(AuthoringRecipeIds.Acquire);
-        Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
+        _ = Assert.IsType<MeasureSource>(Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram!.Measure)).Metric.Source);
         Assert.True(vm.PreviewChrome.IsChart);
         Assert.False(vm.PreviewChrome.IsGauge);
         Assert.NotEmpty(vm.PreviewChrome.Ys);
@@ -310,7 +310,7 @@ public sealed class MetricEditorTests
 
         Assert.Equal(string.Empty, vm.FormulaSource);
         var metric = Assert.IsType<MetricNode>(Assert.Single(vm.SelectedProgram.Measure)).Metric;
-        Assert.IsType<MeasureSource>(metric.Source);
+        _ = Assert.IsType<MeasureSource>(metric.Source);
         Assert.Equal("VDC", metric.ChannelKey);
     }
 
@@ -344,7 +344,7 @@ public sealed class MetricEditorTests
         try
         {
             var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
-            Directory.CreateDirectory(dest);
+            _ = Directory.CreateDirectory(dest);
             File.Copy(
                 Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
                 Path.Combine(dest, "run.json"));
@@ -447,7 +447,7 @@ public sealed class MetricEditorTests
     private static string EmptyWorkspace()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-metric-ui-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         var src = Path.Combine(FindRepoRoot(), "plans", "opentap");
         File.Copy(Path.Combine(src, "authoring.json"), Path.Combine(dest, "authoring.json"));
         var schema = Path.Combine(src, "authoring.schema.json");

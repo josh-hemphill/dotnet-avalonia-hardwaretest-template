@@ -9,7 +9,7 @@ public sealed class TempDataDirectory : IDisposable
             System.IO.Path.GetTempPath(),
             "HardwareTestTests",
             Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path);
+        _ = Directory.CreateDirectory(Path);
     }
 
     public string Path { get; }

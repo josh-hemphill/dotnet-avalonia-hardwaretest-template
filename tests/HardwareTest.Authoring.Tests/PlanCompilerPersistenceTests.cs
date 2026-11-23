@@ -11,10 +11,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "ht-persistence-" + Guid.NewGuid().ToString("N"));
 
-    public PlanCompilerPersistenceTests()
-    {
-        Directory.CreateDirectory(_directory);
-    }
+    public PlanCompilerPersistenceTests() => Directory.CreateDirectory(_directory);
 
     [Fact]
     public void Save_restores_original_bytes_when_sidecar_replacement_fails_after_plan_changed()
@@ -64,7 +61,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
             if (destination == sidecarPath)
             {
                 File.Delete(path);
-                Directory.CreateDirectory(path);
+                _ = Directory.CreateDirectory(path);
                 File.WriteAllText(sidecarPath, "partial replacement");
                 throw failure;
             }
@@ -164,11 +161,11 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         var sidecarPath = PlanCompiler.SidecarPath(path);
         var originalBytes = Encoding.UTF8.GetBytes("original sidecar bytes\r\n");
         File.WriteAllBytes(sidecarPath, originalBytes);
-        Directory.CreateDirectory(sidecarPath + ".saving");
+        _ = Directory.CreateDirectory(sidecarPath + ".saving");
         var replacementRan = false;
         var compiler = new PlanCompiler(null, (_, _) => replacementRan = true);
 
-        Assert.ThrowsAny<Exception>(() => compiler.SaveSidecar(path, Draft().Sidecar));
+        _ = Assert.ThrowsAny<Exception>(() => compiler.SaveSidecar(path, Draft().Sidecar));
 
         Assert.False(replacementRan);
         Assert.Equal(originalBytes, File.ReadAllBytes(sidecarPath));
@@ -195,11 +192,11 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         var target = Path.Combine(_directory, "protected-file");
         if (!dangling) File.WriteAllText(target, "protected bytes");
         var temporary = (sidecarTemporary ? sidecarPath : path) + ".saving";
-        File.CreateSymbolicLink(temporary, target);
+        _ = File.CreateSymbolicLink(temporary, target);
         var replacementRan = false;
         var compiler = new PlanCompiler(null, (_, _) => replacementRan = true);
 
-        Assert.Throws<IOException>(() =>
+        _ = Assert.Throws<IOException>(() =>
         {
             if (sidecarOnly) compiler.SaveSidecar(path, Draft().Sidecar);
             else compiler.Save(Draft(), path);
@@ -228,7 +225,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
             if (destination == sidecarPath)
             {
                 File.Delete(source);
-                Directory.CreateDirectory(source);
+                _ = Directory.CreateDirectory(source);
                 throw failure;
             }
 
@@ -288,10 +285,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         AssertNoTemps(path);
     }
 
-    public void Dispose()
-    {
-        Directory.Delete(_directory, recursive: true);
-    }
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     private string PlanPath() => Path.Combine(_directory, "atomic.TapPlan");
 

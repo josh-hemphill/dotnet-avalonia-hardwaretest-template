@@ -28,10 +28,10 @@ public sealed class OpenTapRunGateTests
 
         var secondEx = await Record.ExceptionAsync(() => session.RunAsync());
         session.Resume();
-        await first;
+        _ = await first;
 
-        Assert.IsType<InvalidOperationException>(secondEx);
-        Assert.Contains("already in progress", secondEx!.Message, StringComparison.OrdinalIgnoreCase);
+        _ = Assert.IsType<InvalidOperationException>(secondEx);
+        Assert.Contains("already in progress", secondEx.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class OpenTapRunGateTests
             await Task.Delay(5);
         }
 
-        await run;
+        _ = await run;
         Assert.Equal(0, accepted);
     }
 
@@ -93,8 +93,8 @@ public sealed class OpenTapRunGateTests
         using (lease)
         {
             var ex = await Record.ExceptionAsync(() => session.RunAsync());
-            Assert.IsType<InvalidOperationException>(ex);
-            Assert.Contains("device transfer", ex!.Message, StringComparison.OrdinalIgnoreCase);
+            _ = Assert.IsType<InvalidOperationException>(ex);
+            Assert.Contains("device transfer", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -107,8 +107,8 @@ public sealed class OpenTapRunGateTests
         using (lease)
         {
             var ex = await Record.ExceptionAsync(() => session.RunAsync());
-            Assert.IsType<InvalidOperationException>(ex);
-            Assert.Contains("Instruments query", ex!.Message, StringComparison.OrdinalIgnoreCase);
+            _ = Assert.IsType<InvalidOperationException>(ex);
+            Assert.Contains("Instruments query", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -122,7 +122,7 @@ public sealed class OpenTapRunGateTests
             new StationProfile(new Dictionary<string, string> { ["dmm"] = "MOCK::INSTR0" }),
             new DutIdentity("DUT-GATE", Family: "demo"));
 
-        await session.RunAsync();
+        _ = await session.RunAsync();
 
         Assert.Null(bench.Current);
         Assert.True(bench.TryEnter(BenchOperation.ModeSwap, out var lease, out _));

@@ -59,12 +59,7 @@ public partial class SettingsView : UserControl
 
         vm.CopyTextAsync = async text =>
         {
-            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
-            if (clipboard is null)
-            {
-                throw new InvalidOperationException("Clipboard is unavailable.");
-            }
-
+            var clipboard = (TopLevel.GetTopLevel(this)?.Clipboard) ?? throw new InvalidOperationException("Clipboard is unavailable.");
             await clipboard.SetTextAsync(text);
         };
         vm.OfflineBundleFocusRequested += FocusOfflineField;
@@ -97,7 +92,7 @@ public partial class SettingsView : UserControl
 
     private void OnOfflineFieldFocused(object? sender, FocusChangedEventArgs e)
     {
-        if (sender is Control control) Dispatcher.UIThread.Post(() => control.BringIntoView(), DispatcherPriority.Loaded);
+        if (sender is Control control) Dispatcher.UIThread.Post(control.BringIntoView, DispatcherPriority.Loaded);
     }
 
     private bool IsWithinOfflineInspection(object? source)
@@ -145,7 +140,7 @@ public partial class SettingsView : UserControl
             if (!ReferenceEquals(DataContext, context) || owner is null || TopLevel.GetTopLevel(this) != owner || stillOwnsFocus?.Invoke() == false) return;
             field?.BringIntoView();
             (name == "Offline bundle folder" ? this.FindControl<TextBlock>("OfflineBundleStatusText") : this.FindControl<TextBlock>("OfflineBundleCommandStatusText"))?.BringIntoView();
-            field?.Focus();
+            _ = (field?.Focus());
         }, DispatcherPriority.Loaded);
     }
 
@@ -188,7 +183,7 @@ public partial class SettingsView : UserControl
         try { await dialog.ShowDialog(owner); }
         finally { vm.PropertyChanged -= InspectionChanged; }
         if (!ReferenceEquals(DataContext, vm) || TopLevel.GetTopLevel(this) != owner) return;
-        if (vm.HasOfflineBundleInspection) (sender as Control)?.Focus();
+        if (vm.HasOfflineBundleInspection) _ = ((sender as Control)?.Focus());
         else FocusOfflineField("Offline bundle folder");
     }
 }

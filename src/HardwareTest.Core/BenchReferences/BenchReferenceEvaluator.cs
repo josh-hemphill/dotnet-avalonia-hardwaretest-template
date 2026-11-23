@@ -30,7 +30,7 @@ public static class BenchReferenceEvaluator
     public static BenchReferenceUse CloneUse(BenchReferenceUse use)
         => use with { Rule = use.Rule with { }, ReferenceValue = use.ReferenceValue with { }, Context = use.Context with { } };
     public static BenchReferenceProfile CloneProfile(BenchReferenceProfile profile)
-        => profile with { Context = profile.Context with { }, Values = profile.Values.Select(value => value with { }).ToList() };
+        => profile with { Context = profile.Context with { }, Values = [.. profile.Values.Select(value => value with { })] };
 
     public static BenchReferenceProfile Capture(
         string name,
@@ -52,7 +52,10 @@ public static class BenchReferenceEvaluator
             throw new InvalidOperationException("Selected production results cannot qualify a reference; use explicit reference acquisition for the covered metrics.");
         if (string.IsNullOrWhiteSpace(source.RunId) || string.IsNullOrWhiteSpace(source.DutSerial)
             || string.IsNullOrWhiteSpace(source.OperatorName) || source.StartedAt == default)
+        {
             throw new InvalidOperationException("Reference source needs its original run, golden DUT, operator and acquisition timestamps.");
+        }
+
         var context = source.ReferenceContext ?? throw new InvalidOperationException("The source has no recorded reference context. Acquire it again with the current application.");
         var contextError = ContextError(context);
         if (contextError is not null) throw new InvalidOperationException(contextError);
@@ -70,7 +73,10 @@ public static class BenchReferenceEvaluator
                 || source.ReferenceEvaluations.Any(evaluation => !evaluation.Passed)
                 || source.ReferenceRules.Any(rule => !source.ReferenceUses.Any(use => use.Rule == rule)
                     || !source.ReferenceEvaluations.Any(evaluation => evaluation.RuleId == rule.RuleId && evaluation.Passed))))
+        {
             throw new InvalidOperationException("The production source has incomplete reference acceptance evidence. Use a qualified acquisition or complete accepted run.");
+        }
+
         foreach (var rule in selected)
         {
             if (!source.ReferenceRules.Any(declared => declared == rule))
@@ -104,7 +110,7 @@ public static class BenchReferenceEvaluator
             SourceOperator = source.OperatorName,
             SourceStartedAt = source.StartedAt.ToUniversalTime(),
             SourceCompletedAt = source.CompletedAt.Value.ToUniversalTime(),
-            SourceScope = source.ExecutionScope!,
+            SourceScope = source.ExecutionScope,
             SourceSelectedStepPath = source.SelectedStepPath,
             Context = context with { },
             Values = values,
@@ -129,7 +135,10 @@ public static class BenchReferenceEvaluator
         if (!string.Equals(expected.PlanId, context.PlanId, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(expected.PlanSha256, context.PlanSha256, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(expected.SidecarSha256, context.SidecarSha256, StringComparison.OrdinalIgnoreCase))
+        {
             return "Reference belongs to a different program revision; requalify it for the loaded plan and sidecar.";
+        }
+
         if (!string.Equals(expected.VisaMode, context.VisaMode, StringComparison.Ordinal))
             return "Reference VISA mode does not match this bench. Simulated and physical references cannot be substituted.";
         if (!string.Equals(expected.ConfigurationSha256, context.ConfigurationSha256, StringComparison.OrdinalIgnoreCase))
@@ -201,7 +210,9 @@ public static class BenchReferenceEvaluator
         {
             if (use?.Rule is null || !declared.Any(rule => rule is not null
                     && string.Equals(rule.RuleId, use.Rule.RuleId, StringComparison.OrdinalIgnoreCase)))
+            {
                 evaluations.Add(Unavailable(use?.Rule, "A frozen reference input has no applicable declared acceptance rule."));
+            }
         }
         if (validUses.Count > 0) evaluations.AddRange(Evaluate(CurrentSamples(run), validUses));
         return evaluations;
@@ -256,13 +267,15 @@ public static class BenchReferenceEvaluator
                 if (rule.Comparison == BenchReferenceComparisons.Percent)
                 {
                     if (double.IsFinite(deviation))
+                    {
                         deviation = deviation / Math.Abs(use.ReferenceValue.Value) * 100;
+                    }
                     else
                     {
                         // Opposite finite extremes can overflow subtraction although their
                         // relative difference is representable (for example, +Max vs -Max).
                         var scale = Math.Max(Math.Abs(mean), Math.Abs(use.ReferenceValue.Value));
-                        deviation = Math.Abs(mean / scale - use.ReferenceValue.Value / scale)
+                        deviation = Math.Abs((mean / scale) - (use.ReferenceValue.Value / scale))
                             / (Math.Abs(use.ReferenceValue.Value) / scale) * 100;
                     }
                 }
@@ -300,7 +313,10 @@ public static class BenchReferenceEvaluator
             || string.IsNullOrWhiteSpace(profile.SourceOperator) || profile.CreatedAt == default
             || profile.SourceStartedAt == default || profile.SourceCompletedAt < profile.SourceStartedAt
             || profile.SourceScope is not (RunExecutionScopes.ReferenceAcquisition or RunExecutionScopes.FullSuite))
+        {
             return "Reference source provenance is incomplete or ineligible.";
+        }
+
         if (profile.ExpiresAt is { } expiry && expiry <= profile.CreatedAt)
             return "Reference expiry must be later than its creation time.";
         if (profile.Values is null || profile.Values.Count == 0 || profile.Values.Any(value => !ValidValue(value)))
@@ -309,7 +325,10 @@ public static class BenchReferenceEvaluator
             return "Reference contains ambiguous duplicate values.";
         if (!BenchReferenceIdentity.IsHash(profile.ContentSha256)
             || !string.Equals(profile.ContentSha256, BenchReferenceIdentity.ComputeProfileHash(profile), StringComparison.OrdinalIgnoreCase))
+        {
             return "Reference content hash does not match its saved values or provenance; preserve it and recapture.";
+        }
+
         return null;
     }
 
@@ -318,7 +337,10 @@ public static class BenchReferenceEvaluator
         if (context is null || string.IsNullOrWhiteSpace(context.PlanId)
             || !BenchReferenceIdentity.IsHash(context.PlanSha256) || !BenchReferenceIdentity.IsHash(context.SidecarSha256)
             || !BenchReferenceIdentity.IsHash(context.ConfigurationSha256))
+        {
             return "Reference context requires an exact program, compiled plan/sidecar hashes and effective configuration hash.";
+        }
+
         if (context.VisaMode is not (BenchReferenceVisaModes.Simulated or BenchReferenceVisaModes.Physical))
             return "Reference context must record simulated or physical VISA provenance.";
         return null;
@@ -328,7 +350,10 @@ public static class BenchReferenceEvaluator
     {
         if (rule is null || string.IsNullOrWhiteSpace(rule.RuleId) || string.IsNullOrWhiteSpace(rule.ReferenceKey)
             || string.IsNullOrWhiteSpace(rule.MetricKey) || rule.ProducerStepId == Guid.Empty || string.IsNullOrWhiteSpace(rule.Unit))
+        {
             return "Reference rule needs stable rule/input/metric/producer identities and an explicit unit (use '1' for dimensionless).";
+        }
+
         if (rule.Comparison is not (BenchReferenceComparisons.Absolute or BenchReferenceComparisons.Percent))
             return $"Reference comparison '{rule.Comparison}' is unsupported.";
         if (rule.Tolerance is not { } tolerance || !double.IsFinite(tolerance) || tolerance < 0)

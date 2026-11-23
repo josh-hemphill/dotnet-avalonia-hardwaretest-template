@@ -6,34 +6,27 @@ using Serilog;
 namespace HardwareTest.Core.Time;
 
 /// Persists last-known-good UTC under the data directory. Missing/corrupt files are not errors.
-public sealed class LastKnownGoodClockStore
+public sealed class LastKnownGoodClockStore(string dataDirectory, ILogger? log = null)
 {
-    private readonly string _path;
-    private readonly ILogger? _log;
+    private readonly ILogger? _log = log;
 
-    public LastKnownGoodClockStore(string dataDirectory, ILogger? log = null)
-    {
-        _path = Path.Combine(dataDirectory, ClockSkew.LastGoodFileName);
-        _log = log;
-    }
-
-    public string FilePath => _path;
+    public string FilePath { get; } = Path.Combine(dataDirectory, ClockSkew.LastGoodFileName);
 
     public ClockLastGoodRecord? Load()
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(_path) || !File.Exists(_path))
+            if (string.IsNullOrWhiteSpace(FilePath) || !File.Exists(FilePath))
             {
                 return null;
             }
 
-            using var stream = File.OpenRead(_path);
+            using var stream = File.OpenRead(FilePath);
             return JsonSerializer.Deserialize(stream, AppJsonContext.Default.ClockLastGoodRecord);
         }
         catch (Exception ex)
         {
-            _log?.Warning(ex, "Could not read last-known-good clock file {Path}", _path);
+            _log?.Warning(ex, "Could not read last-known-good clock file {Path}", FilePath);
             return null;
         }
     }
@@ -42,18 +35,18 @@ public sealed class LastKnownGoodClockStore
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(_path))
+            if (string.IsNullOrWhiteSpace(FilePath))
             {
                 return;
             }
 
-            AtomicFile.WriteJsonAsync(_path, record, AppJsonContext.Default.ClockLastGoodRecord)
+            AtomicFile.WriteJsonAsync(FilePath, record, AppJsonContext.Default.ClockLastGoodRecord)
                 .GetAwaiter()
                 .GetResult();
         }
         catch (Exception ex)
         {
-            _log?.Warning(ex, "Could not write last-known-good clock file {Path}", _path);
+            _log?.Warning(ex, "Could not write last-known-good clock file {Path}", FilePath);
         }
     }
 }

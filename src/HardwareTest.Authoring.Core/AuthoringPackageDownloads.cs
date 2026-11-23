@@ -11,7 +11,10 @@ internal static class AuthoringPackageDownloads
     {
         if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
             || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+        {
             throw new AuthoringWorkspaceException("Use an HTTPS package repository URL without credentials, a query or a fragment. Manual download and offline import remain available.");
+        }
+
         return uri;
     }
 
@@ -22,7 +25,7 @@ internal static class AuthoringPackageDownloads
         if (missing.Length == 0) return;
         var repository = RepositoryUri(repositoryUrl).AbsoluteUri;
         var owned = Path.Combine(home, ".package-download-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(owned);
+        _ = Directory.CreateDirectory(owned);
         var visiting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var requirements = manifest.Dependencies.Concat(manifest.OptionalDependencies).ToList();
         try
@@ -51,7 +54,10 @@ internal static class AuthoringPackageDownloads
             if (!package.Name.Equals(requirement.Package, StringComparison.OrdinalIgnoreCase)
                 || !VersionSpecifier.Parse(requirement.Version).IsCompatible(package.Version)
                 || !package.IsPlatformCompatible(ArchitectureHelper.HostArchitecture, HostOS))
+            {
                 throw new AuthoringWorkspaceException($"Downloaded archive does not match '{requirement.Package}' {requirement.Version} for this platform.");
+            }
+
             var dependencies = package.Dependencies.Select(d => new AuthoringPackageDependency { Package = d.Name, Version = d.Version.ToString() }).ToArray();
             requirements.AddRange(dependencies);
             // The importer validates every known constraint against the actual archive bytes.
@@ -59,7 +65,7 @@ internal static class AuthoringPackageDownloads
             progress?.Invoke($"Checking {requirement.Package}");
             OpenTapHomeBootstrapper.InstallFileOrDirectoryPackage(archive, home, constraints);
             foreach (var dependency in dependencies) Install(dependency);
-            visiting.Remove(requirement.Package);
+            _ = visiting.Remove(requirement.Package);
         }
     }
 

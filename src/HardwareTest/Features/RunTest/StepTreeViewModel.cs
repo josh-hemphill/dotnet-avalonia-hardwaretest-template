@@ -132,16 +132,16 @@ public partial class StepTreeViewModel : ReactiveObject
     public ObservableCollection<StageItemViewModel> Stages { get; } = [];
     public ObservableCollection<StageItemViewModel> Subsections { get; } = [];
     public ObservableCollection<StageItemViewModel> NestedSubsections { get; } = [];
-    private IReadOnlyList<StepListItemViewModel> _stepListItems = [];
+
     public IReadOnlyList<StepListItemViewModel> StepListItems
     {
-        get => _stepListItems;
+        get;
         private set
         {
-            this.RaiseAndSetIfChanged(ref _stepListItems, value);
+            _ = this.RaiseAndSetIfChanged(ref field, value);
             this.RaisePropertyChanged(nameof(UseSimpleStepList));
         }
-    }
+    } = [];
 
     public bool UseSimpleStepList => StepListItems.Count <= 100;
 
@@ -438,18 +438,11 @@ public partial class StepTreeViewModel : ReactiveObject
         }
 
         var currentIndex = SelectedStep is null ? -1 : fails.FindIndex(f => ReferenceEquals(f, SelectedStep));
-        int nextIndex;
-        if (currentIndex < 0)
-        {
-            nextIndex = forward ? 0 : fails.Count - 1;
-        }
-        else
-        {
-            nextIndex = forward
+        var nextIndex = currentIndex < 0
+            ? forward ? 0 : fails.Count - 1
+            : forward
                 ? (currentIndex + 1) % fails.Count
                 : (currentIndex - 1 + fails.Count) % fails.Count;
-        }
-
         SelectScopeForStep(fails[nextIndex]);
         RevealInVisibleList(fails[nextIndex]);
         SelectedStep = fails[nextIndex];

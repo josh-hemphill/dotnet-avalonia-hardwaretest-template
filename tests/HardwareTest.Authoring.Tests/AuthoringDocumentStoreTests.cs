@@ -51,7 +51,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     public void InvalidProgramIdsNeverCreateFiles(string id)
     {
         var store = new AuthoringDocumentStore(_root);
-        Assert.Throws<ArgumentException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft(id))));
+        _ = Assert.Throws<ArgumentException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft(id))));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_root));
     }
 
@@ -69,7 +69,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetDocumentPath("plan");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
         var bytes = File.ReadAllBytes(path);
         var loaded = store.Load("plan");
@@ -77,7 +77,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         if (content.Contains("999", StringComparison.Ordinal)) Assert.Null(loaded.Error);
         else Assert.NotNull(loaded.Error);
         Assert.Equal(bytes, loaded.OriginalBytes);
-        Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"))));
+        _ = Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"))));
         Assert.Equal(bytes, File.ReadAllBytes(path));
     }
 
@@ -95,7 +95,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.Equal(bytes, File.ReadAllBytes(path + ".bak"));
         Assert.Equal(1, store.Load("plan").Document!.Revision);
-        Assert.Single(store.ListDocumentIds());
+        _ = Assert.Single(store.ListDocumentIds());
     }
 
     [Fact]
@@ -103,12 +103,12 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     {
         if (OperatingSystem.IsWindows()) return;
         var outside = Path.Combine(Path.GetTempPath(), "authoring-outside-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(outside);
+        _ = Directory.CreateDirectory(outside);
         try
         {
-            Directory.CreateSymbolicLink(Path.Combine(_root, "authoring-drafts"), outside);
+            _ = Directory.CreateSymbolicLink(Path.Combine(_root, "authoring-drafts"), outside);
             var store = new AuthoringDocumentStore(_root);
-            Assert.Throws<IOException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"))));
+            _ = Assert.Throws<IOException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"))));
             Assert.Empty(Directory.EnumerateFileSystemEntries(outside));
         }
         finally { Directory.Delete(outside); }
@@ -122,8 +122,8 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"), 1));
         var path = store.GetDocumentPath("plan");
         var bytes = File.ReadAllBytes(path);
-        File.CreateSymbolicLink(path + ".bak", Path.Combine(_root, "unrelated"));
-        Assert.Throws<IOException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"), 2)));
+        _ = File.CreateSymbolicLink(path + ".bak", Path.Combine(_root, "unrelated"));
+        _ = Assert.Throws<IOException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft("plan"), 2)));
         Assert.Equal(bytes, File.ReadAllBytes(path));
     }
 
@@ -141,7 +141,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         File.WriteAllText(path, "{\"schemaVersion\":999,\"extra\":true}");
         var bytes = File.ReadAllBytes(path);
         Assert.True(store.LoadWorkspace().IsReadOnly);
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(manifest));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(manifest));
         Assert.Equal(bytes, File.ReadAllBytes(path));
     }
 
@@ -156,7 +156,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetWorkspacePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, content);
         var bytes = File.ReadAllBytes(path);
         var loaded = store.LoadWorkspace();
@@ -166,7 +166,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.NotNull(loaded.Error);
         Assert.Contains("Restore its backup", loaded.Error);
         Assert.Equal(bytes, loaded.OriginalBytes);
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.False(File.Exists(path + ".bak"));
     }
@@ -180,7 +180,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetWorkspacePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto
         {
             Manifest = new AuthoringManifest { SchemaVersion = version, DisplayName = "invalid" }
@@ -192,8 +192,8 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.Null(loaded.Document);
         Assert.Contains("unsupported manifest schema", loaded.Error);
         Assert.Equal(bytes, loaded.OriginalBytes);
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
         Assert.Equal(bytes, File.ReadAllBytes(path));
         Assert.False(File.Exists(path + ".bak"));
     }
@@ -206,7 +206,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     public void UnsupportedManifestSaveDoesNotCreateWorkspaceSource(int version)
     {
         var store = new AuthoringDocumentStore(_root);
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = version }));
         Assert.False(File.Exists(store.GetWorkspacePath()));
         Assert.Empty(Directory.EnumerateFileSystemEntries(_root));
     }
@@ -218,7 +218,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
     {
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetWorkspacePath();
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto
         {
             Manifest = new AuthoringManifest { SchemaVersion = version, DisplayName = "test" }
@@ -231,7 +231,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.Equal(bytes, loaded.OriginalBytes);
         if (readOnly)
         {
-            Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
+            _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
             Assert.Equal(bytes, File.ReadAllBytes(path));
         }
         else
@@ -274,7 +274,7 @@ public sealed class AuthoringDocumentStoreTests : IDisposable
         Assert.False(store.Load("plan").Exists);
         store.DeleteRecovery("plan");
         Assert.Empty(store.ListRecoveryIds());
-        Assert.Throws<ArgumentException>(() => store.DeleteRecovery("../outside"));
+        _ = Assert.Throws<ArgumentException>(() => store.DeleteRecovery("../outside"));
     }
 
     [Fact]

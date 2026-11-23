@@ -20,11 +20,11 @@ public partial class BenchReferenceView : UserControl
     {
         if (ReferenceEquals(_observed, DataContext)) return;
         Unsubscribe(); _observed = DataContext as BenchReferencePanelViewModel;
-        if (_observed is not null) _observed.RequestFocusField += FocusField;
+        _observed?.RequestFocusField += FocusField;
     }
     private void Unsubscribe()
     {
-        if (_observed is not null) _observed.RequestFocusField -= FocusField;
+        _observed?.RequestFocusField -= FocusField;
         _observed = null;
     }
     private void FocusField(string field)
@@ -36,7 +36,7 @@ public partial class BenchReferenceView : UserControl
             var input = this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(control => AutomationProperties.GetName(control) == field);
             if (input is null) return;
             var group = input.Parent as Control ?? input;
-            group.BringIntoView(); input.Focus(); group.BringIntoView();
+            group.BringIntoView(); _ = input.Focus(); group.BringIntoView();
         }, DispatcherPriority.Loaded);
     }
 }

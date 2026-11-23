@@ -20,7 +20,10 @@ public sealed class AuthoringBuildIdentityTests : IDisposable
         Assert.Empty(Assert.Single(tree.Files).Bytes);
         var request = new AuthoringBuildRequest(root, new PackOptions(), [tree], AuthoringBuildService.CaptureEnvironment());
         AuthoringBuildService.Recheck(request);
-        if (added) File.WriteAllText(Path.Combine(root, "additional-sdk.dll"), "added");
+        if (added)
+        {
+            File.WriteAllText(Path.Combine(root, "additional-sdk.dll"), "added");
+        }
         else
         {
             File.WriteAllText(path, "changed!"); File.SetLastWriteTimeUtc(path, timestamp);

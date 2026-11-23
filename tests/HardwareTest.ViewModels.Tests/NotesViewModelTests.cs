@@ -13,10 +13,12 @@ public sealed class NotesViewModelTests
         try
         {
             var store = new FakeSettingsStore(root);
-            Directory.CreateDirectory(store.RootDirectory);
+            _ = Directory.CreateDirectory(store.RootDirectory);
             var host = new ShellHost(store);
-            var first = new NotesViewModel(host);
-            first.Body = "bench note";
+            _ = new NotesViewModel(host)
+            {
+                Body = "bench note"
+            };
             var path = Path.Combine(host.GetAppDataDirectory(NotesApplication.PageId), NotesViewModel.FileName);
             Assert.True(File.Exists(path));
             Assert.Equal("bench note", File.ReadAllText(path));

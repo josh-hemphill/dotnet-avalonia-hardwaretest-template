@@ -29,7 +29,7 @@ public sealed class SmartCardSigningRouter : IOperatorCredentialBroker, IEmbedde
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try { return await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false); }
-        finally { _gate.Release(); }
+        finally { _ = _gate.Release(); }
     }
     public async Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
     {
@@ -39,14 +39,17 @@ public sealed class SmartCardSigningRouter : IOperatorCredentialBroker, IEmbedde
         {
             var snapshot = new AppSettings { PhysicalSigningBackend = _settings.PhysicalSigningBackend, Pkcs11LibraryPath = _settings.Pkcs11LibraryPath };
             if (!Enum.IsDefined(snapshot.PhysicalSigningBackend))
+            {
                 return CredentialPreparationResult.Failed(CredentialSignResult.Failure(CredentialFailureKind.ConfigurationError,
                     "Unknown physical signing backend.", "configuration"));
+            }
+
             var result = snapshot.PhysicalSigningBackend == PhysicalSigningBackend.Pkcs11
                 ? await _pkcs11(snapshot).PrepareSigningAsync(credential, pin, cancellationToken).ConfigureAwait(false)
                 : await _windows(snapshot).PrepareSigningAsync(credential, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (result.Session is null) return result;
             if (result.Session is not { IsMock: false, CanSign: true, CanSignPdf: true }
-                || result.Session is not IEmbeddedPdfSigningBroker)
+                or not IEmbeddedPdfSigningBroker)
             {
                 Pkcs11OperatorCredentialBroker.DisposeResource(result.Session);
                 return CredentialPreparationResult.Failed(CredentialSignResult.Failure(CredentialFailureKind.ConfigurationError,
@@ -56,7 +59,7 @@ public sealed class SmartCardSigningRouter : IOperatorCredentialBroker, IEmbedde
             transferred = true;
             return CredentialPreparationResult.Ready(retained);
         }
-        finally { if (!transferred) _gate.Release(); }
+        finally { if (!transferred) _ = _gate.Release(); }
     }
     public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default) => SignAsync(payload, credential, pin, null, false, cancellationToken);
     public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default) => SignAsync(pdf, credential, pin, signingTime, true, cancellationToken);
@@ -83,6 +86,6 @@ public sealed class SmartCardSigningRouter : IOperatorCredentialBroker, IEmbedde
         public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default) => session.TrySignPayloadAsync(payload, credential, pin, cancellationToken);
         public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
             => session is IEmbeddedPdfSigningBroker embedded ? embedded.TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken) : Task.FromResult(CredentialSignResult.Failed("Selected provider cannot sign PDFs."));
-        public void Dispose() { if (Interlocked.Exchange(ref _disposed, 1) == 0) { try { Pkcs11OperatorCredentialBroker.DisposeResource(session); } finally { gate.Release(); } } }
+        public void Dispose() { if (Interlocked.Exchange(ref _disposed, 1) == 0) { try { Pkcs11OperatorCredentialBroker.DisposeResource(session); } finally { _ = gate.Release(); } } }
     }
 }

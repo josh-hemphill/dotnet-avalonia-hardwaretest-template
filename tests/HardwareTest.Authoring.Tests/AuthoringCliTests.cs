@@ -84,7 +84,7 @@ public sealed class AuthoringCliTests
             Path.GetTempPath(),
             "ht-cli-prefs-" + Guid.NewGuid().ToString("N"),
             AuthoringPreferencesStore.FileName);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var store = new AuthoringPreferencesStore(path);
         store.Load();
         store.Current.OpenTapHomeOverride = "/opt/prefs-home";
@@ -97,7 +97,7 @@ public sealed class AuthoringCliTests
         File.WriteAllText(path, "{");
         var broken = new AuthoringPreferencesStore(path);
         Assert.Null(AuthoringCli.ResolveOpenTapHome(null, new ThrowingPreferencesStore()));
-        Assert.Throws<AuthoringPreferencesException>(broken.Load);
+        _ = Assert.Throws<AuthoringPreferencesException>(broken.Load);
         Assert.Null(AuthoringCli.ResolveOpenTapHome(null, broken));
     }
 
@@ -199,7 +199,7 @@ public sealed class AuthoringCliOpenTapTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-authoring-cli-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

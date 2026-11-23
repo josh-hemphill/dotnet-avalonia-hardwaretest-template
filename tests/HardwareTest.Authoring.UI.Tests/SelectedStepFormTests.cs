@@ -126,7 +126,7 @@ public sealed class SelectedStepFormTests
     private static AuthoringUiFixture Open()
     {
         var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show();
+        _ = fixture.Show();
         fixture.OpenRememberedWorkspace();
         return fixture;
     }

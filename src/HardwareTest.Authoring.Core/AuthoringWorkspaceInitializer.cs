@@ -40,13 +40,14 @@ public sealed partial class AuthoringWorkspaceInitializer
             Schema = "./authoring.schema.json",
             DisplayName = request.DisplayName.Trim(),
             Package = new() { Name = request.PackageName.Trim(), Version = request.PackageVersion, Os = string.Join(",", platforms) },
-            Dependencies = template.RequiredPackages.Select(package => new AuthoringPackageDependency { Package = package.Package, Version = package.Version }).ToList(),
+            Dependencies = [.. template.RequiredPackages.Select(package => new AuthoringPackageDependency { Package = package.Package, Version = package.Version })],
             IncludeTui = request.IncludeTui
         };
         if (request.IncludeLibraryPackage && !manifest.Dependencies.Any(p => p.Package == AuthoringInstrumentCatalog.LibraryPackage))
             manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         PlanInitializationResult? plan = null;
         if (request.Template != WorkspaceTemplateKind.Empty)
+        {
             plan = new AuthoringPlanInitializer().Construct(new(request.PlanId)
             {
                 DisplayName = request.PlanId,
@@ -56,6 +57,8 @@ public sealed partial class AuthoringWorkspaceInitializer
                 UseTemplateHardware = template.IsDemo,
                 IncludeTemplateMeasurement = template.IsDemo
             });
+        }
+
         List<string> files = ["authoring.schema.json", "authoring-draft.schema.json", ".gitignore", "authoring-drafts/workspace.authoring.json"];
         if (plan is not null) files.Add($"authoring-drafts/{plan.Draft.PlanId}.authoring.json");
         files.Add(AuthoringWorkspaceLoader.ManifestFileName);
@@ -113,11 +116,11 @@ public sealed partial class AuthoringWorkspaceInitializer
         }
         try
         {
-            Directory.CreateDirectory(staging);
+            _ = Directory.CreateDirectory(staging);
             stagedDirectories.Add(staging);
-            Directory.CreateDirectory(WorkspacePath(staging, "plans"));
+            _ = Directory.CreateDirectory(WorkspacePath(staging, "plans"));
             stagedDirectories.Add(WorkspacePath(staging, "plans"));
-            Directory.CreateDirectory(WorkspacePath(staging, "authoring-drafts"));
+            _ = Directory.CreateDirectory(WorkspacePath(staging, "authoring-drafts"));
             stagedDirectories.Add(WorkspacePath(staging, "authoring-drafts"));
             WriteStagedFile("authoring.schema.json", ReadSchema("authoring.schema.json"));
             WriteStagedFile("authoring-draft.schema.json", ReadSchema("authoring-draft.schema.json"));
@@ -176,11 +179,11 @@ public sealed partial class AuthoringWorkspaceInitializer
                 var contents = stagedFiles.Where(file => AuthoringDocumentStore.SamePath(Path.GetDirectoryName(file.Key)!, source, isDirectory: true)).ToArray();
                 Directory.Move(source, destination);
                 ownedDirectories.Add(destination);
-                stagedDirectories.RemoveAll(path => AuthoringDocumentStore.SamePath(path, source, isDirectory: true));
+                _ = stagedDirectories.RemoveAll(path => AuthoringDocumentStore.SamePath(path, source, isDirectory: true));
                 foreach (var file in contents)
                 {
                     ownedFiles.Add(WorkspacePath(destination, Path.GetFileName(file.Key)), file.Value);
-                    stagedFiles.Remove(file.Key);
+                    _ = stagedFiles.Remove(file.Key);
                 }
             }
             foreach (var relative in preview.Files.Where(file => !file.StartsWith("authoring-drafts/", StringComparison.Ordinal)))
@@ -195,7 +198,7 @@ public sealed partial class AuthoringWorkspaceInitializer
                 var bytes = stagedFiles[source];
                 File.Move(source, destination);
                 ownedFiles.Add(destination, bytes);
-                stagedFiles.Remove(source);
+                _ = stagedFiles.Remove(source);
             }
             var published = AuthoringSourceWorkspaceLoader.Load(preview.Destination).Files;
             ValidateOwnedPublications(staging, stagedFiles, stagedDirectories);
@@ -236,7 +239,7 @@ public sealed partial class AuthoringWorkspaceInitializer
         var store = new AuthoringDocumentStore(root);
         foreach (var path in new[] { root }.Concat(new[] { "plans", "authoring-drafts" }.Select(relative => WorkspacePath(root, relative))).Concat(files.Select(relative => WorkspacePath(root, relative))))
         {
-            store.ValidatePath(path);
+            _ = store.ValidatePath(path);
             for (string? cursor = path; cursor is not null; cursor = Path.GetDirectoryName(cursor))
             {
                 var parent = Path.GetDirectoryName(cursor);
@@ -247,7 +250,9 @@ public sealed partial class AuthoringWorkspaceInitializer
                     && (!AuthoringDocumentStore.SamePath(entry, cursor, isDirectory: true)
                         || (AuthoringDocumentStore.SamePath(cursor, root, isDirectory: true)
                             && !string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.Ordinal)))))
+                {
                     throw new IOException($"Case-equivalent destination exists: {cursor}");
+                }
             }
             if (AuthoringDocumentStore.SamePath(path, root, isDirectory: true)) { if (File.Exists(root)) throw new IOException("Workspace destination is a file."); continue; }
             if (ownedDirectories?.Any(directory => AuthoringDocumentStore.SamePath(directory, path, isDirectory: true)) == true)
@@ -266,7 +271,9 @@ public sealed partial class AuthoringWorkspaceInitializer
         {
             if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.Keys.Any(path => AuthoringDocumentStore.SamePath(path, entry))
                 && !directories.Any(path => AuthoringDocumentStore.SamePath(path, entry, isDirectory: true))))
+            {
                 throw new IOException($"Created workspace directory changed: {directory}");
+            }
         }
         foreach (var file in files)
         {

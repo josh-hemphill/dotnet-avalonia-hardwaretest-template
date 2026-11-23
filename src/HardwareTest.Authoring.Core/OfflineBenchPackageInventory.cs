@@ -29,7 +29,7 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
     {
         foreach (var source in _pending.Where(source => source.Name?.Equals(name, StringComparison.OrdinalIgnoreCase) == true).ToArray())
         {
-            _pending.Remove(source);
+            _ = _pending.Remove(source);
             try
             {
                 if (source.Home is null) AddArchive(source.Path, source.Priority);
@@ -68,8 +68,8 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
             RequireRegular(input.Key);
             if (!File.Exists(input.Key) || ReadBounded(input.Key, capture: false).Hash != input.Value || ReadMode(input.Key) != _inputModes[input.Key]) throw Changed(input.Key);
         }
-        foreach (var folder in _folders)
-            if (!ArchiveFiles(folder.Root).SequenceEqual(folder.Files, StringComparer.Ordinal)) throw Changed(folder.Root);
+        foreach (var (Root, Files) in _folders)
+            if (!ArchiveFiles(Root).SequenceEqual(Files, StringComparer.Ordinal)) throw Changed(Root);
     }
 
     internal void AddFolder(string directory, int priority)
@@ -110,14 +110,14 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
     internal void AddSnapshot(string snapshot, int priority)
     {
         token.ThrowIfCancellationRequested();
-        Capture(snapshot);
+        _ = Capture(snapshot);
         using var archive = ZipFile.OpenRead(snapshot);
         var entries = new Dictionary<string, ZipArchiveEntry>(StringComparer.OrdinalIgnoreCase);
         long total = 0;
         foreach (var entry in archive.Entries)
         {
             var path = SafeRelative(entry.FullName.TrimEnd('/'));
-            if ((entry.ExternalAttributes >> 16 & 0xF000) == 0xA000 || !entries.TryAdd(path, entry))
+            if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000 || !entries.TryAdd(path, entry))
                 throw new AuthoringWorkspaceException("Package archive contains links or duplicate/case-colliding paths.");
             total += entry.Length;
             if (total > maximumBytes) throw new AuthoringWorkspaceException("Package archive expands beyond the supported payload limit.");
@@ -135,15 +135,15 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
             throw new AuthoringWorkspaceException($"Package '{identity.Name}' contains undeclared archive payload. Obtain a package whose declared files match its contents.");
         var fingerprint = new StringBuilder();
         foreach (var dependency in Dependencies(xml).OrderBy(item => item.Name, StringComparer.OrdinalIgnoreCase))
-            fingerprint.Append(dependency.Name).Append(':').Append(dependency.VersionRange).Append('\n');
+            _ = fingerprint.Append(dependency.Name).Append(':').Append(dependency.VersionRange).Append('\n');
         foreach (var file in declared.Where(file => !file.Equals(metadata[0].Key, StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal))
         {
             if (!entries.TryGetValue(file, out var entry) || entry.FullName.EndsWith('/'))
                 throw new AuthoringWorkspaceException($"Package '{identity.Name}' is missing declared payload '{file}'.");
             using var input = entry.Open();
-            var declaredMode = OfflineBenchBundle.DeclarativePayloadMode(xml, file, (UnixFileMode)(entry.ExternalAttributes >> 16 & 0x1FF), options.TargetOS);
+            var declaredMode = OfflineBenchBundle.DeclarativePayloadMode(xml, file, (UnixFileMode)((entry.ExternalAttributes >> 16) & 0x1FF), options.TargetOS);
             var mode = (int)OfflineBenchBundle.EffectiveExecutableMode(file, declaredMode, options.TargetOS);
-            fingerprint.Append(file).Append(':').Append(mode).Append(':').Append(Convert.ToHexString(SHA256.HashData(input))).Append('\n');
+            _ = fingerprint.Append(file).Append(':').Append(mode).Append(':').Append(Convert.ToHexString(SHA256.HashData(input))).Append('\n');
         }
         if (!Compatible(identity.OS, identity.Architecture)) return;
         Candidates.Add(new(identity.Name, identity.Version, identity.OS, identity.Architecture, snapshot,
@@ -203,15 +203,18 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
         payload[$"Packages/{identity.Name}/package.xml"] = Encoding.UTF8.GetBytes(xml.ToString(SaveOptions.DisableFormatting));
         var snapshot = Path.Combine(owned, Guid.NewGuid().ToString("N") + ".TapPackage");
         using (var archive = ZipFile.Open(snapshot, ZipArchiveMode.Create))
+        {
             foreach (var file in payload)
             {
                 var entry = archive.CreateEntry(file.Key, CompressionLevel.Optimal);
                 entry.LastWriteTime = new(1980, 1, 1, 0, 0, 0, TimeSpan.Zero);
-                modes.TryGetValue(file.Key, out var mode);
+                _ = modes.TryGetValue(file.Key, out var mode);
                 var declaredMode = OfflineBenchBundle.DeclarativePayloadMode(xml, file.Key, (UnixFileMode)mode, options.TargetOS);
                 entry.ExternalAttributes = (0x8000 | (int)declaredMode) << 16;
                 using var output = entry.Open(); output.Write(file.Value);
             }
+        }
+
         AddSnapshot(snapshot, 1);
     }
 
@@ -304,11 +307,13 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
     internal static void RequireRegular(string path)
     {
         for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
+        {
             if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                 throw new AuthoringWorkspaceException("Offline bundle inputs and destinations cannot contain symbolic links: " + path);
+        }
     }
 
-    private static string[] ArchiveFiles(string root) => Directory.EnumerateFiles(root).Where(path => path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
-        || path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal).ToArray();
+    private static string[] ArchiveFiles(string root) => [.. Directory.EnumerateFiles(root).Where(path => path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)).Order(StringComparer.Ordinal)];
     private static AuthoringWorkspaceException Changed(string path) => new("Offline bundle input changed during preparation; prior output was preserved. Retry after saving: " + path);
 }

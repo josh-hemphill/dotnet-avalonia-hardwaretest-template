@@ -20,7 +20,7 @@ internal static class PreviewDisclosureAssertions
         if (fixture.ViewModel.HasRecordings) ResponsiveShellTests.Inside(recordings, window);
         var region = preview.FindControl<Grid>("BoardRegion")!;
         var layout = preview.FindControl<Grid>("PreviewLayout")!;
-        Assert.True(region.Bounds.Height >= layout.Bounds.Height * 0.55 - 1,
+        Assert.True(region.Bounds.Height >= (layout.Bounds.Height * 0.55) - 1,
             $"The board must own most of Preview: board={region.Bounds.Height}, route={layout.Bounds.Height}");
         ResponsiveShellTests.Inside(fixture.Control<OperatorPreviewPane>("Operator preview chrome"), window);
         ResponsiveShellTests.Inside(fixture.Control<Button>("Import recording"), window);

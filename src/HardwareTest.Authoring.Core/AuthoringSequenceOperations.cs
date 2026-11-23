@@ -22,7 +22,10 @@ public static partial class AuthoringSequenceOperations
                 settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal);
             if (function == AuthoringFunctionIds.BasicPublishBandScalar &&
                 !output.Keys.Any(key => key.Equals("MetricName", StringComparison.OrdinalIgnoreCase)))
+            {
                 output.Add("MetricName", channel);
+            }
+
             return output;
         }
         return metric with
@@ -72,7 +75,7 @@ public static partial class AuthoringSequenceOperations
             {
                 MeasureSource measure => (measure.FunctionId, measure.InstrumentSlot),
                 AlgorithmSource algorithm => (algorithm.AlgorithmId, algorithm.InstrumentSlot),
-                _ => (string.Empty, (string?)null)
+                _ => (string.Empty, null)
             };
             if (AuthoringFunctionCatalog.TryGet(binding.Item1, out var spec) && spec.NeedsInstrument)
             {
@@ -119,11 +122,14 @@ public static partial class AuthoringSequenceOperations
         name = name.Trim();
         if (name.Length == 0) throw Fail("Enter a step name.");
         if (target.Kind == SequenceRowKind.Section)
+        {
             return draft with
             {
                 Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
                 node => ((SectionNode)node) with { Name = name })
             };
+        }
+
         if (target.Kind == SequenceRowKind.Metric)
         {
             var updated = draft with
@@ -133,7 +139,10 @@ public static partial class AuthoringSequenceOperations
             };
             if (AuthoringSequence.ResolveMeasure(draft, target.IndexPath) is MetricNode selected &&
                 string.IsNullOrWhiteSpace(selected.Metric.ChannelKey))
+            {
                 PlanCompiler.RequireUniqueNewOutputs(draft, updated);
+            }
+
             return updated;
         }
         if (target.Kind == SequenceRowKind.Setup)
@@ -192,7 +201,10 @@ public static partial class AuthoringSequenceOperations
         destination = CurrentTarget(draft, destination);
         if (source.Section != destination.Section || source.IndexPath.Count == 0
             || !source.IndexPath.SkipLast(1).SequenceEqual(destination.IndexPath.SkipLast(1)))
+        {
             throw Fail("Drag steps within the same section and loop. Use Move to section to move existing steps between sections.");
+        }
+
         var current = source.IndexPath[^1];
         var target = destination.IndexPath[^1];
         if (current == target) return draft;
@@ -268,11 +280,11 @@ public static partial class AuthoringSequenceOperations
                         MetricKey = channels.GetValueOrDefault(rule.MetricKey, rule.MetricKey),
                     };
                     sidecar.ReferenceRules!.Add(cloned);
-                    authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, AuthoringReferenceRules.ToleranceField(rule)));
+                    _ = authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, AuthoringReferenceRules.ToleranceField(rule)));
                     if (AuthoringReferenceRules.TryIncompleteTolerance(draft, rule, out var unfinished))
                         authoring.IncompleteNumericText[AuthoringDocumentState.FieldKey(pair.Key, AuthoringReferenceRules.ToleranceField(cloned))] = unfinished;
                 }
-                authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, "ReferenceTolerance"));
+                _ = authoring.IncompleteNumericText.Remove(AuthoringDocumentState.FieldKey(pair.Key, "ReferenceTolerance"));
             }
             updated = updated with { Sidecar = sidecar };
         }
@@ -291,12 +303,19 @@ public static partial class AuthoringSequenceOperations
 
     private static MetricSource RemapSource(MetricSource source, IReadOnlyDictionary<string, string> channels)
     {
-        string Map(string key) => channels.GetValueOrDefault(key, key);
+        string Map(string key)
+        {
+            return channels.GetValueOrDefault(key, key);
+        }
+
         IReadOnlyDictionary<string, string> Settings(string function, IReadOnlyDictionary<string, string> settings)
-            => function is AuthoringFunctionIds.BasicChannelAverage or AuthoringFunctionIds.BasicApplyTransferFunction
-                ? settings.ToDictionary(pair => pair.Key, pair => pair.Key.Equals("InputChannel", StringComparison.OrdinalIgnoreCase)
-                    ? Map(pair.Value) : pair.Value, settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal)
-                : settings;
+        {
+            return function is AuthoringFunctionIds.BasicChannelAverage or AuthoringFunctionIds.BasicApplyTransferFunction
+                        ? settings.ToDictionary(pair => pair.Key, pair => pair.Key.Equals("InputChannel", StringComparison.OrdinalIgnoreCase)
+                            ? Map(pair.Value) : pair.Value, settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal)
+                        : settings;
+        }
+
         return source switch
         {
             AlgorithmSource algorithm => algorithm with
@@ -335,17 +354,22 @@ public static partial class AuthoringSequenceOperations
                         && target.IndexPath.Count > row.IndexPath.Count && target.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
                     { result.Clear(); return Visit(repeat.Children); }
                 }
-                else result.Add(node);
+                else
+                {
+                    result.Add(node);
+                }
             }
             return false;
         }
         void Collect(IReadOnlyList<MeasureNode> nodes)
         {
             foreach (var node in nodes)
+            {
                 if (node is SectionNode section) Collect(section.Children);
                 else if (node is MetricNode or RawStepNode) result.Add(node);
+            }
         }
-        Visit(draft.Measure);
+        _ = Visit(draft.Measure);
         return result;
     }
 
@@ -407,7 +431,7 @@ public static partial class AuthoringSequenceOperations
                     inputs = inputs.Concat(FormulaExprWalk.Identifiers(ast!.Root)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
                 foreach (var input in inputs)
                     if (!preceding.Contains(input) && !rawPreceding) issues.Add($"{node.NodeId:D}|'{metric.Metric.Name}' requires preceding channel '{input}' in the same loop scope.");
-                preceding.Add(metric.Metric.ChannelKey);
+                _ = preceding.Add(metric.Metric.ChannelKey);
             }
         }
         Validate(draft.Measure);

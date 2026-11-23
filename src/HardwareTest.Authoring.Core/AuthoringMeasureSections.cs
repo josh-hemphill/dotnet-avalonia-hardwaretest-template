@@ -45,7 +45,7 @@ public static class AuthoringMeasureSections
         return source with
         {
             HasConfigurableMeasureSections = true,
-            Measure = normalized.Measure.Select(AuthoringMeasureDto.From).ToArray(),
+            Measure = [.. normalized.Measure.Select(AuthoringMeasureDto.From)],
             RequiresCompilation = source.RequiresCompilation || !ReferenceEquals(normalized, original),
         };
     }

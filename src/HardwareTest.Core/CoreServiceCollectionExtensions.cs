@@ -20,55 +20,55 @@ public static class CoreServiceCollectionExtensions
         this IServiceCollection services,
         ISettingsStore settingsStore)
     {
-        services.AddSingleton(settingsStore);
-        services.AddSingleton(settingsStore.AppSettings);
-        services.AddSingleton(settingsStore.UiState);
-        services.AddSingleton<IClock>(_ => SystemClock.Instance);
-        services.AddSingleton<INtpTimeSource, UdpNtpTimeSource>();
-        services.AddSingleton<IClockSkewDetector>(sp =>
+        _ = services.AddSingleton(settingsStore);
+        _ = services.AddSingleton(settingsStore.AppSettings);
+        _ = services.AddSingleton(settingsStore.UiState);
+        _ = services.AddSingleton<IClock>(_ => SystemClock.Instance);
+        _ = services.AddSingleton<INtpTimeSource, UdpNtpTimeSource>();
+        _ = services.AddSingleton<IClockSkewDetector>(sp =>
             new ClockSkewDetector(
                 settingsStore.AppSettings,
                 sp.GetRequiredService<IClock>(),
                 settingsStore.RootDirectory,
                 sp.GetRequiredService<INtpTimeSource>(),
                 Log.Logger));
-        services.AddSingleton(new VisaSessionGate());
-        services.AddSingleton<IBenchOperationCoordinator, BenchOperationCoordinator>();
-        services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
-        services.AddSingleton<ISafetyController, NoOpSafetyController>();
-        services.AddSingleton<MeasurementAcquisition>();
-        services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
-        services.AddSingleton<ISuiteRunStore>(sp =>
+        _ = services.AddSingleton(new VisaSessionGate());
+        _ = services.AddSingleton<IBenchOperationCoordinator, BenchOperationCoordinator>();
+        _ = services.AddSingleton<IRunControl>(sp => new RunControl(sp.GetRequiredService<VisaSessionGate>()));
+        _ = services.AddSingleton<ISafetyController, NoOpSafetyController>();
+        _ = services.AddSingleton<MeasurementAcquisition>();
+        _ = services.AddSingleton<IRunStore>(_ => new FileRunStore(settingsStore.RunsDirectory));
+        _ = services.AddSingleton<ISuiteRunStore>(sp =>
             new FileSuiteRunStore(sp.GetRequiredService<IRunStore>(), settingsStore.RunsDirectory));
-        services.AddSingleton<IRunComparisonService>(sp =>
+        _ = services.AddSingleton<IRunComparisonService>(sp =>
             new RunComparisonService(sp.GetRequiredService<IRunStore>()));
-        services.AddSingleton<IDutHistoryService>(sp =>
+        _ = services.AddSingleton<IDutHistoryService>(sp =>
             new DutHistoryService(sp.GetRequiredService<IRunStore>()));
-        services.AddSingleton<IStationIdnStore>(_ =>
+        _ = services.AddSingleton<IStationIdnStore>(_ =>
             new FileStationIdnStore(settingsStore.RootDirectory, Log.Logger));
-        services.AddSingleton<IStationHealthStore>(_ =>
+        _ = services.AddSingleton<IStationHealthStore>(_ =>
             new FileStationHealthStore(
                 string.IsNullOrWhiteSpace(settingsStore.AppSettings.DataDirectory)
                     ? settingsStore.RootDirectory
                     : settingsStore.AppSettings.DataDirectory));
-        services.AddSingleton<IStationHealthGate>(sp =>
+        _ = services.AddSingleton<IStationHealthGate>(sp =>
             new StationHealthGate(
                 sp.GetRequiredService<IStationHealthStore>(),
                 settingsStore.AppSettings));
-        services.AddSingleton<VisaModeController>(sp =>
+        _ = services.AddSingleton(sp =>
             new VisaModeController(
                 settingsStore.AppSettings.UseMockVisa,
                 sp.GetRequiredService<VisaSessionGate>(),
                 sp.GetRequiredService<IRunControl>(),
                 message => Log.Warning("{Message}", message),
                 bench: sp.GetRequiredService<IBenchOperationCoordinator>()));
-        services.AddSingleton<IVisaModeController>(sp => sp.GetRequiredService<VisaModeController>());
-        services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
-        services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
-        services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
-        services.AddSingleton<IOperatorCredentialPresenceBroker>(sp =>
+        _ = services.AddSingleton<IVisaModeController>(sp => sp.GetRequiredService<VisaModeController>());
+        _ = services.AddSingleton<IVisaSessionFactory>(sp => sp.GetRequiredService<VisaModeController>());
+        _ = services.AddSingleton<IVisaBroker>(sp => sp.GetRequiredService<VisaModeController>());
+        _ = services.AddSingleton<IVisaResourceDiscovery>(sp => sp.GetRequiredService<VisaModeController>());
+        _ = services.AddSingleton<IOperatorCredentialPresenceBroker>(sp =>
             new PcscOperatorCredentialBroker(sp.GetRequiredService<IClock>()));
-        services.AddSingleton<IOperatorCredentialBroker>(sp =>
+        _ = services.AddSingleton<IOperatorCredentialBroker>(sp =>
             new SettingsBackedCredentialBroker(
                 settingsStore.AppSettings,
                 new MockOperatorCredentialBroker(sp.GetRequiredService<IClock>()),
@@ -77,29 +77,29 @@ public static class CoreServiceCollectionExtensions
                     sp.GetService<INativeSigningDialogOwner>(),
                     sp.GetRequiredService<IClock>(),
                     sp.GetRequiredService<IOperatorCredentialPresenceBroker>())));
-        services.AddSingleton<IReportService>(sp =>
+        _ = services.AddSingleton<IReportService>(sp =>
             new TypstReportService(
                 sp.GetRequiredService<IRunStore>(),
                 settingsStore.AppSettings,
                 sp.GetRequiredService<ISuiteRunStore>()));
-        services.AddSingleton<IReportAttestationService>(sp =>
+        _ = services.AddSingleton<IReportAttestationService>(sp =>
             new ReportAttestationService(
                 sp.GetRequiredService<IOperatorCredentialBroker>(),
                 sp.GetRequiredService<IRunStore>(),
                 settingsStore.AppSettings,
                 sp.GetRequiredService<IClock>(),
                 new Lazy<IReportService>(sp.GetRequiredService<IReportService>)));
-        services.AddSingleton<IStorageHealthService>(_ =>
+        _ = services.AddSingleton<IStorageHealthService>(_ =>
             new StorageHealthService(settingsStore.AppSettings, settingsStore.RootDirectory));
-        services.AddSingleton<IRunRetentionService>(sp =>
+        _ = services.AddSingleton<IRunRetentionService>(sp =>
             new RunRetentionService(
                 settingsStore.AppSettings,
                 settingsStore.RunsDirectory,
                 Log.Logger,
                 sp.GetRequiredService<IClock>()));
-        services.AddSingleton<IExportTargetService>(_ =>
+        _ = services.AddSingleton<IExportTargetService>(_ =>
             new ExportTargetService(settingsStore.AppSettings, settingsStore.RootDirectory, Log.Logger));
-        services.AddSingleton(Log.Logger);
+        _ = services.AddSingleton(Log.Logger);
         return services;
     }
 }

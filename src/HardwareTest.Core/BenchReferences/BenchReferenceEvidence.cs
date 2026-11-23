@@ -45,37 +45,40 @@ public static class BenchReferenceEvidence
     {
         if (run.ReferenceUses.Count == 0 && run.ReferenceRules.Count == 0
             && run.ExecutionScope != RunExecutionScopes.ReferenceAcquisition)
+        {
             return "No bench reference inputs recorded."
                 + (run.ReferenceBackendResult is { } backend ? $"\nBackend execution result: {backend}" : string.Empty)
                 + (run.ReferenceContext is null ? string.Empty : "\n" + DescribeContext(run.ReferenceContext));
+        }
+
         var text = new StringBuilder();
-        text.AppendLine($"Backend execution result: {run.ReferenceBackendResult?.ToString() ?? "Not recorded"}");
+        _ = text.AppendLine($"Backend execution result: {run.ReferenceBackendResult?.ToString() ?? "Not recorded"}");
         if (run.ExecutionScope == RunExecutionScopes.ReferenceAcquisition)
         {
-            text.AppendLine("REFERENCE ACQUISITION ONLY — dependent reference acceptance was not evaluated. This is not production acceptance.");
-            text.AppendLine($"Source run: {run.RunId}; golden DUT: {run.DutSerial ?? "Not recorded"}; operator: {run.OperatorName ?? "Not recorded"}");
-            text.AppendLine($"Started: {run.StartedAt:O}; completed: {(run.CompletedAt is { } completed ? completed.ToString("O", CultureInfo.InvariantCulture) : "Not recorded")}");
-            text.AppendLine($"Source scope: {run.ExecutionScopeText}");
-            text.AppendLine(DescribeContext(run.ReferenceContext));
-            text.AppendLine("Reduction: arithmetic mean of all current-acquisition samples for the declared metric and producer, including repeat invocations.");
+            _ = text.AppendLine("REFERENCE ACQUISITION ONLY — dependent reference acceptance was not evaluated. This is not production acceptance.");
+            _ = text.AppendLine($"Source run: {run.RunId}; golden DUT: {run.DutSerial ?? "Not recorded"}; operator: {run.OperatorName ?? "Not recorded"}");
+            _ = text.AppendLine($"Started: {run.StartedAt:O}; completed: {(run.CompletedAt is { } completed ? completed.ToString("O", CultureInfo.InvariantCulture) : "Not recorded")}");
+            _ = text.AppendLine($"Source scope: {run.ExecutionScopeText}");
+            _ = text.AppendLine(DescribeContext(run.ReferenceContext));
+            _ = text.AppendLine("Reduction: arithmetic mean of all current-acquisition samples for the declared metric and producer, including repeat invocations.");
             IReadOnlyList<StoredSample>? covered = null;
             try { covered = BenchReferenceEvaluator.CurrentSamples(run); }
-            catch (InvalidOperationException error) { text.AppendLine($"Coverage unavailable: {error.Message}"); }
+            catch (InvalidOperationException error) { _ = text.AppendLine($"Coverage unavailable: {error.Message}"); }
             foreach (var rule in run.ReferenceRules)
             {
-                text.AppendLine(DescribeRule(rule));
-                text.AppendLine($"Input: {rule.ReferenceKey}; metric {rule.MetricKey}; producer {rule.ProducerStepId:D}; unit {rule.Unit}");
+                _ = text.AppendLine(DescribeRule(rule));
+                _ = text.AppendLine($"Input: {rule.ReferenceKey}; metric {rule.MetricKey}; producer {rule.ProducerStepId:D}; unit {rule.Unit}");
                 if (covered is not null)
                 {
                     var count = covered.Count(sample => sample.ProducerStepId == rule.ProducerStepId
                         && string.Equals(sample.EffectiveMetricKey, rule.MetricKey, StringComparison.OrdinalIgnoreCase));
-                    text.AppendLine($"Observed current-scope samples: {count.ToString(CultureInfo.InvariantCulture)} (capture qualification is checked separately).");
+                    _ = text.AppendLine($"Observed current-scope samples: {count.ToString(CultureInfo.InvariantCulture)} (capture qualification is checked separately).");
                 }
             }
         }
         else
         {
-            text.AppendLine(run.ReferenceUses.Count == 0 || run.ReferenceEvaluations.Count != run.ReferenceUses.Count
+            _ = text.AppendLine(run.ReferenceUses.Count == 0 || run.ReferenceEvaluations.Count != run.ReferenceUses.Count
                 ? "Reference acceptance: incomplete or not recorded."
                 : run.ReferenceEvaluations.All(evaluation => evaluation.Passed)
                     ? "Reference acceptance: Passed"
@@ -83,9 +86,9 @@ public static class BenchReferenceEvidence
         }
         foreach (var use in run.ReferenceUses)
         {
-            text.AppendLine().AppendLine(DescribeUse(use));
+            _ = text.AppendLine().AppendLine(DescribeUse(use));
             foreach (var evaluation in run.ReferenceEvaluations.Where(evaluation => evaluation.RuleId == use.Rule.RuleId))
-                text.AppendLine(evaluation.Message);
+                _ = text.AppendLine(evaluation.Message);
         }
         return text.ToString().TrimEnd();
     }

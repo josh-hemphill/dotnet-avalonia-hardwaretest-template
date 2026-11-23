@@ -11,10 +11,14 @@ public partial class SequenceEditorView : UserControl
         InitializeComponent();
         InitializeSequenceInteractions();
         SequenceList.AddHandler(KeyDownEvent, OnSequenceKeyDown, RoutingStrategies.Tunnel);
-        void RevealSelection() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        void RevealSelection()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             if (SequenceList.IsEffectivelyVisible && SequenceList.SelectedItem is { } selected) SequenceList.ScrollIntoView(selected);
         });
+        }
+
         SequenceList.SelectionChanged += (_, _) => RevealSelection();
         SequenceList.SizeChanged += (_, _) => RevealSelection();
         var sections = (Flyout)SectionActionsButton.Flyout!;
@@ -39,7 +43,7 @@ public partial class SequenceEditorView : UserControl
     private void FocusSelectedRow() => Avalonia.Threading.Dispatcher.UIThread.Post(() =>
     {
         if (Vm?.SelectedSequence is { } selected)
-            (SequenceList.ContainerFromItem(selected) as Control)?.Focus();
+            _ = (SequenceList.ContainerFromItem(selected)?.Focus());
     });
 
     private void OnRemoveSequence(object? sender, RoutedEventArgs e)
@@ -65,7 +69,7 @@ public partial class SequenceEditorView : UserControl
             e.Handled = true;
             return;
         }
-        if ((e.Key == Key.Apps || e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift)
+        if ((e.Key == Key.Apps || (e.Key == Key.F10 && e.KeyModifiers == KeyModifiers.Shift))
             && Vm is { SelectedSequence.IsSelectable: true } vm)
         {
             ShowSequenceMenu(vm);

@@ -44,7 +44,7 @@ public sealed class AuthoringOfflineImportTests : IDisposable
         WriteArchive(archive, invalid == "package-name-escape" ? "../escaped" : "Offline Fixture",
             invalid == "wrong-version" ? "2.0.0" : "1.3.0", invalid == "entry-escape" ? "../escaped.txt" : invalid == "missing-payload" ? "other.txt" : "payload.txt");
         using var coordinator = Coordinator();
-        await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive));
+        _ = await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive));
         AssertSnapshot(before, home.Root);
         Assert.False(Directory.Exists(Path.Combine(home.Root, "escaped")));
         Assert.False(File.Exists(Path.Combine(root, "escaped.txt")));
@@ -62,7 +62,7 @@ public sealed class AuthoringOfflineImportTests : IDisposable
         var operation = coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive);
         await Until(() => File.Exists(Path.Combine(root, "fixture-prepared")));
         if (replace) coordinator.ReplaceWorkspace(); else coordinator.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
         AssertSnapshot(before, home.Root); Assert.False(coordinator.IsBusy);
         Assert.DoesNotContain(OpenTapHomeBootstrapper.ListInstalledPackages(home), p => p.Name == "Offline Fixture");
     }
@@ -88,13 +88,17 @@ public sealed class AuthoringOfflineImportTests : IDisposable
             workspace.Manifest.Dependencies.Single(d => d.Package == "OpenTAP").Version = "99.0.0";
             AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         }
-        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+        else
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
             new System.Xml.Linq.XAttribute("Path", invalid == "unsafe-payload" ? "../escaped.txt" : "missing-required-runtime.bin"))));
+        }
+
         xml.Save(metadata);
         File.WriteAllText(Path.Combine(home.Root, "custom.marker"), "selected home sentinel");
         var before = Snapshot(home.Root);
         using var coordinator = Coordinator();
-        await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root));
+        _ = await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root));
         AssertSnapshot(before, home.Root);
         var owned = File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1];
         Assert.False(Directory.Exists(owned)); Assert.False(coordinator.IsBusy);
@@ -108,7 +112,7 @@ public sealed class AuthoringOfflineImportTests : IDisposable
         var before = Snapshot(home.Root); var archive = Path.Combine(root, "engine.TapPackage");
         WriteArchive(archive, "OpenTAP", version, "unrelated.txt");
         using var coordinator = Coordinator();
-        await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive));
+        _ = await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => coordinator.RunAsync(AuthoringOperationKind.Bootstrap, root, home: home.Root, offlinePackagePath: archive));
         AssertSnapshot(before, home.Root);
         Assert.False(Directory.Exists(File.ReadAllLines(Path.Combine(root, "fixture-child.json"))[1]));
     }

@@ -24,7 +24,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         Assert.False(vm.HasUnsavedChanges);
         Assert.True(vm.HasUncompiledSources);
         Assert.False(vm.CanPack);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.Validate());
         vm.StopRecovery();
         var reopened = new AuthoringWorkspaceViewModel();
         reopened.Open(root);
@@ -67,11 +67,11 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var session = new AuthoringDocumentSession(draft);
         var state = draft.AuthoringState.Clone();
         state.IncompleteNumericText[AuthoringDocumentState.FieldKey(draft.Cleanup.NodeId, "Count")] = "-";
-        session.ApplyEdit("Incomplete text", d => d with { AuthoringState = state });
+        _ = session.ApplyEdit("Incomplete text", d => d with { AuthoringState = state });
         Assert.True(session.IsDirty);
-        session.Undo();
+        _ = session.Undo();
         Assert.False(session.IsDirty);
-        session.Redo();
+        _ = session.Redo();
         Assert.Equal("-", session.Draft.AuthoringState.IncompleteNumericText.Values.Single());
     }
 
@@ -119,12 +119,12 @@ public sealed class AuthoringDurableDraftIntegrationTests
         workspace.Manifest.Package.Name = "All durable programs";
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         var store = new AuthoringDocumentStore(root);
-        var path = store.GetDocumentPath("future"); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var path = store.GetDocumentPath("future"); _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var bytes = System.Text.Encoding.UTF8.GetBytes("{\"schemaVersion\":999,\"futureValue\":true}");
         File.WriteAllBytes(path, bytes);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.StopRecovery();
         Assert.True(vm.Workspace!.IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.Apply());
+        _ = Assert.Throws<AuthoringWorkspaceException>(vm.Apply);
         Assert.Equal(bytes, File.ReadAllBytes(path)); vm.StopRecovery();
     }
 
@@ -133,7 +133,7 @@ public sealed class AuthoringDurableDraftIntegrationTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
         var root = Path.Combine(Path.GetTempPath(), "authoring-durable-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
         // These tests exercise saved-input guards, not legacy section migration.

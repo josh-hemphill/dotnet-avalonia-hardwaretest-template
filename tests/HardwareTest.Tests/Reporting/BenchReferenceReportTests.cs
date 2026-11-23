@@ -36,7 +36,7 @@ public sealed class BenchReferenceReportTests
             ReferenceUses = [use],
             Samples = [new StoredSample { MetricKey = "voltage", Channel = "voltage", ProducerStepId = use.Rule.ProducerStepId, Unit = "V", Value = 5 }],
         };
-        record.ReferenceEvaluations = BenchReferenceEvaluator.Evaluate(record.Samples, record.ReferenceUses).ToList();
+        record.ReferenceEvaluations = [.. BenchReferenceEvaluator.Evaluate(record.Samples, record.ReferenceUses)];
         Assert.False(Assert.Single(record.ReferenceEvaluations).Passed);
         // Later catalog/object edits must not change the run-owned reference.
         profile.Values[0] = profile.Values[0] with { Value = 100 };

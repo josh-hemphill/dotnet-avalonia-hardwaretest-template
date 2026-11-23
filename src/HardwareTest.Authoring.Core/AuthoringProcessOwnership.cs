@@ -97,7 +97,10 @@ internal sealed class AuthoringProcessOwnership : IDisposable
                 if (fields.Length < 4) throw new InvalidDataException("Invalid Unix process status.");
                 if (int.Parse(fields[2], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
                     && int.Parse(fields[3], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
-                    && fields[0] is not ("Z" or "X" or "x")) return true;
+                    && fields[0] is not ("Z" or "X" or "x"))
+                {
+                    return true;
+                }
             }
             return false;
         }
@@ -113,7 +116,7 @@ internal sealed class AuthoringProcessOwnership : IDisposable
                 ArgumentList = { "-axo", "pgid=,stat=" }
             }
         };
-        status.Start();
+        _ = status.Start();
         var output = status.StandardOutput.ReadToEndAsync();
         var error = status.StandardError.ReadToEndAsync();
         try { await status.WaitForExitAsync().WaitAsync(remaining).ConfigureAwait(false); }
@@ -129,7 +132,10 @@ internal sealed class AuthoringProcessOwnership : IDisposable
             var fields = row.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
             if (fields.Length != 2) throw new InvalidDataException("Invalid Unix process status.");
             if (int.Parse(fields[0], System.Globalization.CultureInfo.InvariantCulture) == unixGroup
-                && fields[1][0] is not ('Z' or 'X')) return true;
+                && fields[1][0] is not ('Z' or 'X'))
+            {
+                return true;
+            }
         }
         return false;
     }

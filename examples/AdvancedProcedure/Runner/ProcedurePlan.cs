@@ -75,14 +75,14 @@ internal static class ProcedurePlan
     private static T Measure<T>(string name, string id) where T : FixtureMeasurementStep, new()
     {
         var step = new T { Name = name, CaseId = id };
-        OpenTapMixinAttach.AttachPresentation(step, id, "timeseries", string.Empty);
+        _ = OpenTapMixinAttach.AttachPresentation(step, id, "timeseries", string.Empty);
         return step;
     }
 
     private static FixtureChangeStep Change(string name, string message, bool enableSupply = false)
     {
         var step = new FixtureChangeStep { Name = name, Message = message, EnableSupplyAfterConfirmation = enableSupply };
-        OpenTapMixinAttach.AttachPresentation(step, name.Replace(' ', '-').ToLowerInvariant(), "timeseries", string.Empty);
+        _ = OpenTapMixinAttach.AttachPresentation(step, name.Replace(' ', '-').ToLowerInvariant(), "timeseries", string.Empty);
         return step;
     }
 

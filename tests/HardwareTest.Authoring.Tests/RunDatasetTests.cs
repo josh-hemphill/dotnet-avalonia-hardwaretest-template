@@ -22,7 +22,7 @@ public sealed class RunDatasetTests
         dataset.Run.DutSerial = "mutated device";
         dataset.Run.StartedAt = DateTimeOffset.UtcNow;
         dataset.Run.Samples.Clear();
-        Assert.Equal(originalDetails, dataset.Identity!.DisplayDetails);
+        Assert.Equal(originalDetails, dataset.Identity.DisplayDetails);
         Assert.DoesNotContain("mutated", dataset.Identity.DisplayDetails);
     }
 
@@ -206,7 +206,7 @@ public sealed class RunDatasetTests
     {
         var root = CopyTemplateWorkspace();
         var dest = Path.Combine(root, "recordings", "sample", "mean-vdc");
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         File.Copy(
             Path.Combine(FindRepoRoot(), "tests", "fixtures", "authoring", "recordings", "sample", "mean-vdc", "run.json"),
             Path.Combine(dest, "run.json"));
@@ -267,7 +267,7 @@ public sealed class RunDatasetTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-recordings-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

@@ -69,7 +69,7 @@ public static class FormulaEvaluator
     }
 
     private static IReadOnlyList<double> MapUnary(string op, IReadOnlyList<double> values)
-        => op == "-" ? values.Select(v => -v).ToArray() : values.ToArray();
+        => op == "-" ? values.Select(v => -v).ToArray() : [.. values];
 
     private static IReadOnlyList<double> MapBinary(string op, IReadOnlyList<double> left, IReadOnlyList<double> right)
     {

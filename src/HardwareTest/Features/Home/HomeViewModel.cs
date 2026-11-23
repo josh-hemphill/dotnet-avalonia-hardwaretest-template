@@ -71,15 +71,15 @@ public partial class HomeViewModel : ReactiveObject
                               || settingsStore?.AppSettings.IsEngineerDebugMode == true;
         IsEngineerMode = settingsStore?.AppSettings.IsEngineerDebugMode == true;
         HomeShellTileViewModel CreateTile(ShellHomeTile tile)
-            => new(tile, IsEngineerMode, pageId => NavigateToPageRequested?.Invoke(this, pageId));
+        {
+            return new(tile, IsEngineerMode, pageId => NavigateToPageRequested?.Invoke(this, pageId));
+        }
+
         var builtIn = BuiltInTiles.Select(CreateTile).ToArray();
         GuestTiles = (guestTiles ?? []).Select(CreateTile).ToArray();
         Tiles = [.. builtIn, .. GuestTiles];
-        if (settingsStore is not null)
-        {
-            settingsStore.AppSettingsSaved += (_, _) => UiDispatch.Post(() => ApplyEngineerPresentation(
+        settingsStore?.AppSettingsSaved += (_, _) => UiDispatch.Post(() => ApplyEngineerPresentation(
                 settingsStore.AppSettings.IsEngineerDebugMode));
-        }
         OpenCrashFolderCommand = ReactiveCommand.Create(OpenCrashFolder);
         ExportSupportBundleCommand = ReactiveCommand.Create(ExportSupportBundle);
         DismissCrashBannerCommand = ReactiveCommand.Create(DismissCrashBanner);
@@ -149,7 +149,7 @@ public partial class HomeViewModel : ReactiveObject
                 {
                     HasCrashBanner = true;
                     CrashBannerTitle = "Recoverable fault captured";
-                    CrashBannerDetail = CrashHandler.LastRecoverableMessage!;
+                    CrashBannerDetail = CrashHandler.LastRecoverableMessage;
                     CrashStatus = string.Empty;
                     PublishCrashToShell(isFatal: false);
                     return;
@@ -229,7 +229,7 @@ public partial class HomeViewModel : ReactiveObject
 
         try
         {
-            Directory.CreateDirectory(path);
+            _ = Directory.CreateDirectory(path);
             OpenFolder(path);
             CrashStatus = $"Opened: {path}";
         }
@@ -256,7 +256,7 @@ public partial class HomeViewModel : ReactiveObject
             {
                 // Stage zip then atomic-copy via package write of bytes.
                 var tempDir = Path.Combine(Path.GetTempPath(), "hwtest-export-" + Guid.NewGuid().ToString("N"));
-                Directory.CreateDirectory(tempDir);
+                _ = Directory.CreateDirectory(tempDir);
                 try
                 {
                     var staged = Path.Combine(tempDir, zipName);
@@ -284,7 +284,7 @@ public partial class HomeViewModel : ReactiveObject
             else
             {
                 var exports = Path.Combine(_settingsStore.RootDirectory, "exports");
-                Directory.CreateDirectory(exports);
+                _ = Directory.CreateDirectory(exports);
                 dest = Path.Combine(exports, zipName);
                 var written = CrashDossierWriter.TryExportZip(_activeDossier.DirectoryPath, dest);
                 if (written is null)
@@ -317,7 +317,7 @@ public partial class HomeViewModel : ReactiveObject
     {
         if (_activeDossier is not null)
         {
-            CrashDossierWriter.TryMarkReviewed(_activeDossier.DirectoryPath);
+            _ = CrashDossierWriter.TryMarkReviewed(_activeDossier.DirectoryPath);
         }
 
         _activeDossier = null;
@@ -328,7 +328,7 @@ public partial class HomeViewModel : ReactiveObject
 
     private static void OpenFolder(string path)
     {
-        Process.Start(new ProcessStartInfo
+        _ = Process.Start(new ProcessStartInfo
         {
             FileName = path,
             UseShellExecute = true,

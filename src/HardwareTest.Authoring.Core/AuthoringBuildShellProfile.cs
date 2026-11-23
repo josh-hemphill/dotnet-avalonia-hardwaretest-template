@@ -42,7 +42,7 @@ public static partial class AuthoringBuildService
         {
             current = Path.GetFullPath(current);
             if (!seen.Add(current)) continue;
-            EnsureContained(ownedRoot, ResolvedPath(current, false));
+            EnsureContained(ownedRoot, ResolvedPath(current));
             ValidateShellEvaluationFiles(current);
             foreach (var properties in ProfileProjections(profile))
             {
@@ -50,8 +50,11 @@ public static partial class AuthoringBuildService
                     "-getProperty:" + string.Join(',', ShellOutputIdentityProperties), "-getItem:ProjectReference"]);
                 using var result = JsonDocument.Parse(RunShellDotNet(Path.GetDirectoryName(current)!, arguments, environment));
                 foreach (var name in ShellOutputIdentityProperties)
+                {
                     if (!SafeAssemblyOutputName(ShellJsonProperty(result.RootElement.GetProperty("Properties"), name).GetString()!))
                         Unsupported(current, $"{name} contains output path components under the actual staged SDK write profile");
+                }
+
                 foreach (var reference in ShellJsonProperty(result.RootElement.GetProperty("Items"), "ProjectReference").EnumerateArray())
                     pending.Enqueue(ShellJsonProperty(reference, "FullPath").GetString()!);
             }

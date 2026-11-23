@@ -5,17 +5,9 @@ namespace HardwareTest.Authoring;
 public sealed partial class AuthoringWorkspaceViewModel
 {
     private string? _selectedInstrumentSlot;
-    private string _newReportKind = string.Empty;
-    private string _newProgramKind = string.Empty;
-    private string _newInstrumentSlot = string.Empty;
-    private string _newInstrumentVisa = string.Empty;
-    private string _newRequiredField = string.Empty;
     private int _formulaSaveGeneration;
     private int _formulaSaveStamp = -1;
-    private FormulaSaveOutcome _formulaSave;
-    private IReadOnlyList<string> _yUnitOptions = [];
     private IReadOnlyList<string> _metricFunctionIds = [];
-    private IReadOnlyList<AuthoringFunctionDisplay> _metricFunctionChoices = [];
 
     public IReadOnlyList<string> DisplayRoleOptions => AuthoringEditorCatalog.DisplayRoles;
 
@@ -24,14 +16,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         get
         {
             var current = AuthoringWorkspaceCatalog.YUnitOptions(SelectedProgram);
-            if (!_yUnitOptions.SequenceEqual(current, StringComparer.Ordinal))
+            if (!field.SequenceEqual(current, StringComparer.Ordinal))
             {
-                _yUnitOptions = current;
+                field = current;
             }
 
-            return _yUnitOptions;
+            return field;
         }
-    }
+    } = [];
 
     public IReadOnlyList<string> TfMethodOptions => AuthoringEditorCatalog.TfMethods;
 
@@ -130,45 +122,45 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string NewReportKind
     {
-        get => _newReportKind;
-        set => SetField(ref _newReportKind, value ?? string.Empty);
-    }
+        get;
+        set => SetField(ref field, value ?? string.Empty);
+    } = string.Empty;
 
     public string NewProgramKind
     {
-        get => _newProgramKind;
-        set => SetField(ref _newProgramKind, value ?? string.Empty);
-    }
+        get;
+        set => SetField(ref field, value ?? string.Empty);
+    } = string.Empty;
 
     public string NewInstrumentSlot
     {
-        get => _newInstrumentSlot;
+        get;
         set
         {
-            if (SetField(ref _newInstrumentSlot, value ?? string.Empty))
+            if (SetField(ref field, value ?? string.Empty))
             {
                 OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
                 OnPropertyChanged(nameof(CanAddInstrumentSlot));
             }
         }
-    }
+    } = string.Empty;
 
     public string NewInstrumentVisa
     {
-        get => _newInstrumentVisa;
+        get;
         set
         {
-            if (!SetField(ref _newInstrumentVisa, value ?? string.Empty)) return;
+            if (!SetField(ref field, value ?? string.Empty)) return;
             OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
             OnPropertyChanged(nameof(CanAddInstrumentSlot));
         }
-    }
+    } = string.Empty;
 
     public string NewRequiredField
     {
-        get => _newRequiredField;
-        set => SetField(ref _newRequiredField, value ?? string.Empty);
-    }
+        get;
+        set => SetField(ref field, value ?? string.Empty);
+    } = string.Empty;
 
     public bool CanAddInstrumentSlot
         => Workspace is not null

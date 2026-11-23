@@ -37,7 +37,10 @@ public partial class RunPreparationView : UserControl
             _focusLayoutQueued = false;
             if (owner is null || !ReferenceEquals(owner, _subscribed) || !IsEffectivelyVisible) return;
             if (TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is Control focused
-                && focused.GetVisualAncestors().Contains(SessionFieldsScroller)) BringFieldGroupIntoView(focused);
+                && focused.GetVisualAncestors().Contains(SessionFieldsScroller))
+            {
+                BringFieldGroupIntoView(focused);
+            }
         }, DispatcherPriority.Loaded);
     }
 
@@ -82,17 +85,14 @@ public partial class RunPreparationView : UserControl
 
     private void OnRequestFocusDutSerial(object? sender, EventArgs e) => ScheduleFocusDutSerial();
 
-    private void ScheduleFocusDutSerial()
-    {
-        OnRequestFocusSessionField(OperatorSessionPanelViewModel.SessionFieldDutSerial);
-    }
+    private void ScheduleFocusDutSerial() => OnRequestFocusSessionField(OperatorSessionPanelViewModel.SessionFieldDutSerial);
 
     private void OnRequestFocusSessionField(string field)
     {
         var owner = _subscribed;
         Dispatcher.UIThread.Post(() =>
         {
-            if (owner is not null && ReferenceEquals(owner, _subscribed)) FocusSessionField(field);
+            if (owner is not null && ReferenceEquals(owner, _subscribed)) _ = FocusSessionField(field);
         }, DispatcherPriority.Loaded);
     }
 
@@ -105,7 +105,7 @@ public partial class RunPreparationView : UserControl
             if (owner is null || !ReferenceEquals(owner, _subscribed) || board?.IsEffectivelyVisible != true) return;
             var run = board.GetVisualDescendants().OfType<Button>().FirstOrDefault(button =>
                 button.IsEffectivelyVisible && button.IsEffectivelyEnabled && AutomationProperties.GetName(button) == "Run");
-            run?.Focus();
+            _ = (run?.Focus());
         }, DispatcherPriority.Loaded);
     }
 

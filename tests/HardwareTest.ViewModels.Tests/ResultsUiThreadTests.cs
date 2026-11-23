@@ -110,7 +110,7 @@ public sealed class ResultsUiThreadTests
             {
                 if (!inScheduler)
                 {
-                    Interlocked.Increment(ref offScheduler);
+                    _ = Interlocked.Increment(ref offScheduler);
                 }
             };
 
@@ -171,7 +171,7 @@ public sealed class ResultsUiThreadTests
             {
                 if (!inScheduler)
                 {
-                    Interlocked.Increment(ref offScheduler);
+                    _ = Interlocked.Increment(ref offScheduler);
                 }
             };
 

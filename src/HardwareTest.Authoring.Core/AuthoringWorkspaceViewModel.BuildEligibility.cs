@@ -8,21 +8,31 @@ public sealed partial class AuthoringWorkspaceViewModel
         get
         {
             if (Workspace is { } workspace && _measureSectionMigrations.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))) return true;
-            if (_buildInspectionDispatch is not null) return BuildInspectionBusy || _buildInspectionBlockers;
+            if (_buildInspectionDispatch is not null) return BuildInspectionBusy || field;
             return EvaluateSavedBuildBlockers(Workspace, _sourceDocuments, _compiledConflicts, _uncompiledDocuments);
         }
-    }
+
+        set;
+    } = true;
 
     private static bool EvaluateSavedBuildBlockers(AuthoringWorkspace? workspace, IReadOnlyDictionary<string, AuthoringDocumentDto> sources, IEnumerable<string> conflicts, IEnumerable<string> uncompiled)
     {
         if (workspace is null) return true;
         if (sources.Values.Any(source => AuthoringBuildInclusion.Includes(workspace.Manifest, source.PlanId)
-            && !AuthoringSequence.HasMeasurement(source.ToDraft().Measure))) return true;
+            && !AuthoringSequence.HasMeasurement(source.ToDraft().Measure)))
+        {
+            return true;
+        }
+
         if (conflicts.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))) return true;
         foreach (var id in uncompiled.Where(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id)))
         {
             if (!sources.TryGetValue(id, out var source) || workspace is null
-                || !File.Exists(new AuthoringDocumentStore(workspace.Root).GetDocumentPath(id))) return true;
+                || !File.Exists(new AuthoringDocumentStore(workspace.Root).GetDocumentPath(id)))
+            {
+                return true;
+            }
+
             try
             {
                 var draft = AuthoringFormulaDeployment.Project(source.ToDraft());

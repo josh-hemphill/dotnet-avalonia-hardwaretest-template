@@ -34,20 +34,14 @@ public interface IDutHistoryService
 }
 
 /// Offline DUT wear / shift flags from local run.json history (no separate app).
-public sealed class DutHistoryService : IDutHistoryService
+public sealed class DutHistoryService(IRunStore runStore, int priorLimit = DutHistoryService.DefaultPriorLimit) : IDutHistoryService
 {
     public const int DefaultPriorLimit = 10;
     public const double WatchPercentThreshold = 5.0;
     public const double AlertPercentThreshold = 10.0;
 
-    private readonly IRunStore _runStore;
-    private readonly int _priorLimit;
-
-    public DutHistoryService(IRunStore runStore, int priorLimit = DefaultPriorLimit)
-    {
-        _runStore = runStore;
-        _priorLimit = Math.Clamp(priorLimit, 1, 100);
-    }
+    private readonly IRunStore _runStore = runStore;
+    private readonly int _priorLimit = Math.Clamp(priorLimit, 1, 100);
 
     public async Task<DutHistoryReport> AnalyzeAsync(
         TestRunRecord current,

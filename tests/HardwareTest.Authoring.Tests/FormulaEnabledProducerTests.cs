@@ -103,8 +103,8 @@ public sealed class FormulaEnabledProducerTests : IDisposable
         var original = new TestPlan(); original.ChildTestSteps.Add(scope); original.ChildTestSteps.Add(live); original.ChildTestSteps.Add(average);
         original.Save(path);
         var compiler = new PlanCompiler(); var imported = compiler.Load(path);
-        Assert.IsType<RawStepNode>(imported.Measure[0]);
-        Assert.IsType<MetricNode>(imported.Measure[1]); // Enabled known leaves keep their established typed representation.
+        _ = Assert.IsType<RawStepNode>(imported.Measure[0]);
+        _ = Assert.IsType<MetricNode>(imported.Measure[1]); // Enabled known leaves keep their established typed representation.
         compiler.Save(imported, path);
         var plan = TestPlan.Load(path); var savedScope = Assert.Single(PlanCompiler.FlattenSteps(plan), step => step.Id == scope.Id);
         Assert.False(savedScope.Enabled); Assert.All(savedScope.ChildTestSteps, child => Assert.True(child.Enabled));
@@ -116,7 +116,7 @@ public sealed class FormulaEnabledProducerTests : IDisposable
         var source = draft.Measure.OfType<RawStepNode>().Select(node => node.XmlFragment).ToArray();
         var preview = MetricPreviewBuilder.From(consumer.Metric, sourceContext: draft);
         Assert.Empty(preview.CannedSamples); Assert.Contains(code, preview.Note);
-        AssertReadiness(draft, consumer, preview.Note!);
+        AssertReadiness(draft, consumer, preview.Note);
         var path = Path.Combine(AuthoringBuildSnapshotTests.Temp(), draft.PlanId + ".TapPlan");
         var error = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, path));
         Assert.Equal(preview.Note, error.Message); Assert.False(File.Exists(path)); Assert.False(File.Exists(PlanCompiler.SidecarPath(path)));

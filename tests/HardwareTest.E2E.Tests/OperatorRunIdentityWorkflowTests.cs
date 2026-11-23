@@ -80,7 +80,10 @@ public sealed class OperatorRunIdentityWorkflowTests
             foreach (var value in new[] { record.RunId, record.PlanId, record.PlanName, record.SessionId, record.DutSerial,
                          record.DutPartNumber, record.DutRevision, record.OperatorName, record.ExecutionScopeText,
                          record.StartedAt.ToString("O", CultureInfo.InvariantCulture), record.CompletedAt.Value.ToString("O", CultureInfo.InvariantCulture) })
+            {
                 Assert.Contains(value!, full.Text!, StringComparison.Ordinal);
+            }
+
             var popup = TopLevel.GetTopLevel(full)!;
             CaptureIfEnabled(window, $"results-full-run-identity-{suffix}", popup, $"results-full-run-identity-popup-{suffix}");
             popup.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, null);
@@ -119,7 +122,7 @@ public sealed class OperatorRunIdentityWorkflowTests
         if (Environment.GetEnvironmentVariable("HT_CAPTURE_OPERATOR_UI") != "1") return;
         var directory = Environment.GetEnvironmentVariable("HT_CAPTURE_DIRECTORY")
             ?? Path.Combine(AppContext.BaseDirectory, "operator-ui-review");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         using (var settled = window.CaptureRenderedFrame()) Assert.NotNull(settled);
         Dispatcher.UIThread.RunJobs();
         using (var frame = window.CaptureRenderedFrame())

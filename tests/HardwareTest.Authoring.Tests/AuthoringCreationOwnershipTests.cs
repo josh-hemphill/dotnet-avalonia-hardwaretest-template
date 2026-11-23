@@ -37,10 +37,10 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
             // First is inside its final validation, not merely staged or scheduled.
             var error = await Task.Run(() => Record.Exception(() => new AuthoringDocumentStore(_root).CreateNew(secondDocument)))
                 .WaitAsync(TimeSpan.FromSeconds(30));
-            Assert.IsType<IOException>(error);
+            _ = Assert.IsType<IOException>(error);
         }
         finally { release.Set(); await first.WaitAsync(TimeSpan.FromSeconds(30)); }
-        Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
         Assert.Equal("rail", new AuthoringDocumentStore(_root).Load("rail").Document!.PlanId);
     }
 
@@ -77,9 +77,9 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
         new AuthoringDocumentStore(_root).CreateNew(first, validateWorkspace: () =>
         {
             if (++validations == 2)
-                Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(second));
+                _ = Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(second));
         });
-        Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
         Assert.True(new AuthoringDocumentStore(_root).Load("rail").Exists);
     }
 
@@ -100,8 +100,8 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
             if (cancel) cancellation.Cancel();
             else throw new IOException("Injected final validation failure.");
         }));
-        if (cancel) Assert.IsType<OperationCanceledException>(error);
-        else Assert.IsType<IOException>(error);
+        if (cancel) _ = Assert.IsType<OperationCanceledException>(error);
+        else _ = Assert.IsType<IOException>(error);
         new AuthoringDocumentStore(_root).CreateNew(Document("RAIL"));
         Assert.Equal(bytes, File.ReadAllBytes(unrelated));
         Assert.Equal(2, Directory.GetFiles(_root, "*", SearchOption.AllDirectories).Length);
@@ -120,9 +120,12 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
         try
         {
             Assert.Equal("validated", await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30)));
-            Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(Document("RAIL")));
+            _ = Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(Document("RAIL")));
             new AuthoringDocumentStore(_root).CreateNew(Document("other"));
-            if (crash) process.Kill(entireProcessTree: true);
+            if (crash)
+            {
+                process.Kill(entireProcessTree: true);
+            }
             else { await process.StandardInput.WriteLineAsync("release"); await process.StandardInput.FlushAsync(); }
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
             if (crash)
@@ -134,7 +137,7 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
             else
             {
                 Assert.Equal(0, process.ExitCode);
-                Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(Document("RAIL")));
+                _ = Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(Document("RAIL")));
             }
             Assert.True(new AuthoringDocumentStore(_root).Load("other").Exists);
             Assert.Equal(2, Directory.GetFiles(Path.Combine(_root, "authoring-drafts"), "*.authoring.json").Length);

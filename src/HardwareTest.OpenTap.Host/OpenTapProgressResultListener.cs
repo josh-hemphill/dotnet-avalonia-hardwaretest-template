@@ -151,7 +151,7 @@ internal sealed partial class ProgressResultListener : ResultListener
 
         if (_loops.Count > 0 && _loops.Peek().StepId == stepRun.TestStepId)
         {
-            _loops.Pop();
+            _ = _loops.Pop();
         }
 
         ReportStepProgress(
@@ -481,7 +481,7 @@ internal sealed partial class ProgressResultListener : ResultListener
         }
 
         var raw = column.Data.GetValue(index);
-        if (raw is null || raw is DBNull)
+        if (raw is null or DBNull)
         {
             return null;
         }

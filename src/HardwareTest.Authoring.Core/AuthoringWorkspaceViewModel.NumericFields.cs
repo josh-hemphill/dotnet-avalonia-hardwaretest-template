@@ -17,7 +17,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (SelectedProgram is null) return;
         var state = SelectedProgram.AuthoringState.Clone();
         var key = AuthoringDocumentState.FieldKey(nodeId, field);
-        if (valid) state.IncompleteNumericText.Remove(key);
+        if (valid) _ = state.IncompleteNumericText.Remove(key);
         else state.IncompleteNumericText[key] = text;
         if (valid) apply(state);
         else ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
@@ -73,8 +73,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         vector = numbers;
         if (parts.Length == 0) return false;
         for (var i = 0; i < parts.Length; i++)
+        {
             if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out numbers[i])
-                || !double.IsFinite(numbers[i])) return false;
+                || !double.IsFinite(numbers[i]))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 }

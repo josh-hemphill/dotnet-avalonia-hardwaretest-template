@@ -51,7 +51,7 @@ public static partial class MetricPreviewBuilder
         if (sourceContext is not null)
         {
             var identity = nodeId ?? ResolveNodeId(sourceContext.Measure, metric);
-            var tile = BoardPreviewBuilder.Build(sourceContext, recorded is null ? null : new TestRunRecord { Samples = recorded.Values.SelectMany(samples => samples).ToList() })
+            var tile = BoardPreviewBuilder.Build(sourceContext, recorded is null ? null : new TestRunRecord { Samples = [.. recorded.Values.SelectMany(samples => samples)] })
                 .LastOrDefault(tile => tile.NodeId == identity);
             if (tile is not null) return tile.Preview;
         }
@@ -389,7 +389,9 @@ public static partial class MetricPreviewBuilder
             PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState, nodeId);
         }
         else if (siblings is not null)
+        {
             PlanCompiler.ValidateFormulaInput(siblings.Select(value => (MeasureNode)new MetricNode(value)).ToArray(), metric.ChannelKey);
+        }
     }
 
     private static IReadOnlyList<double> SynthesizeCanned(LimitSpec? limits, PresentationTileKind? kind)

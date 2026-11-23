@@ -23,7 +23,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         : PreviewDataSourceLabel == "Example data (simulated)" ? "Simulated values" : PreviewDataSourceLabel;
 
     private bool MatchesRecordingChoice(RunDataset dataset)
-        => _selectedRecordingChoice is { } choice && choice.Session == _workspaceSession
+        => _selectedRecordingChoice is { } choice && choice.Session == WorkspaceSessionId
             && string.Equals(choice.PlanId, SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(choice.PlanId, dataset.Run.PlanId, StringComparison.OrdinalIgnoreCase)
             && string.Equals(choice.Path, dataset.Path, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
@@ -32,10 +32,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     public void SelectDataset(int index)
     {
         if (_refreshingDatasets) return;
-        var count = _datasets.Count;
+        var count = Datasets.Count;
         var clamped = count == 0 || index < 0 ? -1 : Math.Clamp(index, 0, count - 1);
         _selectedRecordingChoice = clamped < 0 ? null : new RecordingChoice(
-            _workspaceSession, _datasets[clamped].Run.PlanId, _datasets[clamped].Path, _datasets[clamped].Run.RunId);
+            WorkspaceSessionId, Datasets[clamped].Run.PlanId, Datasets[clamped].Path, Datasets[clamped].Run.RunId);
         if (!SetField(ref _selectedDatasetIndex, clamped, nameof(SelectedDatasetIndex)))
         {
             OnPropertyChanged(nameof(SelectedDataset));
@@ -57,13 +57,13 @@ public sealed partial class AuthoringWorkspaceViewModel
             _workspaceDatasets = all;
             _workspaceDatasetsSession = WorkspaceSessionId;
             var planId = SelectedProgram?.PlanId;
-            _datasets = string.IsNullOrWhiteSpace(planId)
+            Datasets = string.IsNullOrWhiteSpace(planId)
                 ? []
                 : all.Where(dataset =>
                         string.Equals(dataset.Run.PlanId, planId, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
-            _datasetItems = _datasets.Select(FormatDataset).ToArray();
-            _selectedDatasetIndex = _datasets.ToList().FindIndex(MatchesRecordingChoice);
+            DatasetItems = Datasets.Select(FormatDataset).ToArray();
+            _selectedDatasetIndex = Datasets.ToList().FindIndex(MatchesRecordingChoice);
             if (_selectedDatasetIndex < 0) _selectedRecordingChoice = null;
             OnPropertyChanged(nameof(Datasets));
             OnPropertyChanged(nameof(DatasetItems));
@@ -109,7 +109,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         _openingDatasets = _workspaceDatasets;
         try { RefreshDatasets(); }
         finally { _openingDatasets = null; }
-        SelectDataset(_datasets.ToList().FindIndex(dataset => dataset.Path == imported.Path));
+        SelectDataset(Datasets.ToList().FindIndex(dataset => dataset.Path == imported.Path));
     }
 
     private static string FormatDataset(RunDataset dataset)

@@ -18,7 +18,7 @@ internal static class ExecutionLibraryHome
         if (!Directory.Exists(root)) return root;
         var visited = 0;
         var active = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        active.Add(root);
+        _ = active.Add(root);
         foreach (var entry in Directory.EnumerateFileSystemEntries(root))
         {
             if (++visited > 100000) throw new IOException("Selected execution home contains too many package paths.");
@@ -58,11 +58,14 @@ internal static class ExecutionLibraryHome
                         throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
                     if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
                         && !entry.Equals(Path.Combine(root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), StringComparison.Ordinal))
+                    {
                         throw new InvalidOperationException("Instrument Components execution cannot use noncanonical or duplicate installed package identities.");
+                    }
+
                     if (Directory.Exists(entry)) Scan(entry, depth + 1);
                 }
             }
-            finally { active.Remove(resolved); }
+            finally { _ = active.Remove(resolved); }
         }
     }
 
@@ -81,7 +84,9 @@ internal static class ExecutionLibraryHome
         if (string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
             && (package != StandaloneVisaPackage.PackageName
                 || !entry.Equals(Path.Combine(root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), StringComparison.Ordinal)))
+        {
             throw new IOException("Standalone VISA package metadata must use its canonical identity and Packages/HardwareTest Standalone VISA/package.xml location.");
+        }
     }
 
     private static string? ReadPackageIdentity(string path)
@@ -113,7 +118,9 @@ internal static class ExecutionLibraryHome
         var resolved = Path.TrimEndingDirectorySeparator(ResolvePath(path));
         if (!Path.GetFullPath(path).StartsWith(prefix, comparison)
             || !(resolved.Equals(boundary, comparison) || resolved.StartsWith(prefix, comparison)))
+        {
             throw new IOException("Selected execution home path resolves outside its root: " + path);
+        }
     }
 
     private static string ResolvePath(string path)
@@ -141,7 +148,7 @@ internal static class ExecutionLibraryHome
                     // Resolve ancestors before '..', matching filesystem lookup rather than lexical normalization.
                     current = Resolve(Path.IsPathFullyQualified(target) ? target : Path.Combine(Path.GetDirectoryName(link)!, target));
                 }
-                finally { activeLinks.Remove(link); }
+                finally { _ = activeLinks.Remove(link); }
             }
             return Path.GetFullPath(current);
         }

@@ -20,14 +20,14 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     [Fact]
     public void Incompatible_bundled_requirement_and_invalid_explicit_path_preserve_selected_bytes()
     {
-        Directory.CreateDirectory(Path.Combine(root, "home"));
+        _ = Directory.CreateDirectory(Path.Combine(root, "home"));
         var marker = Path.Combine(root, "home", "selected.txt"); File.WriteAllText(marker, "selected");
-        Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace("^2.0.0")));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace("^2.0.0")));
         Assert.Equal("selected", File.ReadAllText(marker));
-        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(marker)!, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(Path.GetDirectoryName(marker)!, "*", SearchOption.AllDirectories));
         var error = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace(), path: "missing.TapPackage"));
         Assert.Contains("not found", error.Message);
-        Assert.Single(Directory.GetFiles(Path.GetDirectoryName(marker)!, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(Path.GetDirectoryName(marker)!, "*", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -40,12 +40,12 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             var workspace = Workspace(); workspace.Manifest.InstrumentComponentsPackage = PublishedLibraryFixture.Archive;
             var fromManifest = Prepare(workspace, "manifest");
             Assert.True(File.Exists(Path.Combine(fromManifest.Root, "InstrumentComponents.dll")));
-            Assert.Throws<AuthoringWorkspaceException>(() => Prepare(workspace, "options", "missing-options.TapPackage"));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(workspace, "options", "missing-options.TapPackage"));
             workspace.Manifest.InstrumentComponentsPackage = "missing-manifest.TapPackage";
             var fromOptions = Prepare(workspace, "options-valid", PublishedLibraryFixture.Archive);
             Assert.True(File.Exists(Path.Combine(fromOptions.Root, "InstrumentComponents.dll")));
             workspace.Manifest.InstrumentComponentsPackage = null;
-            Assert.Throws<AuthoringWorkspaceException>(() => Prepare(workspace, "environment-invalid"));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(workspace, "environment-invalid"));
             Environment.SetEnvironmentVariable("HARDWARETEST_INSTRUMENT_COMPONENTS_PACKAGE", PublishedLibraryFixture.Archive);
             Assert.True(File.Exists(Path.Combine(Prepare(workspace, "environment-valid").Root, "InstrumentComponents.dll")));
         }
@@ -57,7 +57,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     {
         var home = Prepare(Workspace());
         var before = Files(home);
-        Prepare(Workspace(), path: "missing.TapPackage");
+        _ = Prepare(Workspace(), path: "missing.TapPackage");
         AssertFiles(before, home);
         var captured = AuthoringBuildService.CaptureTree(home.Root, "home", true);
         var provenance = Assert.Single(captured.Files, file => file.RelativePath.EndsWith("hardwaretest-provenance.json", StringComparison.Ordinal));
@@ -213,7 +213,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         xml.Root!.SetAttributeValue("Version", canonicalVersion);
         xml.Save(metadata);
         var aliasDirectory = Path.Combine(home.Root, "Packages", alias);
-        Directory.CreateDirectory(aliasDirectory);
+        _ = Directory.CreateDirectory(aliasDirectory);
         File.WriteAllText(Path.Combine(aliasDirectory, "package.xml"),
             """<Package Name=" instrumentcomponents.opentap " Version="0.3.0-alpha.1" />""");
         var workspace = Workspace("^0.3.0-alpha.1");
@@ -248,7 +248,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var before = Files(home);
 
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
-        Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll"));
+        _ = Assert.Throws<IOException>(() => AuthoringAdapterPayloadInspection.LibraryPayloadPath(home, "InstrumentComponents.dll"));
         var error = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace()));
 
         Assert.StartsWith("Cannot inspect the selected standalone/TUI home: ", error.Message);
@@ -276,9 +276,18 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         var declaration = new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", "extra.txt"),
             new System.Xml.Linq.XElement("Hash", "invalid"));
-        if (invalid == "duplicate-files") xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
-        else if (invalid == "stray-file") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", declaration));
-        else if (invalid == "nested-files") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Files")));
+        if (invalid == "duplicate-files")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
+        }
+        else if (invalid == "stray-file")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", declaration));
+        }
+        else if (invalid == "nested-files")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Files")));
+        }
         else if (invalid == "wrapped-hash")
         {
             var file = xml.Descendants().First(element => element.Name.LocalName == "File");
@@ -293,7 +302,10 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             foreach (var hash in file.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
             file.Add(new System.Xml.Linq.XElement("Hash", new System.Xml.Linq.XElement("Wrapper", expected)));
         }
-        else if (invalid == "old-package-version") xml.Root!.SetAttributeValue("Version", "0.1.0");
+        else if (invalid == "old-package-version")
+        {
+            xml.Root!.SetAttributeValue("Version", "0.1.0");
+        }
         else if (invalid is "old-contract-version" or "old-adapter-version")
         {
             var file = invalid == "old-contract-version" ? "InstrumentComponents.dll" : "InstrumentComponents.OpenTap.dll";
@@ -311,7 +323,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var before = Files(home);
 
         Assert.False(AuthoringInstrumentCatalog.LibraryPayloadAvailability(home).Available);
-        Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace(), path: "missing.TapPackage"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => Prepare(Workspace(), path: "missing.TapPackage"));
         AssertFiles(before, home);
         AssertBundledProvenance(home);
 
@@ -389,7 +401,10 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             xml.Descendants("File").First().Add(new System.Xml.Linq.XElement("Hash", new System.Xml.Linq.XElement("Wrapper", expected)));
         }
         else if (invalid.StartsWith("hash-", StringComparison.Ordinal))
+        {
             xml.Descendants("File").First().Add(new System.Xml.Linq.XElement("Hash", invalid == "hash-malformed" ? new string('z', 40) : new string('0', 40)));
+        }
+
         xml.Save(metadata);
         if (!unpacked)
         {
@@ -397,7 +412,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             ZipFile.CreateFromDirectory(path, archive);
             path = archive;
         }
-        Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(Workspace(),
             new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = path }));
         AssertFiles(before, home);
         AssertBundledProvenance(home);
@@ -417,7 +432,7 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var nested = $"Packages/{PublishedInstrumentComponents.PackageName}/package.xml";
         if (differingCase) nested = nested.ToUpperInvariant();
         var destination = Path.Combine(folder, nested);
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
         File.WriteAllText(destination, $"""<Package Name="{name}" Version="{version}" />""");
         var metadata = Path.Combine(folder, "package.xml");
         var xml = System.Xml.Linq.XDocument.Load(metadata);
@@ -448,14 +463,14 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
     private (string Path, byte[] Payload) CustomReplacement(OpenTapHome home, bool unpacked, bool buildMetadata = false)
     {
         var folder = Path.Combine(root, "custom-library");
-        Directory.CreateDirectory(folder);
+        _ = Directory.CreateDirectory(folder);
         // Retain genuine managed assemblies while making the incoming library bytes distinguishable.
         var replacement = File.ReadAllBytes(Path.Combine(home.Root, "InstrumentComponents.dll")).Concat(new byte[] { 0 }).ToArray();
         File.WriteAllBytes(Path.Combine(folder, "InstrumentComponents.dll"), replacement);
         File.Copy(Path.Combine(home.Root, "InstrumentComponents.OpenTap.dll"), Path.Combine(folder, "InstrumentComponents.OpenTap.dll"));
         foreach (var sdk in new[] { "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" }) File.Copy(Path.Combine(home.Root, sdk), Path.Combine(folder, sdk));
         var metadata = unpacked ? folder : Path.Combine(folder, "Packages", PublishedInstrumentComponents.PackageName);
-        Directory.CreateDirectory(metadata);
+        _ = Directory.CreateDirectory(metadata);
         var version = PublishedInstrumentComponents.Version + (buildMetadata ? "+custom.1" : "");
         File.WriteAllText(Path.Combine(metadata, "package.xml"), $"""<Package Name="{PublishedInstrumentComponents.PackageName}" Version="{version}"><Files><File Path="InstrumentComponents.dll" /><File Path="InstrumentComponents.OpenTap.dll" /><File Path="InstrumentComponents.Abstractions.dll" /><File Path="InstrumentComponents.Runtime.dll" /></Files></Package>""");
         if (unpacked) return (folder, replacement);

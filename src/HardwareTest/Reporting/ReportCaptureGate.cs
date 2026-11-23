@@ -5,7 +5,7 @@ namespace HardwareTest.Reporting;
 
 internal static class ReportCaptureGate
 {
-    private static readonly ConditionalWeakTable<IReportAttestationService, SemaphoreSlim> Gates = new();
+    private static readonly ConditionalWeakTable<IReportAttestationService, SemaphoreSlim> Gates = [];
     public const string WaitingMessage = "A previous badge operation is still finishing. Close its prompt, then try again.";
 
     public static IDisposable? TryEnter(IReportAttestationService service)

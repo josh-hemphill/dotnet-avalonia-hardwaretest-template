@@ -38,7 +38,11 @@ public sealed class CrossAppReferenceJourneyTests
             var expected = BenchProgramHandoff.ValidateProgram(Path.Combine(prepared, id + ".TapPlan"));
             Assert.Equal(expected?.ExportId, prior?.ExportId);
         }
-        else CopyDirectory(prepared, installed);
+        else
+        {
+            CopyDirectory(prepared, installed);
+        }
+
         Assert.NotNull(BenchProgramHandoff.ValidateProgram(Path.Combine(installed, id + ".TapPlan")));
         using var shown = E2EHarness.ShowMainWindow();
         var app = E2EHarness.RequireApp();
@@ -80,7 +84,7 @@ public sealed class CrossAppReferenceJourneyTests
         var producer = Assert.Single(run.ProgramSelection.SelectedProgram.ReferenceRules).ProducerStepId;
         run.StepTree.SelectedStep = Flatten(run.StepTree.Hierarchy).Single(step => Guid.TryParse(step.Id, out var stepId) && stepId == producer);
         await Confirm("GOLDEN-B");
-        await Execute(true);
+        _ = await Execute(true);
         run.StepTree.SelectedStep = Flatten(run.StepTree.Hierarchy).Single(step => Guid.TryParse(step.Id, out var stepId) && stepId == producer);
         var acquisitionB = await Execute(true);
         var profileB = await Promote(acquisitionB, "Golden B selected acquisition");
@@ -89,7 +93,7 @@ public sealed class CrossAppReferenceJourneyTests
         // A full acquisition performs authored cleanup and restores the same
         // deterministic mock input before both production executions.
         await Confirm("GOLDEN-RESET");
-        await Execute(false);
+        _ = await Execute(false);
         await Acquisition(false);
         await Choose(profileA.Id);
         await Confirm("PRODUCTION-UNIT");
@@ -118,7 +122,7 @@ public sealed class CrossAppReferenceJourneyTests
             app.RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light;
             window.Width = width; window.Height = height; window.FontSize = font;
             Settle(window);
-            Assert.Equal((double)width, window.Bounds.Width);
+            Assert.Equal(width, window.Bounds.Width);
             var failedItem = Assert.Single(run.StepTree.StepListItems, item => item.Step is
             { IsReadOnlyEvidence: true, Children.Count: 0, ChipText: "Fail" });
             var container = Assert.Single(window.GetVisualDescendants().OfType<ListBoxItem>(), item => ReferenceEquals(item.DataContext, failedItem));
@@ -157,7 +161,7 @@ public sealed class CrossAppReferenceJourneyTests
         var exportedRecord = JsonSerializer.Deserialize(File.ReadAllText(exported), AppJsonContext.Default.TestRunRecord)!;
         Assert.Equal(pass.RunId, exportedRecord.RunId);
         Assert.Equal(profileA.Id, Assert.Single(exportedRecord.ReferenceUses).ReferenceId);
-        var feedback = Path.Combine(root, "operator-result"); Directory.CreateDirectory(feedback);
+        var feedback = Path.Combine(root, "operator-result"); _ = Directory.CreateDirectory(feedback);
         File.Copy(exported, Path.Combine(feedback, "run.json"));
         File.WriteAllText(Path.Combine(root, "pass-run-id.txt"), pass.RunId);
         File.WriteAllText(Path.Combine(root, "profile-a-id.txt"), profileA.Id);
@@ -294,7 +298,7 @@ public sealed class CrossAppReferenceJourneyTests
         var passPath = Path.Combine(store.GetRunDirectory(passId), "run.json");
         var original = File.ReadAllBytes(passPath);
         Assert.Equal(referenceId, (await references.LoadAsync(referenceId)).Id);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => references.LoadAsync(retiredId));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => references.LoadAsync(retiredId));
         var updated = Path.Combine(root, "updated-programs", id);
         var installed = Path.Combine(AppContext.BaseDirectory, "Programs", id);
         CopyDirectory(updated, installed, overwrite: true);
@@ -395,7 +399,7 @@ public sealed class CrossAppReferenceJourneyTests
         Assert.SkipUnless(!string.IsNullOrWhiteSpace(root), "Set HT_CROSS_APP_REVIEW_DIRECTORY and run joined authoring/operator stages in order.");
         Assert.True(Path.IsPathFullyQualified(root));
         Assert.Equal("1", Environment.GetEnvironmentVariable("HT_CROSS_APP_OPERATOR_PERSISTENCE"));
-        return root!;
+        return root;
     }
 
     private static T Named<T>(Control root, string name) where T : Control
@@ -410,22 +414,22 @@ public sealed class CrossAppReferenceJourneyTests
     }
     private static void Capture(Window window, string root, string name)
     {
-        var directory = Path.Combine(root, "captures"); Directory.CreateDirectory(directory);
+        var directory = Path.Combine(root, "captures"); _ = Directory.CreateDirectory(directory);
         Settle(window); using var frame = window.CaptureRenderedFrame(); Assert.NotNull(frame);
         frame.Save(Path.Combine(directory, name + ".png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
     }
     private static void CopyDirectory(string source, string destination, bool overwrite = false)
     {
-        Directory.CreateDirectory(destination);
+        _ = Directory.CreateDirectory(destination);
         foreach (var file in Directory.EnumerateFiles(source)) File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite);
     }
     private static void CopyDirectoryTree(string source, string destination)
     {
-        Directory.CreateDirectory(destination);
+        _ = Directory.CreateDirectory(destination);
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories))
         {
             var target = Path.Combine(destination, Path.GetRelativePath(source, file));
-            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target);
         }
     }

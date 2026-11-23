@@ -13,10 +13,10 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     public string? SelectedRecipeId
     {
-        get => _selectedRecipeId;
+        get;
         set
         {
-            if (SetField(ref _selectedRecipeId, value))
+            if (SetField(ref field, value))
             {
                 OnPropertyChanged(nameof(SelectedRecipe));
                 RaiseSequenceOperations();
@@ -27,7 +27,7 @@ public sealed partial class AuthoringWorkspaceViewModel
     public AuthoringRecipe? SelectedRecipe
     {
         get => Recipes.FirstOrDefault(recipe =>
-            string.Equals(recipe.Id, _selectedRecipeId, StringComparison.OrdinalIgnoreCase));
+            string.Equals(recipe.Id, SelectedRecipeId, StringComparison.OrdinalIgnoreCase));
         set => SelectedRecipeId = value?.Id;
     }
 
@@ -334,7 +334,7 @@ public sealed partial class AuthoringWorkspaceViewModel
         var clamped = count == 0 ? -1 : Math.Clamp(index, 0, count - 1);
         _selectedMeasureIndex = clamped;
         OnPropertyChanged(nameof(SelectedMeasureIndex));
-        var sequenceIndex = AuthoringSequence.IndexOfTopLevelMeasure(_sequenceItems, clamped);
+        var sequenceIndex = AuthoringSequence.IndexOfTopLevelMeasure(SequenceItems, clamped);
         if (sequenceIndex >= 0)
         {
             SelectSequence(sequenceIndex);
@@ -588,14 +588,4 @@ public sealed partial class AuthoringWorkspaceViewModel
 
     private static string FormatLimit(double? value)
         => value is { } number ? number.ToString(CultureInfo.InvariantCulture) : string.Empty;
-
-    private static double? ParseLimit(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        return double.Parse(value, CultureInfo.InvariantCulture);
-    }
 }

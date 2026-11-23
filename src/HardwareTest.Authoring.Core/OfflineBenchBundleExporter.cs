@@ -23,14 +23,14 @@ public static class OfflineBenchBundleExporter
         BenchProgramHandoff.RequireCustomPlanId(planId);
         if ((options.TargetOS, options.TargetArchitecture) is not (("Windows", "x64") or ("Linux", "x64") or ("Linux", "arm64")))
             throw new AuthoringWorkspaceException("Offline bundles currently support Windows x64, Linux x64 and Linux arm64. Choose a matching supported operator release and target.");
-        if (options.DownloadMissing) AuthoringPackageDownloads.RepositoryUri(options.RepositoryUrl);
+        if (options.DownloadMissing) _ = AuthoringPackageDownloads.RepositoryUri(options.RepositoryUrl);
         cancellationToken.ThrowIfCancellationRequested();
         options.Progress?.Invoke("Checking the saved workspace and selected bench target…");
         var saved = AuthoringWorkspaceLoader.Load(workspace.Root);
         if (workspace.IsReadOnly || saved.IsReadOnly) throw new AuthoringWorkspaceException("A read-only workspace cannot prepare an offline bench bundle.");
         var root = Path.GetFullPath(destinationRoot);
         OfflineBenchPackageInventory.RequireRegular(root);
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var name = planId + "-offline-" + options.TargetOS.ToLowerInvariant() + "-" + options.TargetArchitecture;
         var destination = Path.Combine(root, name);
         OfflineBenchPackageInventory.RequireRegular(destination);
@@ -43,7 +43,7 @@ public static class OfflineBenchBundleExporter
         var staging = Path.Combine(root, ".offline-stage-" + exportId);
         var backup = Path.Combine(root, ".offline-backup-" + exportId);
         var inputs = Path.Combine(root, ".offline-inputs-" + exportId);
-        Directory.CreateDirectory(staging); Directory.CreateDirectory(inputs);
+        _ = Directory.CreateDirectory(staging); _ = Directory.CreateDirectory(inputs);
         var published = false;
         try
         {
@@ -54,16 +54,19 @@ public static class OfflineBenchBundleExporter
             // Load and snapshot must describe the same saved manifest, even when
             // another process changes it during this operation's first reads.
             saved = AuthoringWorkspaceLoader.Load(workspace.Root);
-            inventory.Capture(Path.Combine(saved.Root, AuthoringWorkspaceLoader.ManifestFileName));
+            _ = inventory.Capture(Path.Combine(saved.Root, AuthoringWorkspaceLoader.ManifestFileName));
             if (JsonSerializer.Serialize(capturedManifest, AuthoringJsonContext.Default.AuthoringManifest)
                 != JsonSerializer.Serialize(saved.Manifest, AuthoringJsonContext.Default.AuthoringManifest))
+            {
                 throw new AuthoringWorkspaceException("The saved workspace manifest changed during preparation; retry after saving.");
+            }
+
             saved = saved with { Manifest = capturedManifest };
             var plan = saved.TapPlanPaths.SingleOrDefault(path => Path.GetFileNameWithoutExtension(path) == planId)
                 ?? throw new AuthoringWorkspaceException("Save and compile the selected program before preparing an offline bundle.");
-            inventory.Capture(plan); inventory.Capture(PlanCompiler.SidecarPath(plan));
+            _ = inventory.Capture(plan); _ = inventory.Capture(PlanCompiler.SidecarPath(plan));
             var source = new AuthoringDocumentStore(saved.Root).GetDocumentPath(planId);
-            if (File.Exists(source)) inventory.Capture(source);
+            if (File.Exists(source)) _ = inventory.Capture(source);
             void RequireCurrent()
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -102,9 +105,9 @@ public static class OfflineBenchBundleExporter
                 CreatedAt = DateTimeOffset.UtcNow,
                 RequiredOperatorBuild = OfflineBenchBundle.CurrentOperatorBuild,
                 InstallerCapability = "offline-bench-v1",
-                Requirements = productionRequirements.Select(requirement => new OfflineBenchRequirement { Name = requirement.Package, VersionRange = requirement.Version }).ToList(),
+                Requirements = [.. productionRequirements.Select(requirement => new OfflineBenchRequirement { Name = requirement.Package, VersionRange = requirement.Version })],
             };
-            Directory.CreateDirectory(Path.Combine(staging, "packages"));
+            _ = Directory.CreateDirectory(Path.Combine(staging, "packages"));
             for (var index = 0; index < packages.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -130,13 +133,13 @@ public static class OfflineBenchBundleExporter
                 manifest.Files.Add(new() { Path = Path.GetRelativePath(staging, file).Replace('\\', '/'), Length = new FileInfo(file).Length, Sha256 = BenchProgramHandoff.Hash(File.ReadAllBytes(file)) });
             File.WriteAllText(Path.Combine(staging, OfflineBenchBundle.ManifestFileName), JsonSerializer.Serialize(manifest, OfflineBenchJsonContext.Default.OfflineBenchBundleManifest));
             options.Progress?.Invoke("Checking the complete bundle, dependency closure and file integrity…");
-            OfflineBenchBundle.Validate(staging, options.TargetOS, options.TargetArchitecture, cancellationToken);
+            _ = OfflineBenchBundle.Validate(staging, options.TargetOS, options.TargetArchitecture, cancellationToken);
             options.Progress?.Invoke("Rechecking captured inputs and publishing the complete offline bundle…");
             RequireCurrent();
             if (Directory.Exists(destination))
             {
                 if (prior is null || TreeFingerprint(destination) != prior) throw new AuthoringWorkspaceException("The prior bundle changed during preparation; it was preserved. Choose a new destination or restore its verified bytes.");
-                ValidatePrior(destination, planId, options);
+                _ = ValidatePrior(destination, planId, options);
                 Directory.Move(destination, backup);
             }
             try { Directory.Move(staging, destination); }
@@ -176,7 +179,7 @@ public static class OfflineBenchBundleExporter
         {
             OfflineBenchPackageInventory.RequireRegular(file);
             values.Add(Path.GetRelativePath(root, file).Replace('\\', '/') + ":" + BenchProgramHandoff.Hash(File.ReadAllBytes(file)));
-            for (var parent = Path.GetDirectoryName(file); parent is not null && parent != root; parent = Path.GetDirectoryName(parent)) expectedDirectories.Add(parent);
+            for (var parent = Path.GetDirectoryName(file); parent is not null && parent != root; parent = Path.GetDirectoryName(parent)) _ = expectedDirectories.Add(parent);
         }
         foreach (var directory in Directory.EnumerateDirectories(root, "*", SearchOption.AllDirectories))
         {

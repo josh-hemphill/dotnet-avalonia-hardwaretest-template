@@ -13,10 +13,7 @@ public partial class RunTestViewModel
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> OpenInstrumentsFromBannerCommand { get; private set; } = null!;
 
-    private void InitCommissioningCommands()
-    {
-        OpenInstrumentsFromBannerCommand = ReactiveCommand.Create(RaisePendingBindNavigation);
-    }
+    private void InitCommissioningCommands() => OpenInstrumentsFromBannerCommand = ReactiveCommand.Create(RaisePendingBindNavigation);
 
     /// Run gate: persist the bind request, offer Open Instruments on the shell strip, and deep-link.
     private void OnStationNotReady(string planId, IReadOnlyList<string> slotNames)

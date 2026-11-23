@@ -16,9 +16,13 @@ public sealed class ResponsiveActionLabelTests
     public static IEnumerable<object[]> ActionCases()
     {
         foreach (var (width, height) in new[] { (960, 600), (1280, 800) })
+        {
             foreach (var (font, scale) in new[] { (14, 1d), (20, 1.5) })
+            {
                 foreach (var busy in new[] { false, true })
                     yield return [width, height, font, scale, busy];
+            }
+        }
     }
 
     [AvaloniaTheory]
@@ -119,7 +123,7 @@ public sealed class ResponsiveActionLabelTests
             control => ReferenceEquals(control.Content, button.Content));
         ResponsiveShellTests.Inside(label, window);
         var location = label.TranslatePoint(default, presenter);
-        Assert.NotNull(location);
+        _ = Assert.NotNull(location);
         Assert.True(new Rect(presenter.Bounds.Size).Inflate(0.75).Contains(new Rect(location.Value, label.Bounds.Size)),
             $"Label {label.Text} must fit its actual content presenter {presenter.Bounds.Size}.");
         Assert.DoesNotContain(label.TextLayout.TextLines, line => line.HasCollapsed);

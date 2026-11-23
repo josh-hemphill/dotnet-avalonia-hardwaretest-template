@@ -28,10 +28,10 @@ public sealed class BenchReferenceAtomicAcceptanceTests
         Assert.Equal(BenchReferenceEvaluatorTests.Now, accepted.AcceptedAt);
         Assert.Equal(2, accepted.Uses.Count);
         Assert.All(accepted.Uses, use => Assert.Equal(accepted.AcceptedAt, use.AcceptedAt));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => firstStore.LoadAsync(first.Id));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => firstStore.LoadAsync(first.Id));
         // The run already accepted before retirement retains its exact numeric snapshots.
         Assert.All(BenchReferenceEvaluator.Evaluate(BenchReferenceEvaluatorTests.Source().Samples, accepted.Uses), evaluation => Assert.True(evaluation.Passed));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => firstStore.FreezeAsync(selections, BenchReferenceEvaluatorTests.Context()));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => firstStore.FreezeAsync(selections, BenchReferenceEvaluatorTests.Context()));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class BenchReferenceAtomicAcceptanceTests
         await new FileBenchReferenceStore(temp.Path, clock).RetireAsync(first.Id, "No longer qualified");
         var firstBytes = File.ReadAllBytes(store.PathFor(first.Id)); var secondBytes = File.ReadAllBytes(store.PathFor(second.Id));
         var rules = new[] { BenchReferenceEvaluatorTests.Rule(), BenchReferenceEvaluatorTests.Rule() with { RuleId = "second" } };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
             [Selection(rules[0], first), Selection(rules[1], second)], BenchReferenceEvaluatorTests.Context()));
         Assert.Equal(firstBytes, File.ReadAllBytes(store.PathFor(first.Id)));
         Assert.Equal(secondBytes, File.ReadAllBytes(store.PathFor(second.Id)));
@@ -58,9 +58,9 @@ public sealed class BenchReferenceAtomicAcceptanceTests
         var store = new FileBenchReferenceStore(temp.Path, new FixedClock(BenchReferenceEvaluatorTests.Now));
         var profile = Profile("Shown to operator"); await store.SaveAsync(profile);
         var selected = Selection(BenchReferenceEvaluatorTests.Rule(), profile);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
             [selected with { ExpectedSha256 = BenchReferenceIdentity.HashText("different shown content") }], BenchReferenceEvaluatorTests.Context()));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(
             [selected with { ExpectedRevision = 99 }], BenchReferenceEvaluatorTests.Context()));
         var accepted = await store.FreezeAsync([selected], BenchReferenceEvaluatorTests.Context());
         Assert.Equal(profile.Id, Assert.Single(accepted.Uses).ReferenceId);
@@ -81,7 +81,7 @@ public sealed class BenchReferenceAtomicAcceptanceTests
             Selection(BenchReferenceEvaluatorTests.Rule(), first),
             Selection(BenchReferenceEvaluatorTests.Rule() with { RuleId = "second" }, second),
         };
-        await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(selections, BenchReferenceEvaluatorTests.Context()));
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() => store.FreezeAsync(selections, BenchReferenceEvaluatorTests.Context()));
     }
 
     private static BenchReferenceProfile Profile(string name)
@@ -104,7 +104,7 @@ public sealed class BenchReferenceAtomicAcceptanceTests
         {
             get
             {
-                Entered.TrySetResult();
+                _ = Entered.TrySetResult();
                 if (!Release.Wait(TimeSpan.FromSeconds(5))) throw new TimeoutException("The atomic acceptance test did not release its catalog clock.");
                 return time;
             }

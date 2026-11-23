@@ -26,8 +26,11 @@ public static class AuthoringEnvironmentAssessment
     private static IReadOnlyList<AuthoringPackageRequirement> Packages(AuthoringManifest manifest, OpenTapHome home, bool unsafeHome)
     {
         if (unsafeHome)
+        {
             return manifest.Dependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", false, false, "unsafe installed home"))
                 .Concat(manifest.OptionalDependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", true, false, "unsafe installed home"))).ToArray();
+        }
+
         var installed = OpenTapHomeBootstrapper.ListInstalledPackages(home);
         return manifest.Dependencies.Select(d => Assess(d, false)).Concat(manifest.OptionalDependencies.Select(d => Assess(d, true))).ToArray();
         AuthoringPackageRequirement Assess(AuthoringPackageDependency dependency, bool optional)
@@ -54,12 +57,16 @@ public static class AuthoringEnvironmentAssessment
         try
         {
             // Match capture's selected-root boundary before following metadata or runtime links.
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
             var metadata = ExistingContainedFile(home.Root, Path.Combine(package.Path, "package.xml"));
             if (metadata is null) return false;
             // Managed identities and runtime configuration are subsequently checked by preflight.
             if (package.Name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase)
-                && !RuntimeFileNames.All(file => ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null)) return false;
+                && !RuntimeFileNames.All(file => ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null))
+            {
+                return false;
+            }
+
             return DeclaredPayloadAvailable(package.Path, metadata, home);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Xml.XmlException or AuthoringWorkspaceException or ArgumentException) { return false; }
@@ -73,8 +80,8 @@ public static class AuthoringEnvironmentAssessment
         var packages = Path.Combine(home.Root, "Packages");
         try
         {
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(packages, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(packages));
             if (!Directory.Exists(packages)) return failures;
             foreach (var package in Directory.EnumerateDirectories(packages))
             {
@@ -121,13 +128,19 @@ public static class AuthoringEnvironmentAssessment
         var unsafePaths = UnsafeInstalledPaths(home);
         var inspectAvailability = !allowMissingHome || Directory.Exists(home.Root);
         if (inspectAvailability)
+        {
             foreach (var file in RuntimeFileNames.Where(file => !RuntimeFileAvailable(home, file)))
                 findings.Add(new("PACK_RUNTIME_MISSING", $"Required OpenTAP runtime file '{file}' is missing or resolves outside this home; bootstrap this home.", true, home.Root));
+        }
+
         foreach (var failure in unsafePaths)
             findings.Add(new("PACK_HOME_UNSAFE", "Unsafe installed package path: " + failure, true, home.Root));
         if (inspectAvailability)
+        {
             foreach (var requirement in Packages(manifest, home, unsafePaths.Count != 0).Where(p => !p.Optional && !p.Satisfied))
                 findings.Add(new("PACK_PACKAGE_MISSING", requirement.DisplayText + "; prepare or import an offline package into this home.", true, home.Root));
+        }
+
         return findings;
     }
 
@@ -136,7 +149,7 @@ public static class AuthoringEnvironmentAssessment
     internal static string? ExistingContainedFile(string root, string path)
     {
         AuthoringBuildService.EnsureContained(root, path);
-        var target = AuthoringBuildService.ResolvedPath(path, directory: false);
+        var target = AuthoringBuildService.ResolvedPath(path);
         AuthoringBuildService.EnsureContained(root, target);
         return File.Exists(target) ? target : null;
     }
@@ -148,7 +161,7 @@ public static class AuthoringEnvironmentAssessment
     {
         try
         {
-            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root, directory: true));
+            AuthoringBuildService.EnsureContained(home.Root, AuthoringBuildService.ResolvedPath(home.Root));
             return ExistingContainedFile(home.Root, Path.Combine(home.Root, file)) is not null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or AuthoringWorkspaceException or ArgumentException) { return false; }

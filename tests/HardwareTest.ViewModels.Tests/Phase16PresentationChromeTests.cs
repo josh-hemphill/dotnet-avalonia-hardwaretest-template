@@ -41,7 +41,7 @@ public sealed class Phase16PresentationChromeTests
         Assert.Empty(live.FocusTrendTip);
 
         var step = Leaf();
-        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, selectedStep: null);
+        _ = live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, selectedStep: null);
 
         Assert.True(live.HasChartData);
         Assert.True(live.OfferOpenChart);
@@ -60,8 +60,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var acquire = Leaf("Acquire", "Suite/Acquire");
         var mean = Leaf("Mean", "Suite/Mean");
-        live.ApplySample(Timeseries("VDC", 1.0, low: 0.5, high: 2.0), acquire.Path, null, acquire);
-        live.ApplySample(
+        _ = live.ApplySample(Timeseries("VDC", 1.0, low: 0.5, high: 2.0), acquire.Path, null, acquire);
+        _ = live.ApplySample(
             new MeasurementSampleEvent(
                 "VDC.mean",
                 0,
@@ -86,8 +86,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
-        live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), step.Path, null, step);
 
         Assert.Equal(2, live.AvailableSeries.Count);
         Assert.Contains(live.AvailableSeries, s => s.Key.MetricKey == "VDC");
@@ -102,7 +102,7 @@ public sealed class Phase16PresentationChromeTests
         var t0 = DateTimeOffset.UtcNow;
         for (var i = 0; i < 9; i++)
         {
-            live.ApplySample(Timeseries($"M{i}", i, t0.AddSeconds(i)), step.Path, null, step);
+            _ = live.ApplySample(Timeseries($"M{i}", i, t0.AddSeconds(i)), step.Path, null, step);
         }
 
         Assert.Equal(LivePresentationViewModel.MaximumLiveSeries, live.AvailableSeries.Count);
@@ -121,14 +121,14 @@ public sealed class Phase16PresentationChromeTests
         var acquire = Leaf("Acquire", "Suite/Acquire");
         var mean = Leaf("Mean", "Suite/Mean");
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
-        live.ApplySample(Timeseries("VDC", 1.1, t0.AddSeconds(1)), acquire.Path, null, acquire);
-        live.ApplySample(Timeseries("VDC", 1.2, t0.AddSeconds(2)), mean.Path, null, mean);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
+        _ = live.ApplySample(Timeseries("VDC", 1.1, t0.AddSeconds(1)), acquire.Path, null, acquire);
+        _ = live.ApplySample(Timeseries("VDC", 1.2, t0.AddSeconds(2)), mean.Path, null, mean);
 
         Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
 
-        live.ApplySample(Timeseries("VDC", 1.3, t0.AddSeconds(3)), acquire.Path, null, mean);
-        live.ApplySample(Timeseries("VDC", 1.4, t0.AddSeconds(4)), mean.Path, null, mean);
+        _ = live.ApplySample(Timeseries("VDC", 1.3, t0.AddSeconds(3)), acquire.Path, null, mean);
+        _ = live.ApplySample(Timeseries("VDC", 1.4, t0.AddSeconds(4)), mean.Path, null, mean);
         Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
         Assert.Equal(2, live.AvailableSeries.Count);
         Assert.Same(live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean"), live.SelectedSeries);
@@ -141,18 +141,18 @@ public sealed class Phase16PresentationChromeTests
         var acquire = Leaf("Acquire", "Suite/Acquire");
         var mean = Leaf("Mean", "Suite/Mean");
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
-        live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), mean.Path, null, mean);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
+        _ = live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), mean.Path, null, mean);
         var acquireItem = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Acquire");
-        live.SelectSeriesCommand.Execute(acquireItem).Subscribe();
+        _ = live.SelectSeriesCommand.Execute(acquireItem).Subscribe();
 
         Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
 
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(2)), mean.Path, null, mean);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(2)), mean.Path, null, mean);
         Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
 
         live.SelectedSeries = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean");
-        live.ApplySample(Timeseries("VDC", 1.6, t0.AddSeconds(3)), acquire.Path, null, acquire);
+        _ = live.ApplySample(Timeseries("VDC", 1.6, t0.AddSeconds(3)), acquire.Path, null, acquire);
         Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
     }
 
@@ -162,8 +162,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
 
         Assert.Equal(1, live.PlotYsLength);
         live.SelectedTimeWindow = ChartTimeWindow.All;
@@ -176,8 +176,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0, low: 0, high: 2), step.Path, null, step);
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1), low: 0, high: 2), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0, low: 0, high: 2), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1), low: 0, high: 2), step.Path, null, step);
         live.SelectedTimeWindow = ChartTimeWindow.All;
 
         live.PlaceCursor(0.2);
@@ -197,8 +197,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(40)), step.Path, null, step);
         live.SelectedTimeWindow = ChartTimeWindow.All;
         live.PlaceCursor(0.0);
         Assert.Equal(0.0, live.CursorX);
@@ -217,7 +217,7 @@ public sealed class Phase16PresentationChromeTests
     {
         var live = new LivePresentationViewModel();
         var step = Leaf();
-        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
         live.PlaceCursor(0.0);
         Assert.True(live.HasCursor);
         Assert.False(live.FollowLive);
@@ -240,11 +240,11 @@ public sealed class Phase16PresentationChromeTests
     {
         var live = new LivePresentationViewModel();
         var step = Leaf();
-        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
         live.FollowLive = false;
         Assert.False(live.HasCursor);
 
-        live.ApplySample(Timeseries("VDC", 1.5, DateTimeOffset.UtcNow.AddSeconds(1)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, DateTimeOffset.UtcNow.AddSeconds(1)), step.Path, null, step);
 
         Assert.False(live.HasCursor);
         Assert.False(live.FollowLive);
@@ -256,8 +256,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(1)), step.Path, null, step);
         live.SelectedTimeWindow = ChartTimeWindow.All;
         live.PlaceCursor(0.0);
         var value = live.ChartValueText;
@@ -271,7 +271,7 @@ public sealed class Phase16PresentationChromeTests
         Assert.Equal(eventLabel, live.ChartEventLabel);
         Assert.Equal("Readout", live.ChartAgeText);
         Assert.NotEqual("cfg:bit2", live.ChartEventLabel);
-        Assert.Single(live.Events);
+        _ = Assert.Single(live.Events);
     }
 
     [Fact]
@@ -280,8 +280,8 @@ public sealed class Phase16PresentationChromeTests
         var live = new LivePresentationViewModel();
         var step = Leaf();
         var t0 = DateTimeOffset.UtcNow;
-        live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
-        live.ApplySample(Timeseries("VDC", 2.0, t0.AddSeconds(1)), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0, t0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 2.0, t0.AddSeconds(1)), step.Path, null, step);
         live.SelectedTimeWindow = ChartTimeWindow.All;
         live.PlaceCursor(0.0);
         Assert.True(live.HasCursor);
@@ -299,7 +299,7 @@ public sealed class Phase16PresentationChromeTests
     {
         var live = new LivePresentationViewModel();
         var step = Leaf();
-        live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 1.0), step.Path, null, step);
         live.PlaceCursor(0.0);
         Assert.True(live.HasCursor);
 
@@ -311,8 +311,10 @@ public sealed class Phase16PresentationChromeTests
     [Fact]
     public async Task ResetView_restores_follow_live()
     {
-        var live = new LivePresentationViewModel();
-        live.FollowLive = false;
+        var live = new LivePresentationViewModel
+        {
+            FollowLive = false
+        };
         await live.ResetViewCommand.ExecuteAsync();
         Assert.True(live.FollowLive);
     }
@@ -349,7 +351,7 @@ public sealed class Phase16PresentationChromeTests
     {
         var live = new LivePresentationViewModel();
         var step = Leaf();
-        live.ApplySample(Timeseries("VDC", 9.9, low: 0, high: 1), step.Path, null, step);
+        _ = live.ApplySample(Timeseries("VDC", 9.9, low: 0, high: 1), step.Path, null, step);
         Assert.True(live.HasChartData);
         Assert.True(live.HasChartAttention);
         Assert.Contains("Out of band", live.ChartBandText, StringComparison.OrdinalIgnoreCase);

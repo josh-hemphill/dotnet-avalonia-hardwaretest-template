@@ -22,7 +22,7 @@ public sealed class ShellApplicationComposerTests
 
         var pages = ShellApplicationComposer.BindPages([app], new NullServices(), views);
 
-        Assert.Single(pages);
+        _ = Assert.Single(pages);
         Assert.Equal("vendor.planning", pages[0].Descriptor.Id);
         Assert.Same(vm, pages[0].ViewModel);
         Assert.True(views.IsRegistered(vm.GetType()));
@@ -122,7 +122,7 @@ public sealed class ShellApplicationComposerTests
             id: "vendor.homevm",
             minHostAbi: ShellHostAbi.Current,
             pageId: "vendor.homevm",
-            viewModelType: typeof(HardwareTest.Features.Home.HomeViewModel),
+            viewModelType: typeof(Features.Home.HomeViewModel),
             viewModel: new object(),
             placement: ShellPagePlacement.Engineer);
 
@@ -175,7 +175,7 @@ public sealed class ShellApplicationComposerTests
     public void Host_does_not_include_a_launch_time_shell_app_loader()
     {
         Assert.Null(typeof(Composition).Assembly.GetType("HardwareTest.ShellApplicationLoader"));
-        Assert.Null(typeof(HardwareTest.Core.Storage.ShellAppStorage).Assembly.GetType(
+        Assert.Null(typeof(Core.Storage.ShellAppStorage).Assembly.GetType(
             "HardwareTest.Core.Storage.ShellAppPackageTrust"));
     }
 

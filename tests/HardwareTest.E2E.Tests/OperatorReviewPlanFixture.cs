@@ -14,7 +14,7 @@ internal sealed class OperatorReviewPlanFixture : IDisposable
     {
         Id = "operator-review-" + Guid.NewGuid().ToString("N");
         var directory = Path.Combine(AppContext.BaseDirectory, "Programs");
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         PlanPath = Path.Combine(directory, Id + ".TapPlan");
         SidecarPath = Path.ChangeExtension(PlanPath, ".program.json");
         try

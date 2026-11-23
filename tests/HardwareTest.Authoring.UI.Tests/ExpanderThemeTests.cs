@@ -25,7 +25,11 @@ public sealed class ExpanderThemeTests
         expander.BringIntoView(); AuthoringUiFixture.Drain();
         var header = expander.GetVisualDescendants().OfType<ToggleButton>().Single(button => button.Name == "ExpanderHeader");
         var painted = header.GetVisualDescendants().OfType<Border>().Single(border => border.Name == "ToggleButtonBackground");
-        Color Brush(IBrush? brush) => Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+        static Color Brush(IBrush? brush)
+        {
+            return Assert.IsAssignableFrom<ISolidColorBrush>(brush).Color;
+        }
+
         Assert.Equal(Color.Parse(dark ? "#202938" : "#FFFFFF"), Brush(painted.Background));
         Assert.Equal(new Thickness(12, 10), header.Padding);
         var width = expander.Bounds.Width;

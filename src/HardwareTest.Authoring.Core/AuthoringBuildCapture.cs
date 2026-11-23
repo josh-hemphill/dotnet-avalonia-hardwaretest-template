@@ -45,7 +45,7 @@ public static partial class AuthoringBuildService
         foreach (var group in AuthoringProgramAssets.Included(saved).GroupBy(asset => Path.GetDirectoryName(asset)!))
         {
             var directory = Path.Combine(plansRoot, group.Key);
-            EnsureContained(plansRoot, ResolvedPath(directory, directory: true));
+            EnsureContained(plansRoot, ResolvedPath(directory));
             var selected = group.Select(asset => AuthoringProgramAssets.ResolvePath(plansRoot, asset)).ToHashSet(StringComparer.Ordinal);
             trees.Add(CaptureTree(directory, "workspace/plans/" + group.Key.Replace(Path.DirectorySeparatorChar, '/'), false, selected.Contains));
         }
@@ -77,8 +77,11 @@ public static partial class AuthoringBuildService
             (a.GetName().Name?.StartsWith("HardwareTest", StringComparison.Ordinal) == true || a.GetName().Name == "OpenTap")))
         {
             var path = assembly.Location;
-            if (path.Length != 0) trees.Add(CaptureTree(Path.GetDirectoryName(path)!, $"compiler/{trees.Count}", false,
+            if (path.Length != 0)
+            {
+                trees.Add(CaptureTree(Path.GetDirectoryName(path)!, $"compiler/{trees.Count}", false,
                 p => Path.GetFullPath(p) == path));
+            }
         }
         var request = new AuthoringBuildRequest(saved.Root, new PackOptions
         {
@@ -97,14 +100,14 @@ public static partial class AuthoringBuildService
     internal static BuildInputTree CaptureTree(string root, string stage, bool recursive, Func<string, bool>? select = null, bool materialize = true)
     {
         root = Path.GetFullPath(root);
-        EnsureContained(root, ResolvedPath(root, directory: true));
+        EnsureContained(root, ResolvedPath(root));
         var files = new List<BuildInputFile>();
         var links = new List<string>();
         if (Directory.Exists(root)) Walk(root);
         return new(root, stage, recursive, files.AsReadOnly(), links.AsReadOnly(), materialize);
         void Walk(string directory)
         {
-            var resolvedDirectory = ResolvedPath(directory, true);
+            var resolvedDirectory = ResolvedPath(directory);
             EnsureContained(root, resolvedDirectory);
             if (new DirectoryInfo(directory).LinkTarget is not null) links.Add(directory + "=>" + resolvedDirectory);
             foreach (var path in Directory.EnumerateFiles(directory).Order(StringComparer.Ordinal))
@@ -117,6 +120,7 @@ public static partial class AuthoringBuildService
                 files.Add(new(path, Path.GetRelativePath(root, path), target, content.Hash, content.Bytes, mode));
             }
             if (recursive)
+            {
                 foreach (var sub in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
                 {
                     if (stage == "shell" && !ShellInput(sub)) continue;
@@ -125,6 +129,7 @@ public static partial class AuthoringBuildService
                         throw new AuthoringWorkspaceException($"BUILD_LINK: Directory links are unsupported in captured trees: '{sub}'.");
                     Walk(sub);
                 }
+            }
         }
     }
 
@@ -134,8 +139,11 @@ public static partial class AuthoringBuildService
         if (!request.EnvironmentValues.SequenceEqual(currentEnvironment))
             throw new AuthoringWorkspaceException("BUILD_ENVIRONMENT_CHANGED: Inherited build environment changed. Capture a new build.");
         foreach (var entry in request.EnvironmentValues)
+        {
             if (Environment.GetEnvironmentVariable(entry.Key) != entry.Value)
                 throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT_CHANGED: Environment input '{entry.Key}' changed. Capture a new build.");
+        }
+
         foreach (var tree in request.Trees)
         {
             var selected = tree.Files.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
@@ -151,16 +159,18 @@ public static partial class AuthoringBuildService
             var current = CaptureTree(tree.Root, tree.StageRelativePath, tree.Recursive, filter, materialize: false);
             if (!tree.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)).SequenceEqual(current.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)))
                 || !tree.Links.SequenceEqual(current.Links))
+            {
                 throw new AuthoringWorkspaceException($"BUILD_INPUT_CHANGED: Saved input or dependency changed: '{tree.Root}'. Capture a new build.");
+            }
         }
     }
     private static string ResolveDotNetExecutable(IReadOnlyDictionary<string, string?>? environment = null)
     {
         var root = environment is null ? Environment.GetEnvironmentVariable("DOTNET_ROOT") : environment.GetValueOrDefault("DOTNET_ROOT");
         var name = OperatingSystem.IsWindows() ? "dotnet.exe" : "dotnet";
-        if (!string.IsNullOrWhiteSpace(root) && File.Exists(Path.Combine(root, name))) return ResolvedPath(Path.Combine(root, name), directory: false);
+        if (!string.IsNullOrWhiteSpace(root) && File.Exists(Path.Combine(root, name))) return ResolvedPath(Path.Combine(root, name));
         foreach (var directory in ((environment is null ? Environment.GetEnvironmentVariable("PATH") : environment.GetValueOrDefault("PATH")) ?? "").Split(Path.PathSeparator))
-            if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name), directory: false);
+            if (directory.Length > 0 && File.Exists(Path.Combine(directory, name))) return ResolvedPath(Path.Combine(directory, name));
         throw new AuthoringWorkspaceException("BUILD_PREREQUISITE: dotnet executable was not found.");
     }
     private static bool EnvironmentInput(string path) => !path.Split(Path.DirectorySeparatorChar).Any(p => p is "SessionLogs" or ".opentap_recent_logs" or ".PackageCache" || p.StartsWith(".PackageCache.", StringComparison.Ordinal));
@@ -173,7 +183,7 @@ public static partial class AuthoringBuildService
         if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
             throw new AuthoringWorkspaceException($"BUILD_CONTAINMENT: '{path}' escapes '{root}'.");
     }
-    internal static string ResolvedPath(string path, bool directory)
+    internal static string ResolvedPath(string path)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
         var activeLinks = new HashSet<string>(comparison);
@@ -202,7 +212,7 @@ public static partial class AuthoringBuildService
                     // Keep raw '..' until preceding directory links have resolved, matching File.Open.
                     current = ResolveTarget(target);
                 }
-                finally { activeLinks.Remove(link); }
+                finally { _ = activeLinks.Remove(link); }
             }
             return Path.GetFullPath(current);
         }

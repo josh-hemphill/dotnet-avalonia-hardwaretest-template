@@ -43,8 +43,8 @@ public sealed class AuthoringSequenceSafetyTests
         var expected = recipe switch
         {
             AuthoringRecipeIds.MeanGte => new[] { "Mean" },
-            AuthoringRecipeIds.StationHealth => new[] { ReportStationHealthStep.OffsetMetric, ReportStationHealthStep.AgeMetric },
-            _ => new[] { "series.inband.pct", "series.excursion.max", "series.outband.ms" }
+            AuthoringRecipeIds.StationHealth => [ReportStationHealthStep.OffsetMetric, ReportStationHealthStep.AgeMetric],
+            _ => ["series.inband.pct", "series.excursion.max", "series.outband.ms"]
         };
         Assert.Equal(expected, results.Scalars);
         Assert.Equal(results.Scalars.Count, results.Scalars.Distinct(StringComparer.OrdinalIgnoreCase).Count());
@@ -85,7 +85,7 @@ public sealed class AuthoringSequenceSafetyTests
             _ => AuthoringSequenceOperations.Move(draft, Row(draft, scalar.NodeId), -1)
         };
         var expected = operation == "duplicate" ? new[] { "rail.mean", "rail.mean_2" }
-            : operation == "repeat" ? new[] { "rail.mean", "rail.mean" } : new[] { "rail.mean" };
+            : operation == "repeat" ? ["rail.mean", "rail.mean"] : ["rail.mean"];
         Assert.Equal(expected, Execute(updated).Scalars);
     }
 
@@ -117,8 +117,8 @@ public sealed class AuthoringSequenceSafetyTests
         };
         draft = draft with { Measure = [draft.Measure[0], consumer] };
         Assert.Equal(new[] { "VDC" }, AuthoringDependencyIndex.Build(draft).Nodes.Single(node => node.NodeId == consumer.NodeId).InputChannels);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(draft, Row(draft, consumer.NodeId), -1));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[0].NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(draft, Row(draft, consumer.NodeId), -1));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[0].NodeId)));
         var loop = new RepeatNode(1, draft.Measure);
         draft = draft with { Measure = [loop] };
         var duplicated = AuthoringSequenceOperations.Duplicate(draft, Row(draft, loop.NodeId));
@@ -141,7 +141,10 @@ public sealed class AuthoringSequenceSafetyTests
                 Assert.Equal(producer.Id, check.ProducerStepId);
                 Assert.Equal("VDC_2", check.InputChannel);
             }
-            else Assert.Equal("VDC_2", steps.OfType<ApplyTransferFunctionStep>().Single(step => step.Channel == "VDC.filt_2").InputChannel);
+            else
+            {
+                Assert.Equal("VDC_2", steps.OfType<ApplyTransferFunctionStep>().Single(step => step.Channel == "VDC.filt_2").InputChannel);
+            }
         });
         Assert.Contains("VDC_2", results.Samples);
         if (function == AuthoringFunctionIds.BasicChannelAverage) Assert.Contains("VDC.mean_2", results.Scalars);
@@ -178,7 +181,7 @@ public sealed class AuthoringSequenceSafetyTests
         }));
         Assert.Equal("unfinished", Assert.IsType<AlgorithmSource>(AuthoringRecipeCatalog.EnumerateMetrics(session.Draft.Measure)
             .Single(metric => metric.ChannelKey == "rail.mean").Source).Settings["Value"]);
-        session.Undo();
+        _ = session.Undo();
         Assert.True(AuthoringDocumentSnapshot.Capture(draft).ContentEquals(session.Snapshot));
         Assert.True(session.CanRedo);
         var before = session.Snapshot;
@@ -190,7 +193,7 @@ public sealed class AuthoringSequenceSafetyTests
         Assert.True(before.ContentEquals(session.Snapshot));
         Assert.Equal(revision, session.Revision);
         Assert.True(session.CanRedo);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[1].NodeId)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Repeat(draft, Row(draft, draft.Measure[1].NodeId)));
     }
 
     [Theory]
@@ -328,7 +331,7 @@ public sealed class AuthoringSequenceSafetyTests
         consumer = consumer with { Metric = consumer.Metric with { Limits = new LimitSpec(null, null, null) } };
         draft = draft with { Measure = [draft.Measure[0], consumer] };
         var session = new AuthoringDocumentSession(draft);
-        session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, consumer.NodeId)));
+        _ = session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, consumer.NodeId)));
         var clone = Assert.IsType<MetricNode>(session.Draft.Measure[2]);
         Assert.Null(clone.Metric.Limits!.Threshold);
         var source = Assert.IsType<ExpressionAlgorithm>(consumer.Metric.Source);
@@ -346,7 +349,7 @@ public sealed class AuthoringSequenceSafetyTests
         Assert.True(session.Undo());
         Assert.True(AuthoringDocumentSnapshot.Capture(draft).ContentEquals(session.Snapshot));
         Assert.True(session.CanRedo);
-        Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("move", current => AuthoringSequenceOperations.Move(current, Row(current, consumer.NodeId), -1)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("move", current => AuthoringSequenceOperations.Move(current, Row(current, consumer.NodeId), -1)));
         Assert.True(session.CanRedo);
     }
 
@@ -420,7 +423,7 @@ public sealed class AuthoringSequenceSafetyTests
         Assert.Empty(Assert.IsType<MeasureSource>(clone.Metric.Source).Settings);
         Assert.Equal(new[] { string.Empty }, AuthoringDependencyIndex.Build(duplicate).Nodes.Single(node => node.NodeId == clone.NodeId).InputChannels);
         var directory = TemporaryDirectory();
-        try { Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(duplicate, Path.Combine(directory, "safety.TapPlan"))); }
+        try { _ = Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(duplicate, Path.Combine(directory, "safety.TapPlan"))); }
         finally { Directory.Delete(directory, true); }
     }
 
@@ -478,8 +481,8 @@ public sealed class AuthoringSequenceSafetyTests
     private static AuthoringDocumentSession WithRedo(ProgramDraft draft, Guid selected)
     {
         var session = new AuthoringDocumentSession(draft) { SelectedNodeId = selected };
-        session.ApplyEdit("rename", current => AuthoringSequenceOperations.Rename(current, Row(current, selected), "Renamed"));
-        session.Undo();
+        _ = session.ApplyEdit("rename", current => AuthoringSequenceOperations.Rename(current, Row(current, selected), "Renamed"));
+        _ = session.Undo();
         Assert.True(session.CanRedo);
         return session;
     }
@@ -521,7 +524,7 @@ public sealed class AuthoringSequenceSafetyTests
     private static string TemporaryDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "ht-sequence-safety-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         return directory;
     }
     private sealed class Outputs : ResultListener

@@ -124,9 +124,9 @@ public sealed class OpenTapRunSummaryDto
         OperatorName = s.OperatorName,
         StartedAt = s.StartedAt,
         CompletedAt = s.CompletedAt,
-        Samples = s.Samples.ToList(),
-        Events = s.Events.ToList(),
-        Steps = s.Steps.ToList(),
+        Samples = [.. s.Samples],
+        Events = [.. s.Events],
+        Steps = [.. s.Steps],
         Verdict = s.Verdict,
     };
 
@@ -143,9 +143,9 @@ public sealed class OpenTapRunSummaryDto
         OperatorName = OperatorName,
         StartedAt = StartedAt,
         CompletedAt = CompletedAt,
-        Samples = Samples.ToList(),
-        Events = Events.ToList(),
-        Steps = Steps.ToList(),
+        Samples = [.. Samples],
+        Events = [.. Events],
+        Steps = [.. Steps],
         Verdict = Verdict,
     };
 }
@@ -172,10 +172,10 @@ public static class OpenTapRunRecordingStore
 {
     public static void WriteBeside(string directory, string baseName, IEnumerable<OpenTapProgressFrameDto> frames, OpenTapRunSummary summary)
     {
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         File.WriteAllText(
             Path.Combine(directory, $"{baseName}.progress.json"),
-            JsonSerializer.Serialize(frames.ToList(), OpenTapRecordingJsonContext.Default.ListOpenTapProgressFrameDto));
+            JsonSerializer.Serialize([.. frames], OpenTapRecordingJsonContext.Default.ListOpenTapProgressFrameDto));
         File.WriteAllText(
             Path.Combine(directory, $"{baseName}.summary.json"),
             JsonSerializer.Serialize(OpenTapRunSummaryDto.From(summary), OpenTapRecordingJsonContext.Default.OpenTapRunSummaryDto));

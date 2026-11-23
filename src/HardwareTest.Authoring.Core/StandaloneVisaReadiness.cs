@@ -16,24 +16,24 @@ public static class StandaloneVisaReadiness
 
     public static bool RequiresStandaloneReadiness(OpenTapHome home)
     {
-        var inspection = InspectClaims(home);
-        return inspection.HasClaims || inspection.Issue is not null;
+        var (HasClaims, Issue) = InspectClaims(home);
+        return HasClaims || Issue is not null;
     }
 
     internal static string? ExecutionPrerequisite(OpenTapHome home, bool requiresInstrumentLibrary)
     {
-        var inspection = InspectClaims(home);
-        if (inspection.Issue is not null) return inspection.Issue;
-        if (requiresInstrumentLibrary && !inspection.HasClaims)
+        var (HasClaims, Issue) = InspectClaims(home);
+        if (Issue is not null) return Issue;
+        if (requiresInstrumentLibrary && !HasClaims)
             return "This workspace requires InstrumentComponents.OpenTap, but the selected home has no installed library. Prepare or import the library and standalone VISA counterpart before opening the TUI.";
-        return inspection.HasClaims && AssessClaimedHome(home) is { Available: false } unavailable ? unavailable.Reason : null;
+        return HasClaims && AssessClaimedHome(home) is { Available: false } unavailable ? unavailable.Reason : null;
     }
 
     public static AuthoringInstrumentAvailability Assess(OpenTapHome home)
     {
-        var inspection = InspectClaims(home);
-        if (inspection.Issue is not null) return new(false, inspection.Issue);
-        if (!inspection.HasClaims) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
+        var (HasClaims, Issue) = InspectClaims(home);
+        if (Issue is not null) return new(false, Issue);
+        if (!HasClaims) return new(false, "Standalone VISA is optional; ordinary mock plans do not need it.");
         return AssessClaimedHome(home);
     }
 
@@ -55,13 +55,16 @@ public static class StandaloneVisaReadiness
         try
         {
             if (File.Exists(home.Root) && !Directory.Exists(home.Root)) throw new IOException("The selected home is a file, not a directory.");
-            ExecutionLibraryHome.Validate(home.Root, (entry, package) =>
+            _ = ExecutionLibraryHome.Validate(home.Root, (entry, package) =>
             {
                 var name = Path.GetFileName(entry);
                 if (InstrumentLibraryMetadata.Files.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
                 if (StandalonePayloadFiles.Contains(name, StringComparer.OrdinalIgnoreCase)) claimed = true;
                 if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)) claimed = true;
+                    || string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase))
+                {
+                    claimed = true;
+                }
             });
             return (claimed, null);
         }
@@ -103,7 +106,10 @@ public static class StandaloneVisaReadiness
         }
         if (!Exact(PublishedInstrumentComponents.PackageName, StandaloneVisaPackage.BaseVersion)
             || !Exact("OpenTAP", StandaloneVisaPackage.OpenTapVersion))
+        {
             return "Standalone VISA counterpart requires InstrumentComponents.OpenTap 0.3.0-alpha.1 and OpenTAP 9.35.0. The selected dependency versions are unsupported; prepare or import the current packages.";
+        }
+
         var manifest = new AuthoringManifest { Dependencies = [new() { Package = PublishedInstrumentComponents.PackageName, Version = StandaloneVisaPackage.BaseVersion }, new() { Package = "OpenTAP", Version = StandaloneVisaPackage.OpenTapVersion }] };
         if (OpenTapRuntimeIssue(home) is { } runtimeIssue) return runtimeIssue;
         return BasePayloadValid(home) && AuthoringEnvironmentAssessment.Packages(manifest, home).All(package => package.Satisfied)
@@ -138,7 +144,9 @@ public static class StandaloneVisaReadiness
                     if (framework.GetProperty("name").GetString() is not ("Microsoft.NETCore.App" or "Microsoft.WindowsDesktop.App")
                         || !Version.TryParse(framework.GetProperty("version").GetString(), out var frameworkVersion)
                         || frameworkVersion.Major <= 0 || frameworkVersion.Build < 0 || frameworkVersion.Revision >= 0)
+                    {
                         return "OpenTAP runtime configuration must declare Microsoft.NETCore.App or Microsoft.WindowsDesktop.App with a positive major.minor.patch version.";
+                    }
                 }
                 if (!SHA256.HashData(File.ReadAllBytes(actual)).SequenceEqual(SHA256.HashData(File.ReadAllBytes(expected))))
                     return $"OpenTAP runtime payload '{file}' differs from the supported pinned runtime.";
@@ -148,7 +156,10 @@ public static class StandaloneVisaReadiness
             var package = XDocument.Load(metadataPath).Root;
             if (package?.Name.LocalName != "Package" || (string?)package.Attribute("Name") != "OpenTAP"
                 || global::OpenTap.SemanticVersion.Parse((string?)package.Attribute("Version") ?? "").ToString().Split('+')[0] != StandaloneVisaPackage.OpenTapVersion)
+            {
                 return "OpenTAP runtime package version is unsupported.";
+            }
+
             var declarations = package.Descendants().Where(element => element.Name.LocalName == "File").ToArray();
             if (!mandatory.All(file => declarations.Any(element => (string?)element.Attribute("Path") == file)))
                 return "OpenTAP runtime metadata does not declare its complete mandatory payload.";
@@ -158,12 +169,18 @@ public static class StandaloneVisaReadiness
                 var relative = ((string?)declaration.Attribute("Path"))?.Replace('\\', '/');
                 if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(':')
                     || relative.Split('/').Any(part => part is "" or "." or "..") || !paths.Add(relative))
+                {
                     return "OpenTAP runtime metadata declares an invalid or duplicate path.";
+                }
+
                 var path = Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar));
                 var hashes = declaration.Descendants().Where(element => element.Name.LocalName == "Hash").ToArray();
                 if (hashes.Length > 1 || hashes.Any(hash => hash.Parent != declaration || hash.HasElements
                     || hash.Value.Trim().Length != 40 || hash.Value.Trim().Any(character => !Uri.IsHexDigit(character))))
+                {
                     return $"OpenTAP runtime payload '{relative}' has malformed hash metadata.";
+                }
+
                 if (!File.Exists(path) && allowMissing) continue;
                 if (!AuthoringEnvironmentAssessment.RuntimeFileAvailable(home, relative)) return $"OpenTAP declared runtime payload '{relative}' is missing or unsafe.";
                 if (hashes.Length == 1 && !Convert.ToHexString(SHA1.HashData(File.ReadAllBytes(path))).Equals(hashes[0].Value.Trim(), StringComparison.OrdinalIgnoreCase))

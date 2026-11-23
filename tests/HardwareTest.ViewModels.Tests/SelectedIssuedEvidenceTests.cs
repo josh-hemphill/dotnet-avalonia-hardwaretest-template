@@ -34,7 +34,10 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
 
         Assert.Equal(tamperOld ? null : old.PdfPath, printed);
         Assert.False(vm.ShowAttestationPrompt);
-        if (tamperOld) Assert.Contains("Verification failed", vm.Status, StringComparison.Ordinal);
+        if (tamperOld)
+        {
+            Assert.Contains("Verification failed", vm.Status, StringComparison.Ordinal);
+        }
         else
         {
             // A previous successful historical print cannot authorize exporting the invalid latest issue.
@@ -146,7 +149,7 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
         await File.WriteAllTextAsync(sidecarPath, "{ malformed evidence");
         var settings = new AppSettings { RequireAttestationBeforeExport = required };
         var service = new ReportAttestationService(new MockOperatorCredentialBroker(canSign: true), store, settings);
-        Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
+        _ = Assert.Throws<JsonException>(() => service.HasValidAttestationForPdf(run, ReportKinds.Certification, selected.PdfPath));
         var actions = new CapturingActions();
         var preview = new ReportPreviewViewModel(store, new FakeReportService(), attestation: service,
             desktop: actions, printer: actions, settings: settings)

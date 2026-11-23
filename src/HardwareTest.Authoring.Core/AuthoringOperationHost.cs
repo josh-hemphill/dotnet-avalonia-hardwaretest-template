@@ -45,7 +45,7 @@ public static class AuthoringOperationHost
             File.WriteAllBytes(path + ".tmp", JsonSerializer.SerializeToUtf8Bytes(new AuthoringChildExit(child.ExitCode),
                 AuthoringOperationJsonContext.Default.AuthoringChildExit));
             File.Move(path + ".tmp", path);
-            stopping.GetAwaiter().GetResult();
+            _ = stopping.GetAwaiter().GetResult();
         }
         return 1; // Windows is terminated by the retained parent-owned Job handle.
 

@@ -34,7 +34,11 @@ public sealed class AuthoringGuidedRecoveryTests
         {
             vm.LoadHardwareDefinitionEditor(); vm.HardwareEditTimeout = "9999"; vm.UpdateHardwareDefinition();
         }
-        else vm.ApplyHardwareDefinitionRemoval(vm.PrepareHardwareDefinitionRemoval());
+        else
+        {
+            vm.ApplyHardwareDefinitionRemoval(vm.PrepareHardwareDefinitionRemoval());
+        }
+
         await vm.WaitForEnvironmentInspectionAsync().WaitAsync(TimeSpan.FromSeconds(15));
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -57,7 +61,7 @@ public sealed class AuthoringGuidedRecoveryTests
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
-        vm.InitializePlan(new PlanInitializationRequest("locked-guide") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        _ = vm.InitializePlan(new PlanInitializationRequest("locked-guide") { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         AuthoringUiFixture.Click(GuidanceUiActions.Action(fixture, "Save and check draft"));
         Assert.Contains("First voltage test complete", GuidanceUiActions.Feedback(fixture).Text);
@@ -87,12 +91,12 @@ public sealed class AuthoringGuidedRecoveryTests
     {
         if (OperatingSystem.IsWindows()) return; // Symlink creation requires privileges unavailable on some Windows hosts.
         using var fixture = Loaded(); var vm = fixture.ViewModel;
-        vm.InitializePlan(new PlanInitializationRequest("unsafe-guide")); AuthoringUiFixture.Drain();
+        _ = vm.InitializePlan(new PlanInitializationRequest("unsafe-guide")); AuthoringUiFixture.Drain();
         var source = new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("unsafe-guide");
         var backup = source + ".retained"; File.Move(source, backup); var bytes = File.ReadAllBytes(backup);
         try
         {
-            File.CreateSymbolicLink(source, backup);
+            _ = File.CreateSymbolicLink(source, backup);
             Assert.Null(Record.Exception(() => AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"))));
             Assert.Contains("unsafe", GuidanceUiActions.Feedback(fixture).Text, StringComparison.OrdinalIgnoreCase);
             Assert.Contains("Restore", fixture.Control<TextBlock>("Guidance next step").Text);
@@ -145,7 +149,7 @@ public sealed class AuthoringGuidedRecoveryTests
     {
         using var fixture = Loaded(); var vm = fixture.ViewModel;
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
-        vm.InitializePlan(new PlanInitializationRequest("external-guide")
+        _ = vm.InitializePlan(new PlanInitializationRequest("external-guide")
         {
             StartingPoint = PlanStartingPoint.DemoVoltageTask,
             IdentityInstrumentSlot = "DMM",
@@ -168,7 +172,10 @@ public sealed class AuthoringGuidedRecoveryTests
                 external.SelectSequence(external.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
                 AuthoringUiFixture.Drain(); fixture.Control<TextBox>("Threshold", other).Text = "2.75";
             }
-            else if (changed == "binding") external.VisaAddress = "MOCK::SECOND";
+            else if (changed == "binding")
+            {
+                external.VisaAddress = "MOCK::SECOND";
+            }
             else
             {
                 other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7; AuthoringUiFixture.Drain();
@@ -215,7 +222,7 @@ public sealed class AuthoringGuidedRecoveryTests
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
-        vm.InitializePlan(new PlanInitializationRequest("local-guide")
+        _ = vm.InitializePlan(new PlanInitializationRequest("local-guide")
         { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         vm.Apply();
         vm.DisplayName = "My updated voltage plan";
@@ -237,7 +244,7 @@ public sealed class AuthoringGuidedRecoveryTests
     {
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
-        vm.InitializePlan(new PlanInitializationRequest("missing-source-guide"));
+        _ = vm.InitializePlan(new PlanInitializationRequest("missing-source-guide"));
         var before = AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!);
         File.Delete(new AuthoringDocumentStore(fixture.WorkspaceRoot).GetDocumentPath("missing-source-guide"));
         AuthoringUiFixture.Drain();
@@ -271,7 +278,7 @@ public sealed class AuthoringGuidedRecoveryTests
         using var fixture = Loaded();
         var vm = fixture.ViewModel;
         PreparePackage(fixture, AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM"));
-        vm.InitializePlan(new PlanInitializationRequest("async-guide")
+        _ = vm.InitializePlan(new PlanInitializationRequest("async-guide")
         { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         vm.Apply();
         if (mutation == "save") vm.DisplayName = "Save while guidance checks";
@@ -286,7 +293,7 @@ public sealed class AuthoringGuidedRecoveryTests
             action();
             if (index < computed.Length)
             {
-                computed[index].TrySetResult();
+                _ = computed[index].TrySetResult();
                 await release[index].Task;
             }
         });
@@ -306,7 +313,10 @@ public sealed class AuthoringGuidedRecoveryTests
                 for (var edit = 0; edit < 12; edit++) vm.DisplayName = $"Latest draft {edit}";
                 vm.Undo(); vm.Redo();
             }
-            else if (mutation == "save") vm.Apply();
+            else if (mutation == "save")
+            {
+                vm.Apply();
+            }
             else
             {
                 vm.SelectProgram("sample");
@@ -314,11 +324,11 @@ public sealed class AuthoringGuidedRecoveryTests
             }
             AuthoringUiFixture.Drain();
             Assert.Equal(1, Volatile.Read(ref calls));
-            release[0].TrySetResult();
+            _ = release[0].TrySetResult();
             await computed[1].Task.WaitAsync(TimeSpan.FromSeconds(30));
             Assert.False(fixture.Control<Button>("Guidance next action").IsEnabled);
             Assert.Equal("Checking saved plan…", fixture.Control<TextBlock>("Guidance feedback").Text);
-            release[1].TrySetResult();
+            _ = release[1].TrySetResult();
             var feedback = GuidanceUiActions.Feedback(fixture).Text;
             Assert.True(allOffDispatcher);
             GuidanceUiActions.ShowPlanDetails(fixture);
@@ -327,7 +337,7 @@ public sealed class AuthoringGuidedRecoveryTests
             if (mutation == "save") Assert.Equal("First voltage test complete", feedback);
             if (mutation == "switch") Assert.Equal("sample", vm.SelectedProgram.PlanId);
         }
-        finally { foreach (var gate in release) gate.TrySetResult(); }
+        finally { foreach (var gate in release) _ = gate.TrySetResult(); }
     }
 
     [AvaloniaFact]
@@ -346,8 +356,8 @@ public sealed class AuthoringGuidedRecoveryTests
         for (var update = 0; update < 12; update++)
         {
             vm.ReportError($"Unrelated status update {update}");
-            notify.Invoke(vm, [nameof(AuthoringWorkspaceViewModel.PreviewBusy)]);
-            notify.Invoke(vm, [nameof(AuthoringWorkspaceViewModel.EnvironmentPackages)]);
+            _ = notify.Invoke(vm, [nameof(AuthoringWorkspaceViewModel.PreviewBusy)]);
+            _ = notify.Invoke(vm, [nameof(AuthoringWorkspaceViewModel.EnvironmentPackages)]);
         }
         AuthoringUiFixture.Drain();
         Assert.Equal(completedCalls, calls);
@@ -367,7 +377,7 @@ public sealed class AuthoringGuidedRecoveryTests
         Task? running = null;
         Func<Action, Task> scheduler = action => running = Task.Run(async () =>
         {
-            action(); computed.TrySetResult(); await release.Task;
+            action(); _ = computed.TrySetResult(); await release.Task;
         });
         typeof(MainWindow).GetField("_runGuidanceAssessment", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Window, scheduler);
         try
@@ -375,13 +385,13 @@ public sealed class AuthoringGuidedRecoveryTests
             AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
             await computed.Task.WaitAsync(TimeSpan.FromSeconds(30));
             AuthoringUiFixture.Click(fixture.Control<Button>("Close guidance"));
-            release.TrySetResult();
+            _ = release.TrySetResult();
             await running!;
             AuthoringUiFixture.Drain();
             Assert.False(fixture.Window!.FindControl<Border>("GuidanceHost")!.IsVisible);
             Assert.Equal("Checking saved plan…", fixture.Control<TextBlock>("Guidance feedback").Text);
         }
-        finally { release.TrySetResult(); }
+        finally { _ = release.TrySetResult(); }
     }
 
     private static AuthoringUiFixture Loaded(bool library = false)
@@ -393,7 +403,7 @@ public sealed class AuthoringGuidedRecoveryTests
             workspace.Manifest.Dependencies.Add(new AuthoringPackageDependency { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
             AuthoringWorkspaceLoader.SaveManifest(fixture.WorkspaceRoot, workspace.Manifest);
         }
-        fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); return fixture;
     }
     private static async Task AddDefinitionAsync(AuthoringWorkspaceViewModel vm, AuthoringInstrumentAdapter adapter, string name, string address, string timeout)
     {
@@ -405,7 +415,7 @@ public sealed class AuthoringGuidedRecoveryTests
     private static void PreparePackage(AuthoringUiFixture fixture, AuthoringInstrumentAdapter adapter)
     {
         var home = Path.Combine(fixture.ViewModel.Workspace!.Root, "available-home");
-        var package = Path.Combine(home, "Packages", adapter.RequiredPackage); Directory.CreateDirectory(package);
+        var package = Path.Combine(home, "Packages", adapter.RequiredPackage); _ = Directory.CreateDirectory(package);
         var files = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).ToArray();
         new XDocument(new XElement("Package", new XAttribute("Name", adapter.RequiredPackage), new XElement("Files", files.Select(file => new XElement("File", new XAttribute("Path", file)))))).Save(Path.Combine(package, "package.xml"));
         foreach (var file in files) File.Copy(Path.Combine(AppContext.BaseDirectory, file), Path.Combine(package, file));

@@ -206,7 +206,7 @@ public static class PlanContractValidator
         var sb = new StringBuilder();
         if (batch.Plans.Count == 0)
         {
-            sb.AppendLine("No plans to validate.");
+            _ = sb.AppendLine("No plans to validate.");
             return sb.ToString();
         }
 
@@ -214,55 +214,55 @@ public static class PlanContractValidator
         {
             var label = string.IsNullOrWhiteSpace(report.TargetPath) ? "(no path)" : report.TargetPath;
             var status = report.HasErrors ? "FAIL" : "OK";
-            sb.Append(status);
-            sb.Append("  ");
-            sb.Append(label);
-            sb.Append("  (");
-            sb.Append(report.ErrorCount);
-            sb.Append(" error");
+            _ = sb.Append(status);
+            _ = sb.Append("  ");
+            _ = sb.Append(label);
+            _ = sb.Append("  (");
+            _ = sb.Append(report.ErrorCount);
+            _ = sb.Append(" error");
             if (report.ErrorCount != 1)
             {
-                sb.Append('s');
+                _ = sb.Append('s');
             }
 
-            sb.Append(", ");
-            sb.Append(report.WarningCount);
-            sb.Append(" warning");
+            _ = sb.Append(", ");
+            _ = sb.Append(report.WarningCount);
+            _ = sb.Append(" warning");
             if (report.WarningCount != 1)
             {
-                sb.Append('s');
+                _ = sb.Append('s');
             }
 
-            sb.Append(')');
-            sb.AppendLine();
+            _ = sb.Append(')');
+            _ = sb.AppendLine();
             foreach (var finding in report.Findings)
             {
-                sb.Append("  ");
-                sb.Append(finding.Severity == PlanContractSeverity.Error ? "error" : "warning");
-                sb.Append(' ');
-                sb.Append(finding.Code);
-                sb.Append("  ");
-                sb.Append(finding.Message);
+                _ = sb.Append("  ");
+                _ = sb.Append(finding.Severity == PlanContractSeverity.Error ? "error" : "warning");
+                _ = sb.Append(' ');
+                _ = sb.Append(finding.Code);
+                _ = sb.Append("  ");
+                _ = sb.Append(finding.Message);
                 if (!string.IsNullOrWhiteSpace(finding.Path))
                 {
-                    sb.Append("  [");
-                    sb.Append(finding.Path);
-                    sb.Append(']');
+                    _ = sb.Append("  [");
+                    _ = sb.Append(finding.Path);
+                    _ = sb.Append(']');
                 }
 
-                sb.AppendLine();
+                _ = sb.AppendLine();
             }
         }
 
-        sb.Append(batch.Plans.Count);
-        sb.Append(batch.Plans.Count == 1 ? " plan" : " plans");
-        sb.Append(", ");
-        sb.Append(batch.ErrorCount);
-        sb.Append(batch.ErrorCount == 1 ? " error" : " errors");
-        sb.Append(", ");
-        sb.Append(batch.WarningCount);
-        sb.Append(batch.WarningCount == 1 ? " warning." : " warnings.");
-        sb.AppendLine();
+        _ = sb.Append(batch.Plans.Count);
+        _ = sb.Append(batch.Plans.Count == 1 ? " plan" : " plans");
+        _ = sb.Append(", ");
+        _ = sb.Append(batch.ErrorCount);
+        _ = sb.Append(batch.ErrorCount == 1 ? " error" : " errors");
+        _ = sb.Append(", ");
+        _ = sb.Append(batch.WarningCount);
+        _ = sb.Append(batch.WarningCount == 1 ? " warning." : " warnings.");
+        _ = sb.AppendLine();
         return sb.ToString();
     }
 
@@ -370,9 +370,12 @@ public static class PlanContractValidator
                 path));
         }
 
-        foreach (var deviceStep in OpenTapStepTree.Flatten(plan).OfType<global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>())
+        foreach (var deviceStep in OpenTapStepTree.Flatten(plan).OfType<Plugins.Instruments.DeviceOperationStep>())
+        {
             if (deviceStep.Enabled && deviceStep.ValidationIssue() is { } issue)
                 findings.Add(Error("DEVICE_CONFIGURATION", deviceStep.Name + ": " + issue));
+        }
+
         var roles = new List<string>();
         foreach (var step in OpenTapStepTree.Flatten(plan))
         {
@@ -416,14 +419,20 @@ public static class PlanContractValidator
         if (rules.Count == 0)
         {
             if (guards.Length > 0)
+            {
                 findings.Add(Error(Codes.ReferenceGuard,
                     "The compiled plan requires operator reference acceptance, but its supported sidecar declares no reference criteria. Restore the complete pair or recompile the intended saved program."));
+            }
+
             return;
         }
         if (guards.Length != 1 || !guards[0].Enabled
             || steps.Any(step => !step.Enabled && OpenTapStepTree.IsAncestorOf(step, guards[0])))
+        {
             findings.Add(Error(Codes.ReferenceGuard,
                 "Reference-dependent programs need one enabled operator acceptance guard. Recompile with the current authoring app; copying only a changed sidecar is insufficient."));
+        }
+
         foreach (var rule in rules)
         {
             if (rule is null) continue;
@@ -438,9 +447,11 @@ public static class PlanContractValidator
             var hints = OpenTapPresentation.TryReadMixin(producer[0]);
             if (hints is null || !string.Equals(hints.ChannelKey, rule.MetricKey, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(hints.YUnit, rule.Unit, StringComparison.Ordinal))
+            {
                 findings.Add(new PlanContractFinding(PlanContractSeverity.Error, Codes.ReferenceRules,
                     $"Reference rule '{rule.RuleId}' metric or unit does not match its compiled producer. Restore the declared metric/unit and compile the complete pair again.")
                 { Target = new(CompiledStepId: producer[0].Id, Section: "Configure", Field: "ReferenceTolerance") });
+            }
         }
     }
 

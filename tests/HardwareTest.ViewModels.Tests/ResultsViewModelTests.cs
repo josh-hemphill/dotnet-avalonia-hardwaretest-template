@@ -92,7 +92,7 @@ public sealed class ResultsViewModelTests
         await vm.OpenCommand.ExecuteAsync();
 
         Assert.Contains("Sweep / Curve", vm.FirstFailSummary, StringComparison.Ordinal);
-        var reading = Assert.IsType<HardwareTest.Widgets.Presentation.LimitReadout>(Assert.Single(vm.EvaluatedRows).Reading);
+        var reading = Assert.IsType<Widgets.Presentation.LimitReadout>(Assert.Single(vm.EvaluatedRows).Reading);
         Assert.Equal("93 pts", reading.Lower);
         Assert.Equal("99.9 pts", reading.Upper);
         Assert.Equal("91 pts", reading.Value);
@@ -382,7 +382,7 @@ public sealed class ResultsViewModelTests
         });
         var vm = new ResultsViewModel(store, new FakeReportService());
         await vm.RefreshCommand.ExecuteAsync();
-        Assert.Single(vm.Runs);
+        _ = Assert.Single(vm.Runs);
         Assert.Contains("1 run", vm.Status, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -426,7 +426,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-view"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
@@ -468,7 +468,7 @@ public sealed class ResultsViewModelTests
 
         string? opened = null;
         vm.ReportOpened += (_, path) => opened = path;
-        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        _ = vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
         Assert.False(vm.ShowAttestationPrompt);
         Assert.Equal(pdf, opened);
         Assert.Empty(run.Attestations);
@@ -485,11 +485,11 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-shown"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var issuedPdf = Path.Combine(store.GetRunDirectory("cert-shown"), ReportArtifactRoles.DirectoryName,
             $"certification-{Guid.NewGuid():N}.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(issuedPdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(issuedPdf)!);
         var issuedBytes = "%PDF-1.4 issued certification"u8.ToArray();
         await File.WriteAllBytesAsync(issuedPdf, issuedBytes);
         var attestation = new ReportAttestation
@@ -547,7 +547,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-stamp"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
@@ -587,7 +587,7 @@ public sealed class ResultsViewModelTests
         await vm.RefreshCommand.ExecuteAsync();
         vm.SelectedRun = vm.Runs[0];
         await vm.OpenCommand.ExecuteAsync();
-        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        _ = vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
         await vm.ExportPackageCommand.ExecuteAsync();
         await vm.CaptureAttestationCommand.ExecuteAsync();
         Assert.False(vm.ShowAttestationPrompt);
@@ -602,7 +602,7 @@ public sealed class ResultsViewModelTests
     {
         using var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-1"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         await File.WriteAllTextAsync(Path.Combine(store.GetRunDirectory("cert-1"), "stray.attestation.json"), "unrelated evidence");
         var run = new TestRunRecord
@@ -650,7 +650,7 @@ public sealed class ResultsViewModelTests
 
         string? opened = null;
         vm.ReportOpened += (_, path) => opened = path;
-        vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
+        _ = vm.OpenReportCommand.Execute(vm.ReportItems[0]).Subscribe();
         Assert.False(vm.ShowAttestationPrompt);
         Assert.Equal(pdf, opened);
 
@@ -680,7 +680,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-sign"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
@@ -730,7 +730,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-pin"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
@@ -797,7 +797,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var pdf = Path.Combine(store.GetRunDirectory("cert-print"), "certification.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(pdf)!);
         await File.WriteAllBytesAsync(pdf, "%PDF-1.4"u8.ToArray());
         var run = new TestRunRecord
         {
@@ -1045,7 +1045,7 @@ public sealed class ResultsViewModelTests
     public void CollectExportReportFiles_uses_issued_as_canonical_pdf()
     {
         var root = Path.Combine(Path.GetTempPath(), "ht-export-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(Path.Combine(root, "issued"));
+        _ = Directory.CreateDirectory(Path.Combine(root, "issued"));
         var working = Path.Combine(root, "certification.pdf");
         var issued = Path.Combine(root, "issued", "certification.pdf");
         File.WriteAllText(working, "working");
@@ -1093,7 +1093,7 @@ public sealed class ResultsViewModelTests
     public void CollectExportReportFiles_keeps_revision_history_without_collisions_or_latest_fallback()
     {
         var root = Path.Combine(Path.GetTempPath(), "export-revisions-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             string Seed(string file) { var path = Path.Combine(root, file); File.WriteAllText(path, file); return path; }
@@ -1130,7 +1130,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var working = Path.Combine(store.GetRunDirectory("legacy-export"), "status.pdf");
-        Directory.CreateDirectory(Path.GetDirectoryName(working)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(working)!);
         await File.WriteAllTextAsync(working, "working bytes");
         store.Seed(new TestRunRecord
         {
@@ -1163,7 +1163,7 @@ public sealed class ResultsViewModelTests
     {
         var store = new FakeRunStore();
         var dir = store.GetRunDirectory("both-1");
-        Directory.CreateDirectory(Path.Combine(dir, ReportArtifactRoles.DirectoryName));
+        _ = Directory.CreateDirectory(Path.Combine(dir, ReportArtifactRoles.DirectoryName));
         var working = Path.Combine(dir, "certification.pdf");
         var issued = Path.Combine(dir, ReportArtifactRoles.DirectoryName, "certification.pdf");
         await File.WriteAllTextAsync(working, "working");
@@ -1246,12 +1246,12 @@ public sealed class ResultsViewModelTests
         Assert.Equal(2, vm.Runs.Count);
 
         vm.SearchText = "Board";
-        Assert.Single(vm.Runs);
+        _ = Assert.Single(vm.Runs);
         Assert.Equal("b", vm.Runs[0].RunId);
 
         vm.SearchText = string.Empty;
         vm.ResultFilter = nameof(RunResult.Passed);
-        Assert.Single(vm.Runs);
+        _ = Assert.Single(vm.Runs);
         Assert.Equal("a", vm.Runs[0].RunId);
         Assert.Contains("Showing 1 of 2", vm.FilterStatus, StringComparison.Ordinal);
     }
@@ -1422,7 +1422,7 @@ public sealed class ResultsViewModelTests
         await vm.OpenRunByIdAsync("fail");
 
         Assert.Equal(nameof(RunResult.Failed), vm.ResultFilter);
-        Assert.Single(vm.Runs);
+        _ = Assert.Single(vm.Runs);
         Assert.Equal("fail", vm.SelectedRun?.RunId);
         Assert.True(vm.ShowFailedStepsOnly);
         Assert.True(vm.HasFirstFail);

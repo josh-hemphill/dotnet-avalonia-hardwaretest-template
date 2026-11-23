@@ -26,7 +26,7 @@ public sealed class VisaCompleteMessageTests
     {
         var fake = SessionProxy.Create("1.25", status);
         await using var session = new IviMessageVisaSession(fake);
-        await Assert.ThrowsAsync<IOException>(() => session.QueryAsync(":MEAS:VOLT:DC?"));
+        _ = await Assert.ThrowsAsync<IOException>(() => session.QueryAsync(":MEAS:VOLT:DC?"));
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class VisaCompleteMessageTests
     {
         var fake = SessionProxy.Create(new string('1', 1_048_577), ReadStatus.EndReceived);
         await using var session = new IviMessageVisaSession(fake);
-        await Assert.ThrowsAsync<IOException>(() => session.QueryAsync(":READ?"));
+        _ = await Assert.ThrowsAsync<IOException>(() => session.QueryAsync(":READ?"));
     }
 
     public class SessionProxy : DispatchProxy

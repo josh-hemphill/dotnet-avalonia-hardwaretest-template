@@ -24,7 +24,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         var document = new AuthoringDocumentStore(_root).Load("new-plan").Document!;
         Assert.True(document.RequiresCompilation); Assert.Equal("Device checks", document.Sidecar.DisplayName);
         Assert.True(document.Sidecar.RequireSerial); Assert.Contains(RequiredFieldIds.Serial, document.Sidecar.RequiredFields!);
-        Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
         Assert.EndsWith("new-plan.authoring.json", result.DestinationPath);
     }
 
@@ -40,12 +40,12 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.SaveProgram("new-plan"); vm.Open(_root + Path.DirectorySeparatorChar); vm.StopRecovery(); vm.SelectProgram("new-plan");
         Assert.Equal("new-plan", vm.SelectedProgram!.PlanId); Assert.False(vm.HasUnsavedChanges);
         var source = new AuthoringDocumentStore(_root).GetDocumentPath("new-plan"); var before = File.ReadAllBytes(source);
-        var other = Path.Combine(_root, "other-workspace"); Directory.CreateDirectory(other);
+        var other = Path.Combine(_root, "other-workspace"); _ = Directory.CreateDirectory(other);
         foreach (var file in Directory.GetFiles(_root)) File.Copy(file, Path.Combine(other, Path.GetFileName(file)));
-        Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("different") with { WorkspaceRoot = other }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("different") with { WorkspaceRoot = other }));
         Assert.False(new AuthoringDocumentStore(other).Load("different").Exists);
         if (!OperatingSystem.IsWindows())
-            Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("case-different") with { WorkspaceRoot = _root.ToUpperInvariant() }));
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => vm.InitializePlan(Request("case-different") with { WorkspaceRoot = _root.ToUpperInvariant() }));
         Assert.Equal(before, File.ReadAllBytes(source)); Assert.False(new AuthoringDocumentStore(_root).Load("different").Exists);
     }
 
@@ -60,7 +60,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         { WorkspaceRoot = alias + Path.DirectorySeparatorChar, DestinationPath = SwapDriveCase(store.GetDocumentPath("direct-alias")) });
         Assert.True(store.Load("direct-alias").Exists); Assert.Equal("direct-alias", direct.Draft.PlanId);
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(Request("vm-alias") with { WorkspaceRoot = alias, DestinationPath = SwapDriveCase(store.GetDocumentPath("vm-alias")) });
+        _ = vm.InitializePlan(Request("vm-alias") with { WorkspaceRoot = alias, DestinationPath = SwapDriveCase(store.GetDocumentPath("vm-alias")) });
         vm.SaveProgram("vm-alias"); vm.Open(alias); vm.StopRecovery(); vm.SelectProgram("vm-alias");
         Assert.Equal("vm-alias", vm.SelectedProgram!.PlanId); Assert.False(vm.HasUnsavedChanges);
         Assert.Equal("direct-alias", store.Load("direct-alias").Document!.PlanId);
@@ -77,7 +77,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     [InlineData("bad.")]
     public void Invalid_ID_never_creates_files(string id)
     {
-        Assert.Throws<ArgumentException>(() => new AuthoringPlanInitializer().Create(Request(id)));
+        _ = Assert.Throws<ArgumentException>(() => new AuthoringPlanInitializer().Create(Request(id)));
         Assert.Empty(Directory.GetFileSystemEntries(_root));
     }
 
@@ -85,9 +85,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Duplicate_session_ID_invalid_name_and_outside_destination_are_rejected_without_writes()
     {
         var initializer = new AuthoringPlanInitializer();
-        Assert.Throws<AuthoringWorkspaceException>(() => initializer.Create(Request() with { ExistingPlanIds = ["NEW-PLAN"] }));
-        Assert.Throws<ArgumentException>(() => initializer.Create(Request() with { DisplayName = "\n" }));
-        Assert.Throws<ArgumentException>(() => initializer.Create(Request() with { DestinationPath = Path.Combine(Path.GetDirectoryName(_root)!, "escape.authoring.json") }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => initializer.Create(Request() with { ExistingPlanIds = ["NEW-PLAN"] }));
+        _ = Assert.Throws<ArgumentException>(() => initializer.Create(Request() with { DisplayName = "\n" }));
+        _ = Assert.Throws<ArgumentException>(() => initializer.Create(Request() with { DestinationPath = Path.Combine(Path.GetDirectoryName(_root)!, "escape.authoring.json") }));
         Assert.Empty(Directory.GetFileSystemEntries(_root));
     }
 
@@ -96,7 +96,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     {
         Workspace();
         var before = File.ReadAllBytes(Path.Combine(_root, "sample.TapPlan"));
-        Assert.Throws<AuthoringWorkspaceException>(() => new AuthoringPlanInitializer().Create(Request("SAMPLE")));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new AuthoringPlanInitializer().Create(Request("SAMPLE")));
         Assert.Equal(before, File.ReadAllBytes(Path.Combine(_root, "sample.TapPlan")));
         Assert.False(new AuthoringDocumentStore(_root).Load("SAMPLE").Exists);
     }
@@ -107,9 +107,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Case_equivalent_existing_file_or_directory_is_never_overwritten(bool directory)
     {
         var path = new AuthoringDocumentStore(_root).GetDocumentPath("NEW-PLAN");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        if (directory) Directory.CreateDirectory(path); else File.WriteAllText(path, "external bytes");
-        Assert.Throws<IOException>(() => new AuthoringPlanInitializer().Create(Request()));
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        if (directory) _ = Directory.CreateDirectory(path); else File.WriteAllText(path, "external bytes");
+        _ = Assert.Throws<IOException>(() => new AuthoringPlanInitializer().Create(Request()));
         if (directory) Assert.True(Directory.Exists(path)); else Assert.Equal("external bytes", File.ReadAllText(path));
     }
 
@@ -121,9 +121,9 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         var destination = new AuthoringDocumentStore(_root).GetDocumentPath(equivalentCase ? "NEW-PLAN" : "new-plan");
         byte[] bytes = [0, 2, 255, 13, 10];
         var writer = new AuthoringAtomicWriter(beforeCreate: () => File.WriteAllBytes(destination, bytes));
-        Assert.Throws<IOException>(() => new AuthoringPlanInitializer(writer).Create(Request()));
+        _ = Assert.Throws<IOException>(() => new AuthoringPlanInitializer(writer).Create(Request()));
         Assert.Equal(bytes, File.ReadAllBytes(destination));
-        Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
+        _ = Assert.Single(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
     }
 
     [Fact]
@@ -131,7 +131,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     {
         Workspace(); var competing = Path.Combine(_root, "NEW-PLAN.TapPlan");
         var writer = new AuthoringAtomicWriter(beforeCreate: () => File.WriteAllText(competing, "external compiled bytes"));
-        Assert.Throws<AuthoringWorkspaceException>(() => new AuthoringPlanInitializer(writer).Create(Request()));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => new AuthoringPlanInitializer(writer).Create(Request()));
         Assert.Equal("external compiled bytes", File.ReadAllText(competing));
         Assert.False(new AuthoringDocumentStore(_root).Load("new-plan").Exists);
         Assert.Empty(Directory.GetFiles(Path.Combine(_root, "authoring-drafts")));
@@ -142,7 +142,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     {
         var knownHome = new OpenTapHome(Path.Combine(_root, "known-library"));
         var package = Path.Combine(knownHome.Root, "Packages", AuthoringInstrumentCatalog.LibraryPackage);
-        Directory.CreateDirectory(package);
+        _ = Directory.CreateDirectory(package);
         foreach (var file in new[] { "InstrumentComponents.OpenTap.dll", "InstrumentComponents.dll", "InstrumentComponents.Abstractions.dll", "InstrumentComponents.Runtime.dll" })
             File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, file), Path.Combine(knownHome.Root, file));
         File.Copy(Path.Combine(PublishedLibraryFixture.PackageRoot, "package.xml"), Path.Combine(package, "package.xml"));
@@ -169,7 +169,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
         vm.OpenTapHomeOverride = Path.Combine(_root, "missing-home");
         var type = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
-        vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")] });
+        _ = vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Instruments = [new("BENCH", type, "TCPIP::192.0.2.1::INSTR")] });
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
         Assert.Equal(type, Assert.Single(vm.SelectedProgram!.Instruments).TypeId);
@@ -197,7 +197,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.SaveProgram("new-plan"); Assert.False(vm.HasUnsavedChanges);
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan");
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INVALID_OPENTAP_HOME");
-        vm.InitializePlan(new("unsaved") { Instruments = [] }); vm.DisplayName = "Edited unsaved plan"; Assert.True(vm.HasUnsavedChanges); Assert.Empty(vm.SelectedProgram!.Instruments);
+        _ = vm.InitializePlan(new("unsaved") { Instruments = [] }); vm.DisplayName = "Edited unsaved plan"; Assert.True(vm.HasUnsavedChanges); Assert.Empty(vm.SelectedProgram!.Instruments);
         Assert.True(new AuthoringDocumentStore(_root).Load("unsaved").Exists);
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "unsaved" && issue.Code == "INVALID_OPENTAP_HOME");
         vm.OpenTapHomeOverride = "";
@@ -217,7 +217,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         var home = Path.GetFullPath(Path.Combine(_root, OpenTapHomeBootstrapper.DefaultHomeRelativePath));
         var review = vm.ReviewPlanInitialization(request);
         Assert.Contains(review.Issues, issue => issue.Code == "INSTRUMENT_UNAVAILABLE" && issue.Message.Contains(home, StringComparison.Ordinal));
-        vm.InitializePlan(request);
+        _ = vm.InitializePlan(request);
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Contains(home, Assert.Single(vm.HardwareRows).PackageStatus);
         Assert.False(vm.HasUnsavedChanges);
@@ -226,7 +226,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Contains(vm.EditingIssues, issue => issue.PlanId == "new-plan" && issue.Code == "INSTRUMENT_UNAVAILABLE");
         Assert.Equal("BENCH", Assert.Single(vm.SelectedProgram!.Instruments).SlotName);
         var available = Path.Combine(_root, "available-home");
-        var package = Path.Combine(available, "Packages", adapter.RequiredPackage); Directory.CreateDirectory(package);
+        var package = Path.Combine(available, "Packages", adapter.RequiredPackage); _ = Directory.CreateDirectory(package);
         var required = new[] { adapter.AssemblyFile }.Concat(adapter.RequiredPayloadFiles).ToArray();
         new XDocument(new XElement("Package", new XAttribute("Name", adapter.RequiredPackage),
             new XElement("Files", required.Select(file => new XElement("File", new XAttribute("Path", file)))))).Save(Path.Combine(package, "package.xml"));
@@ -278,8 +278,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
             cancellation.Cancel();
         });
         var initializer = new AuthoringPlanInitializer(writer);
-        if (timing == "interrupted") Assert.Throws<IOException>(() => initializer.Create(Request(), cancellation.Token));
-        else Assert.Throws<OperationCanceledException>(() => initializer.Create(Request(), cancellation.Token));
+        if (timing == "interrupted") _ = Assert.Throws<IOException>(() => initializer.Create(Request(), cancellation.Token));
+        else _ = Assert.Throws<OperationCanceledException>(() => initializer.Create(Request(), cancellation.Token));
         Assert.Empty(Directory.GetFiles(_root, "*", SearchOption.AllDirectories));
     }
 
@@ -295,14 +295,17 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
             IncludeSafeShutdown = enabled
         });
         Assert.Equal(enabled, result.Draft.Cleanup.IncludeSafeShutdown); Assert.Equal(["DMM"], result.Draft.Cleanup.InstrumentSlots);
-        Assert.Equal(enabled ? true : (bool?)null, result.Draft.Sidecar.IncludeSafeShutdown);
+        Assert.Equal(enabled ? true : null, result.Draft.Sidecar.IncludeSafeShutdown);
         var stored = new AuthoringDocumentStore(_root).Load("new-plan").Document!.ToDraft();
         Assert.Equal(enabled, stored.Cleanup.IncludeSafeShutdown); Assert.Equal(["DMM"], stored.Cleanup.InstrumentSlots);
         var path = Path.Combine(_root, "new-plan.TapPlan"); new PlanCompiler().Save(stored, path);
         Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
         Assert.Equal(enabled, new PlanCompiler().Load(path).Cleanup.IncludeSafeShutdown);
         var shutdown = result.Review.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
-        if (enabled) Assert.Contains("DMM", shutdown);
+        if (enabled)
+        {
+            Assert.Contains("DMM", shutdown);
+        }
         else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 
@@ -357,8 +360,8 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     {
         Workspace();
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Measurement = new(AuthoringRecipeIds.Acquire, "") { SampleCount = "pending" } });
-        Assert.Equal("new-plan", vm.SelectedProgram!.PlanId); Assert.NotNull(vm.SelectedSequence?.NodeId);
+        _ = vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.VoltageTask, Measurement = new(AuthoringRecipeIds.Acquire, "") { SampleCount = "pending" } });
+        Assert.Equal("new-plan", vm.SelectedProgram!.PlanId); _ = Assert.NotNull(vm.SelectedSequence?.NodeId);
         Assert.False(vm.HasUnsavedChanges); Assert.True(vm.HasUncompiledSources); Assert.False(vm.CanUndo);
         var measureSection = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram.Measure));
         Assert.Equal("Measure", measureSection.Name);
@@ -374,7 +377,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.SetMetricSetting("SampleCount", "8"); Assert.Empty(vm.SelectedProgram.AuthoringState.IncompleteNumericText);
         vm.Undo();
         Assert.False(File.Exists(Path.Combine(_root, "new-plan.TapPlan")));
-        vm.InitializePlan(new("empty-edited") { Instruments = [] }); vm.DisplayName = "Edited empty plan"; Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Setup);
+        _ = vm.InitializePlan(new("empty-edited") { Instruments = [] }); vm.DisplayName = "Edited empty plan"; Assert.Empty(vm.SelectedProgram!.Instruments); Assert.Empty(vm.SelectedProgram.Setup);
         Assert.True(vm.HasUnsavedChanges); Assert.True(new AuthoringDocumentStore(_root).Load("empty-edited").Exists);
     }
 
@@ -385,7 +388,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Included_empty_draft_requires_a_measurement_before_deployment_even_after_explicit_compile(int loopDepth)
     {
         Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(loopDepth == 0 ? Request() : Request() with
+        _ = vm.InitializePlan(loopDepth == 0 ? Request() : Request() with
         {
             StartingPoint = PlanStartingPoint.DemoVoltageTask,
             IdentityInstrumentSlot = "DMM",
@@ -411,7 +414,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.False(vm.CanPack);
         Assert.Contains(vm.EditingIssues, issue => issue.Code == "EMPTY_MEASURE" && issue.PlanId == "new-plan");
         var source = new AuthoringDocumentStore(_root).GetDocumentPath("new-plan"); var before = File.ReadAllBytes(source);
-        Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
+        _ = Assert.Throws<PackPreflightException>(() => vm.Pack(Path.Combine(_root, "output")));
         Assert.Equal(before, File.ReadAllBytes(source)); Assert.False(Directory.Exists(Path.Combine(_root, "output")));
         var home = new OpenTapHomeBootstrapper().Bootstrap(vm.Workspace!, new BootstrapOptions { HomeDirectory = Path.Combine(_root, "home"), Offline = true });
         var request = AuthoringBuildService.CaptureSaved(vm.Workspace!, new PackOptions { Home = home, Offline = true });
@@ -423,7 +426,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         vm.Apply(); Assert.False(vm.CanPack);
         vm.Open(_root); vm.StopRecovery(); vm.SelectProgram("new-plan"); Assert.False(vm.CanPack);
         vm.OpenTapHomeOverride = home.Root; vm.SetBuildProgramIncluded("new-plan", false); Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
-        vm.Pack(Path.Combine(_root, "excluded-output"), new PackOptions { Home = home, Offline = true });
+        _ = vm.Pack(Path.Combine(_root, "excluded-output"), new PackOptions { Home = home, Offline = true });
         Assert.DoesNotContain(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
         vm.NewInstrumentSlot = "BENCH"; vm.NewInstrumentTypeId = AuthoringInstrumentCatalog.All.Single(adapter => adapter.DisplayName == "Mock DMM").TypeId;
         vm.NewInstrumentVisa = "MOCK::BENCH"; vm.AddInstrumentSlot();
@@ -443,7 +446,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = corrected });
         }
         vm.SetBuildProgramIncluded("new-plan", true); Assert.True(vm.SaveAll().Succeeded); Assert.True(vm.CanPack);
-        vm.Pack(Path.Combine(_root, "corrected-output"), new PackOptions { Home = home, Offline = true });
+        _ = vm.Pack(Path.Combine(_root, "corrected-output"), new PackOptions { Home = home, Offline = true });
         Assert.Contains(vm.LastBuildReceipt!.Sources, source => source.PlanId == "new-plan");
     }
 
@@ -453,7 +456,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     public void Saved_nested_empty_loops_are_rejected_by_CLI_before_publishing(int loopDepth)
     {
         Workspace(); var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
+        _ = vm.InitializePlan(Request() with { StartingPoint = PlanStartingPoint.DemoVoltageTask, IdentityInstrumentSlot = "DMM" });
         vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, [])] });
         for (var level = 1; level < loopDepth; level++)
             vm.ReplaceSelected(vm.SelectedProgram! with { Measure = [new RepeatNode(2, vm.SelectedProgram!.Measure)] });
@@ -488,7 +491,7 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
     {
         Workspace();
         var vm = new AuthoringWorkspaceViewModel(); vm.Open(_root); vm.StopRecovery();
-        vm.InitializePlan(Request() with
+        _ = vm.InitializePlan(Request() with
         {
             StartingPoint = PlanStartingPoint.DemoVoltageTask,
             IdentityInstrumentSlot = "DMM",

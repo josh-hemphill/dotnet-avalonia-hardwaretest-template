@@ -33,7 +33,7 @@ public sealed class CriteriaParityTests
     {
         var metric = Average() with { DisplayRole = "timeseries" };
         Assert.True(AuthoringCriteria.Requirements(metric)!.RequiresThreshold);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric with { Limits = null }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric with { Limits = null }));
         var lowered = Assert.IsType<AlgorithmSource>(FormulaLowerer.Lower((ExpressionAlgorithm)metric.Source, metric.Limits));
         Assert.Equal(AuthoringFunctionIds.BasicChannelAverage, lowered.AlgorithmId);
         Assert.False(AuthoringFunctionCatalog.All.Single(f => f.Id == lowered.AlgorithmId).NeedsInstrument);
@@ -45,8 +45,8 @@ public sealed class CriteriaParityTests
         var metric = new MetricDraft("Band", "band", "timeseries", "V", null, null,
             new AlgorithmSource(AuthoringFunctionIds.BasicPublishBandScalar, [], new Dictionary<string, string>()));
         Assert.True(AuthoringCriteria.Requirements(metric)!.RequiresBand);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric with { Limits = new(3, 1, null) }));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(metric with { Limits = new(3, 1, null) }));
         AuthoringCriteria.Validate(metric with { Limits = new(1, 1, null) });
     }
 
@@ -54,7 +54,7 @@ public sealed class CriteriaParityTests
     public void Inspector_keeps_recipe_criteria_visible_after_display_changes()
     {
         var directory = Path.Combine(Path.GetTempPath(), "criteria-inspector-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         var vm = new AuthoringWorkspaceViewModel();
         try
         {
@@ -85,7 +85,7 @@ public sealed class CriteriaParityTests
     [InlineData(double.NegativeInfinity)]
     public void Nonfinite_criterion_is_rejected(double value)
     {
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(Average(value)));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringCriteria.Validate(Average(value)));
         Assert.Equal(FormulaSaveOutcomeKind.SaveBlocked, FormulaLowerer.DescribeSaveOutcome("mean(input)", new(null, null, value)).Kind);
     }
 
@@ -93,7 +93,7 @@ public sealed class CriteriaParityTests
     public void Station_health_requires_authoritative_offset_bounds_for_every_display()
     {
         var directory = Path.Combine(Path.GetTempPath(), "criteria-station-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var metric = new MetricDraft("Station", "cal.dc.offset", "timeseries", "V", null, null,
@@ -133,7 +133,7 @@ public sealed class CriteriaParityTests
     public void Producer_without_presentation_retains_published_channel_through_import_save_and_execution()
     {
         var directory = Path.Combine(Path.GetTempPath(), "criteria-plain-producer-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var producer = new PublishTimedSampleStep { Channel = "input", Value = 2, ElapsedMs = 0 };
@@ -165,7 +165,7 @@ public sealed class CriteriaParityTests
     public void Plain_import_duplicate_producer_channels_are_rejected_before_compiled_file_changes()
     {
         var directory = Path.Combine(Path.GetTempPath(), "criteria-duplicate-producer-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var first = new PublishTimedSampleStep { Channel = "input", Value = 1 };
@@ -194,14 +194,22 @@ public sealed class CriteriaParityTests
         public override void OnResultPublished(Guid stepRunId, ResultTable result)
         {
             if (result.Name == "Sample")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Channel").Data)
                     SampleChannels.Add(Convert.ToString(value) ?? string.Empty);
+            }
+
             if (result.Name == "Scalar")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Unit").Data)
                     AverageUnits.Add(Convert.ToString(value) ?? string.Empty);
+            }
+
             if (result.Name == "Analyze")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Mean").Data)
                     Averages.Add(Convert.ToDouble(value));
+            }
         }
     }
 
@@ -209,7 +217,7 @@ public sealed class CriteriaParityTests
     public void Compile_import_preserves_authoritative_limits_and_producer_without_instrument()
     {
         var directory = Path.Combine(Path.GetTempPath(), "criteria-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         try
         {
             var path = Path.Combine(directory, "criteria.TapPlan");

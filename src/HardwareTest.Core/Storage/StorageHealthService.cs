@@ -25,21 +25,14 @@ public interface IStorageHealthService
 }
 
 /// Free-space levels for the DataDirectory volume.
-public sealed class StorageHealthService : IStorageHealthService
+public sealed class StorageHealthService(
+    AppSettings settings,
+    string dataDirectory,
+    Func<string, long?>? availableBytes = null) : IStorageHealthService
 {
-    private readonly AppSettings _settings;
-    private readonly string _dataDirectory;
-    private readonly Func<string, long?> _availableBytes;
-
-    public StorageHealthService(
-        AppSettings settings,
-        string dataDirectory,
-        Func<string, long?>? availableBytes = null)
-    {
-        _settings = settings;
-        _dataDirectory = dataDirectory;
-        _availableBytes = availableBytes ?? TryGetAvailableBytes;
-    }
+    private readonly AppSettings _settings = settings;
+    private readonly string _dataDirectory = dataDirectory;
+    private readonly Func<string, long?> _availableBytes = availableBytes ?? TryGetAvailableBytes;
 
     public StorageHealthSnapshot GetDataVolumeHealth()
     {

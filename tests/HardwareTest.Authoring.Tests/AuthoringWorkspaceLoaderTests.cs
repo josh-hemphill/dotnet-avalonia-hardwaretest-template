@@ -17,7 +17,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         Assert.Equal(".", workspace.Manifest.PlansDirectory);
         Assert.Equal(
             ["OpenTAP", "HardwareTest Basic", "HardwareTest Mixins"],
-            workspace.Manifest.Dependencies.Select(d => d.Package).ToArray());
+            [.. workspace.Manifest.Dependencies.Select(d => d.Package)]);
         Assert.DoesNotContain(
             workspace.Manifest.Dependencies,
             d => d.Package.Contains("InstrumentComponents", StringComparison.OrdinalIgnoreCase));
@@ -187,7 +187,7 @@ public sealed class AuthoringWorkspaceLoaderTests
 
         var error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.Load(dir));
         Assert.Contains("requires schema 2", error.Message, StringComparison.Ordinal);
-        Assert.Throws<AuthoringWorkspaceException>(() =>
+        _ = Assert.Throws<AuthoringWorkspaceException>(() =>
             AuthoringWorkspaceLoader.SaveManifest(dir, new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest, DisplayName = "replacement" }));
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.Equal([path], Directory.GetFiles(dir));
@@ -198,7 +198,7 @@ public sealed class AuthoringWorkspaceLoaderTests
     {
         var parent = NewTempDir();
         var destination = Path.Combine(parent, "new-workspace");
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
             destination, new AuthoringManifest { SchemaVersion = 1 }));
         Assert.False(Directory.Exists(destination));
         Assert.Empty(Directory.GetFileSystemEntries(parent));
@@ -212,7 +212,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         WriteManifest(dir, """{ "schemaVersion": 2, "displayName": "current", "plansDirectory": "." }""" + "\r\n");
         var original = File.ReadAllBytes(path);
 
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringWorkspaceLoader.SaveManifest(
             dir, new AuthoringManifest { SchemaVersion = 1, DisplayName = "older request" }));
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.Equal([path], Directory.GetFiles(dir));
@@ -242,7 +242,7 @@ public sealed class AuthoringWorkspaceLoaderTests
         var original = File.ReadAllBytes(path);
 
         Assert.True(AuthoringWorkspaceLoader.Load(dir).IsReadOnly);
-        Assert.Throws<AuthoringWorkspaceException>(() =>
+        _ = Assert.Throws<AuthoringWorkspaceException>(() =>
             AuthoringWorkspaceLoader.SaveManifest(dir, new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest }));
         Assert.Equal(original, File.ReadAllBytes(path));
         Assert.Equal([path], Directory.GetFiles(dir));
@@ -254,7 +254,7 @@ public sealed class AuthoringWorkspaceLoaderTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-authoring-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

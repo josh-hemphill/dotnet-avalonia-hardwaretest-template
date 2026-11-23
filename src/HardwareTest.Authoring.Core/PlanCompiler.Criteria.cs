@@ -41,7 +41,7 @@ public sealed partial class PlanCompiler
                         RequireCompleteInput(scalar.Id, incompleteFields);
                         if (!double.IsFinite(scalar.Value)) throw new AuthoringWorkspaceException("FORMULA_EVAL: Scalar preview example requires a finite value.");
                         scalarExample(scalar.Value);
-                        completed.Add(step);
+                        _ = completed.Add(step);
                         return;
                     }
                     RequireSampleInput(preceding, average.InputChannel, filter: false, out var matches);
@@ -52,7 +52,7 @@ public sealed partial class PlanCompiler
                         average.Unit = OpenTapPresentation.TryReadMixin(step)?.YUnit ?? string.Empty;
                         average.Channel = OpenTapPresentation.TryReadMixin(step)?.ChannelKey ?? average.Channel;
                     }
-                    completed.Add(step);
+                    _ = completed.Add(step);
                 };
             }
             else if (step is ApplyTransferFunctionStep filter)
@@ -68,7 +68,7 @@ public sealed partial class PlanCompiler
                     RequireSampleInput(preceding, filter.InputChannel, filter: true, out var matches);
                     ValidateDependencies(matches, validations, incompleteFields);
                     RequireFilterGrid(matches, filter);
-                    completed.Add(step);
+                    _ = completed.Add(step);
                 };
             }
             if (validate is not null)
@@ -76,8 +76,12 @@ public sealed partial class PlanCompiler
                 validations[step] = validate;
                 if (onlyNodeId is { } validationTarget ? step.Id == validationTarget : onlyOutput is null || string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase)) validate();
             }
-            if (step.ChildTestSteps.Count > 0) BindSequence(step.ChildTestSteps, bindProducer, onlyOutput,
-                safeScope && (step is TestGroupStep or RepeatLoopStep), incompleteFields, [.. (scopeNodes ?? []), step.Id], scalarExample, onlyNodeId);
+            if (step.ChildTestSteps.Count > 0)
+            {
+                BindSequence(step.ChildTestSteps, bindProducer, onlyOutput,
+                safeScope && (step is TestGroupStep or RepeatLoopStep), incompleteFields, [.. scopeNodes ?? [], step.Id], scalarExample, onlyNodeId);
+            }
+
             var channel = DeclaredChannel(step);
             if (!string.IsNullOrWhiteSpace(channel))
             {
@@ -90,11 +94,16 @@ public sealed partial class PlanCompiler
     private static IEnumerable<ITestStep> FlattenSectionSteps(IEnumerable<ITestStep> steps)
     {
         foreach (var step in steps)
+        {
             if (step.Enabled && step is TestGroupStep { AuthoringSection: true })
             {
                 foreach (var child in FlattenSectionSteps(step.ChildTestSteps)) yield return child;
             }
-            else yield return step;
+            else
+            {
+                yield return step;
+            }
+        }
     }
 
     private static Dictionary<string, List<ITestStep>> Snapshot(Dictionary<string, List<ITestStep>> producers)

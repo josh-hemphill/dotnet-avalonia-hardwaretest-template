@@ -45,8 +45,11 @@ public sealed class ProcedureTables
         _cases = Index(tests.Cases, row => row.Id, "tests.json cases");
         Require(_routes.Count > 0 && _cases.Count > 0, "The route and case tables must contain rows.");
         foreach (var route in _routes.Values)
+        {
             Require(!string.IsNullOrWhiteSpace(route.Path) && !string.IsNullOrWhiteSpace(route.Unit)
                 && double.IsFinite(route.Nominal), $"Route '{route.Id}' requires a path, unit and finite nominal value.");
+        }
+
         var calibrationKeys = new HashSet<(string, double)>();
         foreach (var calibration in station.Calibrations ?? throw new InvalidDataException("Missing station.json calibrations."))
         {
@@ -57,8 +60,11 @@ public sealed class ProcedureTables
         }
 
         foreach (var reference in _references.Values)
+        {
             Require(reference.Values is { Length: > 1 } && reference.Values.All(double.IsFinite),
                 $"Reference '{reference.Id}' needs at least two finite points.");
+        }
+
         foreach (var row in _cases.Values)
         {
             Require(row.Routes is { Length: > 0 }, $"Case '{row.Id}' needs a station route.");
@@ -74,9 +80,11 @@ public sealed class ProcedureTables
             var bands = Index(row.Criteria, item => item.Id, $"tests.json criteria for '{row.Id}'");
             Require(bands.Count > 0, $"Case '{row.Id}' needs criteria.");
             foreach (var band in bands.Values)
+            {
                 Require(!string.IsNullOrWhiteSpace(band.Unit) && double.IsFinite(band.Low)
                     && double.IsFinite(band.High) && band.Low <= band.High,
                     $"Case '{row.Id}' has an invalid band for '{band.Id}'.");
+            }
         }
     }
 

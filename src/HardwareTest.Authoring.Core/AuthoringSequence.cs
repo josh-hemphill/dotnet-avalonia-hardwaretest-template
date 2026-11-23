@@ -366,7 +366,10 @@ public static class AuthoringSequence
             {
                 result.AddRange(repeat.Children);
             }
-            else if (nodes[i] is SectionNode section) result.AddRange(section.Children);
+            else if (nodes[i] is SectionNode section)
+            {
+                result.AddRange(section.Children);
+            }
         }
 
         return result;

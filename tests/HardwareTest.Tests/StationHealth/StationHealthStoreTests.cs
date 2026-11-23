@@ -40,11 +40,11 @@ public sealed class StationHealthStoreTests
         await store.WriteAsync(record);
         var loaded = store.TryRead("bench-a");
         Assert.NotNull(loaded);
-        Assert.Equal(SchemaVersions.StationHealthRecord, loaded!.SchemaVersion);
+        Assert.Equal(SchemaVersions.StationHealthRecord, loaded.SchemaVersion);
         Assert.Equal("bench-a", loaded.ProfileId);
         Assert.Equal(clock.UtcNow, loaded.MeasuredAt);
         Assert.Equal(StationHealthSources.Queried, loaded.Source);
-        Assert.Single(loaded.Metrics);
+        _ = Assert.Single(loaded.Metrics);
         Assert.Equal(0.002, loaded.Metrics[0].Value);
         Assert.True(File.Exists(store.PathFor("bench-a")));
     }
@@ -58,12 +58,12 @@ public sealed class StationHealthStoreTests
     }
 
     [Fact]
-    public async Task V1_fixture_deserializes()
+    public Task V1_fixture_deserializes()
     {
         using var temp = new TempDataDirectory();
         var store = new FileStationHealthStore(temp.Path);
         var dest = store.PathFor("default");
-        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         File.Copy(
             Path.Combine(AppContext.BaseDirectory, "fixtures", "schema", "station-health-v1.json"),
             dest,
@@ -75,6 +75,7 @@ public sealed class StationHealthStoreTests
         Assert.Equal("queried", loaded.Source);
         Assert.Equal(2, loaded.Metrics.Count);
         Assert.Equal(24, loaded.MaxAgeHours);
+        return Task.CompletedTask;
     }
 
     [Theory]
@@ -89,7 +90,7 @@ public sealed class StationHealthStoreTests
         File.WriteAllText(path, json);
         File.WriteAllText(path + ".bak", "{\"schemaVersion\":1}");
         Assert.Null(store.TryRead("default"));
-        await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(
+        _ = await Assert.ThrowsAsync<UnsupportedDocumentSchemaException>(
             () => store.WriteAsync(new StationHealthRecord()));
         Assert.Equal(json, File.ReadAllText(path));
         Assert.Equal("{\"schemaVersion\":1}", File.ReadAllText(path + ".bak"));
@@ -104,7 +105,7 @@ public sealed class StationHealthStoreTests
         const string json = "{\"schemaVersion\":99,\"profileId\":\"default\"}";
         File.WriteAllText(path, json);
         Assert.Equal(99, store.TryRead("default")!.SchemaVersion);
-        await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.WriteAsync(new StationHealthRecord()));
+        _ = await Assert.ThrowsAsync<SchemaReadOnlyException>(() => store.WriteAsync(new StationHealthRecord()));
         Assert.Equal(json, File.ReadAllText(path));
     }
 
@@ -116,7 +117,7 @@ public sealed class StationHealthStoreTests
         using var temp = new TempDataDirectory();
         var store = new FileStationHealthStore(temp.Path);
         var record = new StationHealthRecord { SchemaVersion = version };
-        await Assert.ThrowsAnyAsync<InvalidOperationException>(() => store.WriteAsync(record));
+        _ = await Assert.ThrowsAnyAsync<InvalidOperationException>(() => store.WriteAsync(record));
         Assert.Equal(version, record.SchemaVersion);
         Assert.False(File.Exists(store.PathFor("default")));
     }

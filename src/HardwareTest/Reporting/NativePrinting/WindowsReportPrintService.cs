@@ -29,7 +29,7 @@ public sealed class WindowsReportPrintService(
         }
         catch (OperationCanceledException) { return new(PrintOutcome.Cancelled, "Print cancelled. No submission was confirmed."); }
         catch (Exception ex) { return new(PrintOutcome.Failed, "Print failed: " + ex.Message + " Retry, save a copy, or open the PDF viewer."); }
-        finally { if (acquired) _jobGate.Release(); }
+        finally { if (acquired) _ = _jobGate.Release(); }
     }
 
     private PrintResult Execute(string path, nint owner, CancellationToken token)
@@ -42,7 +42,7 @@ public sealed class WindowsReportPrintService(
         if (session.Action == PrintDialogAction.Cancel) return new(PrintOutcome.Cancelled, "Print cancelled.");
         if (session.Action == PrintDialogAction.Apply) return new(PrintOutcome.Applied, "Printer settings applied. No document was submitted.");
         var ranges = PrintGeometry.NormalizeRanges(document.PageSizes.Count, session.UsesPageRanges, session.PageRanges);
-        foreach (var page in PrintGeometry.EnumeratePages(ranges)) PrintGeometry.ValidateRasterSize(document.PageSizes[page]);
+        foreach (var page in PrintGeometry.EnumeratePages(ranges)) _ = PrintGeometry.ValidateRasterSize(document.PageSizes[page]);
         var started = false;
         try
         {
@@ -92,9 +92,9 @@ public sealed class StaPrintWorker : IPrintWorker
                 T value;
                 try { value = action(); }
                 finally { OleUninitialize(); }
-                result.TrySetResult(value);
+                _ = result.TrySetResult(value);
             }
-            catch (Exception ex) { result.TrySetException(ex); }
+            catch (Exception ex) { _ = result.TrySetException(ex); }
         })
         { IsBackground = true, Name = "Report native print" };
         thread.SetApartmentState(ApartmentState.STA);

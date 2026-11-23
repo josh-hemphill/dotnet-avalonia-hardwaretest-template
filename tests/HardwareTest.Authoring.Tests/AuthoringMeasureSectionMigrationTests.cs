@@ -30,13 +30,13 @@ public sealed class AuthoringMeasureSectionMigrationTests : IDisposable
         var draft = LegacyDraft("older-source", false);
         var source = AuthoringDocumentDto.FromDraft(draft) with { SchemaVersion = version };
         var json = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(source, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto))!.AsObject();
-        json.Remove("hasConfigurableMeasureSections");
+        _ = json.Remove("hasConfigurableMeasureSections");
         var path = _store.GetDocumentPath(draft.PlanId);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, json.ToJsonString());
         var before = File.ReadAllBytes(path);
         var vm = Open();
-        Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram!.Measure));
+        _ = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram!.Measure));
         Assert.Equal(before, File.ReadAllBytes(path));
         Assert.True(vm.SaveAll().Succeeded);
         using var saved = JsonDocument.Parse(File.ReadAllBytes(path));
@@ -50,7 +50,7 @@ public sealed class AuthoringMeasureSectionMigrationTests : IDisposable
 
     public AuthoringMeasureSectionMigrationTests()
     {
-        Directory.CreateDirectory(Path.Combine(_root, "plans"));
+        _ = Directory.CreateDirectory(Path.Combine(_root, "plans"));
         File.WriteAllText(Path.Combine(_root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Measure migration\"}");
         _store = new(_root);
     }
@@ -139,7 +139,7 @@ public sealed class AuthoringMeasureSectionMigrationTests : IDisposable
         Assert.True(_store.Load("save-migration").Document!.HasConfigurableMeasureSections);
         var section = Assert.IsType<SectionNode>(Assert.Single(vm.SelectedProgram!.Measure));
         vm.ReplaceSelected(vm.SelectedProgram with { Measure = section.Children });
-        vm.SaveAll();
+        _ = vm.SaveAll();
         Assert.DoesNotContain(Open().SelectedProgram!.Measure, node => node is SectionNode);
     }
 
@@ -164,8 +164,8 @@ public sealed class AuthoringMeasureSectionMigrationTests : IDisposable
         var path = Path.Combine(_root, "plans", "compiled.TapPlan");
         compiler.Save(draft, path);
         Assert.True(AuthoringMeasureSections.HasCompiledLayout(path));
-        Assert.IsType<MetricNode>(Assert.Single(compiler.Load(path).Measure));
-        Assert.IsType<MetricNode>(Assert.Single(AuthoringSourceWorkspaceLoader.Load(_root).Programs.Single().Measure));
+        _ = Assert.IsType<MetricNode>(Assert.Single(compiler.Load(path).Measure));
+        _ = Assert.IsType<MetricNode>(Assert.Single(AuthoringSourceWorkspaceLoader.Load(_root).Programs.Single().Measure));
         var grouped = AuthoringMeasureSections.Initialize(draft);
         compiler.Save(grouped, path);
         var section = Assert.IsType<SectionNode>(Assert.Single(AuthoringSourceWorkspaceLoader.Load(_root).Programs.Single().Measure));

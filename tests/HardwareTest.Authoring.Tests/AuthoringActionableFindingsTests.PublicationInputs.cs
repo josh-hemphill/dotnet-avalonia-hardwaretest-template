@@ -23,10 +23,10 @@ public sealed partial class AuthoringActionableFindingsTests
         var original = File.ReadAllBytes(path);
         var error = await Record.ExceptionAsync(async () =>
         {
-            if (async) await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
-            else _vm.Validate();
+            if (async) _ = await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
+            else _ = _vm.Validate();
         });
-        Assert.IsType<AuthoringWorkspaceException>(error);
+        _ = Assert.IsType<AuthoringWorkspaceException>(error);
         AssertCheckedStateStale();
         Assert.Contains("verify", _vm.Error);
         Assert.Equal(original, File.ReadAllBytes(path));
@@ -99,7 +99,7 @@ public sealed partial class AuthoringActionableFindingsTests
             File.AppendAllText(path, "\n");
             return report;
         };
-        _vm.Validate();
+        _ = _vm.Validate();
         AssertCheckedStateStale();
         Assert.Contains("earlier revision", _vm.Status);
         Assert.Null(_vm.Error);
@@ -136,10 +136,10 @@ public sealed partial class AuthoringActionableFindingsTests
         ConfigureValidationChild();
         var error = await Record.ExceptionAsync(async () =>
         {
-            if (async) await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
-            else _vm.Validate();
+            if (async) _ = await _vm.RunOperationAsync(AuthoringOperationKind.Validate);
+            else _ = _vm.Validate();
         });
-        Assert.IsType<AuthoringWorkspaceException>(error);
+        _ = Assert.IsType<AuthoringWorkspaceException>(error);
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error);
         AssertCheckedStateStale();
         Assert.False(File.Exists(Path.Combine(_root, "fixture-child.json")));
@@ -174,6 +174,9 @@ public sealed partial class AuthoringActionableFindingsTests
             Assert.Empty(result.SavedProgramIds);
             Assert.False(result.WorkspaceCatalogSaved);
         }
-        else Assert.Throws<AuthoringWorkspaceException>(() => { if (operation == "apply") _vm.Apply(); else _vm.SaveSidecar(); });
+        else
+        {
+            _ = Assert.Throws<AuthoringWorkspaceException>(() => { if (operation == "apply") _vm.Apply(); else _vm.SaveSidecar(); });
+        }
     }
 }

@@ -6,9 +6,6 @@ namespace HardwareTest.Authoring;
 
 public sealed partial class AuthoringWorkspaceViewModel
 {
-    // An explicit visible creation choice, independent of imported resource ordering.
-    private string _newInstrumentTypeId = typeof(MockDmmInstrument).FullName!;
-
     public IReadOnlyList<AuthoringInstrumentAdapter> InstrumentTypeChoices => _environmentInspection.Choices;
 
     public string InstrumentCatalogSummary
@@ -23,19 +20,20 @@ public sealed partial class AuthoringWorkspaceViewModel
         }
     }
 
+    // An explicit visible creation choice, independent of imported resource ordering.
     public string NewInstrumentTypeId
     {
-        get => _newInstrumentTypeId;
+        get;
         set
         {
-            if (!SetField(ref _newInstrumentTypeId, value ?? string.Empty)) return;
+            if (!SetField(ref field, value ?? string.Empty)) return;
             OnPropertyChanged(nameof(SelectedNewInstrumentType));
             OnPropertyChanged(nameof(IsNewRegisteredDevice));
             OnPropertyChanged(nameof(NewInstrumentTypeGuidance));
             OnPropertyChanged(nameof(NewInstrumentAvailabilityText));
             OnPropertyChanged(nameof(CanAddInstrumentSlot));
         }
-    }
+    } = typeof(MockDmmInstrument).FullName!;
 
     public AuthoringInstrumentAdapter? SelectedNewInstrumentType
     {

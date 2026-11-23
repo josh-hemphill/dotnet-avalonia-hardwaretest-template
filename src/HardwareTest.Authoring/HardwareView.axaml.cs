@@ -15,7 +15,7 @@ public partial class HardwareView : UserControl
         AttachedToVisualTree += (_, _) => HookEditor();
         DetachedFromVisualTree += (_, _) =>
         {
-            if (_observed is not null) _observed.PropertyChanged -= OnEditorChanged;
+            _observed?.PropertyChanged -= OnEditorChanged;
             _observed = null;
         };
     }
@@ -23,9 +23,9 @@ public partial class HardwareView : UserControl
 
     private void HookEditor()
     {
-        if (_observed is not null) _observed.PropertyChanged -= OnEditorChanged;
+        _observed?.PropertyChanged -= OnEditorChanged;
         _observed = Vm;
-        if (_observed is not null) _observed.PropertyChanged += OnEditorChanged;
+        _observed?.PropertyChanged += OnEditorChanged;
         UpdateDraftState();
     }
 
@@ -36,7 +36,10 @@ public partial class HardwareView : UserControl
             or nameof(AuthoringWorkspaceViewModel.EditDeviceDriver) or nameof(AuthoringWorkspaceViewModel.EditDeviceChannels)
             or nameof(AuthoringWorkspaceViewModel.EditDeviceOutputs) or nameof(AuthoringWorkspaceViewModel.EditDeviceCommissioning)
             or nameof(AuthoringWorkspaceViewModel.CanReviewLoadedHardwareBinding) or nameof(AuthoringWorkspaceViewModel.SelectedInstrument)
-            or nameof(AuthoringWorkspaceViewModel.SelectedInstrumentSlot)) UpdateDraftState();
+            or nameof(AuthoringWorkspaceViewModel.SelectedInstrumentSlot))
+        {
+            UpdateDraftState();
+        }
     }
 
     private void UpdateDraftState()
@@ -60,7 +63,9 @@ public partial class HardwareView : UserControl
             : "Unapplied edits. Review and confirm to update only this plan's binding.";
 
         bool MatchesSetting(string value, string key)
-            => string.Equals(value.Trim(), selected?.Settings.GetValueOrDefault(key) ?? string.Empty, StringComparison.Ordinal);
+        {
+            return string.Equals(value.Trim(), selected?.Settings.GetValueOrDefault(key) ?? string.Empty, StringComparison.Ordinal);
+        }
     }
     // ItemsSource refreshes and inactive task controls may temporarily clear selection.
     // Only an actual non-null choice writes back; model-driven clears still flow one way.
@@ -76,26 +81,35 @@ public partial class HardwareView : UserControl
         UpdateDraftState();
         var target = Vm?.HardwareEditType is null ? (Control)BindingTypeBox : BindingAddressBox;
         target.BringIntoView();
-        target.Focus();
+        _ = target.Focus();
     }
     private void OnReloadBinding(object? sender, RoutedEventArgs e) => OnLoadBinding(sender, e);
     private async void OnReviewBinding(object? sender, RoutedEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is not MainWindow owner || Vm is not { } vm) return;
-        await owner.ConfirmHardwareEditAsync();
+        _ = await owner.ConfirmHardwareEditAsync();
         if (!owner.IsVisible || !ReferenceEquals(DataContext, vm) || !ReviewBindingButton.IsEffectivelyVisible) return;
         UpdateDraftState();
         Control target = ReviewBindingButton;
         if (vm.Error is not null && vm.CanReviewLoadedHardwareBinding)
         {
-            if (vm.HardwareEditType is null) target = BindingTypeBox;
-            else if (string.IsNullOrWhiteSpace(vm.HardwareEditAddress)) target = BindingAddressBox;
+            if (vm.HardwareEditType is null)
+            {
+                target = BindingTypeBox;
+            }
+            else if (string.IsNullOrWhiteSpace(vm.HardwareEditAddress))
+            {
+                target = BindingAddressBox;
+            }
             else if (!string.IsNullOrWhiteSpace(vm.HardwareEditTimeout)
                 && vm.HardwareEditType.ConfigurationFields.Contains("IoTimeoutMilliseconds")
-                && (!int.TryParse(vm.HardwareEditTimeout, out var timeout) || timeout <= 0)) target = BindingTimeoutBox;
+                && (!int.TryParse(vm.HardwareEditTimeout, out var timeout) || timeout <= 0))
+            {
+                target = BindingTimeoutBox;
+            }
         }
         target.BringIntoView();
-        target.Focus();
+        _ = target.Focus();
     }
     private void OnOpenEnvironment(object? sender, RoutedEventArgs e)
     {
@@ -111,7 +125,7 @@ public partial class HardwareView : UserControl
             var input = this.GetVisualDescendants().OfType<TextBox>().First(control =>
                 Avalonia.Automation.AutomationProperties.GetName(control) == "Add instrument slot");
             input.BringIntoView();
-            input.Focus();
+            _ = input.Focus();
         });
     }
     private void OnDeferBinding(object? sender, RoutedEventArgs e)
@@ -124,7 +138,7 @@ public partial class HardwareView : UserControl
         => (TopLevel.GetTopLevel(this) as MainWindow)?.OpenDefinitions("HardwareTemplateSection");
     private async void OnRemoveInstrumentSlot(object? sender, RoutedEventArgs e)
     {
-        if (TopLevel.GetTopLevel(this) is MainWindow owner) await owner.ConfirmInstrumentRemovalAsync();
+        if (TopLevel.GetTopLevel(this) is MainWindow owner) _ = await owner.ConfirmInstrumentRemovalAsync();
     }
     private void TryRun(Action action)
     {

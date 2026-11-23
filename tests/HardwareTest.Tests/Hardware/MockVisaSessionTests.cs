@@ -42,9 +42,9 @@ public sealed class MockVisaSessionTests
         var session = new MockVisaSession("MOCK::1");
         using var cts = new CancellationTokenSource();
         cts.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.WriteAsync("*RST", cts.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*IDN?", cts.Token));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*OPC?", cts.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.WriteAsync("*RST", cts.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*IDN?", cts.Token));
+        _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => session.QueryAsync("*OPC?", cts.Token));
     }
 
     [Fact]

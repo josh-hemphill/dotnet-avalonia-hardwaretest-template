@@ -37,7 +37,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try { return await _presence.WaitForPresenceAsync(timeout, cancellationToken).ConfigureAwait(false); }
-        finally { StatusText = _presence.StatusText; _gate.Release(); }
+        finally { StatusText = _presence.StatusText; _ = _gate.Release(); }
     }
 
     public async Task<CredentialPreparationResult> PrepareSigningAsync(OperatorCredential credential,
@@ -72,12 +72,12 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             }
             var selection = SelectCapturedCertificate(certificates.Select(c => c.Thumbprint).ToArray(), credential.Thumbprint);
             if (selection.Index is null) return CredentialPreparationResult.Failed(selection.Failure!);
-            var selected = certificates[selection.Index.Value];
-            if (selected.Certificate.Id.Length == 0)
+            var (Token, Certificate, Thumbprint) = certificates[selection.Index.Value];
+            if (Certificate.Id.Length == 0)
                 return Fail(CredentialFailureKind.ConfigurationError, "Selected signing certificate has no key binding identifier.", "private-key-binding");
-            foreach (var other in tokens.Where(t => t != selected.Token)) DisposeResource(other);
-            tokens.RemoveAll(t => t != selected.Token);
-            using (var certificate = X509CertificateLoader.LoadCertificate(selected.Certificate.Der))
+            foreach (var other in tokens.Where(t => t != Token)) DisposeResource(other);
+            _ = tokens.RemoveAll(t => t != Token);
+            using (var certificate = X509CertificateLoader.LoadCertificate(Certificate.Der))
             {
                 using var rsa = certificate.GetRSAPublicKey();
                 using var ec = certificate.GetECDsaPublicKey();
@@ -85,16 +85,16 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                     return Fail(CredentialFailureKind.ConfigurationError, "Signing certificate must use RSA or ECDSA.", "certificate-algorithm");
             }
             stage = "authentication";
-            if (!selected.Token.ProtectedAuthenticationPath && string.IsNullOrEmpty(pin))
+            if (!Token.ProtectedAuthenticationPath && string.IsNullOrEmpty(pin))
                 return Fail(CredentialFailureKind.PinRequired, "Enter badge PIN to sign.", stage);
-            byte[]? pinBytes = selected.Token.ProtectedAuthenticationPath ? null : Encoding.UTF8.GetBytes(pin!);
-            try { selected.Token.Login(pinBytes); }
+            byte[]? pinBytes = Token.ProtectedAuthenticationPath ? null : Encoding.UTF8.GetBytes(pin!);
+            try { Token.Login(pinBytes); }
             finally { if (pinBytes is not null) CryptographicOperations.ZeroMemory(pinBytes); }
             cancellationToken.ThrowIfCancellationRequested();
             stage = "private-key-binding";
-            selected.Token.BindPrivateKey(selected.Certificate.Id);
+            Token.BindPrivateKey(Certificate.Id);
             cancellationToken.ThrowIfCancellationRequested();
-            var session = new PreparedSession(backend, selected.Token, selected.Certificate.Der, credential, _gate, _clock);
+            var session = new PreparedSession(backend, Token, Certificate.Der, credential, _gate, _clock);
             transferred = true;
             return CredentialPreparationResult.Ready(session);
         }
@@ -109,7 +109,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                     foreach (var token in tokens) DisposeResource(token);
                     DisposeResource(backend);
                 }
-                finally { _gate.Release(); }
+                finally { _ = _gate.Release(); }
             }
         }
     }
@@ -202,18 +202,17 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         return session is null ? preparation.Failure! : await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(pdf, credential, pin, signingTime, cancellationToken).ConfigureAwait(false);
     }
 
-    private sealed class PreparedSession : IPreparedCredentialSession, IEmbeddedPdfSigningBroker
+    private sealed class PreparedSession(IPkcs11Backend backend, IPkcs11Token token, byte[] der, OperatorCredential credential, SemaphoreSlim gate, IClock clock) : IPreparedCredentialSession, IEmbeddedPdfSigningBroker
     {
-        private readonly IPkcs11Backend _backend;
-        private readonly IPkcs11Token _token;
-        private readonly X509Certificate2 _certificate;
-        private readonly OperatorCredential _credential;
-        private readonly SemaphoreSlim _gate;
-        private readonly IClock _clock;
+        private readonly IPkcs11Backend _backend = backend;
+        private readonly IPkcs11Token _token = token;
+        private readonly X509Certificate2 _certificate = X509CertificateLoader.LoadCertificate(der);
+        private readonly OperatorCredential _credential = credential;
+        private readonly SemaphoreSlim _gate = gate;
+        private readonly IClock _clock = clock;
         private readonly object _operation = new();
         private bool _disposed;
-        public PreparedSession(IPkcs11Backend backend, IPkcs11Token token, byte[] der, OperatorCredential credential, SemaphoreSlim gate, IClock clock)
-        { _backend = backend; _token = token; _certificate = X509CertificateLoader.LoadCertificate(der); _credential = credential; _gate = gate; _clock = clock; }
+
         public bool IsMock => false;
         public bool CanSign => true;
         public bool CanSignPdf => true;
@@ -229,7 +228,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             try
             {
                 var hash = Sha384 && !Rsa ? SHA384.HashData(message) : SHA256.HashData(message);
-                byte[] data = Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash;
+                byte[] data = Rsa ? [.. Convert.FromHexString("3031300D060960864801650304020105000420"), .. hash] : hash;
                 var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, data, keyPin);
                 ct.ThrowIfCancellationRequested();
                 ValidateSignatureLength(raw);
@@ -241,7 +240,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         private void ValidateSignatureLength(byte[] signature)
         {
             using AsymmetricAlgorithm key = Rsa ? _certificate.GetRSAPublicKey()! : _certificate.GetECDsaPublicKey()!;
-            var expected = ((key.KeySize + 7) / 8) * (Rsa ? 1 : 2);
+            var expected = (key.KeySize + 7) / 8 * (Rsa ? 1 : 2);
             if (signature.Length != expected) throw new CryptographicException("Invalid native signature length.");
         }
         private CredentialSignResult Execute(OperatorCredential expected, CancellationToken ct, Func<CredentialSignResult> operation)
@@ -251,7 +250,10 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 ObjectDisposedException.ThrowIf(_disposed, this); ct.ThrowIfCancellationRequested();
                 if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(expected.Serial, _credential.Serial, StringComparison.OrdinalIgnoreCase))
+                {
                     return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
+                }
+
                 try { var result = operation(); ct.ThrowIfCancellationRequested(); return result; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { return MapFailure(ex, "signing"); }
@@ -286,7 +288,7 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                     DisposeResource(_backend);
                     DisposeResource(_certificate);
                 }
-                finally { _gate.Release(); }
+                finally { _ = _gate.Release(); }
             }
         }
     }
@@ -343,13 +345,13 @@ internal sealed class Pkcs11Token(ISession session, bool protectedPath, Pkcs11In
         var objects = session.FindAllObjects([factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_CERTIFICATE)]);
         return objects.Select(handle =>
         {
-            var attributes = session.GetAttributeValue(handle, new List<CKA> { CKA.CKA_VALUE, CKA.CKA_ID });
+            var attributes = session.GetAttributeValue(handle, [CKA.CKA_VALUE, CKA.CKA_ID]);
             return new Pkcs11Certificate(attributes[0].GetValueAsByteArray(), attributes[1].GetValueAsByteArray());
         }).ToList();
     }
     public void Login(byte[]? pin)
     {
-        try { session.Login(CKU.CKU_USER, pin!); _ownsLogin = true; }
+        try { session.Login(CKU.CKU_USER, pin); _ownsLogin = true; }
         catch (Pkcs11Exception ex) when (ex.RV == CKR.CKR_USER_ALREADY_LOGGED_IN) { }
     }
     public void BindPrivateKey(byte[] certificateId)
@@ -357,12 +359,12 @@ internal sealed class Pkcs11Token(ISession session, bool protectedPath, Pkcs11In
         var keys = session.FindAllObjects([factories.ObjectAttributeFactory.Create(CKA.CKA_CLASS, CKO.CKO_PRIVATE_KEY), factories.ObjectAttributeFactory.Create(CKA.CKA_ID, certificateId)]);
         if (keys.Count != 1) throw new CryptographicException("Selected certificate must bind exactly one private key.");
         _key = keys[0];
-        AlwaysAuthenticate = session.GetAttributeValue(_key, new List<CKA> { CKA.CKA_ALWAYS_AUTHENTICATE })[0].GetValueAsBool();
+        AlwaysAuthenticate = session.GetAttributeValue(_key, [CKA.CKA_ALWAYS_AUTHENTICATE])[0].GetValueAsBool();
     }
     public byte[] Sign(CKM mechanism, byte[] data, byte[]? contextPin)
     {
         using var mech = factories.MechanismFactory.Create(mechanism);
-        return AlwaysAuthenticate ? session.Sign(mech, _key!, contextPin!, data) : session.Sign(mech, _key!, data);
+        return AlwaysAuthenticate ? session.Sign(mech, _key, contextPin, data) : session.Sign(mech, _key, data);
     }
     public void Dispose()
     {

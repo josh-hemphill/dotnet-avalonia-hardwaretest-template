@@ -13,7 +13,7 @@ public sealed class AuthoringCleanupScopeTests : IDisposable
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
-        Directory.CreateDirectory(_root);
+        _ = Directory.CreateDirectory(_root);
         File.Copy(Path.Combine(dir!.FullName, "plans", "opentap", "authoring.json"), Path.Combine(_root, "authoring.json"));
     }
 

@@ -54,16 +54,18 @@ public sealed class AuthoringExternalTuiLauncher
         var start = new ProcessStartInfo { WorkingDirectory = home, UseShellExecute = false };
         if (OperatingSystem.IsLinux())
         {
-            var terminal = LinuxTerminal() ?? throw new AuthoringWorkspaceException("Install xfce4-terminal or xterm first.");
-            start.FileName = terminal.Executable;
-            foreach (var argument in terminal.Arguments) start.ArgumentList.Add(argument);
+            var (Executable, Arguments) = LinuxTerminal() ?? throw new AuthoringWorkspaceException("Install xfce4-terminal or xterm first.");
+            start.FileName = Executable;
+            foreach (var argument in Arguments) start.ArgumentList.Add(argument);
             start.ArgumentList.Add(dotnet);
         }
-        else if (OperatingSystem.IsWindows())
+        else
         {
-            start = WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary);
+            start = OperatingSystem.IsWindows()
+                ? WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary)
+                : throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
         }
-        else throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
+
         if (!OperatingSystem.IsWindows()) AddCliArguments(start, home, plan, requiresInstrumentLibrary);
         using var process = Process.Start(start) ?? throw new IOException("Could not start the external TUI terminal.");
         try

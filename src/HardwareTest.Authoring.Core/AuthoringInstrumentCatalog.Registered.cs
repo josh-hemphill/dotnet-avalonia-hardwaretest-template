@@ -34,7 +34,7 @@ public static partial class AuthoringInstrumentCatalog
             if (!resource.AvailableOperations.Contains(operation, StringComparer.Ordinal))
                 throw new AuthoringWorkspaceException($"{DeviceDriverCatalog.Find(resource.DriverId).DisplayName} does not advertise {operation} for the configured inventory.");
         }
-        catch (Exception error) when (error is ArgumentException or FormatException or global::InstrumentComponents.Drivers.DriverException)
+        catch (Exception error) when (error is ArgumentException or FormatException or InstrumentComponents.Drivers.DriverException)
         { throw new AuthoringWorkspaceException(error.Message); }
     }
 

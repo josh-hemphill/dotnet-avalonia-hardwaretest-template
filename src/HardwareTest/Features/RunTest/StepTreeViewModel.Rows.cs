@@ -138,10 +138,10 @@ public partial class StepTreeViewModel
     public void ResolveSelectedStep(string? preserveStepPath = null)
     {
         var listSteps = StepListItems.Where(i => i.Step is not null).Select(i => i.Step!).ToList();
-        var flat = StepRows.Count > 0 ? StepRows.ToList() : listSteps;
+        var flat = StepRows.Count > 0 ? [.. StepRows] : listSteps;
         if (flat.Count == 0)
         {
-            flat = HierarchyRollup.EnumerateLeaves(_fullHierarchy).ToList();
+            flat = [.. HierarchyRollup.EnumerateLeaves(_fullHierarchy)];
         }
 
         if (!string.IsNullOrWhiteSpace(preserveStepPath))
@@ -406,7 +406,7 @@ public partial class StepTreeViewModel
             || string.Equals(step.Message, "NotSet", StringComparison.OrdinalIgnoreCase)
             || StatusChip.FromStatus(step.Message) == "Pending"
             ? "Pass"
-            : step.Message!;
+            : step.Message;
         return StatusChip.FromStatus(status) == "Pending" ? "Pass" : status;
     }
 

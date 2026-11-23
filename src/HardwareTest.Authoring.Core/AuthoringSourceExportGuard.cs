@@ -12,10 +12,15 @@ public static class AuthoringSourceExportGuard
         var issues = new List<PackPreflightFinding>();
         var workspaceSource = store.LoadWorkspace();
         if (workspaceSource.IsReadOnly || workspaceSource.Error is not null)
+        {
             issues.Add(new("WORKSPACE_SOURCE_READ_ONLY", "Workspace source requires a supported schema or explicit repair before export.", true, store.GetWorkspacePath()));
+        }
         else if (workspaceSource.Document is { } source &&
             !WorkspaceCatalogMatches(source.Manifest, workspace.Manifest))
+        {
             issues.Add(new("WORKSPACE_SOURCE_CONFLICT", "Reconcile authoring.json and workspace source before checking or exporting the catalog.", true, store.GetWorkspacePath()));
+        }
+
         foreach (var id in store.ListDocumentIds())
         {
             var path = workspace.TapPlanPaths.FirstOrDefault(p =>
@@ -29,10 +34,14 @@ public static class AuthoringSourceExportGuard
             }
             var document = result.Document;
             if (document.RequiresCompilation || path is null)
+            {
                 issues.Add(new("SOURCE_COMPILE_REQUIRED", $"Compile saved source '{id}' before checking or exporting its artifacts.", true, store.GetDocumentPath(id)));
+            }
             else if (ProcedureAssetFiles.Changed(document, path) || document.CompiledPlanHash != AuthoringDocumentStore.ComputeHash(path)
                 || document.CompiledSidecarHash != AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)))
+            {
                 issues.Add(new("SOURCE_EXTERNAL_CONFLICT", $"Reconcile external compiled changes for '{id}' before checking or exporting.", true, path));
+            }
         }
         return issues;
     }

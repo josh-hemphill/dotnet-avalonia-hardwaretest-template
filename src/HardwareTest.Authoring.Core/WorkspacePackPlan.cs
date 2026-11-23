@@ -73,7 +73,7 @@ public static class WorkspacePackPlan
         var homeValid = TryResolveHomePath(workspace, homeOverride, out var resolvedHome, out var homeError);
         var homePath = resolvedHome ?? homeError;
         var homePackages = homeValid && Directory.Exists(homePath)
-            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath!))
+            ? OpenTapHomeBootstrapper.ListInstalledPackages(new OpenTapHome(homePath))
                 .Select(package => new OpenTapEnvironmentLine(package.Name, package.Version, "installed in home"))
                 .ToArray()
             : [];
@@ -162,12 +162,15 @@ public static class WorkspacePackPlan
         {
             var resolved = ResolveHomePath(workspace, homeOverride);
             for (var candidate = resolved; !string.IsNullOrEmpty(candidate); candidate = Path.GetDirectoryName(candidate))
+            {
                 if (File.Exists(candidate))
                 {
                     path = null;
                     error = $"Unavailable OpenTAP home setting: {resolved}. '{candidate}' is a file; select a directory path.";
                     return false;
                 }
+            }
+
             path = resolved; error = null; return true;
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)

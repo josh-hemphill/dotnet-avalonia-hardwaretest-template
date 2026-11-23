@@ -113,21 +113,24 @@ public sealed class OperatorResultsKeyboardTests
             Press(Key.Escape, PhysicalKey.Escape);
             await WaitForListFocus();
             Press(Key.Enter, PhysicalKey.Enter);
-            comparison.Release.TrySetResult();
+            _ = comparison.Release.TrySetResult();
             await E2EHarness.WaitUntilAsync(() => vm.ShowDetail && vm.OpenedRun?.RunId == record.RunId,
                 TimeSpan.FromSeconds(5), "Enter during the previous comparison did not reopen the selected run.");
         }
         finally
         {
-            comparison.Release.TrySetResult();
+            _ = comparison.Release.TrySetResult();
             window.Close();
         }
 
-        Task WaitForListFocus() => E2EHarness.WaitUntilAsync(() =>
+        Task WaitForListFocus()
+        {
+            return E2EHarness.WaitUntilAsync(() =>
         {
             var current = window.FocusManager!.GetFocusedElement() as Control;
             return !vm.ShowDetail && (ReferenceEquals(current, list) || current?.GetVisualAncestors().Contains(list) == true);
         }, TimeSpan.FromSeconds(5), "Closing Results did not restore focus within the saved-run list.");
+        }
 
         void Press(Key key, PhysicalKey physical)
         {
@@ -146,7 +149,7 @@ public sealed class OperatorResultsKeyboardTests
         {
             if (Interlocked.Increment(ref _calls) == 2)
             {
-                Started.TrySetResult();
+                _ = Started.TrySetResult();
                 await Release.Task.WaitAsync(cancellationToken);
             }
 

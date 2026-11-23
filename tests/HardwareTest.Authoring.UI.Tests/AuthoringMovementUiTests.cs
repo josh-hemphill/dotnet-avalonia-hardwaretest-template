@@ -11,7 +11,7 @@ public sealed class AuthoringMovementUiTests
     public async Task Directional_controls_explain_boundaries_dependencies_and_safe_moves()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         vm.CreateDemoProgram("movement-help");
         var draft = AuthoringRecipeCatalog.Apply(vm.SelectedProgram!, AuthoringRecipeIds.Acquire);
@@ -51,7 +51,7 @@ public sealed class AuthoringMovementUiTests
     public async Task Rejected_drop_explains_cross_group_scope_and_preserves_plan()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         var metric = AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure).First();
         var first = new MetricNode(metric);
@@ -71,7 +71,7 @@ public sealed class AuthoringMovementUiTests
     public async Task A_later_invalid_drop_cancels_an_earlier_valid_drop_without_overwriting_feedback()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         var metric = AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure).First();
         var first = new MetricNode(metric);
@@ -83,7 +83,7 @@ public sealed class AuthoringMovementUiTests
         Func<Func<ProgramDraft>, Task<ProgramDraft>> evaluate = work => Task.Run(async () =>
         {
             var result = work();
-            computed.TrySetResult();
+            _ = computed.TrySetResult();
             await release.Task;
             return result;
         });
@@ -95,20 +95,20 @@ public sealed class AuthoringMovementUiTests
             await computed.Task.WaitAsync(TimeSpan.FromSeconds(15));
             vm.ReportSequenceDropFailure("Drop on an item, not the phase heading.");
             var rejection = vm.Error;
-            release.TrySetResult();
+            _ = release.TrySetResult();
             await pending.WaitAsync(TimeSpan.FromSeconds(15));
             Assert.Equal(rejection, vm.Error);
             Assert.Equal("Drop not applied.", vm.Status);
             Assert.True(before.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!)));
         }
-        finally { release.TrySetResult(); }
+        finally { _ = release.TrySetResult(); }
     }
 
     [AvaloniaFact]
     public async Task Drop_publication_uses_configured_dispatch_and_clears_only_its_stale_progress()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         var metric = AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure).First();
         var first = new MetricNode(metric);
@@ -141,7 +141,7 @@ public sealed class AuthoringMovementUiTests
     public async Task Movement_checks_recover_when_reconfigured_after_dispatch_rejection()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         vm.SelectSequence(vm.SequenceItems.ToList().FindIndex(row => row.IsSelectable));
         await vm.WaitForMovementAvailabilityAsync();
@@ -162,7 +162,7 @@ public sealed class AuthoringMovementUiTests
     public async Task Restarting_movement_owner_does_not_revive_an_old_drop()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace(); fixture.NavigateTask(0);
         var vm = fixture.ViewModel;
         var metric = AuthoringRecipeCatalog.EnumerateMetrics(vm.SelectedProgram!.Measure).First();
         var first = new MetricNode(metric);
@@ -174,7 +174,7 @@ public sealed class AuthoringMovementUiTests
         Func<Func<ProgramDraft>, Task<ProgramDraft>> evaluate = work => Task.Run(async () =>
         {
             var result = work();
-            computed.TrySetResult();
+            _ = computed.TrySetResult();
             await release.Task;
             return result;
         });
@@ -187,12 +187,12 @@ public sealed class AuthoringMovementUiTests
             vm.StopMovementAvailability();
             vm.ConfigureMovementAvailability(action => Avalonia.Threading.Dispatcher.UIThread.Post(action), () => true);
             var status = vm.Status;
-            release.TrySetResult();
+            _ = release.TrySetResult();
             await pending.WaitAsync(TimeSpan.FromSeconds(15));
             Assert.Equal(status, vm.Status);
             Assert.True(before.ContentEquals(AuthoringDocumentSnapshot.Capture(vm.SelectedProgram!)));
         }
-        finally { release.TrySetResult(); }
+        finally { _ = release.TrySetResult(); }
     }
 
 }

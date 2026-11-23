@@ -10,7 +10,7 @@ public static partial class AuthoringBuildService
         // Walk already resolves and validates this directory and rejects child directory
         // links. Only a file link needs another complete physical target resolution.
         return new FileInfo(path).LinkTarget is null
-            ? Path.Combine(resolvedDirectory, Path.GetFileName(path)) : ResolvedPath(path, false);
+            ? Path.Combine(resolvedDirectory, Path.GetFileName(path)) : ResolvedPath(path);
     }
 
     private static (string Hash, byte[] Bytes) ReadCapturedFile(string path, bool materialize)

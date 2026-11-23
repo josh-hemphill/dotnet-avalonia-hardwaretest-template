@@ -13,7 +13,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     [InlineData(2)]
     public void Welcome_creation_reviews_packages_and_files_then_opens_editable_standard_workspace(int template)
     {
-        using var fixture = new AuthoringUiFixture(); fixture.Show();
+        using var fixture = new AuthoringUiFixture(); _ = fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "created");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace from welcome"));
         var dialog = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -42,7 +42,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         {
             Assert.Equal("voltage", fixture.ViewModel.SelectedProgram!.PlanId);
             if (template == 1) Assert.Empty(fixture.ViewModel.SelectedProgram.Instruments);
-            else Assert.Single(fixture.ViewModel.SelectedProgram.Instruments);
+            else _ = Assert.Single(fixture.ViewModel.SelectedProgram.Instruments);
             fixture.ViewModel.DisplayName = "Edited"; Assert.True(fixture.ViewModel.SaveAll().Succeeded);
             fixture.ViewModel.Open(root); fixture.ViewModel.SelectProgram("voltage");
             Assert.Equal("Edited", fixture.ViewModel.DisplayName);
@@ -52,7 +52,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     [AvaloniaFact]
     public void Optional_continue_uses_existing_plan_initializer_and_cancel_does_not_publish()
     {
-        using var fixture = new AuthoringUiFixture(); fixture.Show();
+        using var fixture = new AuthoringUiFixture(); _ = fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "created");
         OpenCommand(fixture);
         var dialog = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -74,7 +74,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     [AvaloniaFact]
     public async Task Dirty_current_workspace_cancel_preserves_current_session_and_creates_nothing()
     {
-        using var fixture = new AuthoringUiFixture(rememberWorkspace: true); fixture.Show(); fixture.OpenRememberedWorkspace();
+        using var fixture = new AuthoringUiFixture(rememberWorkspace: true); _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.SelectProgram("sample"); fixture.ViewModel.DisplayName = "Unsaved";
         var workspace = fixture.ViewModel.Workspace; var session = fixture.ViewModel.SelectedDocument;
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "cancelled");
@@ -86,7 +86,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     [AvaloniaFact]
     public void Changed_review_and_conflict_keep_form_open_and_preserve_bytes()
     {
-        using var fixture = new AuthoringUiFixture(); fixture.Show();
+        using var fixture = new AuthoringUiFixture(); _ = fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "created");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace from welcome"));
         var dialog = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -95,7 +95,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Set(fixture, dialog, "Package name", "Changed"); AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", dialog));
         Assert.Contains("Review the updated", fixture.Control<TextBlock>("Workspace creation error", dialog).Text); Assert.False(Directory.Exists(root));
         AuthoringUiFixture.Click(fixture.Control<Button>("Review workspace creation", dialog));
-        Directory.CreateDirectory(root); var conflict = Path.Combine(root, "authoring.json"); File.WriteAllText(conflict, "keep");
+        _ = Directory.CreateDirectory(root); var conflict = Path.Combine(root, "authoring.json"); File.WriteAllText(conflict, "keep");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace", dialog));
         Assert.Same(dialog, Assert.Single(fixture.Window.OwnedWindows)); Assert.False(fixture.ViewModel.HasWorkspace); Assert.Equal("keep", File.ReadAllText(conflict));
     }
@@ -108,7 +108,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     public void Closed_creation_form_ignores_late_real_dirty_workspace_choice(bool windowClose, string choice)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(realInteraction: true); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(realInteraction: true); fixture.OpenRememberedWorkspace();
         fixture.ViewModel.SelectProgram("sample"); fixture.ViewModel.DisplayName = "Retain unsaved creation draft";
         var workspace = fixture.ViewModel.Workspace; var session = fixture.ViewModel.SelectedDocument;
         var program = fixture.ViewModel.SelectedProgram;
@@ -124,7 +124,11 @@ public sealed class AuthoringWorkspaceCreationUiTests
         var prompt = Assert.Single(fixture.Window.OwnedWindows, window => window != creation);
         Assert.True(prompt.IsVisible); Assert.True(creation.IsVisible); Assert.False(Directory.Exists(root));
         if (windowClose) { creation.Close(); AuthoringUiFixture.Drain(); }
-        else AuthoringUiFixture.Click(fixture.Control<Button>("Cancel workspace creation", creation));
+        else
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Cancel workspace creation", creation));
+        }
+
         Assert.False(creation.IsVisible); Assert.True(prompt.IsVisible);
         AuthoringUiFixture.Click(Assert.Single(prompt.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, choice)));
         Assert.False(Directory.Exists(root)); Assert.Empty(fixture.Window.OwnedWindows);
@@ -140,7 +144,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     [AvaloniaFact]
     public void Hardware_scaffold_manifest_supports_explicit_demo_selection_creation_save_and_reopen()
     {
-        using var fixture = new AuthoringUiFixture(); fixture.Show();
+        using var fixture = new AuthoringUiFixture(); _ = fixture.Show();
         var root = Path.Combine(Path.GetDirectoryName(fixture.WorkspaceRoot)!, "physical-product");
         AuthoringUiFixture.Click(fixture.Control<Button>("Create workspace from welcome"));
         var creation = Assert.IsType<WorkspaceCreationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -186,11 +190,11 @@ public sealed class AuthoringWorkspaceCreationUiTests
     public async Task Real_creation_Save_all_first_compilation_completes_requested_workspace_creation(string origin)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(realInteraction: true); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(realInteraction: true); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         if (origin != "compiled")
         {
-            vm.InitializePlan(new("first-compiled") { Instruments = [] });
+            _ = vm.InitializePlan(new("first-compiled") { Instruments = [] });
             if (origin == "source-only")
             {
                 var source = AuthoringDocumentDto.FromDraft(vm.SelectedProgram!);
@@ -235,7 +239,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
     public async Task Late_creation_Save_all_choice_cannot_mutate_replaced_owner_session_or_selection(string change)
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         await vm.StopRecoveryAsync();
         vm.DisplayName = "original unsaved creation draft";
@@ -247,7 +251,7 @@ public sealed class AuthoringWorkspaceCreationUiTests
         Assert.False(creating.IsCompleted); Assert.Equal(1, fixture.Interaction.Calls);
         if (change == "context") fixture.Window.DataContext = new object();
         if (change == "session") vm.CommitOpen(prepared, discardUnsavedChanges: true);
-        if (change == "selection") vm.InitializePlan(new("other-selected") { Instruments = [] });
+        if (change == "selection") _ = vm.InitializePlan(new("other-selected") { Instruments = [] });
         if (change == "hide") fixture.Window.Hide();
         await vm.StopRecoveryAsync(); AuthoringUiFixture.Drain();
         var document = vm.SelectedDocument;

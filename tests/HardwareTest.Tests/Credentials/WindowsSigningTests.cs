@@ -24,12 +24,12 @@ public sealed class WindowsSigningTests
         using var session = prepared.Session;
         Assert.NotNull(session); Assert.True(session.CanSignPdf); Assert.Equal(0, fixture.Native.SignCount);
         Assert.Equal(WindowsOperatorCredentialBroker.AcquisitionFlags, fixture.Native.Flags);
-        Assert.Equal((nint)1234, fixture.Native.Owner); Assert.Equal(fixture.Source.LastContext, fixture.Native.Context);
+        Assert.Equal(1234, fixture.Native.Owner); Assert.Equal(fixture.Source.LastContext, fixture.Native.Context);
         var pdfResult = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
         Assert.True(pdfResult.Succeeded, pdfResult.Error); Assert.Equal(1, fixture.Native.SignCount);
         Assert.True(ITextPadesSignature.TryVerify(pdfResult.SignedPdf!, fixture.Credential.Thumbprint, out var error), error);
         session.Dispose(); Assert.Equal(1, fixture.Native.ReleaseCount); Assert.Equal(1, fixture.Native.UninitializeCount);
-        Assert.Single(fixture.Native.ThreadIds.Distinct());
+        _ = Assert.Single(fixture.Native.ThreadIds.Distinct());
     }
     [Fact]
     public async Task Windows_prepared_pdf_issuance_uses_current_evidence_and_exact_crypto_validation()
@@ -85,7 +85,7 @@ public sealed class WindowsSigningTests
         using var fixture = new Fixture(); fixture.Native.AcquireFailure = code;
         var result = await fixture.Broker.PrepareSigningAsync(fixture.Credential);
         Assert.Equal(kind, result.Failure!.FailureKind); Assert.False(result.Failure.PresenceFallbackAllowed);
-        Assert.False(result.Failure.PinRequired); Assert.Equal((ulong)code, result.Failure.NativeCode);
+        Assert.False(result.Failure.PinRequired); Assert.Equal(code, result.Failure.NativeCode);
         Assert.DoesNotContain(fixture.Credential.Thumbprint!, result.Failure.Error!);
     }
     [Theory]
@@ -137,7 +137,7 @@ public sealed class WindowsSigningTests
         Assert.True(entered.Wait(TimeSpan.FromSeconds(5))); ct.Cancel();
         var presence = fixture.Broker.WaitForPresenceAsync(TimeSpan.FromSeconds(1));
         Assert.False(pending.IsCompleted); Assert.False(presence.IsCompleted); Assert.Equal(0, fixture.Native.ReleaseCount);
-        unblock.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        unblock.Set(); _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
         Assert.Equal(1, fixture.Native.ReleaseCount); Assert.Equal(0, fixture.Native.SignCount); Assert.True((await presence).Succeeded);
     }
     [Fact]
@@ -150,7 +150,7 @@ public sealed class WindowsSigningTests
         Assert.True(entered.Wait(TimeSpan.FromSeconds(5))); ct.Cancel();
         var disposing = Task.Run(session.Dispose); var presence = fixture.Broker.WaitForPresenceAsync(TimeSpan.FromSeconds(1));
         Assert.False(signing.IsCompleted); Assert.False(presence.IsCompleted); Assert.Equal(0, fixture.Native.ReleaseCount);
-        unblock.Set(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => signing); await disposing;
+        unblock.Set(); _ = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => signing); await disposing;
         Assert.Equal(1, fixture.Native.ReleaseCount); Assert.True((await presence).Succeeded);
     }
     [Fact]

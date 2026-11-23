@@ -26,7 +26,10 @@ public static class OfflineBenchInstaller
             throw new InvalidDataException("Offline installation requires two new directories. Existing applications or data are never overwritten or reused.");
         if (Overlap(destination, freshDataDirectory) || Overlap(destination, root) || Overlap(freshDataDirectory, root)
             || Overlap(destination, sourceOperatorDirectory) || Overlap(freshDataDirectory, sourceOperatorDirectory))
+        {
             throw new InvalidDataException("Fresh application/data destinations cannot overlap each other, the bundle or the running operator runtime.");
+        }
+
         var snapshot = OfflineBenchBundle.Capture(root, OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture, cancellationToken);
         var runtime = OfflineBenchRuntime.Capture(sourceOperatorDirectory, snapshot, cancellationToken, out var runtimeModes);
         var id = Guid.NewGuid().ToString("N");
@@ -48,10 +51,10 @@ public static class OfflineBenchInstaller
         };
         try
         {
-            Directory.CreateDirectory(appParent); Directory.CreateDirectory(dataParent);
+            _ = Directory.CreateDirectory(appParent); _ = Directory.CreateDirectory(dataParent);
             OfflineBenchPaths.RejectLinks(appParent); OfflineBenchPaths.RejectLinks(dataParent);
             if (Exists(appStage) || Exists(dataStage)) throw new IOException("Offline staging identity already exists.");
-            Directory.CreateDirectory(appStage); Directory.CreateDirectory(dataStage);
+            _ = Directory.CreateDirectory(appStage); _ = Directory.CreateDirectory(dataStage);
             var installationPath = OfflineBenchPaths.Under(appStage, OfflineBenchStartup.InstallationFileName);
             File.WriteAllBytes(installationPath, JsonSerializer.SerializeToUtf8Bytes(installation, OfflineBenchJsonContext.Default.OfflineBenchInstallation));
             var installed = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
@@ -65,7 +68,7 @@ public static class OfflineBenchInstaller
                     return; // Identical declared bytes do not overwrite existing payload.
                 }
                 if (File.Exists(target)) throw new InvalidDataException("Offline package attempts to replace installation ownership.");
-                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                _ = Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                 using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None)) output.Write(bytes);
                 installed.Add(path, bytes);
             }
@@ -76,13 +79,17 @@ public static class OfflineBenchInstaller
                     File.SetUnixFileMode(OfflineBenchPaths.Under(appStage, file.Key), runtimeModes[file.Key]);
             }
             foreach (var archive in snapshot.Archives.Values.OrderBy(archive => archive.Name, StringComparer.Ordinal))
+            {
                 foreach (var file in archive.Payload.OrderBy(file => file.Key, StringComparer.Ordinal))
                 {
                     var alreadyPresent = installed.ContainsKey(file.Key);
                     Put(file.Key, file.Value);
                     if (!OperatingSystem.IsWindows())
                     {
-                        if (!alreadyPresent) File.SetUnixFileMode(OfflineBenchPaths.Under(appStage, file.Key), OfflineBenchRuntime.ArchiveMode(archive, file.Key));
+                        if (!alreadyPresent)
+                        {
+                            File.SetUnixFileMode(OfflineBenchPaths.Under(appStage, file.Key), OfflineBenchRuntime.ArchiveMode(archive, file.Key));
+                        }
                         else if (archive.SetsTapExecutable && file.Key == "tap")
                         {
                             var current = File.GetUnixFileMode(OfflineBenchPaths.Under(appStage, file.Key));
@@ -90,13 +97,15 @@ public static class OfflineBenchInstaller
                         }
                     }
                 }
+            }
+
             var programDirectory = OfflineBenchBundle.ProgramDirectory(snapshot.Manifest.PlanId) + "/";
             foreach (var name in new[] { snapshot.Manifest.PlanId + ".TapPlan", snapshot.Manifest.PlanId + ".program.json", BenchProgramHandoff.ReceiptFileName })
                 Put(programDirectory + name, snapshot.Files[programDirectory + name]);
             installation = installation with
             {
-                RuntimeFiles = installed.OrderBy(file => file.Key, StringComparer.Ordinal).Select(file => new OfflineBenchFile
-                { Path = file.Key, Length = file.Value.LongLength, Sha256 = OfflineBenchPaths.HashBytes(file.Value) }).ToList(),
+                RuntimeFiles = [.. installed.OrderBy(file => file.Key, StringComparer.Ordinal).Select(file => new OfflineBenchFile
+                { Path = file.Key, Length = file.Value.LongLength, Sha256 = OfflineBenchPaths.HashBytes(file.Value) })],
             };
             File.WriteAllBytes(OfflineBenchPaths.Under(appStage, OfflineBenchStartup.LockFileName), snapshot.ManifestBytes);
             var installationBytes = JsonSerializer.SerializeToUtf8Bytes(installation, OfflineBenchJsonContext.Default.OfflineBenchInstallation);
@@ -138,19 +147,29 @@ public static class OfflineBenchInstaller
         var tree = OfflineBenchPaths.Tree(bundleDirectory);
         if (tree.Count != snapshot.Files.Count + 1
             || !OfflineBenchPaths.Hash(OfflineBenchPaths.Under(bundleDirectory, OfflineBenchBundle.ManifestFileName)).Equals(snapshot.LockSha256, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidDataException("Offline bundle changed before publication. Check the original complete bundle again.");
+        }
+
         foreach (var (directory, files) in new[] { (bundleDirectory, snapshot.Files), (runtimeDirectory, runtime) })
+        {
             foreach (var file in files)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var path = OfflineBenchPaths.Under(directory, file.Key);
                 if (!File.Exists(path) || new FileInfo(path).Length != file.Value.LongLength
                     || OfflineBenchPaths.Hash(path) != OfflineBenchPaths.HashBytes(file.Value))
+                {
                     throw new InvalidDataException("Offline bundle or source operator changed before publication. Nothing was activated.");
+                }
+
                 if (!OperatingSystem.IsWindows() && directory == runtimeDirectory
                     && (File.GetUnixFileMode(path) & (UnixFileMode)0x1FF) != runtimeModes[file.Key])
+                {
                     throw new InvalidDataException("Source operator permissions changed before publication. Nothing was activated.");
+                }
             }
+        }
     }
 
     private static void DeleteOwnedAppStage(string directory, string id)

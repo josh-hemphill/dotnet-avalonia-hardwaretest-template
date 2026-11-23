@@ -4,23 +4,16 @@ using HardwareTest.Core.Hardware;
 namespace HardwareTest.Tests.Fixtures;
 
 /// Records VISA call timing so gate concurrency can be asserted.
-public sealed class SpyVisaSession : IVisaSession
+public sealed class SpyVisaSession(string resourceName = "MOCK::SPY", TimeSpan? writeDelay = null) : IVisaSession
 {
-    private readonly ConcurrentBag<string> _log = new();
+    private readonly ConcurrentBag<string> _log = [];
     private int _active;
-    private int _maxActive;
     private readonly object _sync = new();
 
-    public SpyVisaSession(string resourceName = "MOCK::SPY", TimeSpan? writeDelay = null)
-    {
-        ResourceName = resourceName;
-        WriteDelay = writeDelay ?? TimeSpan.FromMilliseconds(40);
-    }
-
-    public string ResourceName { get; }
+    public string ResourceName { get; } = resourceName;
     public int IoTimeoutMilliseconds { get; set; } = IviVisaSessionFactory.DefaultIoTimeoutMilliseconds;
-    public TimeSpan WriteDelay { get; }
-    public int MaxActive => _maxActive;
+    public TimeSpan WriteDelay { get; } = writeDelay ?? TimeSpan.FromMilliseconds(40);
+    public int MaxActive { get; private set; }
     public IReadOnlyList<string> Log => _log.ToArray();
 
     public async Task WriteAsync(string command, CancellationToken cancellationToken = default)
@@ -59,9 +52,9 @@ public sealed class SpyVisaSession : IVisaSession
         lock (_sync)
         {
             _active++;
-            if (_active > _maxActive)
+            if (_active > MaxActive)
             {
-                _maxActive = _active;
+                MaxActive = _active;
             }
         }
     }

@@ -9,8 +9,10 @@ public sealed class AuthoringAppSettingsTests
     public void Rejected_repository_credentials_are_never_saved_or_included_in_manual_download_requests()
     {
         var store = NewStore();
-        var vm = new AuthoringWorkspaceViewModel(preferences: store);
-        vm.PackageRepositoryUrl = "https://packages.example.test/feed";
+        var vm = new AuthoringWorkspaceViewModel(preferences: store)
+        {
+            PackageRepositoryUrl = "https://packages.example.test/feed"
+        };
         const string rejected = "https://user:private-password@packages.example.test/feed?token=private-token";
         vm.PackageRepositoryUrl = rejected;
         Assert.Equal(rejected, vm.PackageRepositoryUrl);
@@ -100,8 +102,10 @@ public sealed class AuthoringAppSettingsTests
     public void Bootstrap_uses_override_only_when_home_directory_is_unset()
     {
         var store = NewStore();
-        var vm = new AuthoringWorkspaceViewModel(preferences: store);
-        vm.OpenTapHomeOverride = "/opt/authoring-home";
+        var vm = new AuthoringWorkspaceViewModel(preferences: store)
+        {
+            OpenTapHomeOverride = "/opt/authoring-home"
+        };
         var fromPrefs = vm.ResolveBootstrapOptions(new BootstrapOptions { Offline = true });
         Assert.Equal("/opt/authoring-home", fromPrefs.HomeDirectory);
         Assert.True(fromPrefs.Offline);
@@ -121,7 +125,7 @@ public sealed class AuthoringAppSettingsTests
         var store = NewStore();
         var vm = new AuthoringWorkspaceViewModel(preferences: store);
         vm.Open(NewWorkspace());
-        vm.InitializePlan(new("raw-pref") { Instruments = [] });
+        _ = vm.InitializePlan(new("raw-pref") { Instruments = [] });
         vm.ReplaceSelected(vm.SelectedProgram! with
         {
             Measure = [new RawStepNode("HangForeverStep", "<TestStep />")],
@@ -283,9 +287,11 @@ public sealed class AuthoringAppSettingsTests
         var path = AuthoringPreferencesStore.DefaultFilePath();
         var existed = File.Exists(path);
         var stamp = existed ? File.GetLastWriteTimeUtc(path) : DateTime.MinValue;
-        var vm = new AuthoringWorkspaceViewModel();
-        vm.ThemePreference = "Dark";
-        vm.ShowRawStepXml = false;
+        _ = new AuthoringWorkspaceViewModel
+        {
+            ThemePreference = "Dark",
+            ShowRawStepXml = false
+        };
         if (existed)
         {
             Assert.Equal(stamp, File.GetLastWriteTimeUtc(path));
@@ -337,7 +343,7 @@ public sealed class AuthoringAppSettingsTests
     private static string NewWorkspace()
     {
         var dest = Path.Combine(Path.GetTempPath(), "ht-settings-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dest);
+        _ = Directory.CreateDirectory(dest);
         File.Copy(
             Path.Combine(FindRepoRoot(), "plans", "opentap", "authoring.json"),
             Path.Combine(dest, "authoring.json"));
@@ -347,7 +353,7 @@ public sealed class AuthoringAppSettingsTests
     private static string NewTempDir()
     {
         var dir = Path.Combine(Path.GetTempPath(), "ht-settings-prefs-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         return dir;
     }
 

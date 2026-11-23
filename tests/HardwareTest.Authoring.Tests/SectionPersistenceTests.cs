@@ -37,7 +37,7 @@ public sealed class SectionPersistenceTests : IDisposable
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
         var store = new AuthoringDocumentStore(_root);
         var path = store.GetDocumentPath(draft.PlanId);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllBytes(path, bytes);
         var loaded = store.Load(draft.PlanId);
         Assert.True(loaded.IsSuccess, loaded.Error);
@@ -53,16 +53,16 @@ public sealed class SectionPersistenceTests : IDisposable
     public void FutureSourceAndWorkspaceVersionsRemainReadOnly()
     {
         var store = new AuthoringDocumentStore(_root);
-        Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sections"))!);
+        _ = Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sections"))!);
         var sourceBytes = System.Text.Encoding.UTF8.GetBytes($"{{\"schemaVersion\":{AuthoringDocumentDto.CurrentSchemaVersion + 1},\"future\":true}}");
         File.WriteAllBytes(store.GetDocumentPath("sections"), sourceBytes);
         Assert.True(store.Load("sections").IsReadOnly);
-        Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft(), 1)));
+        _ = Assert.Throws<InvalidOperationException>(() => store.Save(AuthoringDocumentDto.FromDraft(Draft(), 1)));
         Assert.Equal(sourceBytes, File.ReadAllBytes(store.GetDocumentPath("sections")));
         var workspaceBytes = System.Text.Encoding.UTF8.GetBytes("{\"schemaVersion\":2,\"future\":true}");
         File.WriteAllBytes(store.GetWorkspacePath(), workspaceBytes);
         Assert.True(store.LoadWorkspace().IsReadOnly);
-        Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest()));
+        _ = Assert.Throws<InvalidOperationException>(() => store.SaveWorkspace(new AuthoringManifest()));
         Assert.Equal(workspaceBytes, File.ReadAllBytes(store.GetWorkspacePath()));
     }
 
@@ -113,9 +113,9 @@ public sealed class SectionPersistenceTests : IDisposable
         var compiler = new PlanCompiler();
         compiler.Save(draft, path);
         var section = Assert.IsType<SectionNode>(Assert.Single(compiler.Load(path).Measure));
-        Assert.IsType<RawStepNode>(section.Children[0]);
-        Assert.IsType<RawStepNode>(section.Children[1]);
-        Assert.IsType<RawStepNode>(Assert.Single(Assert.IsType<RepeatNode>(section.Children[2]).Children));
+        _ = Assert.IsType<RawStepNode>(section.Children[0]);
+        _ = Assert.IsType<RawStepNode>(section.Children[1]);
+        _ = Assert.IsType<RawStepNode>(Assert.Single(Assert.IsType<RepeatNode>(section.Children[2]).Children));
     }
 
     private RawStepNode Raw(ITestStep step)

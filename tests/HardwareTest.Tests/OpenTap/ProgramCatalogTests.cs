@@ -31,7 +31,7 @@ public sealed class ProgramCatalogTests
     public void Enumerate_reads_sidecar_metadata_for_disk_plans()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-catalog-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             var planPath = Path.Combine(dir, "custom-suite.TapPlan");
@@ -65,7 +65,7 @@ public sealed class ProgramCatalogTests
     public void Enumerate_required_fields_map_known_ids_and_ignore_extras()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-catalog-fields-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             File.WriteAllText(Path.Combine(dir, "fields.TapPlan"), "<TestPlan />");
@@ -93,7 +93,7 @@ public sealed class ProgramCatalogTests
     public void Enumerate_station_health_sidecar_defaults_require_serial_false()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-catalog-health-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             File.WriteAllText(Path.Combine(dir, "bench-cal.TapPlan"), "<TestPlan />");
@@ -122,7 +122,7 @@ public sealed class ProgramCatalogTests
     public void SelfCheck_warns_on_missing_and_invalid_sidecars()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-selfcheck-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             File.WriteAllText(Path.Combine(dir, "custom-suite.TapPlan"), "<TestPlan />");
@@ -146,7 +146,7 @@ public sealed class ProgramCatalogTests
     public void SelfCheck_accepts_valid_sidecar()
     {
         var dir = Path.Combine(Path.GetTempPath(), "program-selfcheck-ok-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(dir);
+        _ = Directory.CreateDirectory(dir);
         try
         {
             File.WriteAllText(Path.Combine(dir, "custom-suite.TapPlan"), "<TestPlan />");

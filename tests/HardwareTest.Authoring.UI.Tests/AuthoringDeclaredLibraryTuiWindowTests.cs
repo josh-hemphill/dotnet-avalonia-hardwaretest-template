@@ -25,7 +25,7 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
                 writer.Write("<Package Name=\"Unrelated\" Version=\"1.0.0\"><Files><File Path=\"marker.txt\"/></Files></Package>");
             using (var writer = new StreamWriter(zip.CreateEntry("marker.txt").Open())) writer.Write("complete unrelated payload");
         }
-        new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
+        _ = new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = archive });
         Assert.Contains(OpenTapHomeBootstrapper.ListInstalledPackages(home), package => package.Name == "Unrelated");
         Assert.False(StandaloneVisaReadiness.RequiresStandaloneReadiness(home));
         File.WriteAllText(Path.Combine(home.Root, "FixtureTui.dll"), "TUI prerequisite presence fixture");
@@ -57,7 +57,7 @@ public sealed class AuthoringDeclaredLibraryTuiWindowTests
         Assert.Equal(before.Keys.Order(StringComparer.Ordinal), after.Keys.Order(StringComparer.Ordinal));
         foreach (var (path, bytes) in before) Assert.Equal(bytes, after[path]);
         palette.Close();
-        workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
+        _ = workspace.Manifest.Dependencies.RemoveAll(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
         AuthoringWorkspaceLoader.SaveManifest(workspace.Root, workspace.Manifest);
         vm.Open(workspace.Root); window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 3; AuthoringUiFixture.Drain();
         await vm.WaitForEnvironmentInspectionAsync();

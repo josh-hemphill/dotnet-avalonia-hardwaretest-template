@@ -25,7 +25,7 @@ public sealed class PlanInitializationEnvironmentRefreshTests
         var mock = AuthoringInstrumentCatalog.All.Single(item => item.DisplayName == "Mock DMM");
         vm.EnvironmentInspector = (_, _) =>
         {
-            entered.TrySetResult();
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Environment test did not release worker.");
             return AuthoringEnvironmentInspection.Empty("ready") with { Choices = [adapter, mock] };
         };

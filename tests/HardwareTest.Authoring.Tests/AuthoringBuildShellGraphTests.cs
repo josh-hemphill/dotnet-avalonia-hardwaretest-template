@@ -58,9 +58,13 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(fixture, "src", project, "packages.lock.json")));
             foreach (var framework in document.RootElement.GetProperty("dependencies").EnumerateObject())
+            {
                 foreach (var package in framework.Value.EnumerateObject())
+                {
                     if (package.Value.TryGetProperty("resolved", out var version))
-                        identities.Add(package.Name.ToLowerInvariant() + "/" + version.GetString()!.ToLowerInvariant());
+                        _ = identities.Add(package.Name.ToLowerInvariant() + "/" + version.GetString()!.ToLowerInvariant());
+                }
+            }
         }
         if (changed == "package")
         {
@@ -101,7 +105,7 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
             "microsoft.windowsdesktop.app.runtime.win-x64", "Microsoft.WindowsDesktop.App.Ref" };
         foreach (var family in families.Append("unrelated.package"))
         {
-            var directory = Path.Combine(source, family, "10.0.0"); Directory.CreateDirectory(directory);
+            var directory = Path.Combine(source, family, "10.0.0"); _ = Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "payload.dll"), family);
         }
         CopyInferredFrameworkPackages(source, target);
@@ -113,9 +117,13 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
     private static void CopyInferredFrameworkPackages(string source, string target)
     {
         foreach (var directory in Directory.GetDirectories(source))
+        {
             if (new[] { "microsoft.netcore.app.", "microsoft.aspnetcore.app.", "microsoft.windowsdesktop.app." }
                 .Any(family => Path.GetFileName(directory).StartsWith(family, StringComparison.OrdinalIgnoreCase)))
+            {
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
+            }
+        }
     }
 
     [Theory]
@@ -126,7 +134,7 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
     {
         var fixture = AuthoringBuildSnapshotTests.Temp();
         var projectDirectory = Path.Combine(fixture, "src");
-        Directory.CreateDirectory(projectDirectory);
+        _ = Directory.CreateDirectory(projectDirectory);
         var project = Path.Combine(projectDirectory, "Shell.csproj");
         File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
         File.WriteAllText(Path.Combine(fixture, "Directory.Build.props"),
@@ -154,17 +162,19 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
         return directory;
     }
 
-    private static string[] ObjIdentities(params string[] projects) => projects
+    private static string[] ObjIdentities(params string[] projects) => [.. projects
         .SelectMany(p => Directory.Exists(Path.Combine(p, "obj"))
             ? Directory.GetFiles(Path.Combine(p, "obj"), "*", SearchOption.AllDirectories) : [])
-        .Order(StringComparer.Ordinal).Select(p => p + "=" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(p)))).ToArray();
+        .Order(StringComparer.Ordinal).Select(p => p + "=" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(p))))];
 
     private static void CopyDirectory(string source, string target, bool excludeBuild = false)
     {
-        Directory.CreateDirectory(target);
+        _ = Directory.CreateDirectory(target);
         foreach (var file in Directory.GetFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
         foreach (var directory in Directory.GetDirectories(source))
+        {
             if (!excludeBuild || Path.GetFileName(directory) is not ("bin" or "obj" or ".git"))
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)), excludeBuild);
+        }
     }
 }

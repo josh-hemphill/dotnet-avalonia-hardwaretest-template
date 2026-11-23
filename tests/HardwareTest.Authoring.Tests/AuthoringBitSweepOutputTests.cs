@@ -39,8 +39,8 @@ public sealed class AuthoringBitSweepOutputTests
             Assert.Equal(enabled ? 3 : 0, results.Scalars.Count);
             Assert.Contains("sweep", results.Samples);
             var session = new AuthoringDocumentSession(draft);
-            session.ApplyEdit("add sample", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
-            session.Undo();
+            _ = session.ApplyEdit("add sample", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
+            _ = session.Undo();
             Assert.True(session.CanRedo);
             var before = session.Snapshot;
             var revision = session.Revision;
@@ -48,29 +48,33 @@ public sealed class AuthoringBitSweepOutputTests
             {
                 Assert.Contains("runtime output", Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("series", current =>
                     AuthoringSequenceOperations.Insert(current, AuthoringRecipeIds.SeriesCompliance, Row(current, current.Measure[0].NodeId), false))).Message, StringComparison.Ordinal);
-                if (form != "raw") Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
+                if (form != "raw")
+                {
+                    _ = Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
                     AuthoringSequenceOperations.Duplicate(current, Row(current, current.Measure[0].NodeId))));
+                }
+
                 Assert.True(before.ContentEquals(session.Snapshot));
                 Assert.Equal(revision, session.Revision);
                 Assert.True(session.CanRedo);
             }
             else
             {
-                if (form == "raw") session.ApplyEdit("add sample", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
+                if (form == "raw") _ = session.ApplyEdit("add sample", current => AuthoringRecipeCatalog.Apply(current, AuthoringRecipeIds.Acquire));
                 var sampleId = session.Draft.Measure[form == "raw" ? 1 : 0].NodeId;
-                session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, sampleId)));
+                _ = session.ApplyEdit("duplicate", current => AuthoringSequenceOperations.Duplicate(current, Row(current, sampleId)));
                 var clone = Execute(session.Draft, directory, false);
                 Assert.Contains(form == "raw" ? "VDC_2" : "sweep_2", clone.Samples);
                 Assert.Empty(clone.Scalars);
-                session.Undo();
-                if (form == "raw") session.Undo();
+                _ = session.Undo();
+                if (form == "raw") _ = session.Undo();
                 Assert.True(before.ContentEquals(session.Snapshot));
-                session.ApplyEdit("series", current => AuthoringSequenceOperations.Insert(current, AuthoringRecipeIds.SeriesCompliance,
+                _ = session.ApplyEdit("series", current => AuthoringSequenceOperations.Insert(current, AuthoringRecipeIds.SeriesCompliance,
                     Row(current, current.Measure[0].NodeId), false));
                 var combined = Execute(session.Draft, directory, false);
                 Assert.Equal(new[] { "series.inband.pct", "series.excursion.max", "series.outband.ms" }, combined.Scalars);
                 Assert.Contains("sweep", combined.Samples);
-                session.Undo();
+                _ = session.Undo();
                 Assert.True(before.ContentEquals(session.Snapshot));
             }
         }
@@ -121,7 +125,7 @@ public sealed class AuthoringBitSweepOutputTests
     private static string TemporaryDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "ht-sweep-outputs-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
+        _ = Directory.CreateDirectory(directory);
         return directory;
     }
     private sealed class Outputs : ResultListener

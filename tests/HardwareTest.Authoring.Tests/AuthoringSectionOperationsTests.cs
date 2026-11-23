@@ -34,7 +34,7 @@ public sealed class AuthoringSectionOperationsTests
             .Where(row => row.Kind == SequenceRowKind.Metric).Select(row => row.NodeId!.Value).Order());
         Assert.Equal(SequenceSection.Setup, AuthoringSequence.Flatten(draft)[0].Section);
         Assert.Equal(SequenceSection.Cleanup, AuthoringSequence.Flatten(draft)[^1].Section);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.AddSection(draft, " \t"));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.AddSection(draft, " \t"));
     }
 
     [Fact]
@@ -48,9 +48,9 @@ public sealed class AuthoringSectionOperationsTests
         draft = AuthoringSequenceOperations.Insert(draft, AuthoringRecipeIds.Formula, Row(draft, second), false);
         var formula = Assert.IsType<MetricNode>(Assert.Single(Assert.IsType<SectionNode>(draft.Measure[1]).Children));
         Assert.Equal(new[] { "VDC" }, Assert.IsType<ExpressionAlgorithm>(formula.Metric.Source).InputChannelKeys);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(draft, Row(draft, second), -1));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.Move(draft, Row(draft, second), -1));
         var producer = Assert.Single(Assert.IsType<SectionNode>(draft.Measure[0]).Children);
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, producer.NodeId), second));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, producer.NodeId), second));
         var moved = AuthoringSequenceOperations.MoveToSection(draft, Row(draft, formula.NodeId), first);
         Assert.Equal(2, Assert.IsType<SectionNode>(moved.Measure[0]).Children.Count);
         Assert.Empty(Assert.IsType<SectionNode>(moved.Measure[1]).Children);
@@ -63,9 +63,9 @@ public sealed class AuthoringSectionOperationsTests
         var outer = new SectionNode("System", [nested]);
         var loopSection = new SectionNode("Loop system", []);
         var draft = MockDmmDraftFixture.Create("sections") with { Measure = [outer, new RepeatNode(2, [loopSection])] };
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, outer.NodeId), nested.NodeId));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, nested.NodeId), loopSection.NodeId));
-        Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft,
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, outer.NodeId), nested.NodeId));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft, Row(draft, nested.NodeId), loopSection.NodeId));
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringSequenceOperations.MoveToSection(draft,
             AuthoringSequence.Flatten(draft).First(row => row.Kind == SequenceRowKind.Setup), outer.NodeId));
     }
 
@@ -73,7 +73,7 @@ public sealed class AuthoringSectionOperationsTests
     public void Section_editing_history_collapse_and_selection_survive_undo_redo()
     {
         var root = Path.Combine(Path.GetTempPath(), "section-history-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sections\",\"plansDirectory\":\".\"}");
@@ -114,7 +114,7 @@ public sealed class AuthoringSectionOperationsTests
     public void Section_name_editor_tracks_selection_and_history_without_discarding_typing()
     {
         var root = Path.Combine(Path.GetTempPath(), "section-name-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         try
         {
             File.WriteAllText(Path.Combine(root, "authoring.json"), "{\"schemaVersion\":2,\"displayName\":\"Sections\",\"plansDirectory\":\".\"}");

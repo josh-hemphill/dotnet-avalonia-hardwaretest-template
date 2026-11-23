@@ -20,7 +20,7 @@ public sealed class ReviewRemediationTests
         await store.LoadAsync(new Dictionary<string, string>(), new Dictionary<string, string>());
 
         var services = new ServiceCollection();
-        services.AddHardwareTestCore(store);
+        _ = services.AddHardwareTestCore(store);
         var provider = services.BuildServiceProvider();
         var injected = provider.GetRequiredService<AppSettings>();
         Assert.Same(store.AppSettings, injected);
@@ -50,7 +50,7 @@ public sealed class ReviewRemediationTests
     {
         using var temp = new TempDataDirectory();
         var root = Path.Combine(temp.Path, "export");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var settings = new AppSettings { DataDirectory = temp.Path };
         var svc = new ExportTargetService(settings, temp.Path, Log.Logger);
         var target = new ExportTarget
@@ -77,7 +77,7 @@ public sealed class ReviewRemediationTests
     {
         using var temp = new TempDataDirectory();
         var root = Path.Combine(temp.Path, "export");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var settings = new AppSettings { DataDirectory = temp.Path };
         var svc = new ExportTargetService(settings, temp.Path, Log.Logger);
         var target = new ExportTarget
@@ -106,7 +106,7 @@ public sealed class ReviewRemediationTests
     {
         using var temp = new TempDataDirectory();
         var root = Path.Combine(temp.Path, "export");
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var sibling = Path.Combine(temp.Path, "export-evil", "payload.bin");
         Assert.False(PathContainment.IsUnderRoot(root, sibling));
     }

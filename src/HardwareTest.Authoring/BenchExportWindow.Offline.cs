@@ -28,8 +28,13 @@ public sealed partial class BenchExportWindow
             TextWrapping = Avalonia.Media.TextWrapping.Wrap
         });
         _offlineOptions.Children.Add(new TextBlock { Text = "Bench platform" });
-        _platform = new ComboBox { ItemsSource = new[] { "Windows x64", "Linux x64", "Linux ARM64" }, MinHeight = 40, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
-        _platform.SelectedIndex = OperatingSystem.IsWindows() ? 0 : RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? 2 : 1;
+        _platform = new ComboBox
+        {
+            ItemsSource = new[] { "Windows x64", "Linux x64", "Linux ARM64" },
+            MinHeight = 40,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            SelectedIndex = OperatingSystem.IsWindows() ? 0 : RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? 2 : 1
+        };
         AutomationProperties.SetName(_platform, "Offline bench platform");
         _platform.SelectionChanged += (_, _) => InvalidatePreparationFeedback();
         _offlineOptions.Children.Add(_platform);
@@ -49,7 +54,7 @@ public sealed partial class BenchExportWindow
                 if (Current() && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) _packageFolder.Text = path;
             }
             catch (Exception error) { if (Current()) _status.Text = error.Message; }
-            finally { if (Current()) _packageFolder.Focus(); }
+            finally { if (Current()) _ = _packageFolder.Focus(); }
         };
         _offlineOptions.Children.Add(_choosePackages);
         _downloadPackages = new CheckBox { Content = "Download missing packages for this bundle", IsChecked = _viewModel.DownloadRequiredPackages, MinHeight = 40 };

@@ -58,7 +58,7 @@ public sealed class HardwareGuidanceTests
     public async Task Pending_environment_rescan_preserves_loaded_adapter_and_typed_values()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         var vm = fixture.ViewModel;
         await vm.WaitForEnvironmentInspectionAsync();
         fixture.NavigateTask(1); vm.LoadHardwareEditor(); AuthoringUiFixture.Drain();
@@ -74,7 +74,7 @@ public sealed class HardwareGuidanceTests
         using var release = new ManualResetEventSlim();
         vm.EnvironmentInspector = (workspace, home) =>
         {
-            entered.TrySetResult();
+            _ = entered.TrySetResult();
             if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException("Inspection gate did not release.");
             return inspect(workspace, home);
         };
@@ -105,7 +105,7 @@ public sealed class HardwareGuidanceTests
     public async Task Binding_editor_retains_values_but_requires_reload_after_slot_or_plan_changes()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
@@ -120,7 +120,7 @@ public sealed class HardwareGuidanceTests
         Assert.Equal("MOCK::UNAPPLIED", fixture.Control<TextBox>("Hardware adapter address").Text);
         Assert.Contains("DMM", fixture.Control<TextBlock>("Loaded binding context").Text);
         Assert.Contains("Load the selected binding", fixture.Control<TextBlock>("Loaded binding context").Text);
-        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(vm.PrepareHardwareEdit).Message);
         Assert.Equal("MOCK::BENCH", vm.SelectedInstrument!.VisaAddress);
         var load = fixture.Control<Button>("Load selected binding");
         load.BringIntoView(); AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(load);
@@ -128,14 +128,14 @@ public sealed class HardwareGuidanceTests
         Assert.Equal("MOCK::BENCH", vm.HardwareEditAddress);
         vm.CreateDemoProgram("another-plan"); AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Review binding change").IsEnabled);
-        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(() => vm.PrepareHardwareEdit()).Message);
+        Assert.Contains("Load the selected binding", Assert.Throws<AuthoringWorkspaceException>(vm.PrepareHardwareEdit).Message);
     }
 
     [AvaloniaFact]
     public async Task Selecting_a_slot_shows_only_its_binding_and_loads_it_for_review()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
@@ -158,7 +158,7 @@ public sealed class HardwareGuidanceTests
     public async Task Unsupported_imported_type_is_distinguished_from_missing_package_without_changing_source()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
@@ -181,7 +181,7 @@ public sealed class HardwareGuidanceTests
     public async Task Missing_package_names_repair_and_keeps_full_paths_in_collapsed_details()
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
-        fixture.Show(); fixture.OpenRememberedWorkspace();
+        _ = fixture.Show(); fixture.OpenRememberedWorkspace();
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         var vm = fixture.ViewModel;
@@ -189,7 +189,7 @@ public sealed class HardwareGuidanceTests
         await fixture.ViewModel.WaitForEnvironmentInspectionAsync();
         AuthoringUiFixture.Drain();
         fixture.NavigateTask(1); vm.LoadHardwareEditor(); AuthoringUiFixture.Drain();
-        var text = fixture.Control<TextBlock>("Selected adapter guidance").Text!;
+        var text = fixture.Control<TextBlock>("Selected adapter guidance").Text;
         Assert.Contains("prepare or import HardwareTest Basic", text);
         Assert.Contains("Supports Basic voltage recipes", text);
         var row = Assert.Single(vm.SelectedHardwareRows);

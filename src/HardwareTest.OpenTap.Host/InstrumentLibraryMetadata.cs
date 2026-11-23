@@ -13,7 +13,10 @@ internal static class InstrumentLibraryMetadata
     {
         if (package.Name.LocalName != "Package"
             || !string.Equals((string?)package.Attribute("Name"), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase))
+        {
             throw new IOException("Library package metadata is invalid or names another package.");
+        }
+
         try
         {
             var version = SemanticVersion.Parse((string?)package.Attribute("Version") ?? "");
@@ -24,9 +27,12 @@ internal static class InstrumentLibraryMetadata
         { throw new IOException("Library package version metadata is invalid.", error); }
         var containers = package.Elements().Where(element => element.Name.LocalName == "Files").ToArray();
         if (containers.Length != 1 || package.Descendants().Any(element =>
-            element.Name.LocalName == "Files" && element != containers[0]
-            || element.Name.LocalName == "File" && element.Parent != containers[0]))
+            (element.Name.LocalName == "Files" && element != containers[0])
+            || (element.Name.LocalName == "File" && element.Parent != containers[0])))
+        {
             throw new IOException("Library package must declare payload directly in one Package/Files element.");
+        }
+
         var declarations = containers[0].Elements().Where(element => element.Name.LocalName == "File").ToArray();
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var declaration in declarations)
@@ -34,20 +40,29 @@ internal static class InstrumentLibraryMetadata
             var file = (string?)declaration.Attribute("Path");
             if (string.IsNullOrWhiteSpace(file) || Path.IsPathRooted(file) || file.Contains(':')
                 || file.Replace('\\', '/').Split('/').Any(part => part is ".." or "." or ""))
+            {
                 throw new IOException("Library package metadata declares an invalid payload path.");
+            }
+
             var relative = file.Replace('\\', '/');
             if (relative.Equals("package.xml", StringComparison.OrdinalIgnoreCase))
                 throw new IOException("Library package cannot declare a home-root package.xml payload; installed metadata belongs in its canonical Packages directory.");
             if (!paths.Add(relative)) throw new IOException("Library package contains duplicate or case-colliding declared paths.");
             if (Files.Contains(relative.Split('/')[^1], StringComparer.OrdinalIgnoreCase)
                 && !Files.Contains(relative, StringComparer.Ordinal))
+            {
                 throw new IOException("Library package declares an alternate DLL layout; required DLLs must be at the package input root.");
+            }
+
             var bytes = readPayload(relative);
             ValidateHash(bytes, relative, declaration);
         }
         foreach (var required in Files)
+        {
             if (!declarations.Any(element => (string?)element.Attribute("Path") == required))
                 throw new IOException($"Library package must declare required payload '{required}'.");
+        }
+
         return declarations;
     }
 

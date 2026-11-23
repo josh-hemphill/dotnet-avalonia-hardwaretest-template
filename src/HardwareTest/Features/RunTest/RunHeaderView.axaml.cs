@@ -15,7 +15,7 @@ public partial class RunHeaderView : UserControl
             await BenchReferenceDialog.ShowAsync(owner, "Golden references", new BenchReferenceView { DataContext = vm.References });
         }
         catch (Exception ex) { vm.SetBanner(RunBannerSeverity.Error, $"Cannot open references: {ex.Message}"); }
-        (sender as Control)?.Focus();
+        _ = ((sender as Control)?.Focus());
     }
     public RunHeaderView()
     {
@@ -25,12 +25,12 @@ public partial class RunHeaderView : UserControl
             var body = (Control)((Flyout)SessionSummaryButton.Flyout!).Content!;
             foreach (var text in body.GetVisualDescendants().OfType<TextBlock>()) text.FontSize = FontSize;
             SessionDetailsBox.FontSize = FontSize;
-            SessionDetailsBox.Focus();
+            _ = SessionDetailsBox.Focus();
         };
         ProgramDetailsButton.Flyout!.Opened += (_, _) =>
         {
             ProgramDetailsBox.FontSize = FontSize;
-            ProgramDetailsBox.Focus();
+            _ = ProgramDetailsBox.Focus();
         };
     }
 }

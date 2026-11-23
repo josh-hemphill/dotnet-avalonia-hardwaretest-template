@@ -124,7 +124,10 @@ public sealed class ReportAttestationService : IReportAttestationService
         if (artifact!.RevisionId is not null && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath)
             || !File.Exists(artifact.RunSnapshotPath)
             || !string.Equals(HashFile(artifact.RunSnapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)
-            || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
+            || !SidecarMatches(attestation, artifact.SidecarSha256)))
+        {
+            return false;
+        }
 
         var pdfHash = HashFile(pdfPath);
         if (!string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
@@ -209,21 +212,24 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
         if (signer.IsMock != broker.IsMock || !signer.CanSign
             || (!signer.IsMock && (!signer.CanSignPdf || signer is not IEmbeddedPdfSigningBroker)))
+        {
             return Failure(captured, "The prepared signer does not support the selected signing contract.");
+        }
+
         var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
 
-        var candidate = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
+        var (Pdf, Error) = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
             .ConfigureAwait(false);
-        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
+        if (Error is not null || Pdf is not { Length: > 0 })
         {
-            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
+            return Failure(captured, Error ?? "Certification PDF is missing. Generate reports first.");
         }
 
         if (!signer.IsMock)
         {
             var embedded = (IEmbeddedPdfSigningBroker)signer;
             var signingTime = captured.CapturedAt == default ? _clock.UtcNow : captured.CapturedAt;
-            var sign = await embedded.TrySignPdfAsync(candidate.Pdf, captured, pin, signingTime, cancellationToken)
+            var sign = await embedded.TrySignPdfAsync(Pdf, captured, pin, signingTime, cancellationToken)
                 .ConfigureAwait(false);
             if (sign.PinRequired || sign.PinRetriesRemaining is not null)
             {
@@ -243,7 +249,7 @@ public sealed class ReportAttestationService : IReportAttestationService
                 AttestationKind.Signed, sign, embedded: true, cancellationToken).ConfigureAwait(false);
         }
 
-        var payload = Encoding.UTF8.GetBytes($"{HashBytes(candidate.Pdf)}:{runHash}");
+        var payload = Encoding.UTF8.GetBytes($"{HashBytes(Pdf)}:{runHash}");
         var mockSign = await signer.TrySignPayloadAsync(payload, captured, pin, cancellationToken).ConfigureAwait(false);
         if (mockSign.PinRequired || mockSign.PinRetriesRemaining is not null)
         {
@@ -261,7 +267,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             return Failure(captured, "The mock report signature did not verify.");
         }
-        return await PublishAsync(run, targetKind, mockSign.Credential ?? captured, candidate.Pdf, runHash,
+        return await PublishAsync(run, targetKind, mockSign.Credential ?? captured, Pdf, runHash,
             AttestationKind.Signed, mockSign, embedded: false, cancellationToken).ConfigureAwait(false);
     }
 
@@ -289,14 +295,14 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             return Failure(captured, "This badge cannot sign, and presence-only attestation is disabled.");
         }
-        var candidate = await CompileCandidateAsync(run, kind, captured, AttestationKind.Presence, cancellationToken)
+        var (Pdf, Error) = await CompileCandidateAsync(run, kind, captured, AttestationKind.Presence, cancellationToken)
             .ConfigureAwait(false);
-        if (candidate.Error is not null || candidate.Pdf is not { Length: > 0 })
+        if (Error is not null || Pdf is not { Length: > 0 })
         {
-            return Failure(captured, candidate.Error ?? "Certification PDF is missing. Generate reports first.");
+            return Failure(captured, Error ?? "Certification PDF is missing. Generate reports first.");
         }
         var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
-        return await PublishAsync(run, kind, captured, candidate.Pdf, runHash,
+        return await PublishAsync(run, kind, captured, Pdf, runHash,
             AttestationKind.Presence, null, embedded: false, cancellationToken).ConfigureAwait(false);
     }
 
@@ -499,8 +505,11 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var current = new DirectoryInfo(dir);
         for (var depth = 0; current is not null && depth < 4; depth++, current = current.Parent)
+        {
             if (string.Equals(current.Name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
                 return current.Parent?.Name;
+        }
+
         return Path.GetFileName(dir);
     }
 
@@ -508,10 +517,7 @@ public sealed class ReportAttestationService : IReportAttestationService
     public static bool PathEquals(string? left, string? right)
         => string.Equals(left, right, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
-    {
-        return run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
-    }
+    public static bool RunOwnsPdf(TestRunRecord run, string pdfPath) => run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
 
     public static string KindForPdf(TestRunRecord run, string pdfPath)
     {
@@ -529,7 +535,11 @@ public sealed class ReportAttestationService : IReportAttestationService
     public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
     {
         if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-            && PathEquals(r.PdfPath, pdfPath))) return pdfPath;
+            && PathEquals(r.PdfPath, pdfPath)))
+        {
+            return pdfPath;
+        }
+
         var kind = KindForPdf(run, pdfPath);
         var issued = ReportRevisions.Latest(run, kind);
         return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");

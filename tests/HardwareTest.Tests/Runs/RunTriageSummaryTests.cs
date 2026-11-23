@@ -162,7 +162,7 @@ public sealed class RunTriageSummaryTests
 
         var triage = RunTriageSummary.FromRecord(run);
         Assert.Equal("failed-step", triage.FirstFail?.StepPath);
-        Assert.Single(triage.Ledgers);
+        _ = Assert.Single(triage.Ledgers);
         Assert.Equal(1, triage.TotalAttempts);
         Assert.Equal(1, triage.PathFailCount);
         Assert.Equal(0, triage.PathPassCount);

@@ -11,7 +11,7 @@ public sealed class EmptyPlanAuthoringTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
-        fixture.ViewModel.InitializePlan(new("flat-empty"));
+        _ = fixture.ViewModel.InitializePlan(new("flat-empty"));
         fixture.ViewModel.ReplaceSelected(fixture.ViewModel.SelectedProgram! with { Measure = [] });
         AuthoringUiFixture.Drain();
         Assert.True(fixture.Control<TextBlock>("Empty step editor guidance").IsEffectivelyVisible);
@@ -29,7 +29,7 @@ public sealed class EmptyPlanAuthoringTests
     {
         using var fixture = new AuthoringUiFixture(rememberWorkspace: true);
         var window = fixture.Show(); fixture.OpenRememberedWorkspace();
-        fixture.ViewModel.InitializePlan(new("first-measurement"));
+        _ = fixture.ViewModel.InitializePlan(new("first-measurement"));
         var sectionId = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram!.Measure)).NodeId;
         fixture.ViewModel.SelectedRecipeId = AuthoringRecipeIds.BandScalar; AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Add first sequence step"));
@@ -40,7 +40,7 @@ public sealed class EmptyPlanAuthoringTests
         Assert.Empty(window.OwnedWindows);
         var section = Assert.IsType<SectionNode>(Assert.Single(fixture.ViewModel.SelectedProgram.Measure));
         Assert.Equal(sectionId, section.NodeId);
-        Assert.IsType<MetricNode>(Assert.Single(section.Children));
+        _ = Assert.IsType<MetricNode>(Assert.Single(section.Children));
         Assert.False(fixture.ViewModel.IsSequenceEmpty);
     }
 
@@ -51,7 +51,7 @@ public sealed class EmptyPlanAuthoringTests
     {
         using var fixture = new AuthoringUiFixture();
         var root = Path.Combine(fixture.WorkspaceRoot, "empty");
-        new AuthoringWorkspaceInitializer().Create(new(root, "Empty workbench", "Empty.Workbench"));
+        _ = new AuthoringWorkspaceInitializer().Create(new(root, "Empty workbench", "Empty.Workbench"));
         var window = fixture.Show(width, height); window.FontSize = font;
         fixture.ViewModel.Open(root); fixture.NavigateTask(8);
         var create = fixture.Control<Button>("Create first test plan from overview");
@@ -84,7 +84,7 @@ public sealed class EmptyPlanAuthoringTests
         Assert.True(fixture.Control<Button>("Add recipe", palette).IsEffectivelyEnabled);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
         Assert.Empty(window.OwnedWindows);
-        Assert.IsType<OperatorPromptSetup>(Assert.Single(fixture.ViewModel.SelectedProgram!.Setup));
+        _ = Assert.IsType<OperatorPromptSetup>(Assert.Single(fixture.ViewModel.SelectedProgram!.Setup));
         Assert.False(fixture.ViewModel.IsSequenceEmpty);
         Assert.True(fixture.Control<ListBox>("Program sequence").IsEffectivelyVisible);
         Assert.Null(fixture.ViewModel.Error);
@@ -94,13 +94,13 @@ public sealed class EmptyPlanAuthoringTests
         await fixture.WaitForReadinessAsync();
         Assert.True(fixture.Control<Button>("Add recipe", palette).IsEffectivelyEnabled);
         AuthoringUiFixture.Click(fixture.Control<Button>("Add recipe", palette));
-        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
+        _ = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
         Assert.True(fixture.ViewModel.SaveAll().Succeeded);
         fixture.ViewModel.Open(root); AuthoringUiFixture.Drain();
         Assert.Equal("Power rail acceptance", fixture.ViewModel.DisplayName);
         Assert.Equal("Controller board", fixture.ViewModel.DutFamily);
-        Assert.Single(fixture.ViewModel.SelectedProgram!.Setup);
-        Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
+        _ = Assert.Single(fixture.ViewModel.SelectedProgram!.Setup);
+        _ = Assert.Single(AuthoringRecipeCatalog.EnumerateMetrics(fixture.ViewModel.SelectedProgram.Measure));
     }
 
     [AvaloniaFact]
@@ -108,13 +108,13 @@ public sealed class EmptyPlanAuthoringTests
     {
         using var fixture = new AuthoringUiFixture();
         var root = Path.Combine(fixture.WorkspaceRoot, "empty");
-        new AuthoringWorkspaceInitializer().Create(new(root, "Empty workbench", "Empty.Workbench"));
+        _ = new AuthoringWorkspaceInitializer().Create(new(root, "Empty workbench", "Empty.Workbench"));
         var window = fixture.Show(); fixture.ViewModel.Open(root); fixture.NavigateTask(0);
         var create = fixture.Control<Button>("Create first test plan from sequence");
         Assert.True(create.IsEffectivelyVisible); Assert.True(create.IsEffectivelyEnabled);
         AuthoringUiFixture.Click(create);
         Assert.Single(window.OwnedWindows).Close(false);
-        fixture.ViewModel.InitializePlan(new("empty")); AuthoringUiFixture.Drain();
+        _ = fixture.ViewModel.InitializePlan(new("empty")); AuthoringUiFixture.Drain();
         AuthoringUiFixture.Click(fixture.Control<Button>("Configure instruments from empty plan"));
         Assert.Equal(1, window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex);
         fixture.NavigateTask(0);
@@ -127,6 +127,6 @@ public sealed class EmptyPlanAuthoringTests
         Assert.True(fixture.Control<Button>("Add first sequence step").IsEffectivelyVisible);
         fixture.ViewModel.Redo(); AuthoringUiFixture.Drain();
         Assert.False(fixture.ViewModel.IsSequenceEmpty);
-        Assert.Single(fixture.ViewModel.SelectedProgram!.Setup);
+        _ = Assert.Single(fixture.ViewModel.SelectedProgram!.Setup);
     }
 }

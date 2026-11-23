@@ -5,8 +5,8 @@ public sealed partial class AuthoringWorkspaceViewModel
     public ProgramRemovalImpact PrepareSelectedProgramRemoval()
     {
         EnsureWritableWorkspace("review program removal");
-        var target = DescribeSelectedProgramRemoval();
-        return new(_workspaceSession, Workspace!.Root, target.PlanId, target.TapPlanPath, target.SidecarPath, ContentFingerprint());
+        var (PlanId, TapPlanPath, SidecarPath) = DescribeSelectedProgramRemoval();
+        return new(WorkspaceSessionId, Workspace!.Root, PlanId, TapPlanPath, SidecarPath, ContentFingerprint());
     }
 
     public bool ApplyProgramRemoval(ProgramRemovalImpact reviewedImpact)

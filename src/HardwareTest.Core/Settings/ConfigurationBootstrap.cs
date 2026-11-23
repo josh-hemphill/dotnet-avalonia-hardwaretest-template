@@ -88,7 +88,7 @@ public static class ConfigurationBootstrap
         CancellationToken cancellationToken = default)
     {
         var stage1 = ResolveStage1(args, environment, defaultRoot);
-        Directory.CreateDirectory(stage1.RootDirectory);
+        _ = Directory.CreateDirectory(stage1.RootDirectory);
 
         var store = new SettingsStore(
             stage1.RootDirectory,
@@ -113,20 +113,20 @@ public static class ConfigurationBootstrap
     public static string FormatPrintConfig(SettingsStore store)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("HardwareTest effective configuration");
-        sb.AppendLine($"RootDirectory={store.RootDirectory}");
-        sb.AppendLine($"SettingsPath={store.SettingsPath}");
-        sb.AppendLine($"PersistenceWritable={store.IsSettingsWritable}");
+        _ = sb.AppendLine("HardwareTest effective configuration");
+        _ = sb.AppendLine($"RootDirectory={store.RootDirectory}");
+        _ = sb.AppendLine($"SettingsPath={store.SettingsPath}");
+        _ = sb.AppendLine($"PersistenceWritable={store.IsSettingsWritable}");
         if (!string.IsNullOrWhiteSpace(store.LastPersistenceError))
         {
-            sb.AppendLine($"PersistenceError={store.LastPersistenceError}");
+            _ = sb.AppendLine($"PersistenceError={store.LastPersistenceError}");
         }
 
-        sb.AppendLine();
-        sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
+        _ = sb.AppendLine();
+        _ = sb.AppendLine("Key\tEffectiveValue\tSource\tSourceDetail");
         foreach (var row in store.Provenance.OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase))
         {
-            sb.Append(row.Key).Append('\t')
+            _ = sb.Append(row.Key).Append('\t')
                 .Append(Escape(row.EffectiveValue)).Append('\t')
                 .Append(row.Source).Append('\t')
                 .Append(Escape(row.SourceDetail)).AppendLine();
@@ -140,7 +140,7 @@ public static class ConfigurationBootstrap
                 continue;
             }
 
-            sb.Append(binding.Key).Append('\t')
+            _ = sb.Append(binding.Key).Append('\t')
                 .Append(Escape(binding.Format(store.AppSettings))).Append('\t')
                 .Append(SettingSource.Default).Append('\t')
                 .AppendLine("missing-provenance");

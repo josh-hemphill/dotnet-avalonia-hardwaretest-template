@@ -14,9 +14,12 @@ public static partial class DeviceDriverCatalog
         var connector = new PassiveConnector();
         var endpoint = new Endpoint("hpib", "catalog-only");
         foreach (var model in Enum.GetValues<Hp5334Model>())
+        {
             yield return Info(new Hp5334Factory(model, Hp5334Commissioning.NativeInternalGatingConfirmed, connector).Descriptor)
                 with
             { Commissioning = nameof(Hp5334Commissioning.NativeInternalGatingConfirmed), EndpointScheme = "hpib" };
+        }
+
         yield return Info(new Hp3585Factory([new(endpoint, Hp3585Commissioning.QualifiedNativeScalarConfirmed)], connector).Descriptor)
             with
         { Commissioning = nameof(Hp3585Commissioning.QualifiedNativeScalarConfirmed), EndpointScheme = "hpib" };

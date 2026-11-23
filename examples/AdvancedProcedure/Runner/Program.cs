@@ -5,7 +5,7 @@ using OpenTap;
 
 if (args is ["generate", var programDirectory])
 {
-    Directory.CreateDirectory(programDirectory);
+    _ = Directory.CreateDirectory(programDirectory);
     ProcedurePlan.Create().Save(Path.Combine(programDirectory, ProcedurePlan.PlanName));
     return 0;
 }
@@ -29,8 +29,8 @@ if (args is ["stage", var source, var app, var data])
     var programs = Path.Combine(app, "Programs");
     var tables = Path.Combine(programs, "tables", "advanced-procedure");
     var plugins = Path.Combine(data, "plugins", "AdvancedProcedure");
-    Directory.CreateDirectory(tables);
-    Directory.CreateDirectory(plugins);
+    _ = Directory.CreateDirectory(tables);
+    _ = Directory.CreateDirectory(plugins);
     foreach (var file in new[] { ProcedurePlan.PlanName, "advanced-procedure.program.json" })
         File.Copy(Path.Combine(source, file), Path.Combine(programs, file), overwrite: true);
     foreach (var file in new[] { "station.json", "tests.json" })

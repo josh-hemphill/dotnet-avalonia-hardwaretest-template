@@ -115,7 +115,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
         var reopened = new AuthoringWorkspaceViewModel(); reopened.Open(root); reopened.SelectProgram(id);
         reopened.SelectSequence(reopened.SequenceItems.ToList().FindIndex(row => row.NodeId == nodeId));
         Assert.Equal(blank, Text(reopened, field)); Assert.Equal(baseline, TypedValue(reopened, field));
-        Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
+        _ = Assert.Throws<AuthoringWorkspaceException>(() => reopened.Validate());
         SetText(reopened, field, baseline);
         Assert.Empty(reopened.SelectedProgram!.AuthoringState.IncompleteNumericText);
         reopened.Undo(); Assert.Equal(blank, Text(reopened, field)); Assert.Equal(baseline, TypedValue(reopened, field));
@@ -144,7 +144,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
             Assert.Equal(text, vm.TfTsSeconds);
             Assert.Equal(text, vm.StationHealthMaxAgeHours);
             Assert.Equal(period, TypedValue(vm, "period"));
-            Assert.Null(vm.SelectedProgram!.Sidecar.StationHealthMaxAgeHours);
+            Assert.Null(vm.SelectedProgram.Sidecar.StationHealthMaxAgeHours);
         }
         finally { vm.StopRecovery(); }
     }
@@ -186,7 +186,7 @@ public sealed class AuthoringNumericFieldRecoveryTests
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "dirs.proj"))) dir = dir.Parent;
         var root = Path.Combine(Path.GetTempPath(), "authoring-numeric-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         foreach (var file in Directory.EnumerateFiles(Path.Combine(dir!.FullName, "plans", "opentap")))
             File.Copy(file, Path.Combine(root, Path.GetFileName(file)));
         return root;

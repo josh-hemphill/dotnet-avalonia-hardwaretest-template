@@ -191,7 +191,7 @@ public sealed class OpenTapWorkerKillTests
             killTimeout: TimeSpan.FromSeconds(30));
 
         var error = await Record.ExceptionAsync(() => client.RunAsync());
-        Assert.IsType<InvalidOperationException>(error);
+        _ = Assert.IsType<InvalidOperationException>(error);
         Assert.Contains("plan", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("terminated", error.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, safety.SafeIdleCount);
@@ -256,7 +256,7 @@ public sealed class OpenTapWorkerKillTests
 
         public void SafeIdle()
         {
-            Interlocked.Increment(ref SafeIdleCount);
+            _ = Interlocked.Increment(ref SafeIdleCount);
             onSafeIdle?.Invoke();
         }
     }

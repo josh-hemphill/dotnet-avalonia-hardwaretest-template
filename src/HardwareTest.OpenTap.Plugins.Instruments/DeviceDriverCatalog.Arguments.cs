@@ -16,11 +16,11 @@ public static partial class DeviceDriverCatalog
         var shutdown = profile.OperationPlans.FirstOrDefault(plan => plan.Operation == CatalogOperation.Shutdown)?.Steps ?? [];
         return binding.DriverId.Split('.')[0] switch
         {
-            "keysight" => global::InstrumentComponents.Drivers.Keysight.Drivers.BindProfile(profile, inventory, shutdown),
-            "keithley" => global::InstrumentComponents.Drivers.Keithley.Drivers.BindProfile(profile, inventory, shutdown),
-            "rigol" => global::InstrumentComponents.Drivers.Rigol.Drivers.BindProfile(profile, inventory, shutdown),
-            "siglent" => global::InstrumentComponents.Drivers.Siglent.Drivers.BindProfile(profile, inventory, shutdown),
-            _ => global::InstrumentComponents.Drivers.Tektronix.Drivers.BindProfile(profile, inventory, shutdown)
+            "keysight" => InstrumentComponents.Drivers.Keysight.Drivers.BindProfile(profile, inventory, shutdown),
+            "keithley" => InstrumentComponents.Drivers.Keithley.Drivers.BindProfile(profile, inventory, shutdown),
+            "rigol" => InstrumentComponents.Drivers.Rigol.Drivers.BindProfile(profile, inventory, shutdown),
+            "siglent" => InstrumentComponents.Drivers.Siglent.Drivers.BindProfile(profile, inventory, shutdown),
+            _ => InstrumentComponents.Drivers.Tektronix.Drivers.BindProfile(profile, inventory, shutdown)
         };
     }
 
@@ -38,8 +38,7 @@ public static partial class DeviceDriverCatalog
         if (plan.Choices is { Count: > 0 })
         {
             var choice = plan.Choices.SingleOrDefault(choice => choice.Presence.All(pair =>
-                request.Arguments.TryGetValue(pair.Key, out var argument) && (argument.Number is not null) == pair.Value));
-            if (choice is null) throw new ArgumentException("This model does not support the selected combination of optional arguments. Review its range/resolution choices.");
+                request.Arguments.TryGetValue(pair.Key, out var argument) && (argument.Number is not null) == pair.Value)) ?? throw new ArgumentException("This model does not support the selected combination of optional arguments. Review its range/resolution choices.");
             tokens = choice.Tokens;
         }
         foreach (var (name, argument) in request.Arguments)

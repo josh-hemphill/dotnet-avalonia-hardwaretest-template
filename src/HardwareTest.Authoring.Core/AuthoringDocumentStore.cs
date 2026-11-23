@@ -19,7 +19,7 @@ public sealed partial class AuthoringDocumentStore
     {
         _root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspaceRoot));
         _writer = writer ?? new();
-        ValidatePath(_root);
+        _ = ValidatePath(_root);
     }
 
     public string GetWorkspacePath() => ValidatePath(Path.Combine(_root, "authoring-drafts", "workspace.authoring.json"));
@@ -42,7 +42,11 @@ public sealed partial class AuthoringDocumentStore
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
             if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
-                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
+                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0)
+            {
+                throw new InvalidDataException("Workspace source is incomplete.");
+            }
+
             if (document.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
                 throw new InvalidDataException("Workspace source has an unsupported manifest schema version.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
@@ -65,7 +69,7 @@ public sealed partial class AuthoringDocumentStore
         var bytes = JsonSerializer.SerializeToUtf8Bytes(new AuthoringWorkspaceDto { Manifest = manifest, Revision = revision },
             AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto);
         var path = GetWorkspacePath();
-        ValidatePath(path + ".bak");
+        _ = ValidatePath(path + ".bak");
         _writer.Write(ValidatePath(path), bytes);
     }
 
@@ -87,7 +91,7 @@ public sealed partial class AuthoringDocumentStore
         if (!Directory.Exists(directory)) return [];
         var ids = Directory.EnumerateFiles(directory, "*.authoring.json")
             .Select(path => Path.GetFileName(path)[..^".authoring.json".Length]).OrderBy(id => id, StringComparer.Ordinal).ToArray();
-        foreach (var id in ids) { ValidateId(id); GetRecoveryPath(id); }
+        foreach (var id in ids) { ValidateId(id); _ = GetRecoveryPath(id); }
         return ids;
     }
 
@@ -151,8 +155,8 @@ public sealed partial class AuthoringDocumentStore
         if (existing.IsReadOnly) throw new InvalidOperationException(existing.Error ?? "Future authoring schemas are read-only; original bytes are preserved.");
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
         // Recheck every destination including backup immediately before creating or replacing files.
-        ValidatePath(path + ".bak");
-        ValidatePath(path);
+        _ = ValidatePath(path + ".bak");
+        _ = ValidatePath(path);
         _writer.Write(path, bytes);
     }
 
@@ -167,7 +171,7 @@ public sealed partial class AuthoringDocumentStore
         var bytes = JsonSerializer.SerializeToUtf8Bytes(document, AuthoringDocumentJsonContext.Default.AuthoringDocumentDto);
         _writer.WriteNew(path, bytes, () =>
         {
-            ValidateNewDestination(id);
+            _ = ValidateNewDestination(id);
             validateWorkspace?.Invoke();
         }, cancellationToken);
     }
@@ -175,17 +179,23 @@ public sealed partial class AuthoringDocumentStore
     public string ValidateNewDestination(string id)
     {
         var path = GetDocumentPath(id);
-        var directory = Path.GetDirectoryName(path)!;
+        var directory = Path.GetDirectoryName(path);
         // Check directory names too, including case equivalents on case-sensitive hosts.
-        var parent = Path.GetDirectoryName(directory)!;
+        var parent = Path.GetDirectoryName(directory);
         if (Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
             string.Equals(Path.GetFileName(entry), Path.GetFileName(directory), StringComparison.OrdinalIgnoreCase)
             && !string.Equals(entry, directory, StringComparison.Ordinal)))
+        {
             throw new IOException("A case-equivalent authoring draft directory already exists.");
+        }
+
         if (File.Exists(directory)) throw new IOException("The authoring draft destination is a file.");
         if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(entry =>
             string.Equals(Path.GetFileName(entry), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+        {
             throw new IOException($"Authoring destination '{id}' already exists; choose a different ID.");
+        }
+
         return ValidatePath(path);
     }
 
@@ -200,7 +210,7 @@ public sealed partial class AuthoringDocumentStore
     public void DeleteRecovery(string id)
     {
         var path = GetRecoveryPath(id);
-        ValidatePath(path);
+        _ = ValidatePath(path);
         if (File.Exists(path)) File.Delete(path);
     }
 
@@ -211,7 +221,10 @@ public sealed partial class AuthoringDocumentStore
     {
         if (string.IsNullOrWhiteSpace(id) || id.Length > 128 || !SafeId().IsMatch(id) ||
             id.EndsWith('.') || id.Equals("workspace", StringComparison.OrdinalIgnoreCase))
+        {
             throw new ArgumentException("Program IDs must be safe filename tokens (letters, numbers, dash, underscore, or dot), and may not be 'workspace'.", nameof(id));
+        }
+
         var stem = id.Split('.')[0];
         if (ReservedName().IsMatch(stem)) throw new ArgumentException("Program ID is a reserved device name.", nameof(id));
     }

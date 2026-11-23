@@ -56,7 +56,7 @@ public static class TestAppBuilder
         // same bench data across its restart. Ordinary cases remain isolated.
         var root = persistentJoinedBench ? Path.Combine(joined!, "bench-data")
             : Path.Combine(Path.GetTempPath(), "HardwareTestE2E", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(root);
+        _ = Directory.CreateDirectory(root);
         var store = new SettingsStore(root);
         store.LoadAsync().GetAwaiter().GetResult();
         store.AppSettings.UseMockVisa = true;

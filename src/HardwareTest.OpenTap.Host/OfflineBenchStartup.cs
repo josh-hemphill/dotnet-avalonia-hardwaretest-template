@@ -26,13 +26,19 @@ public static class OfflineBenchStartup
                 || installation.RequiredOperatorBuild != OfflineBenchBundle.CurrentOperatorBuild
                 || !Guid.TryParseExact(installation.InstallId, "N", out _) || !Guid.TryParseExact(installation.ExportId, "N", out _)
                 || !OfflineBenchPaths.IsHash(installation.LockSha256) || !SamePath(installation.AppDirectory, appDirectory))
+            {
                 throw new InvalidDataException("The installation marker does not match this operator copy or release.");
+            }
+
             BenchProgramHandoff.RequireCustomPlanId(installation.PlanId);
             var lockPath = Path.Combine(appDirectory, LockFileName);
             OfflineBenchPaths.RejectLinks(lockPath);
             if (!File.Exists(lockPath) || new FileInfo(lockPath).Length > 4 * 1024 * 1024
                 || !OfflineBenchPaths.Hash(lockPath).Equals(installation.LockSha256, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException("The installed bundle lock is missing or changed. Reinstall the matching bundle into fresh folders.");
+            }
+
             OfflineBenchPaths.RejectLinks(lockPath);
             var data = AbsolutePath(installation.FreshDataDirectory);
             if (SamePath(data, appDirectory) || OfflineBenchPaths.IsUnder(appDirectory, data) || OfflineBenchPaths.IsUnder(data, appDirectory))
@@ -44,8 +50,11 @@ public static class OfflineBenchStartup
                 || !SamePath(ownership.AppDirectory, appDirectory)
                 || !OfflineBenchPaths.IsHash(ownership.InstallationSha256)
                 || !ownership.InstallationSha256.Equals(OfflineBenchPaths.HashBytes(bytes), StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException("The data ownership marker does not belong to this exact installation. Existing station data cannot be reused.");
-            OfflineBenchRuntime.ValidateCapability(appDirectory, OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture));
+            }
+
+            _ = OfflineBenchRuntime.ValidateCapability(appDirectory, OfflineBenchRuntime.RuntimeIdentifier(OfflineBenchBundle.CurrentOS, OfflineBenchBundle.CurrentArchitecture));
             ValidateRuntimeFiles(appDirectory, installation.RuntimeFiles);
             ValidateSavedPluginConfiguration(data);
 
@@ -74,7 +83,10 @@ public static class OfflineBenchStartup
             var parsed = ConfigurationArgs.Parse(prepared);
             if (parsed.SettingsPath is not null || parsed.Overlays.ContainsKey("OpenTapPluginDirectories")
                 || !SamePath(ConfigurationBootstrap.ResolveStage1(parsed, environment).RootDirectory, data))
+            {
                 throw new InvalidDataException("The effective launch configuration redirects this offline installation. Remove settings, plugin and alternate data overrides.");
+            }
+
             return prepared;
         }
         catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or JsonException or ArgumentException or NotSupportedException or InvalidOperationException)
@@ -94,7 +106,9 @@ public static class OfflineBenchStartup
             if ((name.Equals("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES", StringComparison.OrdinalIgnoreCase)
                  || name.StartsWith("HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES__", StringComparison.OrdinalIgnoreCase))
                 && !string.IsNullOrWhiteSpace(value))
+            {
                 throw new InvalidDataException("Remove external HARDWARETEST_OPEN_TAP_PLUGIN_DIRECTORIES overrides; this offline installation uses its verified local packages.");
+            }
         }
     }
 
@@ -124,10 +138,14 @@ public static class OfflineBenchStartup
             using var document = JsonDocument.Parse(bytes);
             if (document.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("The bound settings document must be an object.");
             foreach (var property in document.RootElement.EnumerateObject())
+            {
                 if (property.Name.Equals("openTapPluginDirectories", StringComparison.OrdinalIgnoreCase)
                     && property.Value.ValueKind != JsonValueKind.Null
                     && (property.Value.ValueKind != JsonValueKind.Array || property.Value.GetArrayLength() > 0))
+                {
                     throw new InvalidDataException("Remove OpenTapPluginDirectories from the bound settings document and its backup. This offline installation can only use its verified local packages.");
+                }
+            }
         }
     }
 
@@ -142,11 +160,17 @@ public static class OfflineBenchStartup
             var relative = OfflineBenchPaths.Relative(file.Path);
             if (relative.Equals(InstallationFileName, StringComparison.OrdinalIgnoreCase) || relative.Equals(LockFileName, StringComparison.OrdinalIgnoreCase)
                 || !expected.TryAdd(relative, relative))
+            {
                 throw new InvalidDataException("The immutable runtime inventory has duplicate or ownership-marker paths.");
+            }
+
             var path = OfflineBenchPaths.Under(appDirectory, relative);
             if (!File.Exists(path) || new FileInfo(path).Length != file.Length
                 || !OfflineBenchPaths.Hash(path).Equals(file.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException($"Installed runtime or program file changed: {relative}. Existing qualification cannot be reused; reinstall into fresh folders.");
+            }
+
             OfflineBenchPaths.RejectLinks(path);
         }
         void Walk(string directory)
