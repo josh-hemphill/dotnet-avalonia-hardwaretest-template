@@ -22,7 +22,7 @@ public partial class ResultsView : UserControl
     private ResultsViewModel? _observed;
     private bool _arranging;
     private bool _showingDetail;
-    private bool _openingRun;
+    private Task _openRunTask = Task.CompletedTask;
     private string? _closedRunId;
     private Control? _signingReturnFocus;
 
@@ -190,11 +190,21 @@ public partial class ResultsView : UserControl
 
     private async Task ReopenSelectedRunAsync()
     {
-        if (_openingRun || DataContext is not ResultsViewModel { ShowDetail: false, IsBusy: false, SelectedRun: not null } vm) return;
-        _openingRun = true;
+        if (DataContext is not ResultsViewModel { ShowDetail: false, IsBusy: false, SelectedRun: { } selected } vm) return;
+
+        // The detail can be closed while its comparison and history are loading.
+        await _openRunTask;
+        if (!_openRunTask.IsCompleted || !ReferenceEquals(vm, _observed) || !IsEffectivelyVisible
+            || vm.ShowDetail || vm.IsBusy || vm.SelectedRun?.RunId != selected.RunId) return;
+
+        _openRunTask = OpenRunDetailsAsync(vm);
+        await _openRunTask;
+    }
+
+    private async Task OpenRunDetailsAsync(ResultsViewModel vm)
+    {
         try { await vm.OpenSelectedRunAsync(); }
         catch (Exception error) { if (ReferenceEquals(vm, DataContext)) vm.Status = $"Could not open run details: {error.Message}"; }
-        finally { _openingRun = false; }
     }
 
     private async void OnRunsDoubleTapped(object? sender, TappedEventArgs e)

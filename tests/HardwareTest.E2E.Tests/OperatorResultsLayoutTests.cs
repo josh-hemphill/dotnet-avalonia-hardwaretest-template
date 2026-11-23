@@ -83,10 +83,12 @@ public sealed class OperatorResultsLayoutTests
         await E2EHarness.WaitUntilAsync(() => vm.ShowDetail);
         Assert.Equal(record.RunId, vm.OpenedRun!.RunId);
         window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
-        await E2EHarness.PumpUiAsync();
-        Assert.False(vm.ShowDetail);
+        await E2EHarness.WaitUntilAsync(() => !vm.ShowDetail
+            && window.FocusManager!.GetFocusedElement() is Control restoredFocus
+            && (ReferenceEquals(restoredFocus, list) || restoredFocus.GetVisualAncestors().Contains(list)),
+            TimeSpan.FromSeconds(5), "Escape did not restore focus within the saved-run list.");
         window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
-        await E2EHarness.WaitUntilAsync(() => vm.ShowDetail);
+        await E2EHarness.WaitUntilAsync(() => vm.ShowDetail && vm.OpenedRun?.RunId == record.RunId);
         OperatorWorkflowUiTests.Click(close);
         var search = view.FindControl<TextBox>("ResultsSearchBox")!;
         Assert.NotNull(AutomationProperties.GetLabeledBy(search));
