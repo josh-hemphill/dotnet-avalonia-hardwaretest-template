@@ -377,10 +377,7 @@ public static class CrashHandler
             }
         }
 
-        public void OnError(Exception error)
-        {
-            OnNext(error);
-        }
+        public void OnError(Exception error) => OnNext(error);
 
         public void OnCompleted()
         {

@@ -34,7 +34,10 @@ public sealed class SelectedIssuedEvidenceTests : IDisposable
 
         Assert.Equal(tamperOld ? null : old.PdfPath, printed);
         Assert.False(vm.ShowAttestationPrompt);
-        if (tamperOld) Assert.Contains("Verification failed", vm.Status, StringComparison.Ordinal);
+        if (tamperOld)
+        {
+            Assert.Contains("Verification failed", vm.Status, StringComparison.Ordinal);
+        }
         else
         {
             // A previous successful historical print cannot authorize exporting the invalid latest issue.

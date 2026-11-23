@@ -8,35 +8,46 @@ public static partial class AuthoringBuildService
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         foreach (var framework in document.RootElement.GetProperty("dependencies").EnumerateObject())
+        {
             foreach (var package in framework.Value.EnumerateObject())
             {
                 if (package.Value.TryGetProperty("type", out var kind) && kind.GetString() == "Project") continue;
                 if (!package.Value.TryGetProperty("resolved", out var version)) continue;
                 packages.Add(ShellPackageId(package.Name, version.GetString()!));
             }
+        }
     }
 
     private static void ReadShellAssets(string path, HashSet<string> packages, Dictionary<string, string>? payloads = null)
     {
         using var document = JsonDocument.Parse(File.ReadAllBytes(path));
         foreach (var library in document.RootElement.GetProperty("libraries").EnumerateObject())
+        {
             if (library.Value.GetProperty("type").GetString() == "package")
             {
                 var parts = library.Name.Split('/');
                 if (parts.Length != 2) Unsupported(path, "invalid resolved package identity");
                 Add(parts[0], parts[1]);
             }
+        }
         // SDK-inferred runtime, reference and app-host packs are restore downloads, not libraries.
         if (document.RootElement.TryGetProperty("project", out var project)
             && project.TryGetProperty("frameworks", out var frameworks))
+        {
             foreach (var framework in frameworks.EnumerateObject())
+            {
                 if (framework.Value.TryGetProperty("downloadDependencies", out var downloads))
+                {
                     foreach (var download in downloads.EnumerateArray())
                     {
                         var range = download.GetProperty("version").GetString()!;
                         var version = range.Trim('[', ']', '(', ')').Split(',')[0].Trim();
                         Add(download.GetProperty("name").GetString()!, version);
                     }
+                }
+            }
+        }
+
         void Add(string name, string version)
         {
             var id = ShellPackageId(name, version);
@@ -56,7 +67,10 @@ public static partial class AuthoringBuildService
     {
         if (new[] { name, version }.Any(p => string.IsNullOrWhiteSpace(p) || p is "." or ".."
             || p.IndexOfAny([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar]) >= 0))
+        {
             Unsupported(name + "/" + version, "invalid resolved package identity");
+        }
+
         return name.ToLowerInvariant() + "/" + version.ToLowerInvariant();
     }
 

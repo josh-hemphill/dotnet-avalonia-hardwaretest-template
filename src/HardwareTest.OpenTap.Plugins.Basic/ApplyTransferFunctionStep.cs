@@ -13,10 +13,7 @@ public sealed class ApplyTransferFunctionStep : RuntimeAwareTestStep
 {
     private readonly SampleTableCapture _capture = new();
 
-    public ApplyTransferFunctionStep()
-    {
-        SampleCapture = _capture;
-    }
+    public ApplyTransferFunctionStep() => SampleCapture = _capture;
 
     [Display("Input channel", Order: 1)]
     public string InputChannel { get; set; } = string.Empty;

@@ -72,7 +72,10 @@ public static class BenchProgramExporter
             RequireCurrent();
             if (BenchProgramHandoff.Hash(File.ReadAllBytes(sourcePath)) != receipt.PlanSha256
                 || BenchProgramHandoff.Hash(File.ReadAllBytes(sidecarPath)) != receipt.SidecarSha256)
+            {
                 throw new AuthoringWorkspaceException("Compiled files changed while preparing the bench copy. Save/check them and retry.");
+            }
+
             if (Directory.Exists(destination)) Directory.Move(destination, backup);
             try { Directory.Move(staging, destination); }
             catch (Exception error)

@@ -73,8 +73,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         vector = numbers;
         if (parts.Length == 0) return false;
         for (var i = 0; i < parts.Length; i++)
+        {
             if (!double.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out numbers[i])
-                || !double.IsFinite(numbers[i])) return false;
+                || !double.IsFinite(numbers[i]))
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 }

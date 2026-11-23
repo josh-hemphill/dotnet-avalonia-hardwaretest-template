@@ -93,9 +93,16 @@ public partial class SelectedStepInspectorView : UserControl
     private void OnRecipePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.SelectedMetricFunction)
-            or nameof(AuthoringWorkspaceViewModel.MetricFunctionChoices)) QueueRecipeSelection();
+            or nameof(AuthoringWorkspaceViewModel.MetricFunctionChoices))
+        {
+            QueueRecipeSelection();
+        }
+
         if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.ReferenceCriterionOptions)
-            or nameof(AuthoringWorkspaceViewModel.SelectedReferenceCriterion)) QueueReferenceSelection();
+            or nameof(AuthoringWorkspaceViewModel.SelectedReferenceCriterion))
+        {
+            QueueReferenceSelection();
+        }
     }
 
     private bool _referenceSelectionQueued;
@@ -148,7 +155,11 @@ public partial class SelectedStepInspectorView : UserControl
     public bool FocusFinding(HardwareTest.OpenTap.Host.PlanContractTarget target)
     {
         if (DataContext is not AuthoringWorkspaceViewModel vm || vm.SelectedProgram?.PlanId != target.ProgramId
-            || vm.SelectedSequence?.NodeId != target.NodeId) return false;
+            || vm.SelectedSequence?.NodeId != target.NodeId)
+        {
+            return false;
+        }
+
         var section = target.Section switch
         {
             "Advanced" => AdvancedExpander,
@@ -249,7 +260,9 @@ public partial class SelectedStepInspectorView : UserControl
         if (sender is TextBox { DataContext: AuthoringSettingRow row } box
             && row.IsNumber && SettingWindow(sender) is not null && DataContext is AuthoringWorkspaceViewModel vm
             && !string.Equals(row.Value, box.Text, StringComparison.Ordinal))
+        {
             vm.SetMetricSetting(row.Key, box.Text ?? string.Empty);
+        }
     }
 
     private void OnMetricSettingLostFocus(object? sender, RoutedEventArgs e)

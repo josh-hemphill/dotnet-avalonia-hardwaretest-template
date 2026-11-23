@@ -58,7 +58,9 @@ public sealed partial class PlanCompiler
         var cleanup = new CleanupPolicy(false, string.Empty);
         if (FlattenSteps(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep)
             && sidecar.ReferenceRules is not { Count: > 0 })
+        {
             throw new AuthoringWorkspaceException("REFERENCE_REQUIREMENTS_MISSING: This compiled program requires operator reference acceptance, but its reference declarations are missing. Restore the matching sidecar before importing it.");
+        }
 
         foreach (var step in plan.ChildTestSteps)
         {
@@ -72,7 +74,11 @@ public sealed partial class PlanCompiler
             var serializedType = (string?)resource.Attribute("type");
             var typeId = serializedType is null ? null : ResourceTypeId(serializedType);
             if (string.IsNullOrWhiteSpace(typeId) || (AuthoringInstrumentCatalog.TryGet(typeId, out _)
-                && (!AuthoringInstrumentCatalog.IsLibrary(typeId) || availableLibraryTypes.Contains(typeId)))) continue;
+                && (!AuthoringInstrumentCatalog.IsLibrary(typeId) || availableLibraryTypes.Contains(typeId))))
+            {
+                continue;
+            }
+
             var slot = resource.Elements().FirstOrDefault(e => e.Name.LocalName == "Name")?.Value;
             if (string.IsNullOrWhiteSpace(slot)) continue;
             var address = new[] { "VisaAddress", "ResourceName", "Address" }

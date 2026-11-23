@@ -18,6 +18,7 @@ public sealed partial class RunExecutionViewModel
         var failed = evaluations.Any(evaluation => !evaluation.Passed);
         var steps = summary.Steps.ToList();
         foreach (var evaluation in evaluations)
+        {
             steps.Add(new StepResultRecord
             {
                 StepId = "reference:" + evaluation.RuleId,
@@ -28,6 +29,8 @@ public sealed partial class RunExecutionViewModel
                 StartedAt = summary.StartedAt,
                 CompletedAt = summary.CompletedAt,
             });
+        }
+
         return new OpenTapRunSummary
         {
             RunId = summary.RunId,
@@ -167,7 +170,11 @@ public sealed partial class RunExecutionViewModel
             status = $"Attempt #{attemptNo} for {selectionName ?? selectionPath} ({badge}). Snapshot also saved to Results.";
         }
 
-        else status = $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {ShortId.Display(summary.RunId)}.";
+        else
+        {
+            status = $"Suite finished: {summary.Result}. Session attempts rolled up; Results entry {ShortId.Display(summary.RunId)}.";
+        }
+
         if (!string.IsNullOrWhiteSpace(summary.ErrorMessage)
             && (summary.Result == RunResult.Error || summary.ErrorMessage.Contains("Device I/O failed", StringComparison.Ordinal)))
         {

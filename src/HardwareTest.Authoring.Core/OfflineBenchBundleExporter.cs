@@ -57,7 +57,10 @@ public static class OfflineBenchBundleExporter
             inventory.Capture(Path.Combine(saved.Root, AuthoringWorkspaceLoader.ManifestFileName));
             if (JsonSerializer.Serialize(capturedManifest, AuthoringJsonContext.Default.AuthoringManifest)
                 != JsonSerializer.Serialize(saved.Manifest, AuthoringJsonContext.Default.AuthoringManifest))
+            {
                 throw new AuthoringWorkspaceException("The saved workspace manifest changed during preparation; retry after saving.");
+            }
+
             saved = saved with { Manifest = capturedManifest };
             var plan = saved.TapPlanPaths.SingleOrDefault(path => Path.GetFileNameWithoutExtension(path) == planId)
                 ?? throw new AuthoringWorkspaceException("Save and compile the selected program before preparing an offline bundle.");

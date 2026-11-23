@@ -34,7 +34,10 @@ public sealed class AuthoringPlanInitializer
         }).ToArray();
         if (instruments.Any(instrument => string.IsNullOrWhiteSpace(instrument.SlotName))
             || instruments.Select(instrument => instrument.SlotName).Distinct(StringComparer.OrdinalIgnoreCase).Count() != instruments.Length)
+        {
             throw new ArgumentException("Instrument slots must be nonempty and unique.");
+        }
+
         foreach (var instrument in instruments)
         {
             if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))

@@ -86,7 +86,11 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
         {
             var target = Path.Combine(home.Root, "contained-payload.txt"); File.WriteAllText(target, "contained declared payload"); File.CreateSymbolicLink(file, target);
         }
-        else File.WriteAllText(file, "regular declared payload");
+        else
+        {
+            File.WriteAllText(file, "regular declared payload");
+        }
+
         if (kind is "metadata-link" or "runtime-link")
         {
             var link = kind == "metadata-link" ? Path.Combine(package, "package.xml") : Path.Combine(home.Root, "OpenTap.dll");
@@ -219,13 +223,20 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
             Declare(metadata, "../../Plugins/optional-parent.txt");
             if (kind == "parent-payload") { Directory.CreateDirectory(Path.Combine(home.Root, "Plugins")); File.WriteAllText(Path.Combine(home.Root, "Plugins", "optional-parent.txt"), "contained parent payload"); }
         }
-        else if (kind == "missing-payload") Declare(metadata, "optional-unavailable.txt");
+        else if (kind == "missing-payload")
+        {
+            Declare(metadata, "optional-unavailable.txt");
+        }
         else if (kind != "version")
         {
             var file = kind == "metadata" ? metadata : kind == "runtime" ? Path.Combine(home.Root, "OpenTap.dll") : Path.Combine(package, "contained-payload.txt");
             var target = Path.Combine(home.Root, "contained-" + Path.GetFileName(file));
             if (kind == "payload") { Declare(metadata, "contained-payload.txt"); File.WriteAllText(target, "contained optional declared payload"); }
-            else File.Move(file, target);
+            else
+            {
+                File.Move(file, target);
+            }
+
             File.CreateSymbolicLink(file, target);
         }
         Assert.Contains(AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home), p => p.Package == "Optional absent fixture" && p.Optional && !p.Satisfied);
@@ -266,7 +277,10 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
         else
         {
             var relative = kind == "ancestor" ? "linked/payload.dll" : "payload.dll"; Declare(metadata, relative);
-            if (kind == "cycle") File.CreateSymbolicLink(Path.Combine(package, relative), relative);
+            if (kind == "cycle")
+            {
+                File.CreateSymbolicLink(Path.Combine(package, relative), relative);
+            }
             else
             {
                 var target = Path.Combine(outside, "payload.dll"); File.Copy(Path.Combine(home.Root, "OpenTap.dll"), target);
@@ -322,7 +336,10 @@ public sealed class AuthoringEnvironmentPayloadContainmentTests : IDisposable
             FileSystemInfo entry = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
             if (entry.LinkTarget is { } link) { entries.Add(path + "=>" + link); return; }
             if (entry is DirectoryInfo) { entries.Add(path + "=directory"); foreach (var child in Directory.EnumerateFileSystemEntries(path)) Walk(child); }
-            else entries.Add(path + "=" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))));
+            else
+            {
+                entries.Add(path + "=" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))));
+            }
         }
     }
     private sealed class UnexpectedChecker : ITuiCompatChecker

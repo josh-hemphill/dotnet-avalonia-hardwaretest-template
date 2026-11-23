@@ -22,7 +22,10 @@ internal static class LogicalInstrumentBindings
             if (ReferenceEquals(first.Instrument, binding.Instrument)) continue;
             if (first.Instrument.GetType() != binding.Instrument.GetType()
                 || !string.Equals(InstrumentResourceAccess.GetResource(first.Instrument), InstrumentResourceAccess.GetResource(binding.Instrument), StringComparison.Ordinal))
+            {
                 throw Conflict(slot);
+            }
+
             sourceSteps ??= ReadSourceSteps(sourcePath);
             var firstConfiguration = Configuration(first, sourceSteps, slot);
             var nextConfiguration = Configuration(binding, sourceSteps, slot);
@@ -44,7 +47,9 @@ internal static class LogicalInstrumentBindings
                 if (property.CanRead && property.GetIndexParameters().Length == 0
                     && typeof(Instrument).IsAssignableFrom(property.PropertyType)
                     && property.GetValue(step) is Instrument instrument)
+                {
                     yield return new Binding(step, property, instrument);
+                }
             }
             foreach (var nested in StepRuntimeBindings(step)) yield return nested;
         }

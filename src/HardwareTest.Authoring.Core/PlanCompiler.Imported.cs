@@ -70,7 +70,10 @@ public sealed partial class PlanCompiler
             {
                 var target = AuthoringProgramAssets.ResolvePath(stage, relative);
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                if (assets.TryGetValue(relative, out var contents)) File.WriteAllText(target, contents);
+                if (assets.TryGetValue(relative, out var contents))
+                {
+                    File.WriteAllText(target, contents);
+                }
                 else
                 {
                     var source = AuthoringProgramAssets.ResolvePath(sourceDirectory, relative);
@@ -111,7 +114,10 @@ public sealed partial class PlanCompiler
                 var type = SerializedStepType(expected);
                 if (!enumerator.MoveNext() || !Guid.TryParse(identity, out var id) || enumerator.Current.Id != id
                     || enumerator.Current.GetType().FullName != type)
+                {
                     throw new AuthoringWorkspaceException($"PROCEDURE_PLUGIN: Restore the plugin for {type} ({identity}) before exporting this procedure.");
+                }
+
                 Compare(ImportedSteps(expected.Element("ChildTestSteps")), enumerator.Current.ChildTestSteps);
             }
             if (enumerator.MoveNext()) throw new AuthoringWorkspaceException("PROCEDURE_LAYOUT: The installed plugin changed the imported step tree.");

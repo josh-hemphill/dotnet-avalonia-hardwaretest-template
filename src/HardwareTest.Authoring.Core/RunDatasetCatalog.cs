@@ -118,7 +118,10 @@ public static class RunDatasetCatalog
             || run.ReferenceRules.Any(rule => rule is null)
             || run.ReferenceUses.Any(use => use is null || use.Rule is null || use.ReferenceValue is null || use.Context is null)
             || run.ReferenceEvaluations.Any(evaluation => evaluation is null))
+        {
             throw new AuthoringWorkspaceException($"Invalid run.json at {fullPath}: recorded reference inputs are incomplete.");
+        }
+
         run.StoredSchemaVersion = status.StoredVersion;
         run.IsSchemaReadOnly = status.IsReadOnly;
         return new RunDataset(fullPath, run)
@@ -165,7 +168,10 @@ public static class RunDatasetCatalog
             throw new AuthoringWorkspaceException("Recording requires a plan id and finite sample values.");
         if (string.IsNullOrWhiteSpace(destinationName) || destinationName.StartsWith(".import-", StringComparison.Ordinal) || destinationName != Path.GetFileName(destinationName)
             || destinationName is "." or ".." || destinationName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
             throw new AuthoringWorkspaceException("Recording destination must be a single folder name.");
+        }
+
         var root = ResolveRecordingsRoot(workspace);
         if (!PathContainment.IsUnderRoot(workspace.Root, root))
             throw new AuthoringWorkspaceException("Recording imports must remain inside the workspace.");
@@ -186,7 +192,10 @@ public static class RunDatasetCatalog
             if (validated.Run.PlanId != source.Run.PlanId || !CanImportSchema(validated.Run)
                 || validated.RecordingSnapshot?.Json != source.RecordingSnapshot?.Json
                 || validated.Run.Samples.Any(sample => !double.IsFinite(sample.Value) || string.IsNullOrWhiteSpace(sample.EffectiveMetricKey)))
+            {
                 throw new AuthoringWorkspaceException("Recording changed during import; retry.");
+            }
+
             Directory.Move(temporary, destination);
             return validated with { Path = Path.Combine(destination, "run.json") };
         }

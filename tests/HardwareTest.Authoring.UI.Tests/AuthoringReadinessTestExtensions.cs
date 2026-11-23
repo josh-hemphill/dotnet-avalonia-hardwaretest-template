@@ -23,7 +23,11 @@ internal static class AuthoringReadinessTestExtensions
             if (!vm.EnvironmentInspectionPending && !vm.BuildInspectionBusy && !vm.EditingIssuesBusy && !vm.PreviewBusy
                 && vm.WaitForEnvironmentInspectionAsync().IsCompleted && vm.WaitForBuildInspectionAsync().IsCompleted
                 && vm.WaitForEditingIssuesAsync().IsCompleted && vm.WaitForPreviewAsync().IsCompleted
-                && vm.WaitForMovementAvailabilityAsync().IsCompleted && vm.WaitForRecipeAvailabilityAsync().IsCompleted) return;
+                && vm.WaitForMovementAvailabilityAsync().IsCompleted && vm.WaitForRecipeAvailabilityAsync().IsCompleted)
+            {
+                return;
+            }
+
             await Task.Delay(1, timeout.Token);
         }
     }

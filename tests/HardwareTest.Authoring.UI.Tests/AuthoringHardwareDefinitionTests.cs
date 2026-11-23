@@ -225,7 +225,10 @@ public sealed class AuthoringHardwareDefinitionTests
             ExpandPackageDetails(table);
             Assert.Contains(table.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == status);
         }
-        if (state == "valid") Assert.Equal(package + ": available", status);
+        if (state == "valid")
+        {
+            Assert.Equal(package + ": available", status);
+        }
         else
         {
             Assert.Contains(Path.GetFullPath(defaultHome), status);

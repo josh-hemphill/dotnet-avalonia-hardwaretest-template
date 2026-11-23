@@ -120,7 +120,10 @@ public sealed class WindowsPrintBackend : IWindowsPrintBackend
         {
             if (page.Width < 1 || page.Height < 1 || page.Stride != checked(page.Width * 4) || page.Pixels == 0
                 || (long)page.Width * page.Height > PrintGeometry.MaxPixels)
+            {
                 throw new InvalidDataException("The printer requires a tightly packed BGRA32 bitmap.");
+            }
+
             var info = new BitmapInfo
             {
                 Size = 40,

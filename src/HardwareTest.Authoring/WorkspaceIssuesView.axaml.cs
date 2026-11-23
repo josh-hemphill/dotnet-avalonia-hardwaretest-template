@@ -34,7 +34,9 @@ public partial class WorkspaceIssuesView : UserControl
     {
         if (change.PropertyName is nameof(AuthoringWorkspaceViewModel.EditingIssues)
             or nameof(AuthoringWorkspaceViewModel.FindingRows) or nameof(AuthoringWorkspaceViewModel.WorkspaceSessionId))
+        {
             RevealEditingFindings();
+        }
     }
 
     private void RevealEditingFindings()
@@ -58,7 +60,11 @@ public partial class WorkspaceIssuesView : UserControl
         if (sender is not Button { DataContext: AuthoringEditingIssue issue }
             || DataContext is not AuthoringWorkspaceViewModel vm
             || TopLevel.GetTopLevel(this) is not MainWindow { IsVisible: true } owner
-            || !ReferenceEquals(owner.DataContext, vm)) return;
+            || !ReferenceEquals(owner.DataContext, vm))
+        {
+            return;
+        }
+
         if (issue.RecoveryArea == AuthoringRecoveryArea.CurrentLocation)
         {
             owner.OnOpenFindingProgram(sender, e);

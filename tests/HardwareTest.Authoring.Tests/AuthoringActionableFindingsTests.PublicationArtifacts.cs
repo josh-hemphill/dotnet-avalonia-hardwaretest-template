@@ -61,7 +61,11 @@ public sealed partial class AuthoringActionableFindingsTests
         {
             new AuthoringDocumentStore(_root).GetDocumentPath("board-demo"),
             Path.Combine(_root, "board-demo.TapPlan"), Path.Combine(_root, "board-demo.program.json")
-        }) original.Add(path, File.ReadAllBytes(path));
+        })
+        {
+            original.Add(path, File.ReadAllBytes(path));
+        }
+
         return original;
     }
 }

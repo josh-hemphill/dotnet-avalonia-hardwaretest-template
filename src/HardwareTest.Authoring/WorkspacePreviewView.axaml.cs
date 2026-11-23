@@ -36,7 +36,11 @@ public partial class WorkspacePreviewView : UserControl
     {
         if (_sourceDetailsWindow is not null) { _sourceDetailsWindow.Activate(); return; }
         if (DataContext is not AuthoringWorkspaceViewModel vm
-            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner) return;
+            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner)
+        {
+            return;
+        }
+
         if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
         if (!vm.CanInspectPreviewDetails || reference && !vm.HasRecordedReferences) return;
         var details = new TextBox
@@ -92,7 +96,11 @@ public partial class WorkspacePreviewView : UserControl
     {
         if (_recordingSelectionWindow is not null) { _recordingSelectionWindow.Activate(); return; }
         if (DataContext is not AuthoringWorkspaceViewModel vm
-            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner || !vm.HasRecordings) return;
+            || TopLevel.GetTopLevel(this) is not Window { IsVisible: true } owner || !vm.HasRecordings)
+        {
+            return;
+        }
+
         var ownerDataContext = owner.DataContext;
         if (owner is MainWindow && !ReferenceEquals(ownerDataContext, vm)) return;
         var workspace = vm.Workspace;
@@ -135,7 +143,10 @@ public partial class WorkspacePreviewView : UserControl
     {
         if (owner is MainWindow && !ReferenceEquals(owner.DataContext, vm)) return;
         if (owner.IsVisible && ReferenceEquals(TopLevel.GetTopLevel(this), owner) && ReferenceEquals(DataContext, vm)
-            && sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger) trigger.Focus();
+            && sender is Control { IsEffectivelyVisible: true, IsEffectivelyEnabled: true } trigger)
+        {
+            trigger.Focus();
+        }
     }
 
     private void OnUseExampleData(object? sender, RoutedEventArgs e)

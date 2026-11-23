@@ -163,8 +163,12 @@ public sealed class AuthoringHardwareTests : IDisposable
         var manifest = new AuthoringManifest { SchemaVersion = AuthoringSchemaVersions.Manifest, Catalogs = new() };
         foreach (var populated in new[] { false, true })
         {
-            if (populated) manifest.Catalogs.Hardware.Add(new AuthoringHardwareDefinition(Guid.NewGuid(), "BENCH", "registered.Type", "TCPIP::bench",
+            if (populated)
+            {
+                manifest.Catalogs.Hardware.Add(new AuthoringHardwareDefinition(Guid.NewGuid(), "BENCH", "registered.Type", "TCPIP::bench",
                 new Dictionary<string, string> { ["IoTimeoutMilliseconds"] = "1234" }));
+            }
+
             using var serialized = System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(
                 manifest, AuthoringJsonContext.Default.AuthoringManifest));
             var serializedCatalogs = serialized.RootElement.GetProperty("catalogs");

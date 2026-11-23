@@ -76,8 +76,12 @@ public sealed partial class PlanCompiler
                 validations[step] = validate;
                 if (onlyNodeId is { } validationTarget ? step.Id == validationTarget : onlyOutput is null || string.Equals(output, onlyOutput, StringComparison.OrdinalIgnoreCase)) validate();
             }
-            if (step.ChildTestSteps.Count > 0) BindSequence(step.ChildTestSteps, bindProducer, onlyOutput,
+            if (step.ChildTestSteps.Count > 0)
+            {
+                BindSequence(step.ChildTestSteps, bindProducer, onlyOutput,
                 safeScope && (step is TestGroupStep or RepeatLoopStep), incompleteFields, [.. (scopeNodes ?? []), step.Id], scalarExample, onlyNodeId);
+            }
+
             var channel = DeclaredChannel(step);
             if (!string.IsNullOrWhiteSpace(channel))
             {
@@ -90,11 +94,16 @@ public sealed partial class PlanCompiler
     private static IEnumerable<ITestStep> FlattenSectionSteps(IEnumerable<ITestStep> steps)
     {
         foreach (var step in steps)
+        {
             if (step.Enabled && step is TestGroupStep { AuthoringSection: true })
             {
                 foreach (var child in FlattenSectionSteps(step.ChildTestSteps)) yield return child;
             }
-            else yield return step;
+            else
+            {
+                yield return step;
+            }
+        }
     }
 
     private static Dictionary<string, List<ITestStep>> Snapshot(Dictionary<string, List<ITestStep>> producers)

@@ -69,6 +69,7 @@ public sealed class BenchReferencePromotionViewModel : ReactiveObject
         if (source.IsSchemaReadOnly) { Status = "This record uses a read-only schema and cannot qualify a reference."; RefreshPermissions(); return; }
         _source = JsonSerializer.Deserialize(JsonSerializer.Serialize(source, AppJsonContext.Default.TestRunRecord), AppJsonContext.Default.TestRunRecord);
         if (_source is not null)
+        {
             foreach (var rule in _source.ReferenceRules)
             {
                 BenchReferenceCaptureRow row;
@@ -80,6 +81,8 @@ public sealed class BenchReferencePromotionViewModel : ReactiveObject
                 catch (Exception ex) { row = new() { Rule = BenchReferenceEvaluator.CloneRule(rule), Error = ex.Message }; }
                 Candidates.Add(row);
             }
+        }
+
         if (!HasCandidate) Status = "No declared measurement qualifies. Use successful reference acquisition with complete finite data and known provenance.";
         RefreshPermissions();
     }

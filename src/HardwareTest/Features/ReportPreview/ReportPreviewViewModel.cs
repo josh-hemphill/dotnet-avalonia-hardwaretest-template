@@ -209,8 +209,10 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }).ConfigureAwait(false);
         }
         lock (_selectionLock)
+        {
             return selection.Version == _selectionVersion && selection.Token == _selectionCancellation.Token
                 && !selection.Token.IsCancellationRequested ? selection : null;
+        }
     }
 
     private async Task LoadLatestAsync()
@@ -340,10 +342,13 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 break;
             default: return;
         }
-        if (!token.IsCancellationRequested) await RunOnUiAsync(() =>
+        if (!token.IsCancellationRequested)
+        {
+            await RunOnUiAsync(() =>
         {
             if (!token.IsCancellationRequested) Status = message;
         }).ConfigureAwait(false);
+        }
     }
 
     private async Task<string> PrintSelectedAsync(string path, CancellationToken selectionToken)

@@ -49,7 +49,10 @@ public partial class WorkspaceEnvironmentView : UserControl
     private void OnEnvironmentChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs change)
     {
         if (change.PropertyName is nameof(AuthoringWorkspaceViewModel.Error)
-            or nameof(AuthoringWorkspaceViewModel.PackageRepositoryError)) RevealSourceError();
+            or nameof(AuthoringWorkspaceViewModel.PackageRepositoryError))
+        {
+            RevealSourceError();
+        }
     }
 
     private void RevealSourceError()

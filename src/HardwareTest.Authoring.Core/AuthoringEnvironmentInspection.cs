@@ -24,6 +24,7 @@ internal sealed record AuthoringEnvironmentInspection(
     internal static AuthoringEnvironmentInspection Inspect(AuthoringWorkspace workspace, string? homeOverride)
     {
         if (!WorkspacePackPlan.TryResolveHomePath(workspace, homeOverride, out var path, out var error))
+        {
             return Empty(error!) with
             {
                 Error = error,
@@ -31,6 +32,8 @@ internal sealed record AuthoringEnvironmentInspection(
                     .Concat(workspace.Manifest.OptionalDependencies.Select(d => new AuthoringPackageRequirement(d.Package, d.Version, "unavailable", true, false, error!))).ToArray()),
                 RuntimeFiles = Array.AsReadOnly(new[] { error! }),
             };
+        }
+
         var home = new OpenTapHome(path!);
         var requiresLibrary = workspace.Manifest.Dependencies.Any(dependency => dependency.Package.Equals(AuthoringInstrumentCatalog.LibraryPackage, StringComparison.OrdinalIgnoreCase));
         var packages = AuthoringEnvironmentAssessment.Packages(workspace.Manifest, home);

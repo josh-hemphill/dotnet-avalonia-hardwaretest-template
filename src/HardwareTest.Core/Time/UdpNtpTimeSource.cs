@@ -123,10 +123,7 @@ public sealed class UdpNtpTimeSource : INtpTimeSource
         return true;
     }
 
-    internal static bool TryRemaining(Stopwatch clock, TimeSpan budget, out TimeSpan remaining)
-    {
-        return TryRemaining(clock.Elapsed, budget, out remaining);
-    }
+    internal static bool TryRemaining(Stopwatch clock, TimeSpan budget, out TimeSpan remaining) => TryRemaining(clock.Elapsed, budget, out remaining);
 
     private static bool TryRemaining(TimeSpan elapsed, TimeSpan budget, out TimeSpan remaining)
     {

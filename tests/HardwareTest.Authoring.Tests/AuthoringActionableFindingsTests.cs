@@ -185,7 +185,10 @@ public sealed partial class AuthoringActionableFindingsTests : IDisposable
                 _vm.NewRequiredField = "traceability";
                 _vm.AddRequiredField();
             }
-            else _vm.RemoveSelectedProgram();
+            else
+            {
+                _vm.RemoveSelectedProgram();
+            }
         }
         finally { File.WriteAllText(Path.Combine(_root, "fixture-release"), ""); }
         await operation;

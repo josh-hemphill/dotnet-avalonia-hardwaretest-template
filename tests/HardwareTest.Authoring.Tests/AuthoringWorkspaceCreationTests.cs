@@ -33,7 +33,10 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         if (kind == WorkspaceTemplateKind.HardwareScaffold)
             Assert.Equal("0.3.0-alpha.1", Assert.Single(loaded.Files.Manifest.Dependencies, package => package.Package == AuthoringInstrumentCatalog.LibraryPackage).Version);
         Assert.Equal(loaded.Files.Manifest.DisplayName, new AuthoringDocumentStore(first.Destination).LoadWorkspace().Document!.Manifest.DisplayName);
-        if (kind == WorkspaceTemplateKind.Empty) Assert.Empty(loaded.Programs);
+        if (kind == WorkspaceTemplateKind.Empty)
+        {
+            Assert.Empty(loaded.Programs);
+        }
         else
         {
             var draft = Assert.Single(loaded.Programs);
@@ -216,7 +219,10 @@ public sealed class AuthoringWorkspaceCreationTests : IDisposable
         Assert.True(reachedMovedRoot);
         Assert.False(File.Exists(Path.Combine(request.Destination, "authoring.json")));
         Assert.Empty(Directory.GetDirectories(_parent, ".ht-workspace-stage-*"));
-        if (!externalChanges) Assert.False(Directory.Exists(request.Destination));
+        if (!externalChanges)
+        {
+            Assert.False(Directory.Exists(request.Destination));
+        }
         else
         {
             Assert.Equal("external changed bytes", File.ReadAllText(Path.Combine(request.Destination, ".gitignore")));

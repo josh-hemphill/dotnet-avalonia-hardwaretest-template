@@ -51,7 +51,11 @@ public sealed class AuthoringDraftReviewRegressionTests
         {
             File.Delete(sourcePath + ".bak"); Directory.CreateDirectory(sourcePath + ".bak");
         }
-        else vm.WorkspaceSourceReplacement = (_, _) => throw new IOException("workspace source replacement failed");
+        else
+        {
+            vm.WorkspaceSourceReplacement = (_, _) => throw new IOException("workspace source replacement failed");
+        }
+
         var result = vm.SaveAll();
         Assert.False(result.Succeeded);
         Assert.NotNull(result.WorkspaceCatalogFailure);

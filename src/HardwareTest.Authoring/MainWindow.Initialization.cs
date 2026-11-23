@@ -91,7 +91,10 @@ public partial class MainWindow
             if (!current()) return;
             _directInitializationForm = !created && _initialization.EnvironmentRequested ? _initialization.CaptureGuidedForm() : null;
             if (created) { _quickPlanForm = null; WorkspaceTabs.SelectedIndex = 0; }
-            else if (_initialization.EnvironmentRequested) WorkspaceTabs.SelectedIndex = 3;
+            else if (_initialization.EnvironmentRequested)
+            {
+                WorkspaceTabs.SelectedIndex = 3;
+            }
         }
         finally { _initialization = null; }
     }

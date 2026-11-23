@@ -174,6 +174,9 @@ public sealed partial class AuthoringActionableFindingsTests
             Assert.Empty(result.SavedProgramIds);
             Assert.False(result.WorkspaceCatalogSaved);
         }
-        else Assert.Throws<AuthoringWorkspaceException>(() => { if (operation == "apply") _vm.Apply(); else _vm.SaveSidecar(); });
+        else
+        {
+            Assert.Throws<AuthoringWorkspaceException>(() => { if (operation == "apply") _vm.Apply(); else _vm.SaveSidecar(); });
+        }
     }
 }

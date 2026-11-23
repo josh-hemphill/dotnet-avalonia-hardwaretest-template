@@ -166,7 +166,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _publishedPreviewInput = input;
                 PublishPreviewProperties();
             }
-            if (_previewPending || !current) RequestPreviewRefresh();
+            if (_previewPending || !current)
+            {
+                RequestPreviewRefresh();
+            }
             else { PreviewBusy = false; _previewIdle.TrySetResult(); }
         });
     }
@@ -178,7 +181,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaRecordingEvidence), nameof(ExcludedExplorationFormulas), nameof(FormulaError),
             nameof(FormulaSaveNote), nameof(FormulaSaveOutcomeKind), nameof(HasRecordedReferences),
-            nameof(RecordingReferenceSummary), nameof(RecordingReferenceReview) }) OnPropertyChanged(property);
+            nameof(RecordingReferenceSummary), nameof(RecordingReferenceReview) })
+        {
+            OnPropertyChanged(property);
+        }
     }
 
     internal static AuthoringPreviewPresentation EvaluatePreview(AuthoringPreviewInput input)
@@ -203,7 +209,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 var issues = executions.Where(tile => tile.Preview.CannedSamples.Count == 0).Select(tile => tile.Preview.Note).Distinct();
                 evidence = $"Recording evidence: {available} source execution(s) evaluated separately. {string.Join(" ", issues)} Deployment requirements remain separate.";
             }
-            else evidence = FormulaDeploymentClassifier.DescribeRecording(selected, recording is null ? null : RunDatasetBinder.SeriesByMetric(recording));
+            else
+            {
+                evidence = FormulaDeploymentClassifier.DescribeRecording(selected, recording is null ? null : RunDatasetBinder.SeriesByMetric(recording));
+            }
         }
         var excluded = input.Documents.SelectMany(document =>
         {

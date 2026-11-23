@@ -78,7 +78,9 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
     {
         if (Serial is null || Serial.EnablePhysicalPort || !string.Equals(Serial.Address, SerialDutPort.MockAddress, StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(Serial.Name) || Serial.BaudRate <= 0 || Serial.TimeoutMs is < 1 or > 60000)
+        {
             throw new InvalidOperationException("Use the simulation-only serial resource with a positive baud rate and reply timeout.");
+        }
     }
 
     public ProcedureTables ValidateConfiguration()
@@ -87,7 +89,9 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
             throw new InvalidOperationException("Load the saved fixture TapPlan and its tables first.");
         if (ChildTestSteps.Count < 3 || ChildTestSteps.Any(step => step is not FixtureSectionStep)
             || ChildTestSteps.Take(2).Any(step => step is FixtureSectionStep { GatesRemainingSections: false }))
+        {
             throw new InvalidOperationException("Start with the station and DUT prerequisite sections followed by the remaining fixture sections.");
+        }
 
         var stationChecks = Descendants(ChildTestSteps[0]).ToArray();
         var dutChecks = Descendants(ChildTestSteps[1]).ToArray();
@@ -114,10 +118,13 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
             measurement.Validate(tables);
 
         foreach (var configurations in Descendants(this).OfType<FixtureConfigurationsStep>())
+        {
             ProcedureTables.Require(configurations.ChildTestSteps.Count > 0
                 && configurations.ChildTestSteps.All(step => !string.IsNullOrWhiteSpace(step.Name) && step.Name == step.Name.Trim())
                 && configurations.ChildTestSteps.Select(step => step.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count()
                 == configurations.ChildTestSteps.Count, "Fixture configuration names must be unique.");
+        }
+
         return tables;
     }
 
@@ -131,7 +138,11 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
                 ProcedureTables.Require(!string.IsNullOrWhiteSpace(handoff.Message), $"'{handoff.Name}' needs operator instructions.");
                 confirmed = handoff.EnableSupplyAfterConfirmation == enableSupply;
             }
-            else if (step is RailBringUpStep) confirmed = false;
+            else if (step is RailBringUpStep)
+            {
+                confirmed = false;
+            }
+
             if (before(step))
                 ProcedureTables.Require(confirmed, $"'{step.Name}' needs the {(enableSupply ? "DUT connection" : "supplies-off harness self-test")} handoff before measurement.");
         }
@@ -178,8 +189,11 @@ public sealed partial class FixtureProcedureStep : RuntimeAwareTestStep, IProced
     internal static FixtureProcedureStep FindRoot(ITestStep step)
     {
         for (var parent = step.Parent; parent is ITestStep ancestor; parent = ancestor.Parent)
+        {
             if (ancestor is FixtureProcedureStep procedure)
                 return procedure;
+        }
+
         throw new InvalidOperationException("Place this step within an Advanced Fixture Procedure.");
     }
 

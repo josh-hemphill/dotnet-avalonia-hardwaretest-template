@@ -433,8 +433,11 @@ public sealed class AlphaOperatorPersonaTests
                 {
                     // Simulated fixture responses for the original sample's prompt/input setup.
                     foreach (var field in run.Interaction.InteractionFields)
+                    {
                         if (field.IsBoolean) field.BoolValue = true;
                         else if (string.IsNullOrWhiteSpace(field.Value)) field.Value = field.IsNumber ? "0" : "alpha-fixture";
+                    }
+
                     run.ContinueOperatorAttention();
                 }
                 return !run.IsRunning && !string.IsNullOrWhiteSpace(run.LastRunId);
@@ -518,7 +521,11 @@ public sealed class AlphaOperatorPersonaTests
         box.BringIntoView(); Dispatcher.UIThread.RunJobs(); Assert.True(box.Focus());
         box.SelectAll();
         if (value.Length == 0) { window.KeyPress(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null); window.KeyRelease(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null); }
-        else window.KeyTextInput(value);
+        else
+        {
+            window.KeyTextInput(value);
+        }
+
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(value, box.Text);
     }

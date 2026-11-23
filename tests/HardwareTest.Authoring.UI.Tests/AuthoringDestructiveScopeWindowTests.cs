@@ -184,7 +184,11 @@ public sealed class AuthoringDestructiveScopeWindowTests
             : Loaded();
         var vm = fixture.ViewModel;
         if (scenario == "unresolved") { fixture.Show(); fixture.OpenRememberedWorkspace(); Settings(fixture); }
-        else if (scenario == "last") vm.CreateDemoProgram("last");
+        else if (scenario == "last")
+        {
+            vm.CreateDemoProgram("last");
+        }
+
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Remove instrument slot from selected program").IsEnabled);
         var text = fixture.Control<TextBlock>("Instrument removal guidance").Text;
@@ -321,7 +325,10 @@ public sealed class AuthoringDestructiveScopeWindowTests
         };
         AuthoringUiFixture.Drain(); Assert.False(request.IsCompleted); var dialog = Dialog(fixture);
         if (operation == "instrument") fixture.Control<ComboBox>("Compatible replacement instrument slot", dialog).SelectedItem = "B";
-        if (transition == "hidden") fixture.Window!.Hide();
+        if (transition == "hidden")
+        {
+            fixture.Window!.Hide();
+        }
         else if (transition == "context")
         {
             replacement.ViewModel.Open(replacement.WorkspaceRoot); await replacement.ViewModel.StopRecoveryAsync();
@@ -387,8 +394,14 @@ public sealed class AuthoringDestructiveScopeWindowTests
     }
     private static void Cancel(Window dialog, string route)
     {
-        if (route == "cancel") AuthoringUiFixture.Click(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel")));
-        else if (route == "dismiss") dialog.Close();
+        if (route == "cancel")
+        {
+            AuthoringUiFixture.Click(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel")));
+        }
+        else if (route == "dismiss")
+        {
+            dialog.Close();
+        }
         else { var key = route == "enter" ? Key.Enter : Key.Escape; dialog.KeyPress(key, RawInputModifiers.None, key == Key.Enter ? PhysicalKey.Enter : PhysicalKey.Escape, null); AuthoringUiFixture.Drain(); }
     }
     private static void PressSpace(Window window, CheckBox box)
@@ -398,7 +411,10 @@ public sealed class AuthoringDestructiveScopeWindowTests
     private static void OpenProgramModal(AuthoringUiFixture fixture, bool keyboard)
     {
         fixture.Window!.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 0; AuthoringUiFixture.Drain();
-        if (!keyboard) AuthoringUiFixture.Click(fixture.Control<Button>("Remove program"));
+        if (!keyboard)
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Remove program"));
+        }
         else
         {
             var item = fixture.Control<ComboBox>("Selected test plan");

@@ -34,7 +34,9 @@ internal sealed class SampleTableCapture : IResultSink
                     // execution ancestry is no longer needed by any live sample.
                     foreach (var runId in capture._runs.Where(pair => ids.Contains(pair.Value.TestStepId))
                                  .Select(pair => pair.Key).ToArray())
+                    {
                         capture._runs.Remove(runId);
+                    }
                 }
             }
         }
@@ -139,8 +141,11 @@ internal sealed class SampleTableCapture : IResultSink
         while (parent is ITestStep step)
         {
             if (step is not TestGroupStep and not RepeatLoopStep)
+            {
                 throw new InvalidOperationException(
                     "SAMPLE_SCOPE: unsupported execution boundary; place the producer and check in a Basic Test Group or Repeat Loop.");
+            }
+
             parent = step.Parent;
         }
         if (parent is not TestPlan plan)

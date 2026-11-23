@@ -64,6 +64,9 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void RaiseBuildResultProperties()
     {
         foreach (var name in new[] { nameof(BuildHistory), nameof(LastCompletedBuild), nameof(LastBuildReceipt), nameof(HasCompletedBuild), nameof(BuildReadinessText),
-            nameof(CompatibilityState), nameof(BuildChecks), nameof(CheckedRevisions), nameof(CheckedOutputs), nameof(BuildPrograms) }) OnPropertyChanged(name);
+            nameof(CompatibilityState), nameof(BuildChecks), nameof(CheckedRevisions), nameof(CheckedOutputs), nameof(BuildPrograms) })
+        {
+            OnPropertyChanged(name);
+        }
     }
 }

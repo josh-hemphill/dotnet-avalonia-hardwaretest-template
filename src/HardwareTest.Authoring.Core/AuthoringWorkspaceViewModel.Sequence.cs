@@ -253,9 +253,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         _allSectionRows = allRows;
         var remembered = allRows.FirstOrDefault(row => row.NodeId == SelectedDocument?.SelectedNodeId);
         if (remembered is not null)
+        {
             foreach (var parent in allRows.Where(row => row.IsSection && row.IndexPath.Count < remembered.IndexPath.Count &&
                 remembered.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
+            {
                 if (parent.NodeId is { } id) _collapsedSectionIds.Remove(id);
+            }
+        }
+
         var next = VisibleSequence(allRows);
         var structureChanged = !AuthoringSequence.SameKeys(_sequenceItems, next);
         if (structureChanged)

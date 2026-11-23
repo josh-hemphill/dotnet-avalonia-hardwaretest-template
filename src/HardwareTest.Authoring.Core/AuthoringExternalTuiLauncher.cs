@@ -63,7 +63,11 @@ public sealed class AuthoringExternalTuiLauncher
         {
             start = WindowsStartInfo(dotnet, home, plan, requiresInstrumentLibrary);
         }
-        else throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
+        else
+        {
+            throw new PlatformNotSupportedException("Launch the installed TUI from a terminal on this platform, then refresh external changes.");
+        }
+
         if (!OperatingSystem.IsWindows()) AddCliArguments(start, home, plan, requiresInstrumentLibrary);
         using var process = Process.Start(start) ?? throw new IOException("Could not start the external TUI terminal.");
         try

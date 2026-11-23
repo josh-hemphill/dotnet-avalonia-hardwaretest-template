@@ -8,8 +8,11 @@ public partial class MainWindow
     {
         var assembly = typeof(Program).Assembly.Location;
         if (string.IsNullOrEmpty(assembly))
+        {
             return AuthoringChildProcessRunner.ForExecutable(Environment.ProcessPath
                 ?? throw new InvalidOperationException("The authoring executable path is unavailable."));
+        }
+
         var appHost = Path.Combine(Path.GetDirectoryName(assembly)!, "HardwareTest.Authoring" + (OperatingSystem.IsWindows() ? ".exe" : ""));
         return AuthoringChildProcessRunner.ForExecutable(File.Exists(appHost) ? appHost : assembly);
     }

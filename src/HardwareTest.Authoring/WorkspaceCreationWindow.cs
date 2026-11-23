@@ -75,7 +75,11 @@ public sealed class WorkspaceCreationWindow : Window
             _create.IsEnabled = false;
             var created = await owner.CreateWorkspaceAsync(_reviewed, cancellationToken);
             if (cancellationToken.IsCancellationRequested || !IsVisible || !owner.IsVisible || !ReferenceEquals(owner.DataContext, vm)
-                || (!created && session != vm?.WorkspaceSessionId)) return;
+                || (!created && session != vm?.WorkspaceSessionId))
+            {
+                return;
+            }
+
             if (created)
             {
                 CreatedWorkspaceSession = (owner.DataContext as AuthoringWorkspaceViewModel)?.WorkspaceSessionId;

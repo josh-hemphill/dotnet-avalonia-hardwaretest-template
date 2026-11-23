@@ -12,10 +12,7 @@ public partial class ReportPreviewView : UserControl
 {
     private Window? _details;
 
-    public ReportPreviewView()
-    {
-        InitializeComponent();
-    }
+    public ReportPreviewView() => InitializeComponent();
 
     private async void OnShowDetails(object? sender, RoutedEventArgs e)
     {

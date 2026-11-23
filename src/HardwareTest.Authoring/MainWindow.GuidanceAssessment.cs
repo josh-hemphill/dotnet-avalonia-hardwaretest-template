@@ -24,8 +24,11 @@ public partial class MainWindow
         // Read only published package values; pending notifications alone do not invalidate guidance.
         static string Values(IEnumerable<string> values) => string.Concat(values.Select(value => $"{value.Length}:{value}"));
         if (!_viewModel.EnvironmentInspectionPending)
+        {
             _guidanceEnvironmentIdentity = Values(_viewModel.EnvironmentPackages.SelectMany(package => new[]
                 { package.Package, package.RequiredVersion, package.InstalledVersion, package.State, package.Satisfied.ToString() }));
+        }
+
         var document = _viewModel.SelectedDocument;
         return new(session, document?.Snapshot, document?.Revision, _viewModel.SelectedProgram?.PlanId,
             document?.SavedPlanIdentity, document?.SavedSidecarIdentity, _viewModel.Workspace?.Root,
@@ -93,7 +96,10 @@ public partial class MainWindow
                     || !ReferenceEquals(document, _viewModel.SelectedDocument) || revision != document.Revision
                     || !ReferenceEquals(request.Snapshot, document.Snapshot)
                     || request.SavedPlanIdentity != document.SavedPlanIdentity || request.SavedSidecarIdentity != document.SavedSidecarIdentity)
+                {
                     continue;
+                }
+
                 if (result!.SourceObserved) _guidanceObservedSources.Add(plan);
                 ApplyGuidanceAssessment(result);
             }
@@ -123,7 +129,10 @@ public partial class MainWindow
                 // part of the receipt, and adding or removing one later still conflicts.
                 if (AuthoringDocumentStore.ComputeHash(store.ValidatePath(compiled)) != originalPlan
                     || AuthoringDocumentStore.ComputeHash(store.ValidatePath(Path.ChangeExtension(compiled, ".program.json"))) != firstSave.SidecarHash)
+                {
                     throw new AuthoringWorkspaceException("Imported files changed outside this session. Reconcile them before saving authoring source.");
+                }
+
                 return new(false, false, true, blockers) { NeedsFirstSave = true };
             }
             if (loaded.IsReadOnly || loaded.Document is not { } source)
@@ -152,25 +161,39 @@ public partial class MainWindow
     {
         _guidancePrimary.IsEnabled = true;
         if (result.Error is { } error)
+        {
             PresentGuidance("Saved input is unavailable or unsafe", "Restore readable authoring source and compiled files inside this workspace, then resume guidance.",
                 "Review recovery issues", GuidanceIssues, [error]);
+        }
         else if (result.NeedsFirstSave)
+        {
             PresentGuidance("Imported plan needs its first authoring save", "Save this imported plan as an editable draft. Its editing and package requirements remain visible while you work.",
                 "Save authoring draft", GuidanceSave, result.Blockers);
+        }
         else if (result.Complete)
+        {
             PresentGuidance("First voltage test complete", "Preview the saved result with example data or an imported recording.",
                 "Preview result", () => WorkspaceTabs.SelectedIndex = 5, []);
+        }
         else if (!result.SourceMatches && !result.SourceStillBaseline)
+        {
             PresentGuidance("Saved source differs from this draft", "Reopen the workspace to load the saved version, or reconcile current edits before Save/check.",
                 "Review issues", GuidanceIssues, result.Blockers);
+        }
         else if (result.Blockers.Length > 0)
+        {
             PresentGuidance($"{result.Blockers.Length} item(s) need attention", "Resolve the listed issues before saving and checking this plan.",
                 "Review issues", GuidanceIssues, result.Blockers);
+        }
         else if (!result.SourceMatches)
+        {
             PresentGuidance("Unsaved draft changes", "Save your current edits and compile the plan to check readiness.",
                 "Save and check draft", GuidanceSave, []);
+        }
         else
+        {
             PresentGuidance("Draft needs a save and check", "Save the authoring source and compile the plan to check readiness.",
                 "Save and check draft", GuidanceSave, []);
+        }
     }
 }

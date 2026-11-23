@@ -238,7 +238,11 @@ public partial class MainWindow : Window
         {
             if (!current() || navigation != _findingNavigationGeneration || !ReferenceEquals(workspace, _viewModel.Workspace)
                 || !ReferenceEquals(document, _viewModel.SelectedDocument) || revision != document?.Revision
-                || target.ProgramId != _viewModel.SelectedProgram?.PlanId || target.NodeId != _viewModel.SelectedSequence?.NodeId) return;
+                || target.ProgramId != _viewModel.SelectedProgram?.PlanId || target.NodeId != _viewModel.SelectedSequence?.NodeId)
+            {
+                return;
+            }
+
             var inspector = this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault();
             if (target.NodeId is not null && inspector?.FocusFinding(target) != true)
                 _viewModel.ReportError("The target section is open; no supported precise field control is available.");

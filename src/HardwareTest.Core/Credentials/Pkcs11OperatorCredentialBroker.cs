@@ -251,7 +251,10 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
                 ObjectDisposedException.ThrowIf(_disposed, this); ct.ThrowIfCancellationRequested();
                 if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(expected.Serial, _credential.Serial, StringComparison.OrdinalIgnoreCase))
+                {
                     return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
+                }
+
                 try { var result = operation(); ct.ThrowIfCancellationRequested(); return result; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { return MapFailure(ex, "signing"); }

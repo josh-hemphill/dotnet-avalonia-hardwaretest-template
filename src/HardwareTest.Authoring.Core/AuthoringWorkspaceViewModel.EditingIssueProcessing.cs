@@ -124,7 +124,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 // Recheck references after notifications before marking the worker idle.
                 current = EditingIssueInputCurrent(input);
             }
-            if (_editingIssuePending || !current) RequestEditingIssueRefresh();
+            if (_editingIssuePending || !current)
+            {
+                RequestEditingIssueRefresh();
+            }
             else { EditingIssuesBusy = false; _editingIssueIdle.TrySetResult(); }
         });
     }
@@ -134,7 +137,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         OpenTapHome? home = null;
         string? error = null;
         if (input.DetachedWorkspace is { } workspace
-            && WorkspacePackPlan.TryResolveHomePath(workspace, input.HomeOverride, out var path, out error)) home = new(path!);
+            && WorkspacePackPlan.TryResolveHomePath(workspace, input.HomeOverride, out var path, out error))
+        {
+            home = new(path!);
+        }
+
         var packages = input.Dependencies.Select(dependency => dependency.Package).ToArray();
         return input.Documents.SelectMany(document => AuthoringIssueService.GetIssues(document.Snapshot.Restore(), home, error, packages)).ToArray();
     }

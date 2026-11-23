@@ -147,7 +147,11 @@ public partial class ReportPreviewViewModel
                 var pendingAction = _pending;
                 var cancellation = _signingCancellation;
                 if (pendingAction is null || cancellation is null || pendingAction.Version != _selectionVersion
-                    || cancellation.IsCancellationRequested) return;
+                    || cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+
                 operation = new SigningOperation(pendingAction, cancellation.Token,
                     ShowSigningPin ? SigningPin : null, _capturedCredential);
             }
@@ -218,10 +222,13 @@ public partial class ReportPreviewViewModel
         }
         finally
         {
-            if (effectVersion == _selectionVersion) await RunOnUiAsync(() =>
+            if (effectVersion == _selectionVersion)
+            {
+                await RunOnUiAsync(() =>
             {
                 if (effectVersion == _selectionVersion) SigningPin = string.Empty;
             }).ConfigureAwait(false);
+            }
         }
     }
 

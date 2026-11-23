@@ -36,7 +36,10 @@ public partial class HardwareView : UserControl
             or nameof(AuthoringWorkspaceViewModel.EditDeviceDriver) or nameof(AuthoringWorkspaceViewModel.EditDeviceChannels)
             or nameof(AuthoringWorkspaceViewModel.EditDeviceOutputs) or nameof(AuthoringWorkspaceViewModel.EditDeviceCommissioning)
             or nameof(AuthoringWorkspaceViewModel.CanReviewLoadedHardwareBinding) or nameof(AuthoringWorkspaceViewModel.SelectedInstrument)
-            or nameof(AuthoringWorkspaceViewModel.SelectedInstrumentSlot)) UpdateDraftState();
+            or nameof(AuthoringWorkspaceViewModel.SelectedInstrumentSlot))
+        {
+            UpdateDraftState();
+        }
     }
 
     private void UpdateDraftState()
@@ -88,11 +91,20 @@ public partial class HardwareView : UserControl
         Control target = ReviewBindingButton;
         if (vm.Error is not null && vm.CanReviewLoadedHardwareBinding)
         {
-            if (vm.HardwareEditType is null) target = BindingTypeBox;
-            else if (string.IsNullOrWhiteSpace(vm.HardwareEditAddress)) target = BindingAddressBox;
+            if (vm.HardwareEditType is null)
+            {
+                target = BindingTypeBox;
+            }
+            else if (string.IsNullOrWhiteSpace(vm.HardwareEditAddress))
+            {
+                target = BindingAddressBox;
+            }
             else if (!string.IsNullOrWhiteSpace(vm.HardwareEditTimeout)
                 && vm.HardwareEditType.ConfigurationFields.Contains("IoTimeoutMilliseconds")
-                && (!int.TryParse(vm.HardwareEditTimeout, out var timeout) || timeout <= 0)) target = BindingTimeoutBox;
+                && (!int.TryParse(vm.HardwareEditTimeout, out var timeout) || timeout <= 0))
+            {
+                target = BindingTimeoutBox;
+            }
         }
         target.BringIntoView();
         target.Focus();

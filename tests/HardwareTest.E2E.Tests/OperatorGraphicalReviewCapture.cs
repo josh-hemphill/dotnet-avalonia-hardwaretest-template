@@ -344,7 +344,10 @@ public sealed class OperatorGraphicalReviewCapture
         foreach (var field in run.Interaction.InteractionFields)
         {
             if (field.IsBoolean) { if (field.Required) field.BoolValue = true; }
-            else if (string.IsNullOrWhiteSpace(field.Value)) field.Value = field.IsNumber ? "0" : "Review fixture";
+            else if (string.IsNullOrWhiteSpace(field.Value))
+            {
+                field.Value = field.IsNumber ? "0" : "Review fixture";
+            }
         }
     }
 

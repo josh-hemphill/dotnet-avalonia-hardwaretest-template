@@ -24,8 +24,11 @@ internal static class ExecutionInstrumentLibrary
             var assemblies = Files.Where(IsOwnedPlugin).Select(file => AppDomain.CurrentDomain.GetAssemblies().Single(a => a.GetName().Name == Path.GetFileNameWithoutExtension(file))).ToArray();
             var bundled = BundledPayload();
             for (var i = 0; i < assemblies.Length; i++)
+            {
                 if (!OwnedInstrumentLibrary.Fingerprint(assemblies[i]).SequenceEqual(SHA256.HashData(bundled[Array.IndexOf(Files, assemblies[i].GetName().Name + ".dll")])))
                     throw new InvalidOperationException("An execution library loaded without a selected home must match the bundled 0.3.0-alpha.1 payload. Configure a trusted installed home to use a custom library.");
+            }
+
             return loadedDirectory;
         }
 
@@ -79,7 +82,9 @@ internal static class ExecutionInstrumentLibrary
                 var identity = metadata.GetAssemblyDefinition();
                 if (metadata.GetString(identity.Name) != Path.GetFileNameWithoutExtension(Files[i])
                     || identity.Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+                {
                     throw new InvalidOperationException("Instrument Components execution requires current 0.3.0-alpha.1 library assemblies.");
+                }
             }
             catch (BadImageFormatException error)
             {
@@ -129,7 +134,10 @@ internal static class ExecutionInstrumentLibrary
             || open is null || open.ReturnType.FullName != "InstrumentComponents.Runtime.DeviceHandle" || !open.ReturnType.IsClass
             || open.ReturnType.Assembly.GetName().Name != "InstrumentComponents.Runtime"
             || open.ReturnType.Assembly.GetName().Version != new Version(PublishedInstrumentComponents.AssemblyVersion))
+        {
             throw new InvalidOperationException("The selected Instrument Components library does not support the current 0.3.0-alpha.1 broker-managed execution contract.");
+        }
+
         return open.ReturnType.Assembly;
     }
 

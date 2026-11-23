@@ -32,7 +32,11 @@ public sealed partial class AuthoringActionableFindingsTests
             ConfigureValidationChild();
             await Assert.ThrowsAsync<AuthoringWorkspaceException>(() => _vm.RunOperationAsync(AuthoringOperationKind.Validate));
         }
-        else Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        else
+        {
+            Assert.Throws<AuthoringWorkspaceException>(() => _vm.Validate());
+        }
+
         Assert.Contains(AuthoringCompileCodes.DuplicateChannelKey, _vm.Error, StringComparison.Ordinal);
         for (var i = 0; i < paths.Length; i++) Assert.Equal(before[i], File.ReadAllBytes(paths[i]));
         Assert.False(_vm.HasUnsavedChanges);

@@ -23,10 +23,7 @@ public sealed class Pkcs11OperatorCredentialBrokerTests
     }
 
     [Fact]
-    public void Configured_pkcs11_module_path_wins_discovery()
-    {
-        Assert.Equal("vendor-piv-module.so", Pkcs11ModuleResolver.Resolve(" vendor-piv-module.so "));
-    }
+    public void Configured_pkcs11_module_path_wins_discovery() => Assert.Equal("vendor-piv-module.so", Pkcs11ModuleResolver.Resolve(" vendor-piv-module.so "));
 
     [Fact]
     public void Discovery_does_not_return_an_unloadable_bare_library_name()

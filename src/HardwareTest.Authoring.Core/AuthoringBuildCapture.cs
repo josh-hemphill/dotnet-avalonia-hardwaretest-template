@@ -77,8 +77,11 @@ public static partial class AuthoringBuildService
             (a.GetName().Name?.StartsWith("HardwareTest", StringComparison.Ordinal) == true || a.GetName().Name == "OpenTap")))
         {
             var path = assembly.Location;
-            if (path.Length != 0) trees.Add(CaptureTree(Path.GetDirectoryName(path)!, $"compiler/{trees.Count}", false,
+            if (path.Length != 0)
+            {
+                trees.Add(CaptureTree(Path.GetDirectoryName(path)!, $"compiler/{trees.Count}", false,
                 p => Path.GetFullPath(p) == path));
+            }
         }
         var request = new AuthoringBuildRequest(saved.Root, new PackOptions
         {
@@ -117,6 +120,7 @@ public static partial class AuthoringBuildService
                 files.Add(new(path, Path.GetRelativePath(root, path), target, content.Hash, content.Bytes, mode));
             }
             if (recursive)
+            {
                 foreach (var sub in Directory.EnumerateDirectories(directory).Order(StringComparer.Ordinal))
                 {
                     if (stage == "shell" && !ShellInput(sub)) continue;
@@ -125,6 +129,7 @@ public static partial class AuthoringBuildService
                         throw new AuthoringWorkspaceException($"BUILD_LINK: Directory links are unsupported in captured trees: '{sub}'.");
                     Walk(sub);
                 }
+            }
         }
     }
 
@@ -134,8 +139,11 @@ public static partial class AuthoringBuildService
         if (!request.EnvironmentValues.SequenceEqual(currentEnvironment))
             throw new AuthoringWorkspaceException("BUILD_ENVIRONMENT_CHANGED: Inherited build environment changed. Capture a new build.");
         foreach (var entry in request.EnvironmentValues)
+        {
             if (Environment.GetEnvironmentVariable(entry.Key) != entry.Value)
                 throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT_CHANGED: Environment input '{entry.Key}' changed. Capture a new build.");
+        }
+
         foreach (var tree in request.Trees)
         {
             var selected = tree.Files.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
@@ -151,7 +159,9 @@ public static partial class AuthoringBuildService
             var current = CaptureTree(tree.Root, tree.StageRelativePath, tree.Recursive, filter, materialize: false);
             if (!tree.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)).SequenceEqual(current.Files.Select(f => (f.Path, f.Target, f.Hash, f.UnixMode)))
                 || !tree.Links.SequenceEqual(current.Links))
+            {
                 throw new AuthoringWorkspaceException($"BUILD_INPUT_CHANGED: Saved input or dependency changed: '{tree.Root}'. Capture a new build.");
+            }
         }
     }
     private static string ResolveDotNetExecutable(IReadOnlyDictionary<string, string?>? environment = null)

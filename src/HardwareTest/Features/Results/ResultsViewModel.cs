@@ -89,12 +89,15 @@ public partial class ResultsViewModel : ReactiveObject
         ReferencePromotion = new BenchReferencePromotionViewModel(benchReferenceStore, _clock,
             () => _settings?.IsEngineerDebugMode == true && runControl?.IsRunning != true, RunOnUiAsync);
         if (settingsStore is not null)
+        {
             settingsStore.AppSettingsSaved += (_, _) => PostToUi(() =>
             {
                 RefreshAvailableExportTargets();
                 ReferencePromotion.RefreshPermissions();
                 this.RaisePropertyChanged(nameof(ShowReferencePromotion));
             });
+        }
+
         if (runControl is not null)
             runControl.PropertyChanged += (_, _) => PostToUi(ReferencePromotion.RefreshPermissions);
         Runs = [];

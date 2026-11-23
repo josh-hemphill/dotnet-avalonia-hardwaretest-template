@@ -16,9 +16,13 @@ public sealed class ResponsiveActionLabelTests
     public static IEnumerable<object[]> ActionCases()
     {
         foreach (var (width, height) in new[] { (960, 600), (1280, 800) })
+        {
             foreach (var (font, scale) in new[] { (14, 1d), (20, 1.5) })
+            {
                 foreach (var busy in new[] { false, true })
                     yield return [width, height, font, scale, busy];
+            }
+        }
     }
 
     [AvaloniaTheory]

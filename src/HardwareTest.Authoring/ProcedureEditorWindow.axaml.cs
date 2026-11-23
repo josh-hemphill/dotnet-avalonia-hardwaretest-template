@@ -134,7 +134,11 @@ public partial class ProcedureEditorWindow : Window
                     StepsMode.IsChecked = true;
                     foreach (var ancestor in _session.AncestorIds(target)) _collapsedSteps.Remove(ancestor);
                 }
-                else DataMode.IsChecked = true;
+                else
+                {
+                    DataMode.IsChecked = true;
+                }
+
                 _updating = false;
                 Refresh(target.Id);
                 ProcedureEntries.Focus();

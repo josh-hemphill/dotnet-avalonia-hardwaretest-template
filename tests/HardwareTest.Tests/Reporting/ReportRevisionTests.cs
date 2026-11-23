@@ -328,9 +328,16 @@ public sealed class ReportRevisionTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(suites.GetSuiteRunDirectory(persisted.SuiteRunId), "suite-run.json"),
             JsonSerializer.Serialize(persisted, AppJsonContext.Default.SuiteRunRecord));
         var standalonePath = Path.Combine(runs.GetRunDirectory(run.RunId), "run.json");
-        if (standaloneExists) await File.WriteAllTextAsync(standalonePath,
+        if (standaloneExists)
+        {
+            await File.WriteAllTextAsync(standalonePath,
             JsonSerializer.Serialize(stale, AppJsonContext.Default.TestRunRecord));
-        else File.Delete(standalonePath);
+        }
+        else
+        {
+            File.Delete(standalonePath);
+        }
+
         var incoming = new SuiteRunRecord { SuiteRunId = persisted.SuiteRunId, PlanRuns = [stale] };
         await suites.SaveAsync(incoming);
         Assert.Single(stale.Attestations);
@@ -354,9 +361,15 @@ public sealed class ReportRevisionTests : IDisposable
         var future = ReportRevisions.Clone(later);
         future.SchemaVersion = SchemaVersions.TestRunRecord + 1;
         if (futureOnDisk)
+        {
             await File.WriteAllTextAsync(Path.Combine(runs.GetRunDirectory(later.RunId), "run.json"),
                 JsonSerializer.Serialize(future, AppJsonContext.Default.TestRunRecord));
-        else later = future;
+        }
+        else
+        {
+            later = future;
+        }
+
         await Assert.ThrowsAsync<SchemaReadOnlyException>(() => suites.SaveAsync(new SuiteRunRecord
         {
             SuiteRunId = "preflight",

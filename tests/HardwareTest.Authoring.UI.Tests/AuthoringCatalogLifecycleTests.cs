@@ -25,8 +25,14 @@ public sealed class AuthoringCatalogLifecycleTests
         Assert.Contains("workspace catalog", dialog.Title); var text = Assert.IsType<TextBlock>(fixture.Control<ScrollViewer>("Unsaved program list", dialog).Content);
         Assert.Contains("Workspace catalog changes", text.Text); Assert.Empty(fixture.ViewModel.DirtyPrograms);
         var cancel = Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel")); Assert.True(cancel.IsDefault); Assert.True(cancel.IsCancel); AssertInside(cancel, dialog);
-        if (route == "cancel") AuthoringUiFixture.Click(cancel);
-        else if (route == "dismiss") dialog.Close();
+        if (route == "cancel")
+        {
+            AuthoringUiFixture.Click(cancel);
+        }
+        else if (route == "dismiss")
+        {
+            dialog.Close();
+        }
         else { var key = route == "enter" ? Key.Enter : Key.Escape; dialog.KeyPress(key, RawInputModifiers.None, key == Key.Enter ? PhysicalKey.Enter : PhysicalKey.Escape, null); AuthoringUiFixture.Drain(); }
         Assert.Empty(fixture.Window!.OwnedWindows); Assert.True(fixture.Window!.IsVisible); Assert.True(fixture.ViewModel.WorkspaceCatalogDirty);
     }

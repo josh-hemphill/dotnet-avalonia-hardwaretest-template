@@ -276,9 +276,18 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         var declaration = new System.Xml.Linq.XElement("File", new System.Xml.Linq.XAttribute("Path", "extra.txt"),
             new System.Xml.Linq.XElement("Hash", "invalid"));
-        if (invalid == "duplicate-files") xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
-        else if (invalid == "stray-file") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", declaration));
-        else if (invalid == "nested-files") xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Files")));
+        if (invalid == "duplicate-files")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files"));
+        }
+        else if (invalid == "stray-file")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", declaration));
+        }
+        else if (invalid == "nested-files")
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Wrapper", new System.Xml.Linq.XElement("Files")));
+        }
         else if (invalid == "wrapped-hash")
         {
             var file = xml.Descendants().First(element => element.Name.LocalName == "File");
@@ -293,7 +302,10 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             foreach (var hash in file.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
             file.Add(new System.Xml.Linq.XElement("Hash", new System.Xml.Linq.XElement("Wrapper", expected)));
         }
-        else if (invalid == "old-package-version") xml.Root!.SetAttributeValue("Version", "0.1.0");
+        else if (invalid == "old-package-version")
+        {
+            xml.Root!.SetAttributeValue("Version", "0.1.0");
+        }
         else if (invalid is "old-contract-version" or "old-adapter-version")
         {
             var file = invalid == "old-contract-version" ? "InstrumentComponents.dll" : "InstrumentComponents.OpenTap.dll";
@@ -389,7 +401,10 @@ public sealed class BundledLibraryBootstrapTests : IDisposable
             xml.Descendants("File").First().Add(new System.Xml.Linq.XElement("Hash", new System.Xml.Linq.XElement("Wrapper", expected)));
         }
         else if (invalid.StartsWith("hash-", StringComparison.Ordinal))
+        {
             xml.Descendants("File").First().Add(new System.Xml.Linq.XElement("Hash", invalid == "hash-malformed" ? new string('z', 40) : new string('0', 40)));
+        }
+
         xml.Save(metadata);
         if (!unpacked)
         {

@@ -124,8 +124,11 @@ internal static class PlanContractSidecar
         AnalyzeRequiredFields(parsed, planId, findings);
         AnalyzeStationHealth(parsed, planId, findings);
         foreach (var error in BenchReferenceEvaluator.ValidateRules(parsed.ReferenceRules ?? []))
+        {
             findings.Add(Error(PlanContractValidator.Codes.ReferenceRules,
                 $"Sidecar {planId}.program.json has invalid reference acceptance: {error}"));
+        }
+
         return parsed;
     }
 

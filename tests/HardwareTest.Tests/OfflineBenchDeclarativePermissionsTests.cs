@@ -21,8 +21,10 @@ public sealed class OfflineBenchDeclarativePermissionsTests
         Assert.Equal("unexecuted fixture payload", Encoding.UTF8.GetString(archive.Payload[path]));
         Assert.Equal(os == "Linux", archive.SetsTapExecutable);
         if (os == "Linux")
+        {
             Assert.Equal(UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute,
                 archive.ExecutableModes[path] & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute));
+        }
     }
 
     [Theory]

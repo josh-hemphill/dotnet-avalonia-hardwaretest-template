@@ -117,7 +117,11 @@ public sealed class AuthoringReferenceWorkflowTests
                 window.KeyPress(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null);
                 window.KeyRelease(Key.Back, RawInputModifiers.None, PhysicalKey.Backspace, null);
             }
-            else window.KeyTextInput(value);
+            else
+            {
+                window.KeyTextInput(value);
+            }
+
             AuthoringUiFixture.Drain();
         }
     }

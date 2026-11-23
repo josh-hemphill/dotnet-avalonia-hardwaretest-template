@@ -39,7 +39,10 @@ public static class ReportRevisions
         {
             foreach (var directory in directories.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase)
                          .Order(StringComparer.OrdinalIgnoreCase))
+            {
                 leases.Add(await LockAsync(directory, cancellationToken).ConfigureAwait(false));
+            }
+
             return new CompositeLease(leases);
         }
         catch
@@ -75,8 +78,12 @@ public static class ReportRevisions
 
     internal static void MergeHistory(TestRunRecord run, TestRunRecord committed)
     {
-        if (committed.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+        if (committed.IsSchemaReadOnly)
+        {
+            throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
             SchemaDocumentTypes.TestRunRecord, committed.StoredSchemaVersion, SchemaVersions.TestRunRecord, committed.AppVersion));
+        }
+
         var issued = committed.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)).ToList();
         issued.AddRange(run.Reports.Where(r => ReportArtifactRoles.IsIssued(r.Role)
             && !issued.Any(c => c.RevisionId == r.RevisionId && (r.RevisionId is not null || c.PdfPath == r.PdfPath)

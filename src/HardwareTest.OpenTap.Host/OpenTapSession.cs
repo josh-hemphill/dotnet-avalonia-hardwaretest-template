@@ -183,7 +183,9 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
                 throw new InvalidOperationException("The program's reference acceptance rules are invalid: " + string.Join(" ", ruleErrors));
             if (sidecar.ReferenceRules is { Count: > 0 }
                 && !OpenTapStepTree.Flatten(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep))
+            {
                 throw new InvalidOperationException("OPERATOR_REFERENCE_GUARD_MISSING: This program declares reference acceptance but its compiled plan has no operator capability guard. Recompile with the current authoring app and prepare the complete program again.");
+            }
         }
         BindPlan(plan, tapPlanPath, string.IsNullOrWhiteSpace(plan.Name) ? Path.GetFileNameWithoutExtension(tapPlanPath) : plan.Name);
         return Task.CompletedTask;
@@ -406,7 +408,10 @@ public sealed partial class OpenTapSession : IOpenTapSession, INotifyPropertyCha
             plan = _plan ?? throw new InvalidOperationException("Load a plan before running.");
             if (OpenTapStepTree.Flatten(plan).Any(step => step is RequireOperatorReferenceAcceptanceStep)
                 && !referencePrepared)
+            {
                 throw new InvalidOperationException(RequireOperatorReferenceAcceptanceStep.RequiredMessage);
+            }
+
             if (sampleScopePaths is not null)
             {
                 preservedSamples = _lastSamples.ToList();

@@ -115,7 +115,10 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
                 throw new InvalidOperationException($"Reference '{profile.Name}' is retired. Select or acquire another reference.");
             if (profile.Id != selection.ReferenceId || profile.Revision != selection.ExpectedRevision
                 || !string.Equals(profile.ContentSha256, selection.ExpectedSha256, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidOperationException($"Reference '{profile.Name}' changed since selection. Reload, inspect and confirm the intended values before Run.");
+            }
+
             loaded.Add((selection, profile));
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -165,7 +168,10 @@ public sealed class FileBenchReferenceStore : IBenchReferenceStore
         if (marker.SchemaVersion != SchemaVersions.BenchReferenceRetirement
             || marker.ReferenceId != profile.Id || marker.ReferenceSha256 != profile.ContentSha256
             || marker.RetiredAt == default || string.IsNullOrWhiteSpace(marker.Reason))
+        {
             throw new InvalidOperationException("Reference retirement metadata is invalid; preserve it and correct the catalog before selection.");
+        }
+
         return marker;
     }
 

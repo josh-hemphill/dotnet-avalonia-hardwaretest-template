@@ -48,8 +48,12 @@ public sealed class AuthoringBitSweepOutputTests
             {
                 Assert.Contains("runtime output", Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("series", current =>
                     AuthoringSequenceOperations.Insert(current, AuthoringRecipeIds.SeriesCompliance, Row(current, current.Measure[0].NodeId), false))).Message, StringComparison.Ordinal);
-                if (form != "raw") Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
+                if (form != "raw")
+                {
+                    Assert.Throws<AuthoringWorkspaceException>(() => session.ApplyEdit("duplicate", current =>
                     AuthoringSequenceOperations.Duplicate(current, Row(current, current.Measure[0].NodeId))));
+                }
+
                 Assert.True(before.ContentEquals(session.Snapshot));
                 Assert.Equal(revision, session.Revision);
                 Assert.True(session.CanRedo);

@@ -44,7 +44,10 @@ public sealed class ResultsRunIdentityTests
         foreach (var value in new[] { record.RunId, record.PlanId, record.PlanName, record.SessionId, record.DutSerial, record.DutPartNumber,
                      record.DutRevision, record.OperatorName, record.StartedAt.ToString("O", CultureInfo.InvariantCulture),
                      record.CompletedAt.Value.ToString("O", CultureInfo.InvariantCulture), record.ExecutionScopeText })
+        {
             Assert.Contains(value!, vm.RunIdentityText, StringComparison.Ordinal);
+        }
+
         Assert.Contains($"Verdict: {result}", vm.RunIdentityText, StringComparison.Ordinal);
         Assert.Same(record, await store.LoadAsync(record.RunId));
     }

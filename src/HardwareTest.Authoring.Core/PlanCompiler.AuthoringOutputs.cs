@@ -19,10 +19,16 @@ public sealed partial class PlanCompiler
         foreach (var output in outputs)
         {
             if (existing.Any(old => old.NodeId == output.NodeId &&
-                string.Equals(old.Channel, output.Channel, StringComparison.OrdinalIgnoreCase))) continue;
+                string.Equals(old.Channel, output.Channel, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             if (outputs.Any(other => other.NodeId != output.NodeId &&
                 string.Equals(other.Channel, output.Channel, StringComparison.OrdinalIgnoreCase)))
+            {
                 throw new AuthoringWorkspaceException($"Output '{output.Channel}' already has a producer. This publisher's runtime output cannot be made unique by changing its presentation channel. Choose a configurable publisher or remove the conflicting producer.");
+            }
         }
     }
 
@@ -32,7 +38,10 @@ public sealed partial class PlanCompiler
         void Add(Guid id, string? channel)
         {
             if (!string.IsNullOrWhiteSpace(channel) && !outputs.Any(output => output.Item1 == id &&
-                string.Equals(output.Item2, channel, StringComparison.OrdinalIgnoreCase))) outputs.Add((id, channel));
+                string.Equals(output.Item2, channel, StringComparison.OrdinalIgnoreCase)))
+            {
+                outputs.Add((id, channel));
+            }
         }
         void StepOutputs(ITestStep step)
         {
@@ -127,8 +136,11 @@ public sealed partial class PlanCompiler
     {
         if (source is TransferFunctionAlgorithm transfer) return [transfer.InputChannelKey];
         if (source is ExpressionAlgorithm expression)
+        {
             return FormulaParser.TryParse(expression.Source, out var ast, out _)
                 ? FormulaExprWalk.Identifiers(ast!.Root).Distinct(StringComparer.OrdinalIgnoreCase).ToArray() : expression.InputChannelKeys;
+        }
+
         var (function, settings) = source switch
         {
             MeasureSource measure => (measure.FunctionId, measure.Settings),

@@ -14,10 +14,7 @@ public sealed class ViewLocator : IDataTemplate
     {
     }
 
-    public ViewLocator(ViewRegistry registry)
-    {
-        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
-    }
+    public ViewLocator(ViewRegistry registry) => _registry = registry ?? throw new ArgumentNullException(nameof(registry));
 
     public Control? Build(object? data) => _registry.Build(data);
 

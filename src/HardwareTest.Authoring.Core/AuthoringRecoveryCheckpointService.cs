@@ -70,8 +70,10 @@ public sealed class AuthoringRecoveryCheckpointService : IDisposable
     public void Cancel(string workspaceRoot, string planId)
     {
         lock (gate)
+        {
             if (pending.Remove((Path.TrimEndingDirectorySeparator(Path.GetFullPath(workspaceRoot)), planId), out var checkpoint))
                 checkpoint.Cancel();
+        }
     }
 
     public void CancelAll()

@@ -134,10 +134,16 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                 if (snapshot.Root != request.WorkspaceRoot || snapshot.Home != Path.Combine(owned, "home")
                     || snapshot.TuiHome != snapshot.Home || value.Build is null || value.Build.Receipt.SchemaVersion != 1 || value.Validation is not null
                     || !snapshot.Trees.Any(tree => tree.StageRelativePath == "operation-home" && tree.Root == selectedRoot && !tree.Materialize && tree.Recursive))
+                {
                     throw new InvalidDataException("Child build identity does not match this workspace.");
+                }
+
                 if (AuthoringBuildService.Hash(JsonSerializer.SerializeToUtf8Bytes(value.Build.Receipt,
                     AuthoringBuildJsonContext.Default.AuthoringBuildReceipt)) != result.ReceiptHash)
+                {
                     throw new InvalidDataException("Child result differs from its durable receipt.");
+                }
+
                 var captured = snapshot.ToRequest();
                 if (!captured.Inputs.SequenceEqual(value.Build.Receipt.Inputs) || !captured.Environment.SequenceEqual(value.Build.Receipt.Environment))
                     throw new InvalidDataException("Child snapshot identity differs from its durable receipt.");
@@ -153,7 +159,10 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                     throw new InvalidDataException("Child returned invalid validation output.");
             }
             else if (value.Validation is not null || value.Build is not null || result.Snapshot is not null)
+            {
                 throw new InvalidDataException("Child returned invalid bootstrap output.");
+            }
+
             if (kind == AuthoringOperationKind.Bootstrap)
             {
                 Report(new("Publishing prepared home"));
@@ -162,7 +171,10 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                     ? Path.Combine(request.WorkspaceRoot, OpenTapHomeBootstrapper.DefaultHomeRelativePath) : home);
                 if (selected.Root != expectedHome || value.Home != expectedHome || selected.StageRelativePath != "operation-home"
                     || selected.Materialize || !selected.Recursive)
+                {
                     throw new InvalidDataException("Child home does not match selected destination.");
+                }
+
                 var manifest = result.ManifestIdentity ?? throw new InvalidDataException("Child omitted workspace identity.");
                 if (manifest.Root != request.WorkspaceRoot || manifest.StageRelativePath != "workspace")
                     throw new InvalidDataException("Child workspace identity does not match this request.");
@@ -193,7 +205,10 @@ public sealed class AuthoringOperationCoordinator(AuthoringChildProcessRunner ru
                         throw;
                     }
                 }
-                else AuthoringBuildService.CleanupStaging(owned);
+                else
+                {
+                    AuthoringBuildService.CleanupStaging(owned);
+                }
             }
             finally
             {

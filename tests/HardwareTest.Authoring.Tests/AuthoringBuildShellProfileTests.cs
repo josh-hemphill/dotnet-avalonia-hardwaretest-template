@@ -21,7 +21,10 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
         var previous = Environment.GetEnvironmentVariable("RefAssembliesFolderName");
         try
         {
-            if (inherited) Environment.SetEnvironmentVariable("RefAssembliesFolderName", EscapingRelativePath(externalDirectory));
+            if (inherited)
+            {
+                Environment.SetEnvironmentVariable("RefAssembliesFolderName", EscapingRelativePath(externalDirectory));
+            }
             else
             {
                 var xml = XDocument.Load(project);
@@ -70,7 +73,10 @@ public sealed class AuthoringBuildShellProfileTests : IDisposable
             var options = new PackOptions { Home = AuthoringBuildSnapshotTests.Home(workspace), Offline = true };
             var output = AuthoringBuildSnapshotTests.Temp(); File.WriteAllText(Path.Combine(output, "previous"), "keep");
             AuthoringWorkspaceException error;
-            if (duringCapture) error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.CaptureSaved(workspace, options));
+            if (duringCapture)
+            {
+                error = Assert.Throws<AuthoringWorkspaceException>(() => AuthoringBuildService.CaptureSaved(workspace, options));
+            }
             else
             {
                 var request = AuthoringBuildService.CaptureSaved(workspace, options);

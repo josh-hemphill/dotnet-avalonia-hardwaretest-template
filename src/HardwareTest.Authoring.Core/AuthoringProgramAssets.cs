@@ -11,12 +11,17 @@ internal static class AuthoringProgramAssets
         {
             if (string.IsNullOrWhiteSpace(owner) || files is null || !owners.Add(owner)
                 || files.Distinct(StringComparer.OrdinalIgnoreCase).Count() != files.Length)
+            {
                 throw new AuthoringWorkspaceException($"Invalid programAssets declaration for '{owner}'.");
+            }
+
             foreach (var path in files) ValidatePath(path);
         }
         if (manifest.ProgramAssets.Values.SelectMany(files => files).Distinct(StringComparer.Ordinal).Count()
             != manifest.ProgramAssets.Values.SelectMany(files => files).Distinct(StringComparer.OrdinalIgnoreCase).Count())
+        {
             throw new AuthoringWorkspaceException("Program asset paths must have consistent casing.");
+        }
     }
 
     internal static string[] ForPlan(AuthoringManifest manifest, string planId)
@@ -41,6 +46,8 @@ internal static class AuthoringProgramAssets
         if (string.IsNullOrWhiteSpace(path) || !path.Contains('/')
             || path.Split('/').Any(part => part is "" or "." or ".." || part.EndsWith('.')
                 || part.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '.'))))
+        {
             throw new AuthoringWorkspaceException($"Invalid portable asset path '{path}'. Use a path in a plans subdirectory.");
+        }
     }
 }

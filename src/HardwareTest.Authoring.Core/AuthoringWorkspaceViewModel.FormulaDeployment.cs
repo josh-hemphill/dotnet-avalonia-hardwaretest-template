@@ -42,6 +42,9 @@ public sealed partial class AuthoringWorkspaceViewModel
         foreach (var property in new[] { nameof(FormulaRecordingEvidence), nameof(FormulaNeedsThreshold), nameof(FormulaDeploymentStatus), nameof(FormulaDeploymentLabel),
             nameof(FormulaLoweringTarget), nameof(FormulaDeploymentRequirements), nameof(FormulaDeploymentMessage),
             nameof(FormulaDeploymentInclusion), nameof(DeployableFormulaCompletions), nameof(ExplorationFormulaCompletions),
-            nameof(FormulaChannelCompletions), nameof(ExcludedExplorationFormulas) }) OnPropertyChanged(property);
+            nameof(FormulaChannelCompletions), nameof(ExcludedExplorationFormulas) })
+        {
+            OnPropertyChanged(property);
+        }
     }
 }

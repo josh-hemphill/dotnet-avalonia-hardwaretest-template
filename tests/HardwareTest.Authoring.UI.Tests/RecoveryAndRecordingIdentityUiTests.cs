@@ -97,7 +97,11 @@ public sealed class RecoveryAndRecordingIdentityUiTests
             fixture.Control<Button>("Use recording", dialog).Focus();
             dialog.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, null);
         }
-        else dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        else
+        {
+            dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.Escape, null);
+        }
+
         AuthoringUiFixture.Drain();
         Assert.Empty(fixture.Window!.OwnedWindows);
         Assert.Equal(confirm ? 1 : 0, vm.SelectedDatasetIndex);

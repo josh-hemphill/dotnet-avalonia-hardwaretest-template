@@ -12,8 +12,11 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
     public static IEnumerable<object[]> UnsafePrepareCases()
     {
         foreach (var optional in new[] { true, false })
+        {
             foreach (var entrypoint in new[] { "public", "vm", "cli", "coordinator" })
                 foreach (var path in new[] { "parent", "absolute", "escape" }) yield return [optional, entrypoint, path];
+        }
+
         foreach (var optional in new[] { true, false })
             foreach (var entrypoint in new[] { "public-import", "coordinator-import" }) yield return [optional, entrypoint, "parent"];
     }
@@ -30,7 +33,9 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
         var archive = Path.Combine(workspace.Root, "unrelated.TapPackage"); WriteArchive(archive, "Unrelated");
         var before = Snapshot(home.Root, outside); var source = File.ReadAllBytes(Path.Combine(workspace.Root, "sample.TapPlan")); var manifest = File.ReadAllBytes(Path.Combine(workspace.Root, AuthoringWorkspaceLoader.ManifestFileName));
         if (entrypoint.StartsWith("public", StringComparison.Ordinal))
+        {
             Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true, OfflinePackagePath = entrypoint.EndsWith("import", StringComparison.Ordinal) ? archive : null }));
+        }
         else if (entrypoint == "vm")
         {
             var vm = new AuthoringWorkspaceViewModel(); vm.Open(workspace.Root); vm.OpenTapHomeOverride = home.Root;
@@ -115,7 +120,10 @@ public sealed class AuthoringPreparationSafetyTests : IDisposable
             FileSystemInfo entry = Directory.Exists(path) ? new DirectoryInfo(path) : new FileInfo(path);
             if (entry.LinkTarget is { } link) { entries.Add(path + "=>" + link); return; }
             if (entry is DirectoryInfo) { entries.Add(path + "=directory"); foreach (var child in Directory.EnumerateFileSystemEntries(path)) Walk(child); }
-            else entries.Add(path + "=" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))));
+            else
+            {
+                entries.Add(path + "=" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))));
+            }
         }
     }
 }

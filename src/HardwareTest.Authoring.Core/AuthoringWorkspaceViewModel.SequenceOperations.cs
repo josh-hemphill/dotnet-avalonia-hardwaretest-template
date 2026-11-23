@@ -154,7 +154,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 if (!_movementStopped && _movementOwner?.Invoke() != false && owner == WorkspaceSessionId
                     && movementGeneration == _movementGeneration && generation == _sequenceDropGeneration
                     && Status == "Checking drop order and dependencies…")
+                {
                     Status = "Drop cancelled because the plan or selection changed.";
+                }
+
                 return;
             }
             try

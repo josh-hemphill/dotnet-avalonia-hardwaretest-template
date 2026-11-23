@@ -28,11 +28,15 @@ public sealed class AuthoringPlanInitializationTests
         AuthoringUiFixture.Click(fixture.Control<Button>(guided ? "Start guided voltage test" : "New test plan"));
         var dialog = AuthoringInitializationFixture.AdvancedPlan(fixture);
         fixture.Control<TextBox>("Stable plan ID", dialog).Text = "stale-owner"; AuthoringUiFixture.Drain();
-        if (!skip) for (var stage = 0; stage < 5; stage++)
+        if (!skip)
         {
-            AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
-            Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+            for (var stage = 0; stage < 5; stage++)
+            {
+                AuthoringUiFixture.Click(fixture.Control<Button>("Next", dialog));
+                Assert.Equal("", fixture.Control<TextBlock>("Initialization error", dialog).Text);
+            }
         }
+
         var button = fixture.Control<Button>(skip ? "Skip optional guidance" : "Create test plan", dialog);
         Assert.True(button.IsEffectivelyVisible); Assert.True(button.IsEnabled);
         var bytes = Directory.EnumerateFiles(fixture.WorkspaceRoot, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
@@ -165,7 +169,10 @@ public sealed class AuthoringPlanInitializationTests
         Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
         vm.Open(fixture.WorkspaceRoot); vm.SelectProgram("shutdown-choice"); Assert.Equal(enabled, vm.SelectedProgram!.Cleanup.IncludeSafeShutdown);
         Assert.Equal(["DMM"], vm.SelectedProgram.Cleanup.InstrumentSlots);
-        if (enabled) Assert.Contains("DMM", shutdown);
+        if (enabled)
+        {
+            Assert.Contains("DMM", shutdown);
+        }
         else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 

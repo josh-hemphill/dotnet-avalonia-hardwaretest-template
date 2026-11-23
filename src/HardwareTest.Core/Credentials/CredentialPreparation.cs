@@ -19,8 +19,11 @@ public sealed record CredentialPreparationResult(IPreparedCredentialSession? Ses
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!broker.IsMock || !broker.CanSign)
+        {
             return Failed(CredentialSignResult.Failure(CredentialFailureKind.ConfigurationError,
                 "This broker does not support prepared signing.", "preparation"));
+        }
+
         var probe = await broker.TrySignPayloadAsync("mock-preparation"u8.ToArray(), credential, pin, cancellationToken).ConfigureAwait(false);
         if (!probe.Succeeded) return Failed(probe);
         return Ready(new MockSession(broker, credential));
@@ -41,8 +44,11 @@ public sealed record CredentialPreparationResult(IPreparedCredentialSession? Ses
             cancellationToken.ThrowIfCancellationRequested();
             if (!string.Equals(selected.Serial, credential.Serial, StringComparison.Ordinal)
                 || !string.Equals(selected.Thumbprint, credential.Thumbprint, StringComparison.OrdinalIgnoreCase))
+            {
                 return Task.FromResult(CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch,
                     "Mock signing session does not match the captured identity.", "signing"));
+            }
+
             return broker.TrySignPayloadAsync(payload, selected, pin, cancellationToken);
         }
         public void Dispose() => _disposed = true;

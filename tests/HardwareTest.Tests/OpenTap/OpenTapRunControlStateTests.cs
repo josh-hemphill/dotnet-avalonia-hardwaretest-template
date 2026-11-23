@@ -40,7 +40,9 @@ public sealed class OpenTapRunControlStateTests
         control.OperatorStateChanged += () =>
         {
             if (control.PendingInteraction?.Id == first.Id)
+            {
                 control.Resume(OperatorInteractionResponse.Continue(first.Id));
+            }
             else if (!started && !control.IsAwaitingOperator)
             {
                 started = true;

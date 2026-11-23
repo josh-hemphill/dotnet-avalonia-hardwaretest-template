@@ -25,7 +25,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             try { apply(string.IsNullOrWhiteSpace(text) ? null : double.Parse(text, CultureInfo.InvariantCulture)); }
             finally { _pendingNumericState = null; }
         }
-        else ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
+        else
+        {
+            ReplaceSelected(SelectedProgram with { AuthoringState = state }, rebuildLists: false);
+        }
+
         OnPropertyChanged(field);
     }
 

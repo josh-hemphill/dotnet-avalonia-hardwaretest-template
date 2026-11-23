@@ -72,7 +72,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _recoveryDispatch(() =>
                 {
                     if (!ownerRetainsSession() || generation != _recoveryGeneration || session != _workspaceSession || _recovery is not null
-                        || Workspace is not { IsReadOnly: false }) return;
+                        || Workspace is not { IsReadOnly: false })
+                    {
+                        return;
+                    }
+
                     StartRecovery();
                     ScheduleRecovery();
                 });
@@ -166,7 +170,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         {
             var rawSource = store.Load(draft.PlanId);
             if (rawSource is { IsReadOnly: false, Document: { HasConfigurableMeasureSections: false } legacy }
-                && !legacy.Measure.Any(node => node.Kind == "section")) migrations.Add(draft.PlanId);
+                && !legacy.Measure.Any(node => node.Kind == "section"))
+            {
+                migrations.Add(draft.PlanId);
+            }
+
             var document = AuthoringMeasureSections.Normalize(rawSource).Document;
             if (document is not null)
             {
@@ -190,7 +198,10 @@ public sealed partial class AuthoringWorkspaceViewModel
             var recovered = AuthoringMeasureSections.Normalize(store.LoadAtPath(store.GetRecoveryPath(draft.PlanId)));
             if (recovered.Document is { } checkpoint && (document is null || checkpoint.SavedAtUtc > document.SavedAtUtc)
                 && !AuthoringDocumentSnapshot.Capture(draft).ContentEquals(AuthoringDocumentSnapshot.Capture(checkpoint.ToDraft())))
+            {
                 recoverable[draft.PlanId] = checkpoint;
+            }
+
             if (recovered.Error is { } error) errorText = $"Recovery could not load: {error}";
         }
         foreach (var id in store.ListRecoveryIds())
@@ -227,12 +238,15 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         _resumeRecoveryOwner = null;
         var generation = _recoveryGeneration;
-        if (Workspace is { IsReadOnly: false }) _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
+        if (Workspace is { IsReadOnly: false })
+        {
+            _recovery = new AuthoringRecoveryCheckpointService(action => _recoveryDispatch(action), result =>
         {
             if (generation != _recoveryGeneration || !_documents.TryGetValue(result.PlanId, out var active) || !active.IsDirty) return;
             if (result.IsSuccess) Status = $"Recovery checkpoint saved for {result.PlanId}; source remains unsaved.";
             else ReportError($"Recovery checkpoint failed; your draft remains open: {result.Error}");
         });
+        }
     }
 
     private bool CompiledChanged(AuthoringDocumentDto document)
@@ -283,7 +297,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             Programs = [.. Programs, session.Draft];
             _uncompiledDocuments.Add(planId);
         }
-        else session.ApplyEdit("Recover checkpoint", _ => checkpoint.ToDraft());
+        else
+        {
+            session.ApplyEdit("Recover checkpoint", _ => checkpoint.ToDraft());
+        }
+
         PresentSession(_documents[planId]);
         RaiseDraftState();
     }

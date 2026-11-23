@@ -24,11 +24,15 @@ public sealed class AuthoringEnabledOutputTests
             var draft = AuthoringRecipeCatalog.Apply(MockDmmDraftFixture.Create("enabled"), AuthoringRecipeIds.Acquire);
             draft = AuthoringRecipeCatalog.Apply(draft, recipe == "sweep" ? AuthoringRecipeIds.MeanGte : recipe) with { Setup = [], Cleanup = new CleanupPolicy(false, []) };
             var publisher = Assert.IsType<MetricNode>(draft.Measure[1]);
-            if (recipe == "sweep") publisher = publisher with
+            if (recipe == "sweep")
             {
-                Metric = new MetricDraft("Sweep", "sweep", "timeseries", "V", null, null,
+                publisher = publisher with
+                {
+                    Metric = new MetricDraft("Sweep", "sweep", "timeseries", "V", null, null,
                 new AlgorithmSource(AuthoringFunctionIds.BasicBitSweepAcquire, [], new Dictionary<string, string>()) { InstrumentSlot = "DMM" })
-            };
+                };
+            }
+
             var source = Assert.IsType<AlgorithmSource>(publisher.Metric.Source);
             var settings = new Dictionary<string, string>(source.Settings, StringComparer.Ordinal);
             if (recipe == "sweep") { settings["PublishSummaries"] = "true"; settings["BitCount"] = "2"; settings["IntervalMs"] = "5"; settings["ScriptedValues"] = "1.25,1.26"; }

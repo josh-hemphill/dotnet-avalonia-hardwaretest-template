@@ -76,7 +76,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                         if (!sidecar.ReportKinds.Contains(sidecar.DefaultReportKind ?? "status", StringComparer.OrdinalIgnoreCase))
                             sidecar.DefaultReportKind = sidecar.ReportKinds[0];
                     }
-                    else if (Same(sidecar.DefaultReportKind, current.Target)) sidecar.DefaultReportKind = "status";
+                    else if (Same(sidecar.DefaultReportKind, current.Target))
+                    {
+                        sidecar.DefaultReportKind = "status";
+                    }
+
                     break;
                 case CatalogDeletionKind.ProgramKind: sidecar.ProgramKind = ProgramKinds.Dut; break;
             }

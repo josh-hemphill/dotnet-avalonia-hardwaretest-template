@@ -111,11 +111,14 @@ public static class AuthoringFunctionCatalog
         }
 
         if (functionId.StartsWith("Device.", StringComparison.Ordinal))
+        {
             return new global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep
             {
                 Operation = functionId[7..],
                 Arguments = global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationRequests.Template(functionId[7..])
             };
+        }
+
         ITestStep? created = spec.Id switch
         {
             AuthoringFunctionIds.BasicAcquireVoltage => new AcquireVoltageStep(),

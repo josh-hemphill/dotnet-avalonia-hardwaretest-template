@@ -38,7 +38,11 @@ public sealed class CrossAppReferenceJourneyTests
             var expected = BenchProgramHandoff.ValidateProgram(Path.Combine(prepared, id + ".TapPlan"));
             Assert.Equal(expected?.ExportId, prior?.ExportId);
         }
-        else CopyDirectory(prepared, installed);
+        else
+        {
+            CopyDirectory(prepared, installed);
+        }
+
         Assert.NotNull(BenchProgramHandoff.ValidateProgram(Path.Combine(installed, id + ".TapPlan")));
         using var shown = E2EHarness.ShowMainWindow();
         var app = E2EHarness.RequireApp();

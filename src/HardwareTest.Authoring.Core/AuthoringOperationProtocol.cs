@@ -53,7 +53,10 @@ public static class AuthoringOperationChild
             ?? throw new InvalidDataException("Empty operation request.");
         if (request.Version != 1 || !Guid.TryParseExact(request.Id, "N", out _)
             || Path.GetFullPath(requestPath) != Path.Combine(Path.GetFullPath(request.OwnedRoot), "request.json"))
+        {
             throw new InvalidDataException("Unsupported operation request or ownership.");
+        }
+
         AuthoringChildResult response;
         BuildInputTree? selectedHome = null;
         BuildInputTree? manifestIdentity = null;
@@ -79,7 +82,10 @@ public static class AuthoringOperationChild
             var importPath = Path.Combine(request.OwnedRoot, "import.TapPackage");
             if (request.OfflinePackageSha256 is not null && (request.Kind != AuthoringOperationKind.Bootstrap
                 || AuthoringBuildService.Hash(File.ReadAllBytes(importPath)) != request.OfflinePackageSha256))
+            {
                 throw new InvalidDataException("Offline import identity differs from captured request.");
+            }
+
             var home = new OpenTapHomeBootstrapper().BootstrapOwned(workspace, new BootstrapOptions
             {
                 HomeDirectory = isolatedHome,
@@ -118,8 +124,15 @@ public static class AuthoringOperationChild
                     });
                 result = new(selectedRoot, report, null);
             }
-            else if (request.Kind == AuthoringOperationKind.Bootstrap) result = new(selectedRoot, null, null);
-            else throw new InvalidDataException("Unknown operation kind.");
+            else if (request.Kind == AuthoringOperationKind.Bootstrap)
+            {
+                result = new(selectedRoot, null, null);
+            }
+            else
+            {
+                throw new InvalidDataException("Unknown operation kind.");
+            }
+
             response = new(1, request.Id, request.Kind, request.OwnedRoot, result, snapshot, selectedHome, manifestIdentity, receiptHash, AuthoringBuildService.EnvironmentIdentity(AuthoringBuildService.CaptureEnvironment()), null);
         }
         catch (Exception error)

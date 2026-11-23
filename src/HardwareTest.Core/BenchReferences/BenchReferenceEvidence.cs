@@ -45,9 +45,12 @@ public static class BenchReferenceEvidence
     {
         if (run.ReferenceUses.Count == 0 && run.ReferenceRules.Count == 0
             && run.ExecutionScope != RunExecutionScopes.ReferenceAcquisition)
+        {
             return "No bench reference inputs recorded."
                 + (run.ReferenceBackendResult is { } backend ? $"\nBackend execution result: {backend}" : string.Empty)
                 + (run.ReferenceContext is null ? string.Empty : "\n" + DescribeContext(run.ReferenceContext));
+        }
+
         var text = new StringBuilder();
         text.AppendLine($"Backend execution result: {run.ReferenceBackendResult?.ToString() ?? "Not recorded"}");
         if (run.ExecutionScope == RunExecutionScopes.ReferenceAcquisition)

@@ -40,7 +40,10 @@ public partial class ResultsView : UserControl
         RunIdentityButton.Flyout.Closed += (_, _) => Dispatcher.UIThread.Post(() =>
         {
             if (RunIdentityButton.IsEffectivelyVisible && RunIdentityButton.IsEffectivelyEnabled
-                && _observed?.ShowAttestationPrompt != true) RunIdentityButton.Focus();
+                && _observed?.ShowAttestationPrompt != true)
+            {
+                RunIdentityButton.Focus();
+            }
         }, DispatcherPriority.Loaded);
         DataContextChanged += (_, _) => ObserveViewModel();
         AttachedToVisualTree += (_, _) => ObserveViewModel();
@@ -86,7 +89,9 @@ public partial class ResultsView : UserControl
         {
             if (!ReferenceEquals(vm, _observed) || !IsEffectivelyVisible || vm?.ShowDetail != detail) return;
             if (detail)
+            {
                 ResultsCloseButton.Focus();
+            }
             else if (wasShowing)
             {
                 Control? row = null;
@@ -108,7 +113,11 @@ public partial class ResultsView : UserControl
             _signingReturnFocus = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             ResultsLayout.IsEnabled = false;
         }
-        else if (vm?.ShowAttestationPrompt != true) ResultsLayout.IsEnabled = true;
+        else if (vm?.ShowAttestationPrompt != true)
+        {
+            ResultsLayout.IsEnabled = true;
+        }
+
         Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(vm, _observed) || !IsEffectivelyVisible) return;
@@ -195,7 +204,10 @@ public partial class ResultsView : UserControl
         // The detail can be closed while its comparison and history are loading.
         await _openRunTask;
         if (!_openRunTask.IsCompleted || !ReferenceEquals(vm, _observed) || !IsEffectivelyVisible
-            || vm.ShowDetail || vm.IsBusy || vm.SelectedRun?.RunId != selected.RunId) return;
+            || vm.ShowDetail || vm.IsBusy || vm.SelectedRun?.RunId != selected.RunId)
+        {
+            return;
+        }
 
         _openRunTask = OpenRunDetailsAsync(vm);
         await _openRunTask;

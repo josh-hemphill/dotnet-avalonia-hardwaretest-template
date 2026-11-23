@@ -66,7 +66,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 var rule = rules[index];
                 var label = $"{index + 1}. {rule.ReferenceKey} · {BenchReferenceEvidence.DescribeRule(rule)}";
                 var option = _referenceCriterionOptions.FirstOrDefault(item => item.RuleId == rule.RuleId);
-                if (option is null) _referenceCriterionOptions.Insert(index, new(rule.RuleId, label));
+                if (option is null)
+                {
+                    _referenceCriterionOptions.Insert(index, new(rule.RuleId, label));
+                }
                 else
                 {
                     var previousIndex = _referenceCriterionOptions.IndexOf(option);

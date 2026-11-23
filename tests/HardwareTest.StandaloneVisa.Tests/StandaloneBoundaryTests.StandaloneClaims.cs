@@ -88,7 +88,10 @@ public sealed partial class StandaloneBoundaryTests
             .Where(path => Path.GetFileName(path) == "InstrumentComponents.Scpi.dll"
                 || Path.GetFileName(path).StartsWith("InstrumentComponents.Drivers.", StringComparison.Ordinal)
                 || Path.GetFileName(path) == "HardwareTest.OpenTap.Plugins.Instruments.dll"))
+        {
             File.Copy(source, Path.Combine(home, Path.GetFileName(source)), overwrite: true);
+        }
+
         Assert.False(File.Exists(Path.Combine(home, StandaloneVisaPackage.WrapperFileName)));
         Assert.False(File.Exists(Path.Combine(home, "Packages", StandaloneVisaPackage.PackageName, "package.xml")));
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", home);

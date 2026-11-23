@@ -37,8 +37,14 @@ public sealed class AuthoringSaveWarningRetentionTests : IDisposable
         var vm = Open(); AddInvalid(vm, "a-invalid"); vm.Apply();
         vm.SelectProgram("sample");
         if (mode != "draft") vm.DisplayName = "unrelated successful save";
-        if (mode == "program") vm.SaveProgram("sample");
-        else if (mode == "sidecar") vm.SaveSidecar();
+        if (mode == "program")
+        {
+            vm.SaveProgram("sample");
+        }
+        else if (mode == "sidecar")
+        {
+            vm.SaveSidecar();
+        }
         else { vm.InitializePlan(new("z-valid") { Instruments = [] }); vm.Apply(); }
         Assert.False(vm.HasUnsavedChanges); Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.SavePreviewWarning!);
         Assert.Contains(AuthoringCompileCodes.MissingLimits, vm.Error!); Assert.False(vm.CanPack);

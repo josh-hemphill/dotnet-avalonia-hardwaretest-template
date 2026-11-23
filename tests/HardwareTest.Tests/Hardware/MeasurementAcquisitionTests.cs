@@ -6,10 +6,7 @@ namespace HardwareTest.Tests.Hardware;
 public sealed class MeasurementAcquisitionTests
 {
     [Fact]
-    public void Capacity_below_16_throws()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new MeasurementAcquisition(8));
-    }
+    public void Capacity_below_16_throws() => Assert.Throws<ArgumentOutOfRangeException>(() => new MeasurementAcquisition(8));
 
     [Fact]
     public void Snapshot_and_copy_reflect_ring_buffer_wrap()

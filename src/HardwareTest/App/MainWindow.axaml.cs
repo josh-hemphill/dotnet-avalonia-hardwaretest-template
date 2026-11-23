@@ -34,11 +34,9 @@ public partial class MainWindow : Window
         Closing += OnClosing;
     }
 
-    private void UpdateCompactPane()
-    {
+    private void UpdateCompactPane() =>
         // Icon targets remain 48px; captions retain the user's text size without splitting words.
         NavView.CompactPaneLength = FontSize > 16 ? 104 : 76;
-    }
 
     private void ApplyTitle(BuildInfo? buildInfo)
     {

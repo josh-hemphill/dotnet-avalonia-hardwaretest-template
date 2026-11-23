@@ -132,14 +132,20 @@ public partial class MainWindow
         {
             _explicitGuidanceSession = _viewModel.WorkspaceSessionId;
             if (_viewModel.SkipGuidance && _viewModel.PreferencesEditable) _viewModel.SkipGuidance = false;
-            if (_guidedForm is not null && _guidedSession == _viewModel.WorkspaceSessionId) await ShowGuidedInitializationAsync();
+            if (_guidedForm is not null && _guidedSession == _viewModel.WorkspaceSessionId)
+            {
+                await ShowGuidedInitializationAsync();
+            }
             else if (_viewModel.SelectedProgram is { } selected)
             {
                 _guidedSession = _viewModel.WorkspaceSessionId; _guidedPlan = selected.PlanId; _guidanceVisible = true;
                 _guidanceAssessmentIdentity = null; // Explicit resume also checks external file changes.
                 RefreshGuidance();
             }
-            else await ShowGuidedInitializationAsync();
+            else
+            {
+                await ShowGuidedInitializationAsync();
+            }
         }
         catch (Exception error) { _viewModel.ReportError(AuthoringWorkspaceViewModel.PersistenceError(error)); }
     }

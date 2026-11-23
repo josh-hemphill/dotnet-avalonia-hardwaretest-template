@@ -247,8 +247,5 @@ public static class PlanShapeFixtures
     private static MockDmmInstrument SharedInstrument()
         => new() { Name = "DMM", ResourceName = "MOCK::INSTR0" };
 
-    private static void EnsurePlugins()
-    {
-        OpenTapPluginSearch.SearchSerialized();
-    }
+    private static void EnsurePlugins() => OpenTapPluginSearch.SearchSerialized();
 }

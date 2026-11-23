@@ -17,12 +17,20 @@ public sealed partial class AuthoringWorkspaceViewModel
     {
         if (workspace is null) return true;
         if (sources.Values.Any(source => AuthoringBuildInclusion.Includes(workspace.Manifest, source.PlanId)
-            && !AuthoringSequence.HasMeasurement(source.ToDraft().Measure))) return true;
+            && !AuthoringSequence.HasMeasurement(source.ToDraft().Measure)))
+        {
+            return true;
+        }
+
         if (conflicts.Any(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id))) return true;
         foreach (var id in uncompiled.Where(id => AuthoringBuildInclusion.Includes(workspace.Manifest, id)))
         {
             if (!sources.TryGetValue(id, out var source) || workspace is null
-                || !File.Exists(new AuthoringDocumentStore(workspace.Root).GetDocumentPath(id))) return true;
+                || !File.Exists(new AuthoringDocumentStore(workspace.Root).GetDocumentPath(id)))
+            {
+                return true;
+            }
+
             try
             {
                 var draft = AuthoringFormulaDeployment.Project(source.ToDraft());

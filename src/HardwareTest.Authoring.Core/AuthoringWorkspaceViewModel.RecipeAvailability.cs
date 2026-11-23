@@ -131,7 +131,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                     _publishedRecipeInput = input;
                     PublishRecipeAvailability();
                 }
-                else RequestRecipeAvailability();
+                else
+                {
+                    RequestRecipeAvailability();
+                }
+
                 if (_recipeAvailabilityPending) QueueRecipeAvailability();
                 CompleteRecipeAvailabilityIfIdle();
             });

@@ -51,10 +51,7 @@ public sealed class IviVisaResourceDiscovery : IVisaResourceDiscovery
 {
     private readonly Action<string>? _onError;
 
-    public IviVisaResourceDiscovery(Action<string>? onError = null)
-    {
-        _onError = onError;
-    }
+    public IviVisaResourceDiscovery(Action<string>? onError = null) => _onError = onError;
 
     public Task<IReadOnlyList<VisaResourceInfo>> FindAsync(CancellationToken cancellationToken = default)
     {

@@ -22,7 +22,11 @@ public sealed class PackProtectionWindowTests
             fixture.ViewModel.InitializePlan(new("new-dirty") { Instruments = [] });
             fixture.ViewModel.DisplayName += " edited";
         }
-        else fixture.Type(fixture.Control<TextBox>("Display name"), "dirty GUI edit");
+        else
+        {
+            fixture.Type(fixture.Control<TextBox>("Display name"), "dirty GUI edit");
+        }
+
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 4;
         AuthoringUiFixture.Drain();
         Assert.False(fixture.Control<Button>("Pack workspace").IsEnabled);

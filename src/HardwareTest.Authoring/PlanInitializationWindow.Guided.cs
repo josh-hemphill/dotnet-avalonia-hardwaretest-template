@@ -69,8 +69,15 @@ public sealed partial class PlanInitializationWindow
             }
             _hardware.SelectedItem = choice ?? _hardwareChoices[0];
         }
-        else if (state.HardwareTypeId is { } typeId) SelectHardwareType(typeId);
-        else _hardware.SelectedIndex = 0;
+        else if (state.HardwareTypeId is { } typeId)
+        {
+            SelectHardwareType(typeId);
+        }
+        else
+        {
+            _hardware.SelectedIndex = 0;
+        }
+
         _timeout.Text = state.TimeoutText ?? "5000";
         _commissioning.Text = state.CommissioningText ?? string.Empty;
         for (var index = 0; index < GuidedText.Length; index++) GuidedText[index].Text = state.Text[index];

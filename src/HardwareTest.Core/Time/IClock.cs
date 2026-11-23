@@ -13,10 +13,7 @@ public sealed class SystemClock : IClock
 
     private readonly TimeProvider _provider;
 
-    public SystemClock(TimeProvider? provider = null)
-    {
-        _provider = provider ?? TimeProvider.System;
-    }
+    public SystemClock(TimeProvider? provider = null) => _provider = provider ?? TimeProvider.System;
 
     public DateTimeOffset UtcNow => _provider.GetUtcNow();
 }

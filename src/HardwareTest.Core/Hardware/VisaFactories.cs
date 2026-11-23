@@ -50,12 +50,16 @@ public sealed class MockVisaSession : IVisaSession
             }
 
             // Explicit alpha demo replies; these are simulated values, never device qualification.
-            if (key == ":MEAS:VOLT:DC? DEF,DEF") return Task.FromResult(ResourceName switch
+            if (key == ":MEAS:VOLT:DC? DEF,DEF")
             {
-                "MOCK::AGILENT-OVERLOAD" => "+9.90000000E+37",
-                "MOCK::AGILENT-ZERO" => "+0.00000000E+00",
-                _ => "+1.25000000E+00"
-            });
+                return Task.FromResult(ResourceName switch
+                {
+                    "MOCK::AGILENT-OVERLOAD" => "+9.90000000E+37",
+                    "MOCK::AGILENT-ZERO" => "+0.00000000E+00",
+                    _ => "+1.25000000E+00"
+                });
+            }
+
             if (key.Equals(":SOUR:FREQ?", StringComparison.OrdinalIgnoreCase) || key.Equals(":MEASure:FREQuency?", StringComparison.OrdinalIgnoreCase)) return Task.FromResult("1000");
             if (key.StartsWith(":MEASure:VPP? CHAN", StringComparison.OrdinalIgnoreCase)) return Task.FromResult("1.25");
             if (key.StartsWith(":MEAS:VOLT", StringComparison.OrdinalIgnoreCase) || key.StartsWith("MEAS:VOLT", StringComparison.OrdinalIgnoreCase)
@@ -77,10 +81,7 @@ public sealed class MockVisaSessionFactory : IVisaSessionFactory
 {
     private readonly VisaSessionGate _gate;
 
-    public MockVisaSessionFactory(VisaSessionGate gate)
-    {
-        _gate = gate;
-    }
+    public MockVisaSessionFactory(VisaSessionGate gate) => _gate = gate;
 
     public Task<IVisaSession> OpenAsync(string resourceName, CancellationToken cancellationToken = default)
     {

@@ -23,10 +23,14 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
         var (workspace, home, plan) = PrepareMockHome();
         var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
         if (claim == "nested-wrapper")
+        {
             CopyPayload(StandaloneVisaPackage.OpenArchive(), StandaloneVisaPackage.WrapperFileName, Path.Combine(custom, StandaloneVisaPackage.WrapperFileName));
+        }
         else if (claim is "nested-library" or "case-alias")
+        {
             CopyPayload(PublishedInstrumentComponents.OpenArchive(), "InstrumentComponents.OpenTap.dll",
                 claim == "case-alias" ? Path.Combine(home.Root, "instrumentcomponents.opentap.dll") : Path.Combine(custom, "InstrumentComponents.OpenTap.dll"));
+        }
         else
         {
             var package = claim == "malformed-counterpart-metadata" ? StandaloneVisaPackage.PackageName : PublishedInstrumentComponents.PackageName;
@@ -62,7 +66,9 @@ public sealed class AuthoringStandaloneClaimTests : IDisposable
         var custom = Path.Combine(home.Root, "Plugins", "Custom"); Directory.CreateDirectory(custom);
         var metadata = Path.Combine(home.Root, "Packages", StandaloneVisaPackage.PackageName, "package.xml");
         if (alias is "nested" or "case")
+        {
             File.Copy(Path.Combine(home.Root, file), alias == "nested" ? Path.Combine(custom, file) : Path.Combine(home.Root, file.ToLowerInvariant()));
+        }
         else if (alias == "metadata-name-case")
         {
             var package = System.Xml.Linq.XDocument.Load(metadata);

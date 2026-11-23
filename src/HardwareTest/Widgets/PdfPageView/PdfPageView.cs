@@ -8,13 +8,7 @@ public class PdfPageView : UserControl
 {
     private readonly Image _image = new() { Stretch = Avalonia.Media.Stretch.Uniform };
 
-    public PdfPageView()
-    {
-        Content = _image;
-    }
+    public PdfPageView() => Content = _image;
 
-    public void SetPage(Bitmap? bitmap)
-    {
-        _image.Source = bitmap;
-    }
+    public void SetPage(Bitmap? bitmap) => _image.Source = bitmap;
 }

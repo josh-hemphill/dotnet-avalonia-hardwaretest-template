@@ -48,8 +48,12 @@ public sealed record SigningSetupDiagnostics(PhysicalSigningBackend Backend, str
             }
         }
         catch (Exception ex) when (ex is DllNotFoundException or BadImageFormatException or IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException or CryptographicException) { }
-        if (stage == "windows-store") return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null,
+        if (stage == "windows-store")
+        {
+            return new(settings.PhysicalSigningBackend, null, architecture, false, stage, null,
             "Windows personal certificate store could not be opened. Card key acquisition and authentication have not been attempted.");
+        }
+
         return new(settings.PhysicalSigningBackend, module, architecture, false, stage, null, "Middleware could not be loaded. Check its path, dependencies, and architecture.");
     }
 

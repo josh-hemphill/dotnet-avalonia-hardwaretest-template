@@ -136,7 +136,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                 _movementAvailability = result;
                 PublishMovementAvailability();
             }
-            else RequestMovementAvailability();
+            else
+            {
+                RequestMovementAvailability();
+            }
+
             if (_movementPending) QueueMovementAvailability();
             else if (!_movementRunning && !_movementQueued && !_movementPending) _movementIdle.TrySetResult();
         });
@@ -185,7 +189,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         var sectionAllowed = false;
         ProgramDraft? sectionDraft = null;
         string sectionReason;
-        if (selected.Section != SequenceSection.Measure) sectionReason = "Setup steps stay in Setup; shutdown stays at the end.";
+        if (selected.Section != SequenceSection.Measure)
+        {
+            sectionReason = "Setup steps stay in Setup; shutdown stays at the end.";
+        }
         else
         {
             try
@@ -194,7 +201,9 @@ public sealed partial class AuthoringWorkspaceViewModel
                 var parent = selected.IndexPath.SkipLast(1).ToArray();
                 var destinationPath = destination?.IndexPath ?? [];
                 if (parent.SequenceEqual(destinationPath) && index == siblings.Length - 1)
+                {
                     sectionReason = "Already at the end of this destination. Choose another section.";
+                }
                 else
                 {
                     sectionDraft = AuthoringSequenceOperations.MoveToSection(draft, selected, key.Destination);
@@ -226,7 +235,10 @@ public sealed partial class AuthoringWorkspaceViewModel
     private void PublishMovementAvailability()
     {
         foreach (var property in new[] { nameof(CanMoveSequenceUp), nameof(CanMoveSequenceDown), nameof(MoveSequenceUpReason),
-            nameof(MoveSequenceDownReason), nameof(CanMoveToSection), nameof(MoveToSectionReason) }) OnPropertyChanged(property);
+            nameof(MoveSequenceDownReason), nameof(CanMoveToSection), nameof(MoveToSectionReason) })
+        {
+            OnPropertyChanged(property);
+        }
     }
 
     private static TaskCompletionSource CompletedMovement()

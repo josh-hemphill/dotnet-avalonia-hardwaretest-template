@@ -88,8 +88,12 @@ public sealed class AuthoringOfflineImportTests : IDisposable
             workspace.Manifest.Dependencies.Single(d => d.Package == "OpenTAP").Version = "99.0.0";
             AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest);
         }
-        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+        else
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
             new System.Xml.Linq.XAttribute("Path", invalid == "unsafe-payload" ? "../escaped.txt" : "missing-required-runtime.bin"))));
+        }
+
         xml.Save(metadata);
         File.WriteAllText(Path.Combine(home.Root, "custom.marker"), "selected home sentinel");
         var before = Snapshot(home.Root);

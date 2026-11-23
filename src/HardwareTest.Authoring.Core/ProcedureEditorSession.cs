@@ -160,11 +160,14 @@ public sealed partial class ProcedureEditorSession
             data[path] = _data[path].ToJsonString(new JsonSerializerOptions(JsonSerializerOptions.Default) { WriteIndented = true }) + "\n";
         var xml = _changedPlan ? _xml.Declaration + "\n" + _xml.ToString(SaveOptions.DisableFormatting) : _original.ImportedPlanXml!;
         if (validate)
+        {
             PlanCompiler.WithProcedureSnapshot(xml, _directory, data, (_, plan) =>
             {
                 foreach (var plugin in plan.ChildTestSteps.OfType<IProcedureAuthoring>()) plugin.ValidateAuthoring();
                 return true;
             });
+        }
+
         return _original with
         {
             ImportedPlanXml = xml,

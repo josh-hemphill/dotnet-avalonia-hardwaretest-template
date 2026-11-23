@@ -461,10 +461,7 @@ public partial class MainWindowViewModel : ReactiveObject
         _ = PrintCertifiedAsync(path);
     }
 
-    private async Task PrintCertifiedAsync(string path)
-    {
-        await ReportPreview.PrintFromPathAsync(path).ConfigureAwait(true);
-    }
+    private async Task PrintCertifiedAsync(string path) => await ReportPreview.PrintFromPathAsync(path).ConfigureAwait(true);
 
     private void RaiseTransportProps()
     {

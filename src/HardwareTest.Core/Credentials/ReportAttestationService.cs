@@ -124,7 +124,10 @@ public sealed class ReportAttestationService : IReportAttestationService
         if (artifact!.RevisionId is not null && (string.IsNullOrWhiteSpace(artifact.RunSnapshotPath)
             || !File.Exists(artifact.RunSnapshotPath)
             || !string.Equals(HashFile(artifact.RunSnapshotPath), attestation.RunJsonSha256, StringComparison.OrdinalIgnoreCase)
-            || !SidecarMatches(attestation, artifact.SidecarSha256))) return false;
+            || !SidecarMatches(attestation, artifact.SidecarSha256)))
+        {
+            return false;
+        }
 
         var pdfHash = HashFile(pdfPath);
         if (!string.Equals(pdfHash, attestation.PdfSha256, StringComparison.OrdinalIgnoreCase))
@@ -209,7 +212,10 @@ public sealed class ReportAttestationService : IReportAttestationService
         }
         if (signer.IsMock != broker.IsMock || !signer.CanSign
             || (!signer.IsMock && (!signer.CanSignPdf || signer is not IEmbeddedPdfSigningBroker)))
+        {
             return Failure(captured, "The prepared signer does not support the selected signing contract.");
+        }
+
         var runHash = HashBytes(JsonSerializer.SerializeToUtf8Bytes(run, AppJsonContext.Default.TestRunRecord));
 
         var candidate = await CompileCandidateAsync(run, targetKind, captured, AttestationKind.Signed, cancellationToken)
@@ -499,8 +505,11 @@ public sealed class ReportAttestationService : IReportAttestationService
 
         var current = new DirectoryInfo(dir);
         for (var depth = 0; current is not null && depth < 4; depth++, current = current.Parent)
+        {
             if (string.Equals(current.Name, ReportArtifactRoles.DirectoryName, StringComparison.OrdinalIgnoreCase))
                 return current.Parent?.Name;
+        }
+
         return Path.GetFileName(dir);
     }
 
@@ -508,10 +517,7 @@ public sealed class ReportAttestationService : IReportAttestationService
     public static bool PathEquals(string? left, string? right)
         => string.Equals(left, right, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
-    public static bool RunOwnsPdf(TestRunRecord run, string pdfPath)
-    {
-        return run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
-    }
+    public static bool RunOwnsPdf(TestRunRecord run, string pdfPath) => run.Reports.Any(r => PathEquals(r.PdfPath, pdfPath));
 
     public static string KindForPdf(TestRunRecord run, string pdfPath)
     {
@@ -529,7 +535,11 @@ public sealed class ReportAttestationService : IReportAttestationService
     public static string ResolvePrintOrExportPdfPath(TestRunRecord run, string pdfPath)
     {
         if (run.Reports.Any(r => ReportArtifactRoles.IsIssued(r.Role)
-            && PathEquals(r.PdfPath, pdfPath))) return pdfPath;
+            && PathEquals(r.PdfPath, pdfPath)))
+        {
+            return pdfPath;
+        }
+
         var kind = KindForPdf(run, pdfPath);
         var issued = ReportRevisions.Latest(run, kind);
         return issued is null ? pdfPath : issued.PdfPath ?? throw new IOException("The issued revision has no PDF path.");

@@ -114,7 +114,11 @@ public partial class SequenceEditorView
     private void OnJumpSection(object? sender, RoutedEventArgs e)
     {
         if (Vm is not { } vm || sender is not Button { Tag: string name }
-            || !Enum.TryParse<SequenceSection>(name, out var section)) return;
+            || !Enum.TryParse<SequenceSection>(name, out var section))
+        {
+            return;
+        }
+
         var first = vm.SequenceItems.FirstOrDefault(row => row.Section == section && row.IsSelectable);
         if (first is not null) vm.SelectSequence(vm.SequenceItems.ToList().IndexOf(first));
         var header = vm.SequenceItems.FirstOrDefault(row => row.Section == section);

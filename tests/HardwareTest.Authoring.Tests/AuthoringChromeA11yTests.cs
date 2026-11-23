@@ -63,7 +63,9 @@ public sealed class AuthoringChromeA11yTests
             foreach (var handler in document.Descendants().Attributes()
                 .Where(attribute => attribute.Name.LocalName is "Click" or "KeyDown" or "LostFocus" or "SelectionChanged" or "ValueChanged" or "TextChanged" or "KeyUp" or "PointerReleased" or "GotFocus")
                 .Select(attribute => attribute.Value).Distinct())
+            {
                 Assert.True(code.Contains("void " + handler + "(", StringComparison.Ordinal), $"{view} must handle {handler}.");
+            }
         }
         var inspector = documents["SelectedStepInspectorView"];
         var nameBox = Assert.Single(inspector.Descendants(), element => (string?)element.Attribute("AutomationProperties.Name") == "Selected step name");

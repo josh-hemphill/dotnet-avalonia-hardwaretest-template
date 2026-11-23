@@ -11,7 +11,11 @@ public sealed partial class AuthoringWorkspaceViewModel
     public async Task<bool> SelectProgramAsync(string planId, Func<bool>? ownerIsCurrent = null)
     {
         if (LoadingBusy || Workspace is null ||
-            string.Equals(SelectedProgram?.PlanId, planId, StringComparison.OrdinalIgnoreCase)) return false;
+            string.Equals(SelectedProgram?.PlanId, planId, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         if (!Programs.Any(program => string.Equals(program.PlanId, planId, StringComparison.OrdinalIgnoreCase))) return false;
         ownerIsCurrent ??= () => true;
         if (!ownerIsCurrent()) return false;

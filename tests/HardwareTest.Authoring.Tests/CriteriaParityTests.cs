@@ -194,14 +194,22 @@ public sealed class CriteriaParityTests
         public override void OnResultPublished(Guid stepRunId, ResultTable result)
         {
             if (result.Name == "Sample")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Channel").Data)
                     SampleChannels.Add(Convert.ToString(value) ?? string.Empty);
+            }
+
             if (result.Name == "Scalar")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Unit").Data)
                     AverageUnits.Add(Convert.ToString(value) ?? string.Empty);
+            }
+
             if (result.Name == "Analyze")
+            {
                 foreach (var value in result.Columns.Single(c => c.Name == "Mean").Data)
                     Averages.Add(Convert.ToDouble(value));
+            }
         }
     }
 

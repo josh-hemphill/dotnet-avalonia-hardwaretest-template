@@ -19,8 +19,11 @@ public static partial class AuthoringBuildService
         if (string.IsNullOrWhiteSpace(sdkRoot)) Unsupported(workspace.Root, "DOTNET_ROOT must identify the captured SDK");
         var packagesRoot = environment is null ? Environment.GetEnvironmentVariable("NUGET_PACKAGES") : environment.GetValueOrDefault("NUGET_PACKAGES");
         if (string.IsNullOrWhiteSpace(packagesRoot))
+        {
             packagesRoot = Path.Combine(environment?.GetValueOrDefault(OperatingSystem.IsWindows() ? "USERPROFILE" : "HOME")
                 ?? Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+        }
+
         packagesRoot = Path.GetFullPath(packagesRoot!);
         var packageFolders = new HashSet<string>(StringComparer.Ordinal) { packagesRoot };
         var packagePayloads = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -45,11 +48,20 @@ public static partial class AuthoringBuildService
         var root = Path.GetDirectoryName(projects.Keys.First())!;
         foreach (var path in projects.Keys.Concat(imports).Concat(projects.Values.SelectMany(p => p.Inputs))
             .Where(p => !ShellContains(sdkRoot!, p) && !packageFolders.Any(f => ShellContains(f, p))))
-            while (!ShellContains(root, path)) root = Path.GetDirectoryName(root)
+        {
+            while (!ShellContains(root, path))
+            {
+                root = Path.GetDirectoryName(root)
                 ?? throw new AuthoringWorkspaceException("BUILD_SHELL_INPUTS: Shell graph has no bounded common source root.");
+            }
+        }
+
         for (var directory = Path.GetDirectoryName(root); directory is not null; directory = Path.GetDirectoryName(directory))
+        {
             if (File.Exists(Path.Combine(directory, ".editorconfig")) || File.Exists(Path.Combine(directory, ".globalconfig")))
                 root = directory;
+        }
+
         if (Path.GetDirectoryName(root) is null) Unsupported(root, "shell graph spanning a filesystem root cannot be captured safely");
         // Preserve ancestor lookup and relative references by retaining the graph's real hierarchy.
         var ancestors = CaptureShellAncestors(root).ToArray();
@@ -60,8 +72,11 @@ public static partial class AuthoringBuildService
         var source = CaptureTree(root, "shell", true, ShellInput);
         var captured = source.Files.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
         foreach (var input in projects.Values.SelectMany(p => p.Inputs).Concat(imports).Concat(projects.Keys))
+        {
             if (!captured.Contains(input) && !ShellContains(sdkRoot!, input) && !packageFolders.Any(f => ShellContains(f, input)))
                 Unsupported(input, "evaluated input is outside the captured source graph");
+        }
+
         var trees = new List<BuildInputTree> { source };
         trees.AddRange(ancestors);
         var packageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -94,8 +109,10 @@ public static partial class AuthoringBuildService
     {
         var index = 0;
         for (var directory = Path.GetDirectoryName(root); directory is not null; directory = Path.GetDirectoryName(directory))
+        {
             yield return CaptureTree(directory, $"shell-config/{index++}", false,
                 p => ShellConfigurationNames.Contains(Path.GetFileName(p), StringComparer.Ordinal));
+        }
     }
 
     private static string ShellStageProject(string staging, IReadOnlyList<BuildInputTree> trees, string workspaceRoot, string entry)
@@ -125,11 +142,13 @@ public static partial class AuthoringBuildService
     {
         var copied = new HashSet<string>(StringComparer.Ordinal);
         foreach (var tree in ancestors)
+        {
             foreach (var file in tree.Files)
             {
                 var target = Path.Combine(root, file.RelativePath);
                 if (copied.Add(file.RelativePath) && !File.Exists(target)) Materialize(file, target);
             }
+        }
     }
 
     private static bool ShellContains(string root, string path)

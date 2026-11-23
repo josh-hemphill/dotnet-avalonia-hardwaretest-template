@@ -29,7 +29,9 @@ internal static class OfflineBenchVersions
             var directories = new[] { Path.GetDirectoryName(typeof(OfflineBenchVersions).Assembly.Location),
                 Path.GetDirectoryName(typeof(TestPlan).Assembly.Location), AppContext.BaseDirectory };
             foreach (var directory in directories.OfType<string>().Distinct(StringComparer.Ordinal))
+            {
                 foreach (var path in new[] { Path.Combine(directory, "OpenTap.Package.dll"), Path.Combine(directory, "Dependencies", "OpenTap.Package.dll") })
+                {
                     if (File.Exists(path))
                     {
                         OfflineBenchPaths.RejectLinks(path);
@@ -39,6 +41,9 @@ internal static class OfflineBenchVersions
                         AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(path));
                         return;
                     }
+                }
+            }
+
             throw new InvalidDataException("The operator package SDK is missing. Restore the complete matching operator release before checking a bundle.");
         }
     }

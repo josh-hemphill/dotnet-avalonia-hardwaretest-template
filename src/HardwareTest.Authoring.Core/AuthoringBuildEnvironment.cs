@@ -53,8 +53,11 @@ public static partial class AuthoringBuildService
     internal static IReadOnlyDictionary<string, string?> CaptureEnvironment()
     {
         foreach (var name in new[] { "DOTNET_ADDITIONAL_DEPS", "DOTNET_SHARED_STORE", "DOTNET_STARTUP_HOOKS" })
+        {
             if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)))
                 throw new AuthoringWorkspaceException($"BUILD_ENVIRONMENT: '{name}' redirects runtime/build inputs. Clear it before capturing this build.");
+        }
+
         var sdkRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
         foreach (DictionaryEntry entry in Environment.GetEnvironmentVariables())
         {

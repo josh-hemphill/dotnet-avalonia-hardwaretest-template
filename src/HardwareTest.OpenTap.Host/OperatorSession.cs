@@ -35,10 +35,7 @@ public sealed class OperatorSession : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public OperatorSession(IClock? clock = null)
-    {
-        _clock = clock ?? SystemClock.Instance;
-    }
+    public OperatorSession(IClock? clock = null) => _clock = clock ?? SystemClock.Instance;
 
     public string SessionId
     {

@@ -361,7 +361,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             && (original?.ProgramKinds ?? []).SequenceEqual(catalogs.ProgramKinds)
             && (original?.RequiredFields ?? []).SequenceEqual(catalogs.RequiredFields)
             && (original?.InstrumentSlotNames ?? []).SequenceEqual(catalogs.InstrumentSlotNames)
-            && (original?.Hardware ?? []).SequenceEqual(catalogs.Hardware)) return;
+            && (original?.Hardware ?? []).SequenceEqual(catalogs.Hardware))
+        {
+            return;
+        }
+
         var manifest = System.Text.Json.JsonSerializer.Deserialize(
             System.Text.Json.JsonSerializer.Serialize(Workspace.Manifest, AuthoringJsonContext.Default.AuthoringManifest),
             AuthoringJsonContext.Default.AuthoringManifest)!;

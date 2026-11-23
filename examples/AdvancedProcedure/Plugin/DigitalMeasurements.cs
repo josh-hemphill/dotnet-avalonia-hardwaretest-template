@@ -19,13 +19,17 @@ public sealed class CounterTriggerStep : FixtureMeasurementStep
         ProcedureTables.Require(row.Levels.All(level => level > 0 && level == Math.Truncate(level)),
             $"Case '{row.Id}' requires positive integer trigger increments.");
         if (route.CounterReadings is { } readings)
+        {
             ProcedureTables.Require(readings.Length == row.Levels.Length + 1
                 && readings.All(value => double.IsFinite(value) && value >= 0 && value == Math.Truncate(value))
                 && readings.SequenceEqual(readings.Order()),
                 $"Case '{row.Id}' needs a recorded baseline and one nondecreasing integer reading per trigger.");
+        }
         else
+        {
             ProcedureTables.Require(!row.Criteria.Any(band => band.Id == "observedIncrement"),
                 $"Case '{row.Id}' needs recorded counter readings to evaluate observed increments.");
+        }
     }
 
     internal override void Measure(FixtureProcedureStep fixture, CaseTable row, MeasurementEvidence evidence)
@@ -160,7 +164,9 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
         for (var i = 0; i < trace.Length; i++)
         {
             if (trace[i] >= ThresholdVolts)
+            {
                 start ??= i;
+            }
             else if (start is { } first)
             {
                 pulses.Add((first * intervalMs, (i - first) * intervalMs));

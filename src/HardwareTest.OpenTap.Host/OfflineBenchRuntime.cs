@@ -31,7 +31,10 @@ public static partial class OfflineBenchRuntime
             || !OfflineBenchPaths.IsHash(receipt.OperatorSha256) || !OfflineBenchPaths.IsHash(receipt.HostSha256)
             || receipt.RuntimeIdentifier is not ("win-x64" or "linux-x64" or "linux-arm64")
             || expectedRuntimeIdentifier is not null && receipt.RuntimeIdentifier != expectedRuntimeIdentifier)
+        {
             throw new InvalidDataException("Operator offline-install capability, schema or target does not match this installation.");
+        }
+
         return receipt;
     }
 
@@ -39,8 +42,10 @@ public static partial class OfflineBenchRuntime
     {
         var receipt = ReadCapability(Encoding.UTF8.GetString(runtime[CapabilityFileName]), rid);
         foreach (var (name, hash) in new[] { ("HardwareTest.dll", receipt.OperatorSha256), ("HardwareTest.OpenTap.Host.dll", receipt.HostSha256) })
+        {
             if (!OfflineBenchPaths.HashBytes(runtime[name]).Equals(hash, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Captured operator capability does not match {name}. Source release changed while reading; check again.");
+        }
     }
 
     internal static IReadOnlyDictionary<string, byte[]> Capture(string directory, OfflineBenchSnapshot bundle, CancellationToken cancellationToken)
@@ -81,9 +86,13 @@ public static partial class OfflineBenchRuntime
             using var document = JsonDocument.Parse(File.ReadAllBytes(source));
             if (!document.RootElement.TryGetProperty("targets", out var targets)) throw new InvalidDataException("Operator release has no declared runtime dependency inventory.");
             foreach (var target in targets.EnumerateObject())
+            {
                 foreach (var library in target.Value.EnumerateObject())
+                {
                     foreach (var kind in new[] { "runtime", "native", "resources", "runtimeTargets" })
+                    {
                         if (library.Value.TryGetProperty(kind, out var assets))
+                        {
                             foreach (var asset in assets.EnumerateObject())
                             {
                                 if (asset.Value.TryGetProperty("rid", out var assetRid) && assetRid.GetString() != rid) continue;
@@ -93,6 +102,10 @@ public static partial class OfflineBenchRuntime
                                 else if (kind == "resources" && asset.Value.TryGetProperty("locale", out var locale)) Add(locale.GetString() + "/" + Path.GetFileName(relative), true);
                                 else Add(Path.GetFileName(relative), true);
                             }
+                        }
+                    }
+                }
+            }
         }
         // Only declared dependency assets and the two fixed shipped archives are release content.
         foreach (var path in new[] { "PublishedArtifacts/InstrumentComponents.OpenTap.0.1.1.TapPackage", "PublishedArtifacts/HardwareTest.Standalone.VISA.0.1.0.TapPackage" }) Add(path);
@@ -112,9 +125,14 @@ public static partial class OfflineBenchRuntime
         }
         executableModes = capturedModes;
         if (!OperatingSystem.IsWindows())
+        {
             foreach (var launcher in new[] { "HardwareTest", "HardwareTest.OpenTap.Worker" })
+            {
                 if (capturedModes.TryGetValue(launcher, out var mode) && (mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) == 0)
                     throw new InvalidDataException($"Operator apphost '{launcher}' is not executable. Use an intact release.");
+            }
+        }
+
         ValidateCapturedCapability(owned, rid);
         ValidateProtectedPayload(owned, bundle.Archives);
         ValidateMergedPayload(owned, capturedModes, bundle, cancellationToken);
@@ -162,7 +180,10 @@ public static partial class OfflineBenchRuntime
                     var anchorName = Path.GetFileName(anchor.Location);
                     if (!runtime.TryGetValue(anchorName, out var existingAnchor)
                         || !existingAnchor.SequenceEqual(File.ReadAllBytes(anchor.Location)))
+                    {
                         throw new InvalidDataException($"Runtime baseline {anchorName} is missing or differs from this operator release.");
+                    }
+
                     var declaredAnchor = archive.Payload.Where(file => Path.GetFileName(file.Key).Equals(anchorName, StringComparison.OrdinalIgnoreCase)).ToArray();
                     if (declaredAnchor.Length != 1 || !declaredAnchor[0].Value.SequenceEqual(existingAnchor))
                         throw new InvalidDataException($"Package '{archive.Name}' does not carry its exact current operator baseline {anchorName}.");
@@ -181,10 +202,15 @@ public static partial class OfflineBenchRuntime
                     if (suppliedPayload.Length != expectedPayload.Count
                         || !archive.Dependencies.Select(item => item.Name + "\0" + item.VersionRange).Order(StringComparer.Ordinal)
                             .SequenceEqual(actual.Dependencies.Select(item => item.Name + "\0" + item.VersionRange).Order(StringComparer.Ordinal)))
+                    {
                         throw new InvalidDataException("Adapter archive omits exact release payload or dependencies.");
+                    }
+
                     foreach (var item in suppliedPayload)
+                    {
                         if (!expectedPayload.TryGetValue(item.Key, out var release) || !release.SequenceEqual(item.Value))
                             throw new InvalidDataException("Adapter payload differs from the operator's exact bundled release.");
+                    }
                 }
             }
             foreach (var file in archive.Payload)

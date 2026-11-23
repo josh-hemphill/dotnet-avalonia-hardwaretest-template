@@ -41,10 +41,7 @@ public sealed class RunControl : IRunControl
     private CancellationTokenSource? _runCts;
     private CancellationTokenSource? _safetyCts;
 
-    public RunControl(VisaSessionGate gate)
-    {
-        _gate = gate;
-    }
+    public RunControl(VisaSessionGate gate) => _gate = gate;
 
     public bool IsRunning { get; private set; }
     public bool IsPaused { get; private set; }

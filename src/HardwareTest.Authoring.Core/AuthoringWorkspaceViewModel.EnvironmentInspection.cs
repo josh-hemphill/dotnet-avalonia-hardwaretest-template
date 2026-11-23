@@ -85,7 +85,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 // exception or undo the fail-closed state already recorded above.
                 try { NotifyEnvironmentInspection(); } catch (Exception) { }
             }
-            if (dispatch is null) FailClosed();
+            if (dispatch is null)
+            {
+                FailClosed();
+            }
             else
             {
                 try { dispatch(FailClosed); }
@@ -190,7 +193,10 @@ public sealed partial class AuthoringWorkspaceViewModel
         if (_environmentInspectionStopped || request.Revision != _environmentInspectionRevision || request.Session != _workspaceSession
             || !ReferenceEquals(Workspace, request.Owner) || Prefs.OpenTapHomeOverride != request.HomeOverride
             || JsonSerializer.Serialize(Workspace!.Manifest, AuthoringJsonContext.Default.AuthoringManifest) != request.ManifestJson)
+        {
             return;
+        }
+
         _environmentInspection = result;
         _environmentChoicesSession = request.Session;
         _environmentInspectionPending = false;

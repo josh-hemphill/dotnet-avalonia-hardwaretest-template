@@ -7,7 +7,11 @@ public static class OfflineBenchCli
     {
         exitCode = 0;
         if (!args.Any(argument => argument.StartsWith("--check-offline-bundle", StringComparison.OrdinalIgnoreCase)
-            || argument.StartsWith("--install-offline-bundle", StringComparison.OrdinalIgnoreCase))) return false;
+            || argument.StartsWith("--install-offline-bundle", StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
         try
         {
             var check = args.Length == 2 && args[0] == "--check-offline-bundle";
@@ -21,7 +25,10 @@ public static class OfflineBenchCli
                 output.WriteLine("Loaded execution engine: " + OpenTapBuildInfo.ExecutionEngineIdentity);
                 output.WriteLine("Offline bundle check passed. No package action, network access, data-folder write or application launch occurred.");
             }
-            else output.WriteLine(OfflineBenchInstaller.Install(args[1], operatorDirectory, args[3], args[5]).Summary);
+            else
+            {
+                output.WriteLine(OfflineBenchInstaller.Install(args[1], operatorDirectory, args[3], args[5]).Summary);
+            }
         }
         catch (Exception error)
         {

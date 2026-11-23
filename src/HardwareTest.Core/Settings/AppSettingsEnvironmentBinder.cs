@@ -612,7 +612,10 @@ public sealed class SettingBinding
             var text = raw.Trim();
             if (!Enum.GetNames<PhysicalSigningBackend>().Any(name => string.Equals(name, text, StringComparison.OrdinalIgnoreCase))
                 || !Enum.TryParse<PhysicalSigningBackend>(text, true, out var backend))
+            {
                 return (false, s.PhysicalSigningBackend.ToString(), "expected Pkcs11 or Windows");
+            }
+
             s.PhysicalSigningBackend = backend;
             return (true, backend.ToString(), (string?)null);
         });

@@ -223,7 +223,11 @@ public sealed partial class AuthoringWorkspaceViewModel
         var binding = HardwareEditorBinding(definition.Name);
         if (definition.TypeId == binding.TypeId && definition.Address == binding.VisaAddress
             && definition.Settings.Count == binding.Settings.Count
-            && definition.Settings.All(p => binding.Settings.TryGetValue(p.Key, out var value) && p.Value == value)) return;
+            && definition.Settings.All(p => binding.Settings.TryGetValue(p.Key, out var value) && p.Value == value))
+        {
+            return;
+        }
+
         var next = definition with { TypeId = binding.TypeId, Address = binding.VisaAddress, Settings = binding.Settings };
         RememberWorkspaceCatalog(c => c.Hardware = c.Hardware.Select(d => d.Id == definition.Id ? next : d).ToList());
         Status = $"Updated workspace definition {definition.Name}; existing program bindings remain unchanged. Include explicitly in another program.";

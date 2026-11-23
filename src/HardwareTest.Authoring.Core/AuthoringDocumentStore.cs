@@ -42,7 +42,11 @@ public sealed partial class AuthoringDocumentStore
             var document = JsonSerializer.Deserialize(bytes, AuthoringDocumentJsonContext.Default.AuthoringWorkspaceDto)
                 ?? throw new InvalidDataException("Workspace source is empty.");
             if (document.Manifest is null || document.Manifest.ExcludedProgramIds is null
-                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0) throw new InvalidDataException("Workspace source is incomplete.");
+                || document.Manifest.ExcludedProgramIds.Any(string.IsNullOrWhiteSpace) || document.Revision < 0)
+            {
+                throw new InvalidDataException("Workspace source is incomplete.");
+            }
+
             if (document.Manifest.SchemaVersion < AuthoringSchemaVersions.Manifest)
                 throw new InvalidDataException("Workspace source has an unsupported manifest schema version.");
             if (document.Manifest.SchemaVersion > AuthoringSchemaVersions.Manifest)
@@ -181,11 +185,17 @@ public sealed partial class AuthoringDocumentStore
         if (Directory.Exists(parent) && Directory.EnumerateFileSystemEntries(parent).Any(entry =>
             string.Equals(Path.GetFileName(entry), Path.GetFileName(directory), StringComparison.OrdinalIgnoreCase)
             && !string.Equals(entry, directory, StringComparison.Ordinal)))
+        {
             throw new IOException("A case-equivalent authoring draft directory already exists.");
+        }
+
         if (File.Exists(directory)) throw new IOException("The authoring draft destination is a file.");
         if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any(entry =>
             string.Equals(Path.GetFileName(entry), Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+        {
             throw new IOException($"Authoring destination '{id}' already exists; choose a different ID.");
+        }
+
         return ValidatePath(path);
     }
 
@@ -211,7 +221,10 @@ public sealed partial class AuthoringDocumentStore
     {
         if (string.IsNullOrWhiteSpace(id) || id.Length > 128 || !SafeId().IsMatch(id) ||
             id.EndsWith('.') || id.Equals("workspace", StringComparison.OrdinalIgnoreCase))
+        {
             throw new ArgumentException("Program IDs must be safe filename tokens (letters, numbers, dash, underscore, or dot), and may not be 'workspace'.", nameof(id));
+        }
+
         var stem = id.Split('.')[0];
         if (ReservedName().IsMatch(stem)) throw new ArgumentException("Program ID is a reserved device name.", nameof(id));
     }

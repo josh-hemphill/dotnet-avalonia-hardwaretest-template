@@ -188,8 +188,10 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
             && row.Levels.Skip(2).SequenceEqual(row.Levels.Skip(2).Distinct().Order()),
             $"Case '{row.Id}' needs two distinct positive impedances followed by an increasing attenuation ladder.");
         foreach (var impedance in row.Levels.Take(2))
+        {
             foreach (var route in routes)
                 _ = tables.CalibrationFor(route, impedance);
+        }
     }
 
     internal override void Measure(FixtureProcedureStep fixture, CaseTable row, MeasurementEvidence evidence)
@@ -228,7 +230,9 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
                 evidence.Evaluate("equalization", measured[0] - measured[1], "dB", coord);
                 var current = measured.Average();
                 if (i == 0)
+                {
                     first = current;
+                }
                 else
                 {
                     var observedChange = previous - current;

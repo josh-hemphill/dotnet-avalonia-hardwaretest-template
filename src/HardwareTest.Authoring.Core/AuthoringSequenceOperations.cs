@@ -22,7 +22,10 @@ public static partial class AuthoringSequenceOperations
                 settings is Dictionary<string, string> dictionary ? dictionary.Comparer : StringComparer.Ordinal);
             if (function == AuthoringFunctionIds.BasicPublishBandScalar &&
                 !output.Keys.Any(key => key.Equals("MetricName", StringComparison.OrdinalIgnoreCase)))
+            {
                 output.Add("MetricName", channel);
+            }
+
             return output;
         }
         return metric with
@@ -119,11 +122,14 @@ public static partial class AuthoringSequenceOperations
         name = name.Trim();
         if (name.Length == 0) throw Fail("Enter a step name.");
         if (target.Kind == SequenceRowKind.Section)
+        {
             return draft with
             {
                 Measure = AuthoringSequence.MutateMeasure(draft.Measure, target.IndexPath,
                 node => ((SectionNode)node) with { Name = name })
             };
+        }
+
         if (target.Kind == SequenceRowKind.Metric)
         {
             var updated = draft with
@@ -133,7 +139,10 @@ public static partial class AuthoringSequenceOperations
             };
             if (AuthoringSequence.ResolveMeasure(draft, target.IndexPath) is MetricNode selected &&
                 string.IsNullOrWhiteSpace(selected.Metric.ChannelKey))
+            {
                 PlanCompiler.RequireUniqueNewOutputs(draft, updated);
+            }
+
             return updated;
         }
         if (target.Kind == SequenceRowKind.Setup)
@@ -192,7 +201,10 @@ public static partial class AuthoringSequenceOperations
         destination = CurrentTarget(draft, destination);
         if (source.Section != destination.Section || source.IndexPath.Count == 0
             || !source.IndexPath.SkipLast(1).SequenceEqual(destination.IndexPath.SkipLast(1)))
+        {
             throw Fail("Drag steps within the same section and loop. Use Move to section to move existing steps between sections.");
+        }
+
         var current = source.IndexPath[^1];
         var target = destination.IndexPath[^1];
         if (current == target) return draft;
@@ -335,15 +347,20 @@ public static partial class AuthoringSequenceOperations
                         && target.IndexPath.Count > row.IndexPath.Count && target.IndexPath.Take(row.IndexPath.Count).SequenceEqual(row.IndexPath)))
                     { result.Clear(); return Visit(repeat.Children); }
                 }
-                else result.Add(node);
+                else
+                {
+                    result.Add(node);
+                }
             }
             return false;
         }
         void Collect(IReadOnlyList<MeasureNode> nodes)
         {
             foreach (var node in nodes)
+            {
                 if (node is SectionNode section) Collect(section.Children);
                 else if (node is MetricNode or RawStepNode) result.Add(node);
+            }
         }
         Visit(draft.Measure);
         return result;

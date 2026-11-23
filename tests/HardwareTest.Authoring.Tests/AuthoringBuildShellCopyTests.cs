@@ -12,10 +12,16 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     public static IEnumerable<object[]> UnsafeMetadata()
     {
         foreach (var name in new[] { "Link", "LinkBase", "TargetPath", "RelativePath", "DestinationSubDirectory" })
+        {
             foreach (var casing in new[] { 0, 1, 2 })
+            {
                 foreach (var attribute in new[] { false, true })
+                {
                     foreach (var form in new[] { "literal", "property", "metadata", "escape" })
                         yield return [CaseName(name, casing), attribute, form, casing];
+                }
+            }
+        }
     }
 
     [Theory]
@@ -52,9 +58,13 @@ public sealed class AuthoringBuildShellCopyTests : IDisposable
     public static IEnumerable<object[]> ReferenceOverrides()
     {
         foreach (var name in new[] { "AdditionalProperties", "GlobalPropertiesToRemove", "SetConfiguration", "SetPlatform", "SetTargetFramework", "Targets", "Properties", "UndefineProperties" })
+        {
             foreach (var casing in new[] { 0, 1, 2 })
+            {
                 foreach (var attribute in new[] { false, true })
                     yield return [CaseName(name, casing), attribute, casing];
+            }
+        }
     }
 
     [Theory]

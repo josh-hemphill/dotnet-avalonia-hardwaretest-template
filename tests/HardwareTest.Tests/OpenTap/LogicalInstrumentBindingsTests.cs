@@ -80,10 +80,13 @@ public sealed class LogicalInstrumentBindingsTests
         using var temp = new TempDataDirectory();
         var plan = new TestPlan();
         foreach (var name in new[] { "DMM-A", "DMM-B" })
+        {
             plan.ChildTestSteps.Add(new AcquireVoltageStep
             {
                 Instrument = new MockDmmInstrument { Name = name, ResourceName = "MOCK::SAME" },
             });
+        }
+
         var path = Path.Combine(temp.Path, "distinct.TapPlan");
         plan.Save(path);
         var loaded = InstrumentSlotCollector.CreatePlan(new ProgramCatalogEntry { Id = "distinct", DisplayName = "Distinct", Path = path });

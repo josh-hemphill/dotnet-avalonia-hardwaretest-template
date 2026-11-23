@@ -47,6 +47,7 @@ public sealed partial class AuthoringWorkspaceInitializer
             manifest.Dependencies.Add(new() { Package = AuthoringInstrumentCatalog.LibraryPackage, Version = "0.3.0-alpha.1" });
         PlanInitializationResult? plan = null;
         if (request.Template != WorkspaceTemplateKind.Empty)
+        {
             plan = new AuthoringPlanInitializer().Construct(new(request.PlanId)
             {
                 DisplayName = request.PlanId,
@@ -56,6 +57,8 @@ public sealed partial class AuthoringWorkspaceInitializer
                 UseTemplateHardware = template.IsDemo,
                 IncludeTemplateMeasurement = template.IsDemo
             });
+        }
+
         List<string> files = ["authoring.schema.json", "authoring-draft.schema.json", ".gitignore", "authoring-drafts/workspace.authoring.json"];
         if (plan is not null) files.Add($"authoring-drafts/{plan.Draft.PlanId}.authoring.json");
         files.Add(AuthoringWorkspaceLoader.ManifestFileName);
@@ -247,7 +250,9 @@ public sealed partial class AuthoringWorkspaceInitializer
                     && (!AuthoringDocumentStore.SamePath(entry, cursor, isDirectory: true)
                         || (AuthoringDocumentStore.SamePath(cursor, root, isDirectory: true)
                             && !string.Equals(Path.GetFileName(entry), Path.GetFileName(cursor), StringComparison.Ordinal)))))
+                {
                     throw new IOException($"Case-equivalent destination exists: {cursor}");
+                }
             }
             if (AuthoringDocumentStore.SamePath(path, root, isDirectory: true)) { if (File.Exists(root)) throw new IOException("Workspace destination is a file."); continue; }
             if (ownedDirectories?.Any(directory => AuthoringDocumentStore.SamePath(directory, path, isDirectory: true)) == true)
@@ -266,7 +271,9 @@ public sealed partial class AuthoringWorkspaceInitializer
         {
             if (!Directory.Exists(store.ValidatePath(directory)) || Directory.EnumerateFileSystemEntries(directory).Any(entry => !files.Keys.Any(path => AuthoringDocumentStore.SamePath(path, entry))
                 && !directories.Any(path => AuthoringDocumentStore.SamePath(path, entry, isDirectory: true))))
+            {
                 throw new IOException($"Created workspace directory changed: {directory}");
+            }
         }
         foreach (var file in files)
         {

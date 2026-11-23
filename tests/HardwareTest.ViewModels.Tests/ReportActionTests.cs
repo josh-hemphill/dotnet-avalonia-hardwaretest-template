@@ -533,7 +533,11 @@ public sealed class ReportActionTests : IDisposable
             await process.WaitForExitAsync();
             Assert.Equal(0, process.ExitCode);
         }
-        else Directory.CreateSymbolicLink(alias, managed);
+        else
+        {
+            Directory.CreateSymbolicLink(alias, managed);
+        }
+
         try
         {
             var destination = Path.Combine(alias, "run", "issued", "rev1", "report.pdf");

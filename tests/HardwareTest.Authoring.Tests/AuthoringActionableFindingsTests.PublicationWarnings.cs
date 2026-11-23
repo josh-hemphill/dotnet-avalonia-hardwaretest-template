@@ -38,7 +38,11 @@ public sealed partial class AuthoringActionableFindingsTests
                 Assert.Equal(["sample"], result.SavedProgramIds);
                 Assert.Empty(result.Failures);
             }
-            else _vm.SaveSidecar();
+            else
+            {
+                _vm.SaveSidecar();
+            }
+
             Assert.NotNull(held);
             Assert.False(_vm.HasUnsavedChanges);
             AssertCheckedStateStale();

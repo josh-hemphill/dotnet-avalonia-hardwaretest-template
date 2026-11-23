@@ -149,7 +149,10 @@ public partial class OperatorSessionPanelViewModel
             || requirements.RequirePartNumber && string.IsNullOrWhiteSpace(NormalizeScan(DutPartInput))
             || requirements.RequireRevision && string.IsNullOrWhiteSpace(NormalizeScan(DutRevisionInput))
             || requireTypedOperator && requirements.RequireOperator && string.IsNullOrWhiteSpace(NormalizeScan(OperatorInput)))
+        {
             return;
+        }
+
         var changed = !string.Equals(_session.DutSerial, NormalizeScan(DutSerialInput), StringComparison.Ordinal)
             || ChangedKnownIdentity(_session.DutPartNumber, DutPartInput)
             || ChangedKnownIdentity(_session.DutRevision, DutRevisionInput)

@@ -274,7 +274,10 @@ public sealed partial class PlanCompiler
             if (step is global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep operation && operation.ValidationIssue() is { } issue)
                 throw new AuthoringWorkspaceException("INSTRUMENT_INCOMPATIBLE: " + issue);
         }
-        else throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: '{instrument.GetType().FullName}' cannot bind to '{step.GetType().FullName}'.");
+        else
+        {
+            throw new AuthoringWorkspaceException($"INSTRUMENT_INCOMPATIBLE: '{instrument.GetType().FullName}' cannot bind to '{step.GetType().FullName}'.");
+        }
     }
 
     private static void ApplySettings(ITestStep step, IReadOnlyDictionary<string, string> settings)

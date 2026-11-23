@@ -389,7 +389,9 @@ public static partial class MetricPreviewBuilder
             PlanCompiler.ValidateFormulaInput(deployment.Measure, metric.ChannelKey, deployment.AuthoringState, nodeId);
         }
         else if (siblings is not null)
+        {
             PlanCompiler.ValidateFormulaInput(siblings.Select(value => (MeasureNode)new MetricNode(value)).ToArray(), metric.ChannelKey);
+        }
     }
 
     private static IReadOnlyList<double> SynthesizeCanned(LimitSpec? limits, PresentationTileKind? kind)

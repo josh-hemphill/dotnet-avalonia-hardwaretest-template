@@ -72,7 +72,10 @@ public sealed record AuthoringDocumentDto
         if (SchemaVersion is < 1 or > CurrentSchemaVersion) throw new InvalidDataException($"Unsupported draft schema {SchemaVersion}.");
         if (Revision < 0 || Sidecar is null || Instruments is null || Setup is null || Measure is null || Cleanup is null || State is null ||
             State.IncompleteNumericText is null || State.FormulaIntent is null)
+        {
             throw new InvalidDataException("The authoring source document is incomplete.");
+        }
+
         if (Instruments.Any(instrument => instrument is null || instrument.Settings is null))
             throw new InvalidDataException("Instrument source configuration is incomplete.");
         if (Sidecar.ReferenceRules?.Any(rule => rule is null) == true)

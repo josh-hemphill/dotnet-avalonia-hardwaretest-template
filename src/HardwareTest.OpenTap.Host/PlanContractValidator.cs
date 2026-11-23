@@ -371,8 +371,11 @@ public static class PlanContractValidator
         }
 
         foreach (var deviceStep in OpenTapStepTree.Flatten(plan).OfType<global::HardwareTest.OpenTap.Plugins.Instruments.DeviceOperationStep>())
+        {
             if (deviceStep.Enabled && deviceStep.ValidationIssue() is { } issue)
                 findings.Add(Error("DEVICE_CONFIGURATION", deviceStep.Name + ": " + issue));
+        }
+
         var roles = new List<string>();
         foreach (var step in OpenTapStepTree.Flatten(plan))
         {
@@ -416,14 +419,20 @@ public static class PlanContractValidator
         if (rules.Count == 0)
         {
             if (guards.Length > 0)
+            {
                 findings.Add(Error(Codes.ReferenceGuard,
                     "The compiled plan requires operator reference acceptance, but its supported sidecar declares no reference criteria. Restore the complete pair or recompile the intended saved program."));
+            }
+
             return;
         }
         if (guards.Length != 1 || !guards[0].Enabled
             || steps.Any(step => !step.Enabled && OpenTapStepTree.IsAncestorOf(step, guards[0])))
+        {
             findings.Add(Error(Codes.ReferenceGuard,
                 "Reference-dependent programs need one enabled operator acceptance guard. Recompile with the current authoring app; copying only a changed sidecar is insufficient."));
+        }
+
         foreach (var rule in rules)
         {
             if (rule is null) continue;
@@ -438,9 +447,11 @@ public static class PlanContractValidator
             var hints = OpenTapPresentation.TryReadMixin(producer[0]);
             if (hints is null || !string.Equals(hints.ChannelKey, rule.MetricKey, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(hints.YUnit, rule.Unit, StringComparison.Ordinal))
+            {
                 findings.Add(new PlanContractFinding(PlanContractSeverity.Error, Codes.ReferenceRules,
                     $"Reference rule '{rule.RuleId}' metric or unit does not match its compiled producer. Restore the declared metric/unit and compile the complete pair again.")
                 { Target = new(CompiledStepId: producer[0].Id, Section: "Configure", Field: "ReferenceTolerance") });
+            }
         }
     }
 

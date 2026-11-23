@@ -97,10 +97,7 @@ public sealed class FormulaParserTests
     [InlineData("[--1]")]
     [InlineData("[- -1]")]
     [InlineData("[1..2]")]
-    public void Malformed_or_trailing_input_fails_parse(string source)
-    {
-        Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));
-    }
+    public void Malformed_or_trailing_input_fails_parse(string source) => Assert.Throws<AuthoringWorkspaceException>(() => FormulaParser.Parse(source));
 
     [Fact]
     public void Vectors_accept_whitespace_commas_and_exponents()

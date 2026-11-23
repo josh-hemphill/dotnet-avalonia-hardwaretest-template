@@ -53,7 +53,9 @@ if (args.Length == 2 && args[0] == "--owned-library-lifecycle")
         var xml = File.ReadAllText(path);
         if (!xml.Contains("InstrumentComponents.OpenTap.IdentityQueryStep", StringComparison.Ordinal)
             || !xml.Contains("InstrumentComponents.OpenTap.SafeShutdownStep", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("Owned lifecycle serialization lost the generic steps.");
+        }
     }
     var original = AppDomain.CurrentDomain.GetAssemblies().Single(assembly => assembly.GetName().Name == "InstrumentComponents.OpenTap");
     new HardwareTest.OpenTap.Host.OpenTapHostCatalog(new HardwareTest.Core.Settings.AppSettings(), Serilog.Log.Logger, new NeverOpenLifecycleBroker()).EnsurePlugins();
@@ -209,7 +211,11 @@ static void Publish(string path, string content)
                 writer.Write("\nowned-root");
             }
         }
-        else File.WriteAllText(temporary, content);
+        else
+        {
+            File.WriteAllText(temporary, content);
+        }
+
         File.Move(temporary, path, true);
     }
     finally { if (File.Exists(temporary)) File.Delete(temporary); }

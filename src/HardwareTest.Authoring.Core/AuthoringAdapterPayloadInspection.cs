@@ -20,7 +20,10 @@ internal static class AuthoringAdapterPayloadInspection
             var document = XDocument.Load(metadata);
             if (document.Root?.Name.LocalName != "Package"
                 || !string.Equals((string?)document.Root.Attribute("Name"), adapter.RequiredPackage, StringComparison.OrdinalIgnoreCase))
+            {
                 return Unavailable("package metadata is invalid or names another package");
+            }
+
             if (AuthoringInstrumentCatalog.IsLibrary(adapter.TypeId))
             {
                 RejectAlternateLibraryPayloads(home.Root);
@@ -102,12 +105,18 @@ internal static class AuthoringAdapterPayloadInspection
     {
         if (Directory.Exists(home) && Directory.EnumerateFiles(home)
             .Any(path => Path.GetFileName(path).Equals("package.xml", StringComparison.OrdinalIgnoreCase) && IsLibraryIdentity(path)))
+        {
             throw new IOException("Instrument Components has a noncanonical home-root package identity. Select a fresh home and Prepare in Environment.");
+        }
+
         var packages = Path.Combine(home, "Packages");
         if (!Directory.Exists(packages)) return;
         if (Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
             .Any(path => LibraryFiles.Contains(Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)))
+        {
             throw new IOException("Instrument Components has an unsupported installed payload layout. Select a fresh home and Prepare in Environment.");
+        }
+
         foreach (var directory in Directory.EnumerateDirectories(packages))
         {
             var metadata = Path.Combine(directory, "package.xml");

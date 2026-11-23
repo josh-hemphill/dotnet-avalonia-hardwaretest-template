@@ -12,11 +12,14 @@ public static partial class AuthoringBuildService
     private static bool TryShellJsonProperty(JsonElement element, string name, out JsonElement value)
     {
         foreach (var property in element.EnumerateObject())
+        {
             if (ShellIdentifierIs(property.Name, name))
             {
                 value = property.Value;
                 return true;
             }
+        }
+
         value = default;
         return false;
     }

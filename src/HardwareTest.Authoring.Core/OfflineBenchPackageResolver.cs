@@ -48,8 +48,11 @@ internal sealed class OfflineBenchPackageResolver(OfflineBenchPackageInventory i
             var candidates = inventory.Candidates.Where(candidate => candidate.Name.Equals(next, StringComparison.OrdinalIgnoreCase) && Satisfies(candidate, required))
                 .OrderBy(candidate => candidate.Priority).ThenByDescending(candidate => candidate.Version).ThenBy(candidate => candidate.Archive, StringComparer.Ordinal).ToArray();
             foreach (var sameVersion in candidates.GroupBy(candidate => candidate.Version.ToString(), StringComparer.Ordinal))
+            {
                 if (sameVersion.Select(candidate => candidate.PayloadHash).Distinct(StringComparer.Ordinal).Skip(1).Any())
                     throw new AuthoringWorkspaceException($"Ambiguous package '{next}' {sameVersion.Key}: matching sources contain different payloads. Keep one verified release in the manual folder and choose an unambiguous OpenTAP home.");
+            }
+
             foreach (var candidate in candidates.DistinctBy(candidate => (candidate.Version.ToString(), candidate.PayloadHash)))
             {
                 var branch = new Dictionary<string, OfflineBenchCandidate>(chosen, StringComparer.OrdinalIgnoreCase) { [next] = candidate };

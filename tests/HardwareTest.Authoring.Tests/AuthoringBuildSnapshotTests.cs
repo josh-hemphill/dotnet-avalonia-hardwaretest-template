@@ -285,7 +285,11 @@ public sealed class AuthoringBuildSnapshotTests : IDisposable
             var json = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllBytes(store.GetDocumentPath("sample")))!;
             json["unknownFutureField"] = true; content = json.ToJsonString();
         }
-        else Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sample"))!);
+        else
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(store.GetDocumentPath("sample"))!);
+        }
+
         File.WriteAllText(store.GetDocumentPath("sample"), content);
         var output = Temp(); File.WriteAllText(Path.Combine(output, "old.TapPackage"), "old");
         Assert.Contains("BUILD_SOURCE", Assert.Throws<AuthoringWorkspaceException>(() => WorkspacePacker.Pack(workspace, output, new PackOptions { Home = home })).Message);

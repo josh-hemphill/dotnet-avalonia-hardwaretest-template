@@ -67,7 +67,11 @@ public sealed partial class ProcedureEditorSession
         if (!item.IsStep || !CanEdit) return false;
         var step = FindStep(item.Id);
         if (step.Parent?.Name != "ChildTestSteps" || !_steps.TryGetValue(PlanCompiler.SerializedStepType(step), out var profile)
-            || Adjacent(step, offset) is not { } sibling) return false;
+            || Adjacent(step, offset) is not { } sibling)
+        {
+            return false;
+        }
+
         if (offset > 0 && profile.IsHandoff) return false;
         return offset > 0 || _steps.GetValueOrDefault(PlanCompiler.SerializedStepType(sibling))?.IsHandoff != true;
     }

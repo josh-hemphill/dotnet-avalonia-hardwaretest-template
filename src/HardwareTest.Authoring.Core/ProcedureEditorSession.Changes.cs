@@ -18,8 +18,11 @@ public sealed partial class ProcedureEditorSession
                 var name = step.Element("Name")?.Value ?? StepId(step);
                 if (!before.TryGetValue(StepId(step), out var old)) { changes.Add($"Added {name}"); continue; }
                 if (_steps.TryGetValue(PlanCompiler.SerializedStepType(step), out var schema))
+                {
                     foreach (var field in schema.Fields.Prepend(new("Name", "Name")))
                         AddChange(changes, name, field.Label, XmlFieldValue(old, field), XmlFieldValue(step, field));
+                }
+
                 var oldOrder = PlanCompiler.ImportedSteps(old.Element("ChildTestSteps")).Select(StepId);
                 var newOrder = PlanCompiler.ImportedSteps(step.Element("ChildTestSteps")).Select(StepId);
                 if (!oldOrder.SequenceEqual(newOrder)) changes.Add($"Changed child order or membership in {name}");

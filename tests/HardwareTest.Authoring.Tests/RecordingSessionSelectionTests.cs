@@ -25,7 +25,11 @@ public sealed class RecordingSessionSelectionTests : IDisposable
         _vm.SelectDataset(0);
         Assert.Equal("original", _vm.SelectedDataset!.Run.RunId);
         if (replaceWorkspace) { _vm.Open(second); _vm.StopRecovery(); }
-        else _vm.SelectProgram("other");
+        else
+        {
+            _vm.SelectProgram("other");
+        }
+
         Assert.NotEmpty(_vm.Datasets);
         Assert.Null(_vm.SelectedDataset);
         Assert.Equal(-1, _vm.SelectedDatasetIndex);

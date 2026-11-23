@@ -100,7 +100,11 @@ public static class AuthoringInstrumentUsage
                 case MetricNode { Metric.Source: AlgorithmSource algorithm }:
                     if (!AuthoringFunctionCatalog.TryGet(algorithm.AlgorithmId, out var spec)
                         || !spec.IsAlgorithm
-                        || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(algorithm.InstrumentSlot))) return true;
+                        || (spec.NeedsInstrument && string.IsNullOrWhiteSpace(algorithm.InstrumentSlot)))
+                    {
+                        return true;
+                    }
+
                     break;
                 case MetricNode { Metric.Source: ExpressionAlgorithm }:
                 case MetricNode { Metric.Source: TransferFunctionAlgorithm }:

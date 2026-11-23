@@ -100,10 +100,7 @@ public sealed class Phase18TouchDensityTests
     }
 
     [Fact]
-    public void OperatorTouchDensity_includes_chart_plot_floor()
-    {
-        Assert.True(OperatorTouchDensity.ChartPlotMinHeight >= 300);
-    }
+    public void OperatorTouchDensity_includes_chart_plot_floor() => Assert.True(OperatorTouchDensity.ChartPlotMinHeight >= 300);
 
     [Fact]
     public void ResultsView_has_explicit_Open_report_button()

@@ -439,8 +439,10 @@ public sealed class ReportAttestationServiceTests
         broker.Mode = mode;
 
         if (mode == "cancel")
+        {
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 service.AttestAsync(run, ReportKinds.Certification, pin: SoftwarePdfBroker.Pin));
+        }
         else
         {
             var result = await service.AttestAsync(run, ReportKinds.Certification,

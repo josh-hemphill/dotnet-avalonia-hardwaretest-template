@@ -203,6 +203,7 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
         payload[$"Packages/{identity.Name}/package.xml"] = Encoding.UTF8.GetBytes(xml.ToString(SaveOptions.DisableFormatting));
         var snapshot = Path.Combine(owned, Guid.NewGuid().ToString("N") + ".TapPackage");
         using (var archive = ZipFile.Open(snapshot, ZipArchiveMode.Create))
+        {
             foreach (var file in payload)
             {
                 var entry = archive.CreateEntry(file.Key, CompressionLevel.Optimal);
@@ -212,6 +213,8 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
                 entry.ExternalAttributes = (0x8000 | (int)declaredMode) << 16;
                 using var output = entry.Open(); output.Write(file.Value);
             }
+        }
+
         AddSnapshot(snapshot, 1);
     }
 
@@ -304,8 +307,10 @@ internal sealed class OfflineBenchPackageInventory(string owned, OfflineBenchExp
     internal static void RequireRegular(string path)
     {
         for (var current = Path.GetFullPath(path); current is not null; current = Path.GetDirectoryName(current))
+        {
             if ((File.Exists(current) || Directory.Exists(current)) && (File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                 throw new AuthoringWorkspaceException("Offline bundle inputs and destinations cannot contain symbolic links: " + path);
+        }
     }
 
     private static string[] ArchiveFiles(string root) => Directory.EnumerateFiles(root).Where(path => path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)

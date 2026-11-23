@@ -63,7 +63,10 @@ public sealed partial class StandaloneBoundaryTests
                     bytes[versionOffset + 3] = 0;
                 }
                 else
+                {
                     bytes = [.. bytes, 1];
+                }
+
                 File.WriteAllBytes(provider, bytes);
                 if (defect != "stale-hash")
                 {

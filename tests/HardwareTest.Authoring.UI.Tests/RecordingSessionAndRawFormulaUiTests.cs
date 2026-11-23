@@ -34,7 +34,11 @@ public sealed class RecordingSessionAndRawFormulaUiTests
         AuthoringUiFixture.Drain();
         Assert.Equal("first", vm.SelectedDataset!.Run.RunId);
         if (replaceWorkspace) { vm.Open(second.WorkspaceRoot); vm.StopRecovery(); }
-        else vm.SelectProgram("other");
+        else
+        {
+            vm.SelectProgram("other");
+        }
+
         await first.WaitForPreviewAsync();
         AuthoringUiFixture.Drain();
         window.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 5;

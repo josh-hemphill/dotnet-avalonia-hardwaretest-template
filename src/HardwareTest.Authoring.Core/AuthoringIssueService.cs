@@ -36,8 +36,11 @@ public static class AuthoringIssueService
         var index = AuthoringDependencyIndex.Build(draft);
         var issues = new List<AuthoringEditingIssue>();
         foreach (var finding in AuthoringReferenceRules.Validate(draft))
+        {
             issues.Add(new("REFERENCE_CRITERION", finding.Message, draft.PlanId, finding.NodeId)
             { Section = "Configure", Field = finding.RuleId is { Length: > 0 } ruleId ? finding.Field + ":" + ruleId : finding.Field });
+        }
+
         foreach (var raw in AuthoringLibraryLifecycle.OpaqueLifecycleNodes(draft.Measure))
             issues.Add(new("LIBRARY_LIFECYCLE_REIMPORT", AuthoringLibraryLifecycle.ReimportMessage, draft.PlanId, raw.NodeId));
         if (homeResolutionError is not null)
@@ -46,8 +49,11 @@ public static class AuthoringIssueService
             issues.Add(new("EMPTY_MEASURE", "Add a measurement and choose its hardware before deployment.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Sequence });
         if (RequiredFieldIds.Contains(RequiredFieldIds.FromSidecar(draft.Sidecar), RequiredFieldIds.Serial)
             && !draft.Setup.OfType<IdentitySetup>().Any())
+        {
             issues.Add(new("MISSING_IDENTITY", "DUT serial is required; add an instrument identity check before deployment.", draft.PlanId, Guid.Empty)
             { Section = "ProgramSettings", Field = "RequireSerial" });
+        }
+
         foreach (var incomplete in draft.AuthoringState.IncompleteNumericText)
         {
             var parts = incomplete.Key.Split('/', 2);
@@ -56,7 +62,11 @@ public static class AuthoringIssueService
             if (AuthoringReferenceRules.BaseField(parts[1]) != nameof(AuthoringWorkspaceViewModel.ReferenceTolerance)
                 && EnumerateMetricNodes(draft.Measure).Any(node => node.NodeId == nodeId
                 && node.Metric.Source is ExpressionAlgorithm or TransferFunctionAlgorithm
-                    or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })) continue;
+                    or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage }))
+            {
+                continue;
+            }
+
             var field = parts[1].StartsWith("MetricSetting:", StringComparison.Ordinal) ? parts[1]["MetricSetting:".Length..] : parts[1];
             issues.Add(new("INCOMPLETE_NUMERIC_INPUT", $"Complete {AuthoringReferenceRules.BaseField(field)} before compiling; saved input: '{incomplete.Value}'.", draft.PlanId, nodeId)
             { Section = "Configure", Field = field });
@@ -92,15 +102,23 @@ public static class AuthoringIssueService
         {
             if (metricNode.Metric.Source is AlgorithmSource algorithm
                 && AuthoringFunctionCatalog.InputChannelIssue(algorithm.AlgorithmId, algorithm.InputChannelKeys) is { } inputIssue)
+            {
                 issues.Add(new("INPUT_CHANNEL_CARDINALITY", inputIssue, draft.PlanId, metricNode.NodeId));
+            }
+
             if (metricNode.Metric.Source is ExpressionAlgorithm)
             {
                 var excluded = AuthoringFormulaDeployment.ExcludedNodes(draft).Contains(metricNode.NodeId);
                 var status = FormulaDeploymentClassifier.Classify(metricNode.Metric, draft, nodeId: metricNode.NodeId);
-                if (excluded) issues.Add(new("FORMULA_EXCLUDED", "Exploration formula is saved unchanged and excluded from deployment.", draft.PlanId, metricNode.NodeId));
+                if (excluded)
+                {
+                    issues.Add(new("FORMULA_EXCLUDED", "Exploration formula is saved unchanged and excluded from deployment.", draft.PlanId, metricNode.NodeId));
+                }
                 else if (status.Kind != FormulaDeploymentStatusKind.DeployableRecipe)
+                {
                     issues.Add(new(status.Kind == FormulaDeploymentStatusKind.MissingRequirements
                         ? RequirementCode(status.Message) : "FORMULA_DEPLOYMENT", status.Message, draft.PlanId, metricNode.NodeId));
+                }
             }
             else if (metricNode.Metric.Source is TransferFunctionAlgorithm or AlgorithmSource { AlgorithmId: AuthoringFunctionIds.BasicChannelAverage })
             {
@@ -138,7 +156,10 @@ public static class AuthoringIssueService
             }
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId) && declaredPackages is not null
                 && !declaredPackages.Contains(AuthoringInstrumentCatalog.LibraryPackage, StringComparer.OrdinalIgnoreCase))
+            {
                 issues.Add(new("INSTRUMENT_DEPENDENCY_MISSING", "Declare Instrument Components in Environment, then Save All before preparing/importing the package or building. The exact binding is retained in this draft.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Environment });
+            }
+
             if (!AuthoringInstrumentCatalog.TryGet(instrument.TypeId, out var adapter))
                 issues.Add(new("INSTRUMENT_UNAVAILABLE", $"Instrument '{instrument.SlotName}' type '{instrument.TypeId}' has no authoring adapter; imported source is preserved.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
             else if (homeResolutionError is null && adapter.Availability(home) is { Available: false } unavailable)
@@ -146,11 +167,16 @@ public static class AuthoringIssueService
             if (AuthoringInstrumentCatalog.IsLibrary(instrument.TypeId)
                 && instrument.Settings.TryGetValue("IoTimeoutMilliseconds", out var timeout)
                 && (!int.TryParse(timeout, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var value) || value is < 100 or > 120000))
+            {
                 issues.Add(new("INSTRUMENT_CONFIGURATION", $"Instrument '{instrument.SlotName}' I/O timeout must be between 100 and 120000 milliseconds. Entered text is retained in the draft.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
+            }
         }
         foreach (var instrument in draft.Instruments)
+        {
             if (!AuthoringInstrumentCatalog.CanReplace(draft, instrument.SlotName, instrument))
                 issues.Add(new("INSTRUMENT_INCOMPATIBLE", $"Instrument '{instrument.SlotName}' lacks capabilities required by its bindings. Choose a compatible instrument or function.", draft.PlanId, Guid.Empty) { RecoveryArea = AuthoringRecoveryArea.Instruments });
+        }
+
         return issues.Select(issue =>
         {
             if (issue.Code == AuthoringCompileCodes.MissingLimits)

@@ -17,7 +17,9 @@ public sealed class PreparedAuthoringWorkspace
         {
             if (SourceState.Sources.TryGetValue(program.PlanId, out var source)
                 && !AuthoringDocumentSnapshot.Capture(program).ContentEquals(AuthoringDocumentSnapshot.Capture(source.ToDraft())))
+            {
                 throw new AuthoringWorkspaceException($"Authoring source for '{program.PlanId}' changed while the workspace was loading. Reopen the workspace to load the current source; the existing session is unchanged.");
+            }
         }
         Documents = draft.Programs.Select(program => new AuthoringDocumentSession(program,
             isSaved: true, isReadOnly: draft.Files.IsReadOnly,
@@ -85,8 +87,11 @@ public sealed partial class AuthoringWorkspaceViewModel
             ? $"Packaging preview could not refresh because the OpenTAP home setting is invalid: {pathError}" : null;
         UpdateSavePreviewWarning();
         if (previous is not null && Error is { } current)
+        {
             Error = current == previous ? null : current.Replace(Environment.NewLine + previous, string.Empty, StringComparison.Ordinal)
                 .Replace(previous + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+        }
+
         if (_saveEnvironmentPreviewWarning is { } warning && Error?.Contains(warning, StringComparison.Ordinal) != true)
             Error = string.IsNullOrEmpty(Error) ? warning : Error + Environment.NewLine + warning;
     }
@@ -97,14 +102,19 @@ public sealed partial class AuthoringWorkspaceViewModel
         _saveEnvironmentPreviewWarning = null; _savePreviewHasHomePathWarning = false;
         UpdateSavePreviewWarning();
         if (previous is not null && Error is { } error)
+        {
             Error = error == previous ? null : error.Replace(Environment.NewLine + previous, string.Empty, StringComparison.Ordinal)
                 .Replace(previous + Environment.NewLine, string.Empty, StringComparison.Ordinal);
+        }
     }
     private void UpdateSavePreviewWarning()
     {
         foreach (var id in _saveCompilationWarnings.Keys.ToArray())
+        {
             if (!_sourceDocuments.TryGetValue(id, out var source) || !source.RequiresCompilation)
                 _saveCompilationWarnings.Remove(id);
+        }
+
         var warnings = _saveCompilationWarnings.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair => $"{pair.Key}: {pair.Value}")
             .Concat(_saveEnvironmentPreviewWarning is { } environmentWarning ? [environmentWarning] : []).Distinct().ToArray();
@@ -281,9 +291,14 @@ public sealed partial class AuthoringWorkspaceViewModel
         store.DeleteRecovery(planId);
         string? compilationFailure = null;
         string? savedCompilationDiagnostic = null;
-        if (_compiledConflicts.Contains(planId)) compilationFailure = "External compiled edits require reconciliation before export.";
+        if (_compiledConflicts.Contains(planId))
+        {
+            compilationFailure = "External compiled edits require reconciliation before export.";
+        }
         else if (AuthoringFormulaDeployment.Project(draft).AuthoringState.IncompleteNumericText.Count > 0)
+        {
             compilationFailure = "Incomplete numeric input was saved as an authoring draft.";
+        }
         else
         {
             try
@@ -295,7 +310,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                     _compiler.Save(draft, path);
                     if (existing is null) Workspace = workspace with { TapPlanPaths = [.. workspace.TapPlanPaths, path] };
                 }
-                else if (sidecarOnly || actualDirty.SidecarDirty) _compiler.SaveSidecar(path, PlanCompiler.CloneSidecar(draft.Sidecar));
+                else if (sidecarOnly || actualDirty.SidecarDirty)
+                {
+                    _compiler.SaveSidecar(path, PlanCompiler.CloneSidecar(draft.Sidecar));
+                }
+
                 document = AuthoringDocumentDto.FromDraft(draft, _documents[planId].Revision,
                     compiledPlanHash: AuthoringDocumentStore.ComputeHash(path),
                     compiledSidecarHash: AuthoringDocumentStore.ComputeHash(PlanCompiler.SidecarPath(path)));

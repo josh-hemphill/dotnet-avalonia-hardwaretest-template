@@ -131,10 +131,7 @@ public sealed class SchemaVersioningTests
     [InlineData("null")]
     [InlineData("[]")]
     [InlineData("{invalid")]
-    public void Malformed_headers_are_errors_before_deserialization(string json)
-    {
-        Assert.ThrowsAny<JsonException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
-    }
+    public void Malformed_headers_are_errors_before_deserialization(string json) => Assert.ThrowsAny<JsonException>(() => DocumentSchemaGate.ReadHeader(Encoding.UTF8.GetBytes(json), SchemaDocumentTypes.TestRunRecord, SchemaVersions.TestRunRecord));
 
     [Theory]
     [InlineData("settings-v0-legacy.json", false)]

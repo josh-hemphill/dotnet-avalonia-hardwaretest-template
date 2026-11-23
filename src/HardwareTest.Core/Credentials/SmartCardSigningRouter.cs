@@ -39,8 +39,11 @@ public sealed class SmartCardSigningRouter : IOperatorCredentialBroker, IEmbedde
         {
             var snapshot = new AppSettings { PhysicalSigningBackend = _settings.PhysicalSigningBackend, Pkcs11LibraryPath = _settings.Pkcs11LibraryPath };
             if (!Enum.IsDefined(snapshot.PhysicalSigningBackend))
+            {
                 return CredentialPreparationResult.Failed(CredentialSignResult.Failure(CredentialFailureKind.ConfigurationError,
                     "Unknown physical signing backend.", "configuration"));
+            }
+
             var result = snapshot.PhysicalSigningBackend == PhysicalSigningBackend.Pkcs11
                 ? await _pkcs11(snapshot).PrepareSigningAsync(credential, pin, cancellationToken).ConfigureAwait(false)
                 : await _windows(snapshot).PrepareSigningAsync(credential, cancellationToken: cancellationToken).ConfigureAwait(false);

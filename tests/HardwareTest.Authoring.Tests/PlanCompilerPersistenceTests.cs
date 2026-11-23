@@ -11,10 +11,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "ht-persistence-" + Guid.NewGuid().ToString("N"));
 
-    public PlanCompilerPersistenceTests()
-    {
-        Directory.CreateDirectory(_directory);
-    }
+    public PlanCompilerPersistenceTests() => Directory.CreateDirectory(_directory);
 
     [Fact]
     public void Save_restores_original_bytes_when_sidecar_replacement_fails_after_plan_changed()
@@ -288,10 +285,7 @@ public sealed class PlanCompilerPersistenceTests : IDisposable
         AssertNoTemps(path);
     }
 
-    public void Dispose()
-    {
-        Directory.Delete(_directory, recursive: true);
-    }
+    public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     private string PlanPath() => Path.Combine(_directory, "atomic.TapPlan");
 

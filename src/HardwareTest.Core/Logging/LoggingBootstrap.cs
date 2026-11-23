@@ -17,10 +17,7 @@ public sealed class LoggingBootstrap : ILoggingBootstrap
 {
     private readonly IDisposable _activityListener;
 
-    private LoggingBootstrap(IDisposable activityListener)
-    {
-        _activityListener = activityListener;
-    }
+    private LoggingBootstrap(IDisposable activityListener) => _activityListener = activityListener;
 
     public IDisposable ActivityListener => _activityListener;
 

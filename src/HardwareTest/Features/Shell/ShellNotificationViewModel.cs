@@ -35,10 +35,7 @@ public partial class ShellNotificationViewModel : ReactiveObject
     private string? _sourceKey;
     private Action? _onDismissed;
 
-    public ShellNotificationViewModel()
-    {
-        DismissCommand = ReactiveCommand.Create(Dismiss);
-    }
+    public ShellNotificationViewModel() => DismissCommand = ReactiveCommand.Create(Dismiss);
 
     public ReactiveCommand<ReactiveUI.Primitives.RxVoid, ReactiveUI.Primitives.RxVoid> DismissCommand { get; }
 

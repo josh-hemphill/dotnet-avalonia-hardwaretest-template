@@ -37,7 +37,10 @@ public static class RegisteredDevices
                             throw new InvalidOperationException($"Instrument slot '{resource.Name}' has conflicting device bindings. Repair its configuration in Authoring before running.");
                         operation.Instrument = existing;
                     }
-                    else slots.Add(resource.Name, resource);
+                    else
+                    {
+                        slots.Add(resource.Name, resource);
+                    }
                 }
                 Visit(step);
             }

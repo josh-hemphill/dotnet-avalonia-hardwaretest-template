@@ -55,14 +55,20 @@ public static partial class OfflineBenchBundle
             throw new InvalidDataException("Offline bundles currently support win-x64, linux-x64 and linux-arm64 only.");
         if (targetOS is not null && !manifest.TargetOS.Equals(targetOS, StringComparison.OrdinalIgnoreCase)
             || targetArchitecture is not null && !manifest.TargetArchitecture.Equals(targetArchitecture, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidDataException($"Bundle target {manifest.TargetOS}/{manifest.TargetArchitecture} does not match this operator. Inspect it on its intended target.");
+        }
+
         BenchProgramHandoff.RequireCustomPlanId(manifest.PlanId);
         if (!Guid.TryParseExact(manifest.ExportId, "N", out _) || manifest.CreatedAt == default
             || manifest.Files is null || manifest.Packages is null || manifest.Requirements is null
             || manifest.Files.Any(file => file is null) || manifest.Packages.Any(package => package is null)
             || manifest.Requirements.Any(requirement => requirement is null)
             || manifest.Packages.Count == 0 || manifest.Requirements.Count == 0)
+        {
             throw new InvalidDataException("Offline bundle identity, inventory and required package closure must be complete.");
+        }
+
         var files = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         long total = 0;
         foreach (var file in manifest.Files)
@@ -73,7 +79,10 @@ public static partial class OfflineBenchBundle
                 throw new InvalidDataException("Offline bundle inventory contains duplicate or case-colliding files.");
             if (!OfflineBenchPaths.IsHash(file.Sha256) || file.Length < 0 || file.Length > OfflineBenchArchive.MaximumFileBytes
                 || (total += file.Length) > OfflineBenchArchive.MaximumFileBytes * 2 || !tree.TryGetValue(path, out var source))
+            {
                 throw new InvalidDataException($"Offline bundle file is missing or unsupported: {path}");
+            }
+
             var bytes = ReadOwned(source, OfflineBenchArchive.MaximumFileBytes, cancellationToken);
             if (bytes.LongLength != file.Length || !OfflineBenchPaths.HashBytes(bytes).Equals(file.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException($"Offline bundle file changed or its hash is invalid: {path}");
@@ -93,12 +102,17 @@ public static partial class OfflineBenchBundle
             var path = OfflineBenchPaths.Relative(package.Path);
             if (!files.TryGetValue(path, out var bytes) || !path.EndsWith(".TapPackage", StringComparison.OrdinalIgnoreCase)
                 || !OfflineBenchPaths.HashBytes(bytes).Equals(package.Sha256, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException($"Required offline package archive is missing or changed: {name}");
+            }
+
             var archive = OfflineBenchArchive.Read(bytes, manifest.TargetOS, manifest.TargetArchitecture, cancellationToken, expandedBudget);
             if (!name.Equals(archive.Name, StringComparison.Ordinal) || SemanticVersion.Parse(package.Version).ToString() != archive.Version
                 || !SamePlatform(package.OS, archive.OS, false) || !SamePlatform(package.Architecture, archive.Architecture, true)
                 || !SameDependencies(package.Dependencies, archive.Dependencies) || !archives.TryAdd(name, archive))
+            {
                 throw new InvalidDataException($"Offline package metadata disagrees with its actual archive or is duplicated: {name}");
+            }
         }
         var reached = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Require(OfflineBenchRequirement requirement)
@@ -136,7 +150,10 @@ public static partial class OfflineBenchBundle
             ?? throw new InvalidDataException("Offline program receipt is empty.");
         if (receipt.SchemaVersion != 1 || receipt.PlanId != manifest.PlanId || receipt.ExportId != manifest.ExportId
             || receipt.PlanSha256 != OfflineBenchPaths.HashBytes(planBytes) || receipt.SidecarSha256 != OfflineBenchPaths.HashBytes(sidecarBytes))
+        {
             throw new InvalidDataException("Offline program pair does not match its prepared bench receipt.");
+        }
+
         RequireUniqueJson(sidecarBytes);
         ProgramReferenceDeclarations.RequireSupportedJson(Encoding.UTF8.GetString(sidecarBytes));
         var sidecar = JsonSerializer.Deserialize(sidecarBytes, ProgramCatalogJsonContext.Default.ProgramSidecar)
@@ -150,11 +167,18 @@ public static partial class OfflineBenchBundle
                 .Split(',')[0].Trim() == typeof(HardwareTest.OpenTap.Plugins.Basic.RequireOperatorReferenceAcceptanceStep).FullName).ToArray();
         if (rules.Count > 0 && (receipt.RequiredOperatorCapability != "bench-references-v1" || guards.Length != 1)
             || rules.Count == 0 && (receipt.RequiredOperatorCapability != string.Empty || guards.Length != 0))
+        {
             throw new InvalidDataException("Offline reference criteria and runtime compatibility guard do not match. Compile and prepare the complete program again.");
+        }
+
         foreach (var rule in rules)
+        {
             if (!plan.Descendants().Any(element => element.Name.LocalName == "TestStep"
                 && Guid.TryParse((string?)element.Attribute("Id"), out var id) && id == rule.ProducerStepId))
+            {
                 throw new InvalidDataException("Offline reference criterion has no matching producer in the compiled program.");
+            }
+        }
     }
 
     private static bool SameDependencies(IEnumerable<OfflineBenchRequirement> left, IEnumerable<OfflineBenchRequirement> right)
@@ -189,7 +213,10 @@ public static partial class OfflineBenchBundle
                     Check(property.Value);
                 }
             }
-            else if (element.ValueKind == JsonValueKind.Array) foreach (var child in element.EnumerateArray()) Check(child);
+            else if (element.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var child in element.EnumerateArray()) Check(child);
+            }
         }
         Check(document.RootElement);
     }

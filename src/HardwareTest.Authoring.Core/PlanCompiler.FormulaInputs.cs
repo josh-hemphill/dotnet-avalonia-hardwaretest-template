@@ -40,6 +40,7 @@ public sealed partial class PlanCompiler
                     _ => Array.Empty<string>()
                 };
                 foreach (var input in inputs)
+                {
                     for (var previous = 0; previous < index; previous++)
                     {
                         var channel = siblings[previous] switch
@@ -50,12 +51,16 @@ public sealed partial class PlanCompiler
                         };
                         if (string.Equals(channel, input, StringComparison.OrdinalIgnoreCase)) Include(previous);
                     }
+                }
             }
             for (var index = 0; index < siblings.Count; index++)
             {
                 if (siblings[index] is RepeatNode repeat) Scope(repeat.Children);
                 if (siblings[index] is MetricNode metric &&
-                    (targetNodeId is { } id ? metric.NodeId == id : string.Equals(metric.Metric.ChannelKey, outputChannel, StringComparison.OrdinalIgnoreCase))) Include(index);
+                    (targetNodeId is { } id ? metric.NodeId == id : string.Equals(metric.Metric.ChannelKey, outputChannel, StringComparison.OrdinalIgnoreCase)))
+                {
+                    Include(index);
+                }
             }
         }
         Scope(nodes);
@@ -73,11 +78,16 @@ public sealed partial class PlanCompiler
     private static IEnumerable<MeasureNode> FlattenSections(IEnumerable<MeasureNode> nodes)
     {
         foreach (var node in nodes)
+        {
             if (node is SectionNode section)
             {
                 foreach (var child in FlattenSections(section.Children)) yield return child;
             }
-            else yield return node;
+            else
+            {
+                yield return node;
+            }
+        }
     }
 
     private static IEnumerable<ITestStep> RequirementSteps(IEnumerable<MeasureNode> nodes, ISet<Guid>? relevant = null, bool structural = false)
@@ -85,7 +95,10 @@ public sealed partial class PlanCompiler
         foreach (var node in nodes)
         {
             ITestStep? step = null;
-            if (node is RawStepNode raw) step = LoadRawStep(raw);
+            if (node is RawStepNode raw)
+            {
+                step = LoadRawStep(raw);
+            }
             else if (node is SectionNode section)
             {
                 var group = new TestGroupStep { Name = section.Name, AuthoringSection = true };
@@ -113,7 +126,9 @@ public sealed partial class PlanCompiler
                 }
                 catch (AuthoringWorkspaceException) { continue; } // Lowering itself owns unsupported expression errors.
                 if (source is TransferFunctionAlgorithm tf)
+                {
                     step = new ApplyTransferFunctionStep { InputChannel = tf.InputChannelKey, Channel = metric.Metric.ChannelKey, TsSeconds = tf.TsSeconds };
+                }
                 else
                 {
                     var id = source switch { MeasureSource m => m.FunctionId, AlgorithmSource a => a.AlgorithmId, _ => string.Empty };
@@ -131,8 +146,11 @@ public sealed partial class PlanCompiler
                     }
                     step.GetType().GetProperty("Channel")?.SetValue(step, metric.Metric.ChannelKey);
                     if (step is ChannelAverageStep average && source is AlgorithmSource algorithm)
+                    {
                         average.InputChannel = AuthoringFunctionCatalog.InputChannelIssue(id, algorithm.InputChannelKeys) is null
                             ? algorithm.InputChannelKeys[0] : string.Empty;
+                    }
+
                     PresentationAttach.Apply(step, metric.Metric);
                 }
             }

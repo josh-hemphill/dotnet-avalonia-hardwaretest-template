@@ -150,13 +150,19 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
                 System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(versionFields + field * 2, 2), (ushort)(value - 1));
                 File.WriteAllBytes(path, bytes);
             }
-            else File.WriteAllText(path, "corrupted runtime assembly");
+            else
+            {
+                File.WriteAllText(path, "corrupted runtime assembly");
+            }
+
             var entry = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == invalid);
             entry.Elements().Single(element => element.Name.LocalName == "Hash").Value = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(File.ReadAllBytes(path)));
             xml.Save(metadata);
         }
         else if (invalid.StartsWith("config-", StringComparison.Ordinal))
+        {
             File.WriteAllText(Path.Combine(home.Root, "tap.runtimeconfig.json"), invalid == "config-json" ? "{" : """{"runtimeOptions":{"framework":{"name":"Unsupported.Framework","version":"99.0.0"}}}""");
+        }
         else
         {
             var hash = xml.Descendants().First(element => element.Name.LocalName == "File")
@@ -268,8 +274,12 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
             foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
             declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash", new string('0', 40)));
         }
-        else xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
+        else
+        {
+            xml.Root!.Add(new System.Xml.Linq.XElement("Files", new System.Xml.Linq.XElement("File",
             new System.Xml.Linq.XAttribute("Path", "missing-required-runtime.bin"))));
+        }
+
         xml.Save(metadata);
         File.Delete(Path.Combine(home.Root, relative.Replace('/', Path.DirectorySeparatorChar)));
         var before = Snapshot(home);
@@ -305,8 +315,12 @@ public sealed class StandaloneVisaBootstrapTests : IDisposable
         var xml = System.Xml.Linq.XDocument.Load(metadata);
         var declaration = xml.Descendants().Single(element => element.Name.LocalName == "File" && (string?)element.Attribute("Path") == customRelative);
         foreach (var hash in declaration.Elements().Where(element => element.Name.LocalName == "Hash").ToArray()) hash.Remove();
-        if (updateHash) declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash",
+        if (updateHash)
+        {
+            declaration.Add(new System.Xml.Linq.XElement(declaration.Name.Namespace + "Hash",
             Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(customBytes))));
+        }
+
         xml.Save(metadata);
         Assert.Null(StandaloneVisaReadiness.OpenTapRuntimeIssue(home));
 

@@ -104,7 +104,10 @@ public static partial class AuthoringBuildService
             EnsureContained(output, path);
             if (Path.IsPathRooted(relative) || relative != Path.GetRelativePath(output, path) || !seen.Add(relative)
                 || relative == ReceiptFileName)
+            {
                 throw new AuthoringWorkspaceException("BUILD_OUTPUT_RECEIPT: Previous receipt has unsafe or duplicate artifact paths.");
+            }
+
             if (incoming.Contains(relative) || !File.Exists(path)) continue;
             EnsureContained(output, ResolvedPath(path, false));
             if (ResolvedPath(path, false) != Path.GetFullPath(path))

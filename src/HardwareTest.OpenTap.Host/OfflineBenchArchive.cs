@@ -87,18 +87,27 @@ internal static class OfflineBenchArchive
             var segments = path.Split('/');
             if (segments[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                 && (segments.Length < 3 || !segments[1].Equals(nameValue, StringComparison.Ordinal)))
+            {
                 throw new InvalidDataException("A package cannot supply another package's payload.");
+            }
+
             if (new[] { "Programs", "runs", "logs", "credentials", "bench-references", "data", "settings" }.Contains(segments[0], StringComparer.OrdinalIgnoreCase)
                 || new[] { "settings.json", "ui-state.json", OfflineBenchStartup.InstallationFileName, OfflineBenchStartup.LockFileName, OfflineBenchStartup.DataOwnershipFileName, OfflineBenchRuntime.CapabilityFileName }.Contains(path, StringComparer.OrdinalIgnoreCase)
                 || new[] { ".sys", ".inf", ".ko", ".msi", ".msix", ".deb", ".rpm" }.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            {
                 throw new InvalidDataException("Offline packages cannot write station data, installation ownership or OS driver/install payloads.");
+            }
+
             if (payload.TryGetValue(path, out var prior) && !prior.SequenceEqual(bytes))
                 throw new InvalidDataException("Package payload cannot replace its identity metadata.");
             payload[path] = bytes;
         }
         foreach (var path in payload.Keys)
+        {
             if (payload.Keys.Any(other => other.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidDataException("Package payload contains conflicting file and directory paths.");
+        }
+
         if (entries.Keys.Any(path => !declared.Contains(path)))
             throw new InvalidDataException("Offline archive contains undeclared payload. Rebuild it with a complete Files inventory.");
         if (payload.Count <= 1) throw new InvalidDataException("Offline package contains no declared payload.");

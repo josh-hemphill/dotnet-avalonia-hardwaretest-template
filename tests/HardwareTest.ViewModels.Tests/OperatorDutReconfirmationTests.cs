@@ -176,7 +176,11 @@ public sealed class OperatorDutReconfirmationTests
             onSessionCleared: () => clears++, credentialBroker: new MockOperatorCredentialBroker())
         { DutSerialInput = "DUT", DutPartInput = "PART", DutRevisionInput = "A", OperatorInput = "Departing technician" };
         if (sameDutPrompt) { session.MarkStale(); panel.RefreshSessionSummary(); }
-        else panel.RequireContextConfirmation();
+        else
+        {
+            panel.RequireContextConfirmation();
+        }
+
         panel.OperatorInput = MockOperatorCredentialBroker.MockDisplayName;
         if (sameDutPrompt) await panel.ConfirmSameDutCommand.ExecuteAsync();
         else await panel.ConfirmSessionCommand.ExecuteAsync();

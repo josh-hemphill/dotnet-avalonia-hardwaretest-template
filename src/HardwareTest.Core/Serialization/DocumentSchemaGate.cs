@@ -28,8 +28,11 @@ public sealed class DocumentSchemaStatus
         }
 
         if (Kind == DocumentSchemaKind.PreviousReadOnly)
+        {
             return $"Read-only: {DocumentType} schema {StoredVersion} predates this app ({CurrentVersion}). "
                 + "Historical evidence remains readable; preserve the original bytes instead of rewriting it.";
+        }
+
         if (!IsReadOnly) return string.Empty;
         var writer = string.IsNullOrWhiteSpace(WriterAppVersion) ? "unknown" : WriterAppVersion;
         return $"Read-only: {DocumentType} schema {StoredVersion} is newer than this app ({CurrentVersion}). "
@@ -76,7 +79,10 @@ public static class DocumentSchemaGate
         var version = 0;
         if (root.TryGetProperty("schemaVersion", out var header)
             && (header.ValueKind != JsonValueKind.Number || !header.TryGetInt32(out version)))
+        {
             throw new JsonException($"{documentType} schemaVersion must be an integer.");
+        }
+
         var writer = root.TryGetProperty("appVersion", out var appVersion) && appVersion.ValueKind == JsonValueKind.String
             ? appVersion.GetString() : null;
         var status = Evaluate(documentType, version, currentVersion, writer);

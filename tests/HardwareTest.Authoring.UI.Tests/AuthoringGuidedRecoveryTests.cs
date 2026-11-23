@@ -34,7 +34,11 @@ public sealed class AuthoringGuidedRecoveryTests
         {
             vm.LoadHardwareDefinitionEditor(); vm.HardwareEditTimeout = "9999"; vm.UpdateHardwareDefinition();
         }
-        else vm.ApplyHardwareDefinitionRemoval(vm.PrepareHardwareDefinitionRemoval());
+        else
+        {
+            vm.ApplyHardwareDefinitionRemoval(vm.PrepareHardwareDefinitionRemoval());
+        }
+
         await vm.WaitForEnvironmentInspectionAsync().WaitAsync(TimeSpan.FromSeconds(15));
         AuthoringUiFixture.Drain(); AuthoringUiFixture.Click(fixture.Control<Button>("Resume guidance"));
         dialog = Assert.IsType<PlanInitializationWindow>(Assert.Single(fixture.Window!.OwnedWindows));
@@ -168,7 +172,10 @@ public sealed class AuthoringGuidedRecoveryTests
                 external.SelectSequence(external.SequenceItems.ToList().FindIndex(row => row.Kind == SequenceRowKind.Metric));
                 AuthoringUiFixture.Drain(); fixture.Control<TextBox>("Threshold", other).Text = "2.75";
             }
-            else if (changed == "binding") external.VisaAddress = "MOCK::SECOND";
+            else if (changed == "binding")
+            {
+                external.VisaAddress = "MOCK::SECOND";
+            }
             else
             {
                 other.FindControl<TabControl>("WorkspaceTabs")!.SelectedIndex = 7; AuthoringUiFixture.Drain();
@@ -306,7 +313,10 @@ public sealed class AuthoringGuidedRecoveryTests
                 for (var edit = 0; edit < 12; edit++) vm.DisplayName = $"Latest draft {edit}";
                 vm.Undo(); vm.Redo();
             }
-            else if (mutation == "save") vm.Apply();
+            else if (mutation == "save")
+            {
+                vm.Apply();
+            }
             else
             {
                 vm.SelectProgram("sample");

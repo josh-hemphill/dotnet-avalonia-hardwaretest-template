@@ -29,9 +29,14 @@ public sealed partial class StandaloneBoundaryTests
             bytes[versionOffset + 3] = 0;
         }
         else if (defect == "wrong-provider-name")
+        {
             bytes = File.ReadAllBytes(Path.Combine(home, "InstrumentComponents.dll"));
+        }
         else
+        {
             bytes = "malformed-managed-provider"u8.ToArray();
+        }
+
         File.WriteAllBytes(path, bytes);
         var metadata = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName, "package.xml");
         var document = XDocument.Load(metadata);

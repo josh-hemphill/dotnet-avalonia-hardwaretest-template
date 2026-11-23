@@ -266,8 +266,11 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var home = InstalledHome();
         var selected = Path.Combine(home, "Packages", PublishedInstrumentComponents.PackageName);
         if (withPayload)
+        {
             foreach (var file in new[] { "InstrumentComponents.dll", "InstrumentComponents.OpenTap.dll" })
                 File.Copy(Path.Combine(home, file), Path.Combine(selected, file));
+        }
+
         var result = await Run(home, "HardwareTest.StandaloneVisa.ProcessFixture.dll", selected, allowFailure: true);
         Assert.NotEqual(0, result.Code);
         Assert.Contains("requires an installed home root", result.Output);
@@ -423,10 +426,17 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
         var deps = Path.Combine(home, "HardwareTest.StandaloneVisa.ProcessFixture.deps.json");
         var graph = JsonNode.Parse(File.ReadAllText(deps))!;
         foreach (var target in graph["targets"]!.AsObject())
+        {
             foreach (var dependency in target.Value!.AsObject())
+            {
                 if (dependency.Key.StartsWith("InstrumentComponents/", StringComparison.Ordinal)
                     || dependency.Key.StartsWith("InstrumentComponents.OpenTap/", StringComparison.Ordinal))
+                {
                     dependency.Value!.AsObject().Remove("runtime");
+                }
+            }
+        }
+
         File.WriteAllText(deps, graph.ToJsonString());
     }
 
@@ -534,7 +544,10 @@ public sealed partial class StandaloneBoundaryTests : IDisposable
     {
         var home = Path.Combine(_root, Guid.NewGuid().ToString("N"));
         var fixture = Path.Combine(AppContext.BaseDirectory, "BoundaryFixture");
-        if (!minimal) CopyTree(fixture, home);
+        if (!minimal)
+        {
+            CopyTree(fixture, home);
+        }
         else
         {
             CopyTree(Path.Combine(fixture, "Packages", "OpenTAP"), Path.Combine(home, "Packages", "OpenTAP"));

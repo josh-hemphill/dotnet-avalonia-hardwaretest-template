@@ -58,7 +58,10 @@ public static class PrintGeometry
         var height = Math.Ceiling(size.HeightPoints * RenderDpi / 72d);
         if (!double.IsFinite(width) || !double.IsFinite(height) || width < 1 || height < 1
             || width > int.MaxValue || height > int.MaxValue || width * height > MaxPixels)
+        {
             throw new InvalidDataException("PDF page exceeds the 64 million pixel printing limit at 300 dpi.");
+        }
+
         return ((int)width, (int)height);
     }
 

@@ -20,7 +20,10 @@ public static class AuthoringCriteria
             && (id is AuthoringFunctionIds.BasicAcquireVoltage or AuthoringFunctionIds.BasicBitSweepAcquire)
             && measure.Settings.TryGetValue("SeriesCompliance", out var mode)
             && HardwareTest.OpenTap.Plugins.Basic.SeriesComplianceModes.IsEnabled(mode))
+        {
             return new(false, true, metric.YUnit);
+        }
+
         return id switch
         {
             AuthoringFunctionIds.BasicMeanGte or AuthoringFunctionIds.BasicChannelAverage
@@ -37,11 +40,17 @@ public static class AuthoringCriteria
         var limits = metric.Limits;
         if (required?.RequiresThreshold == true && limits?.Threshold is null
             || required?.RequiresBand == true && (limits?.Low is null || limits.High is null))
+        {
             throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' requires {(required.RequiresThreshold ? "a threshold" : "low and high bounds")}.");
+        }
+
         if (limits is null) return;
         foreach (var value in new[] { limits.Low, limits.High, limits.Threshold })
+        {
             if (value is { } number && !double.IsFinite(number))
                 throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' criteria must be finite.");
+        }
+
         if (limits.Low > limits.High)
             throw new AuthoringWorkspaceException($"{AuthoringCompileCodes.MissingLimits}: '{metric.ChannelKey}' low must not exceed high.");
     }

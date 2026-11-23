@@ -54,10 +54,7 @@ public partial class LivePresentationViewModel
         PublishSelectedSnapshot(_lastSelectedStep);
     }
 
-    private void EnsureCursorCommand()
-    {
-        ClearCursorCommand = ReactiveCommand.Create(ClearCursor);
-    }
+    private void EnsureCursorCommand() => ClearCursorCommand = ReactiveCommand.Create(ClearCursor);
 
     private void ResetCursorState()
     {

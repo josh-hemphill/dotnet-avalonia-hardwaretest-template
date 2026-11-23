@@ -19,8 +19,12 @@ public sealed record AuthoringInstrumentAdapter(
 
     public AuthoringInstrumentAvailability Availability(OpenTapHome? home = null)
     {
-        if (home is null) return AuthoringInstrumentCatalog.IsLibrary(TypeId)
+        if (home is null)
+        {
+            return AuthoringInstrumentCatalog.IsLibrary(TypeId)
             ? new(false, "Select an authoring home and prepare Instrument Components in Environment.") : new(true, null);
+        }
+
         var availability = AuthoringAdapterPayloadInspection.Inspect(this, home);
         if (availability.Available && AuthoringInstrumentCatalog.IsLibrary(TypeId) && !AuthoringInstrumentCatalog.LibraryPayloadMatches(home))
         {

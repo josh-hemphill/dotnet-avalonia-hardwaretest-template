@@ -26,8 +26,14 @@ public sealed class AuthoringDeletionAndValidationGuardTests
         var store = new AuthoringDocumentStore(root);
         var source = store.GetDocumentPath(id);
         string? outside = null;
-        if (reason == "future") File.WriteAllText(source, "{\"schemaVersion\":999}");
-        else if (reason == "corrupt") File.WriteAllText(source, "{broken");
+        if (reason == "future")
+        {
+            File.WriteAllText(source, "{\"schemaVersion\":999}");
+        }
+        else if (reason == "corrupt")
+        {
+            File.WriteAllText(source, "{broken");
+        }
         else
         {
             outside = Path.Combine(Path.GetTempPath(), "preserved-program-" + Guid.NewGuid().ToString("N"));

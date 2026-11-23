@@ -12,7 +12,9 @@ public partial class WorkspaceBuildView : UserControl
     {
         if (sender is CheckBox { DataContext: AuthoringBuildProgramLine row } box
             && DataContext is AuthoringWorkspaceViewModel vm && TopLevel.GetTopLevel(this) is MainWindow { IsVisible: true })
+        {
             vm.SetBuildProgramIncluded(row.PlanId, box.IsChecked == true);
+        }
     }
 
     private void OnReviewEnvironment(object? sender, RoutedEventArgs e)

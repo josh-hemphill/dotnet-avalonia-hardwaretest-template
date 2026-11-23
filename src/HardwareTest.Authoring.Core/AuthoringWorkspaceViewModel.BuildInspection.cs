@@ -117,7 +117,11 @@ public sealed partial class AuthoringWorkspaceViewModel
                     RaisePackPreviewProperties();
                     RaisePackGuardProperties();
                 }
-                else if (!_buildInspectionStopped && _buildInspectionOwner?.Invoke() == true) _buildInspectionPending = true;
+                else if (!_buildInspectionStopped && _buildInspectionOwner?.Invoke() == true)
+                {
+                    _buildInspectionPending = true;
+                }
+
                 if (_buildInspectionPending && !_buildInspectionStopped)
                 {
                     if (!_buildInspectionQueued)
@@ -160,7 +164,10 @@ public sealed partial class AuthoringWorkspaceViewModel
                 sources[id] = document;
                 if (document.RequiresCompilation || document.CompiledPlanHash is null) uncompiled.Add(id);
             }
-            else uncompiled.Add(id);
+            else
+            {
+                uncompiled.Add(id);
+            }
         }
         var programs = AuthoringBuildInclusion.ProgramIds(workspace).Select(id => new AuthoringBuildProgramLine(id,
             AuthoringBuildInclusion.Includes(workspace.Manifest, id), sources.GetValueOrDefault(id)?.Revision,

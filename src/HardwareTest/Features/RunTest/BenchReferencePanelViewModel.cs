@@ -135,9 +135,14 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
             if (IsAcquisition) return "Acquisition collects reference data. Reference acceptance is unevaluated; this is not a production pass.";
             if (!_catalogAvailable) return "Reference storage could not be verified. Correct the storage problem, then Reload references before Run.";
             if (_context is not null)
+            {
                 foreach (var row in Rules)
+                {
                     if (row.SelectedChoice is { } choice && BenchReferenceEvaluator.CompatibilityError(row.Rule, choice.Profile, _context, _clock.UtcNow) is { } reason)
                         return $"{row.Rule.MetricKey}: {reason} Reload references or acquire a qualified replacement.";
+                }
+            }
+
             return IsReady ? "Reference values selected. Confirm the session before Run."
                 : "Choose compatible golden references for the affected tests, or ask a technician to acquire and save a new reference.";
         }
@@ -175,8 +180,11 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
         _isAcquisition = false;
         Rules.Clear(); Profiles.Clear(); SelectedProfile = null; RetirementReason = string.Empty;
         if (program is not null)
+        {
             foreach (var rule in program.ReferenceRules)
                 Rules.Add(new BenchReferenceRuleRow(rule, () => CanEdit && !_restoring, SelectionChanged));
+        }
+
         Status = string.Empty;
         RefreshState();
     }
@@ -223,7 +231,11 @@ public sealed class BenchReferencePanelViewModel : ReactiveObject
                         row.MissingReason = reason;
                         var restored = row.Choices.FirstOrDefault(choice => choice.Profile.Id == wanted);
                         if (prior is not null && (restored is null || prior.Profile.Revision != restored.Profile.Revision
-                            || prior.Profile.ContentSha256 != restored.Profile.ContentSha256)) reconfirm = true;
+                            || prior.Profile.ContentSha256 != restored.Profile.ContentSha256))
+                        {
+                            reconfirm = true;
+                        }
+
                         row.Restore(restored);
                         row.RaisePropertyChanged(nameof(row.SelectedChoice));
                         row.RaisePropertyChanged(nameof(row.SelectedDetails));

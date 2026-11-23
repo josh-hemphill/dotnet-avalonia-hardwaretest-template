@@ -19,10 +19,13 @@ internal static class AuthoringFindingNavigation
         if (target.Section is not null && target.Section is not ("Configure" or "Advanced" or "OperatorDisplay"))
             return Fallback("The structured section has no supported editor destination; opens program settings.");
         if (target.Field is null)
+        {
             return target.Section is null
                 ? Fallback("No supported editor section was provided; opens program settings.")
                 : new(target with { ProgramId = draft.PlanId, NodeId = id }, "Open step section",
                     "The source step and editor section are verified; no precise field was provided.");
+        }
+
         var metric = matches[0].Kind == SequenceRowKind.Metric
             ? (AuthoringSequence.ResolveMeasure(draft, matches[0].IndexPath) as MetricNode)?.Metric : null;
         var sourceField = AuthoringReferenceRules.BaseField(target.Field);
@@ -57,7 +60,9 @@ internal static class AuthoringFindingNavigation
             || AuthoringCriteria.IsRuntimeLimit(field) || field.Equals("Channel", StringComparison.OrdinalIgnoreCase)
             || AuthoringFunctionCatalog.ConsumesInputChannels(id)
                 && new[] { "InputChannel", "ProducerStepId", "Unit" }.Contains(field, StringComparer.OrdinalIgnoreCase))
+        {
             return false;
+        }
         // Match the inspector's settings projection, including not-yet-edited defaults.
         // A similarly named field in another node or an unavailable plugin is not a destination.
         var projected = new Dictionary<string, string>(settings, StringComparer.OrdinalIgnoreCase);

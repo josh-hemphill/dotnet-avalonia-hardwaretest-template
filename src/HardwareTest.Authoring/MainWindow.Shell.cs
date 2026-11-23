@@ -102,7 +102,10 @@ public partial class MainWindow
             if (e.PropertyName is nameof(AuthoringWorkspaceViewModel.WorkspaceSessionId)
                 or nameof(AuthoringWorkspaceViewModel.SelectedProgram)
                 or nameof(AuthoringWorkspaceViewModel.SaveAllResults)
-                or nameof(AuthoringWorkspaceViewModel.IssuesDrawerOpen)) ArrangeShell();
+                or nameof(AuthoringWorkspaceViewModel.IssuesDrawerOpen))
+            {
+                ArrangeShell();
+            }
         };
         ProgramLayout.ColumnDefinitions[2].PropertyChanged += (_, e) =>
         {
@@ -200,7 +203,9 @@ public partial class MainWindow
         var fromSequence = focused is not null && focused.GetVisualAncestors().OfType<SequenceEditorView>().Any();
         CommitFocusedEditor();
         if (fromSequence)
+        {
             this.GetVisualDescendants().OfType<SelectedStepInspectorView>().SingleOrDefault()?.FocusPrimaryEditor();
+        }
         else
         {
             var list = this.GetVisualDescendants().OfType<SequenceEditorView>().SingleOrDefault()?.FindControl<ListBox>("SequenceList");

@@ -19,7 +19,10 @@ public partial class StepTreeViewModel
         var clearScope = ActiveScopeStep?.IsReadOnlyEvidence == true;
         if (_referenceAcceptanceStage is { } previous)
         {
-            if (_referenceAcceptanceParent is { } parent) parent.Children.Remove(previous);
+            if (_referenceAcceptanceParent is { } parent)
+            {
+                parent.Children.Remove(previous);
+            }
             else { _fullHierarchy.Remove(previous); Hierarchy.Remove(previous); }
             foreach (var stage in Stages.Where(stage => stage.Step?.IsReadOnlyEvidence == true).ToArray()) Stages.Remove(stage);
         }

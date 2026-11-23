@@ -33,12 +33,14 @@ public partial class ProcedureEditorWindow
             row.Children.Add(select);
             _fields[field.Definition.Key] = () => (select.SelectedItem as FieldChoice)?.Value ?? field.Value;
             if (field.Definition.Kind == ProcedureFieldKind.Instrument)
+            {
                 select.SelectionChanged += (_, _) => Attempt(() =>
                 {
                     if (_item is not { } item || select.SelectedItem is null) return;
                     CommitFields();
                     Present(item);
                 });
+            }
         }
         else if (field.Definition.Kind == ProcedureFieldKind.TextList && field.Definition.ReferenceTable is not null && field.Choices.Count > 0)
         {
@@ -50,9 +52,16 @@ public partial class ProcedureEditorWindow
                 foreach (var (_, check) in checks) row.Children.Add(check);
                 _fields[field.Definition.Key] = () => string.Join(", ", checks.Where(entry => entry.check.IsChecked == true).Select(entry => entry.value));
             }
-            else AddText(); // Route order determines the measurement input order.
+            else
+            {
+                AddText(); // Route order determines the measurement input order.
+            }
         }
-        else AddText();
+        else
+        {
+            AddText();
+        }
+
         ItemFields.Children.Add(row);
         return;
 

@@ -302,7 +302,10 @@ public sealed class AuthoringPlanInitializationTests : IDisposable
         Assert.Equal(enabled, XDocument.Load(path).Descendants("TestStep").Any(step => ((string?)step.Attribute("type"))?.Contains("SafeShutdownStep", StringComparison.Ordinal) == true));
         Assert.Equal(enabled, new PlanCompiler().Load(path).Cleanup.IncludeSafeShutdown);
         var shutdown = result.Review.Split('\n').Single(line => line.Contains("shutdown:", StringComparison.Ordinal));
-        if (enabled) Assert.Contains("DMM", shutdown);
+        if (enabled)
+        {
+            Assert.Contains("DMM", shutdown);
+        }
         else { Assert.Contains("shutdown: disabled", shutdown); Assert.DoesNotContain("DMM", shutdown); }
     }
 

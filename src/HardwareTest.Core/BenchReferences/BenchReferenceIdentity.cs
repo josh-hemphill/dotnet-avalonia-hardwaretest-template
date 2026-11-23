@@ -17,7 +17,9 @@ public static class BenchReferenceIdentity
         var ordered = inputs.OrderBy(item => item.Key, StringComparer.Ordinal).ToArray();
         if (ordered.Any(item => string.IsNullOrWhiteSpace(item.Key))
             || ordered.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count() != ordered.Length)
+        {
             throw new InvalidOperationException("Reference configuration needs unique nonempty input keys.");
+        }
         // Length-prefix every field so embedded delimiters cannot alias another configuration.
         var text = new StringBuilder();
         foreach (var item in ordered)

@@ -141,7 +141,10 @@ public sealed class AuthoringSequenceSafetyTests
                 Assert.Equal(producer.Id, check.ProducerStepId);
                 Assert.Equal("VDC_2", check.InputChannel);
             }
-            else Assert.Equal("VDC_2", steps.OfType<ApplyTransferFunctionStep>().Single(step => step.Channel == "VDC.filt_2").InputChannel);
+            else
+            {
+                Assert.Equal("VDC_2", steps.OfType<ApplyTransferFunctionStep>().Single(step => step.Channel == "VDC.filt_2").InputChannel);
+            }
         });
         Assert.Contains("VDC_2", results.Samples);
         if (function == AuthoringFunctionIds.BasicChannelAverage) Assert.Contains("VDC.mean_2", results.Scalars);

@@ -124,7 +124,11 @@ public sealed class AuthoringWorkspaceCreationUiTests
         var prompt = Assert.Single(fixture.Window.OwnedWindows, window => window != creation);
         Assert.True(prompt.IsVisible); Assert.True(creation.IsVisible); Assert.False(Directory.Exists(root));
         if (windowClose) { creation.Close(); AuthoringUiFixture.Drain(); }
-        else AuthoringUiFixture.Click(fixture.Control<Button>("Cancel workspace creation", creation));
+        else
+        {
+            AuthoringUiFixture.Click(fixture.Control<Button>("Cancel workspace creation", creation));
+        }
+
         Assert.False(creation.IsVisible); Assert.True(prompt.IsVisible);
         AuthoringUiFixture.Click(Assert.Single(prompt.GetVisualDescendants().OfType<Button>(), button => Equals(button.Content, choice)));
         Assert.False(Directory.Exists(root)); Assert.Empty(fixture.Window.OwnedWindows);

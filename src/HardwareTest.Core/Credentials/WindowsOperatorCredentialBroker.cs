@@ -189,7 +189,10 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
                 ct.ThrowIfCancellationRequested();
                 if (!string.Equals(expected.Thumbprint, _certificate.Thumbprint, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(expected.Serial, _credential.Serial, StringComparison.OrdinalIgnoreCase))
+                {
                     return CredentialSignResult.Failure(CredentialFailureKind.CertificateMismatch, "Prepared signer does not match the captured certificate.", "signing");
+                }
+
                 try { var result = action(); ct.ThrowIfCancellationRequested(); return result; }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { return WindowsOperatorCredentialBroker.MapFailure(ex, "signing"); }

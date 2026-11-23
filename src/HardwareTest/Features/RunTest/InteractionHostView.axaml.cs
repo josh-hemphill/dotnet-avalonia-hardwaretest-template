@@ -37,7 +37,10 @@ public partial class InteractionHostView : UserControl
             if (owner is null || !ReferenceEquals(owner, _subscribed) || !IsEffectivelyVisible) return;
             var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             if (focused?.DataContext is InteractionFieldViewModel
-                && focused.GetVisualAncestors().Contains(this)) focused.BringIntoView();
+                && focused.GetVisualAncestors().Contains(this))
+            {
+                focused.BringIntoView();
+            }
         }, DispatcherPriority.Loaded);
     }
 

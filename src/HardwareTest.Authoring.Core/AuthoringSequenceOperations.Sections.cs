@@ -34,7 +34,10 @@ public static partial class AuthoringSequenceOperations
                 _ => node
             }).ToArray();
         var updated = draft with { Measure = Remove(draft.Measure) };
-        if (destinationId is null) updated = updated with { Measure = [.. updated.Measure, selected] };
+        if (destinationId is null)
+        {
+            updated = updated with { Measure = [.. updated.Measure, selected] };
+        }
         else
         {
             var currentDestination = AuthoringSequence.Flatten(updated).Single(row => row.NodeId == destinationId);
@@ -51,8 +54,10 @@ public static partial class AuthoringSequenceOperations
     private static IEnumerable<MeasureNode> TransparentSections(IEnumerable<MeasureNode> nodes)
     {
         foreach (var node in nodes)
+        {
             if (node is SectionNode section)
                 foreach (var child in TransparentSections(section.Children)) yield return child;
             else yield return node;
+        }
     }
 }

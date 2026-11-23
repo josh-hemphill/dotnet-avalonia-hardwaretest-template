@@ -122,7 +122,10 @@ public sealed class AuthoringCreationOwnershipTests : IDisposable
             Assert.Equal("validated", await process.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(30)));
             Assert.Throws<IOException>(() => new AuthoringDocumentStore(_root).CreateNew(Document("RAIL")));
             new AuthoringDocumentStore(_root).CreateNew(Document("other"));
-            if (crash) process.Kill(entireProcessTree: true);
+            if (crash)
+            {
+                process.Kill(entireProcessTree: true);
+            }
             else { await process.StandardInput.WriteLineAsync("release"); await process.StandardInput.FlushAsync(); }
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(30));
             if (crash)

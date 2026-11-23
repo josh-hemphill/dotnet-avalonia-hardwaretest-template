@@ -96,11 +96,14 @@ internal static class AuthoringPackageImport
             catch (IOException error) { throw new AuthoringWorkspaceException(error.Message, error); }
         }
         if (name.Equals("OpenTAP", StringComparison.OrdinalIgnoreCase))
+        {
             foreach (var runtime in new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json" })
             {
                 if (!File.Exists(Path.Combine(root, runtime))) throw new AuthoringWorkspaceException($"Offline OpenTAP runtime missing: '{runtime}'.");
                 files.Add(runtime);
             }
+        }
+
         return new(name.Equals(OpenTapHomeBootstrapper.InstrumentComponentsPackageName, StringComparison.OrdinalIgnoreCase)
             ? OpenTapHomeBootstrapper.InstrumentComponentsPackageName : name, files.ToArray());
     }
@@ -125,7 +128,10 @@ internal static class AuthoringPackageImport
                 var parts = relative.Replace('\\', '/').Split('/');
                 if ((rooted || engine || library) && parts[0].Equals("Packages", StringComparison.OrdinalIgnoreCase)
                     && (parts.Length < 3 || !parts[1].Equals(package.Name, StringComparison.OrdinalIgnoreCase)))
+                {
                     throw new AuthoringWorkspaceException("Offline package cannot replace another package's payload.");
+                }
+
                 if ((rooted || library) && !engine && parts.Length == 1 && new[] { "OpenTap.dll", "OpenTap.Package.dll", "tap.dll", "tap.runtimeconfig.json", "tap", "tap.exe" }.Contains(parts[0], StringComparer.OrdinalIgnoreCase))
                     throw new AuthoringWorkspaceException("Only an OpenTAP package can replace engine runtime files.");
                 if (!library && AuthoringAdapterPayloadInspection.LibraryFiles.Contains(parts[^1], StringComparer.OrdinalIgnoreCase))
@@ -151,7 +157,10 @@ internal static class AuthoringPackageImport
         {
             if (outgoing.Replace('\\', '/').Equals(metadataTarget, StringComparison.OrdinalIgnoreCase)
                 && incoming.Replace('\\', '/') != metadata)
+            {
                 throw new AuthoringWorkspaceException("Offline package payload cannot replace its validated package metadata.");
+            }
+
             var destination = Path.Combine(filtered, outgoing.Replace('/', Path.DirectorySeparatorChar));
             AuthoringBuildService.EnsureContained(filtered, destination);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);

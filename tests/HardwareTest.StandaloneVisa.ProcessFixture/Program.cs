@@ -40,7 +40,10 @@ if (args is [var invalidMode, var invalidHome] && invalidMode is "--invalid-sele
     {
         if (AppDomain.CurrentDomain.GetAssemblies().Any(assembly => assembly.GetName().Name is "InstrumentComponents" or "InstrumentComponents.OpenTap" or "InstrumentComponents.Visa" or "InstrumentComponents.OpenTap.Visa")
             || broker.Session is not null)
+        {
             throw new InvalidOperationException("Invalid selected metadata loaded an execution library or acquired its provider.", error);
+        }
+
         if (!pluginDirectories.SequenceEqual(OpenTap.PluginManager.DirectoriesToSearch))
             throw new InvalidOperationException("Rejected execution roots mutated plugin search directories.", error);
         Console.WriteLine("broker-binding-absent-on-cold-rejection");
@@ -204,8 +207,11 @@ if (args is [var managedMode, var selected] && managedMode is "--managed" or "--
     using (var zip = new System.IO.Compression.ZipArchive(archive))
     using (var expected = zip.GetEntry("InstrumentComponents.OpenTap.dll")!.Open())
     using (var actual = File.OpenRead(Path.Combine(loadedOrigin, "InstrumentComponents.OpenTap.dll")))
+    {
         if (!System.Security.Cryptography.SHA256.HashData(expected).SequenceEqual(System.Security.Cryptography.SHA256.HashData(actual)))
             throw new InvalidOperationException("Execution did not load the genuine published TAP payload.");
+    }
+
     return RunPublishedProbe(broker);
 }
 return 1;

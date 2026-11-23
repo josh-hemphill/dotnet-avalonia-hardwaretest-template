@@ -106,7 +106,11 @@ public sealed class BoardPreviewScopeTests : IDisposable
             var recording = new TestRunRecord { PlanId = "board", Samples = [new StoredSample { MetricKey = "healthy", ProducerStepId = healthyInput.NodeId, Value = 1 }, new StoredSample { MetricKey = "healthy", ProducerStepId = healthyInput.NodeId, Value = 3 }] };
             Assert.Equal(2, BoardPreviewBuilder.Build(draft, recording).Single(tile => tile.NodeId == healthy.NodeId).Preview.CannedValue);
         }
-        else Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, FormulaDeploymentClassifier.Classify(healthy.Metric, draft).Kind);
+        else
+        {
+            Assert.Equal(FormulaDeploymentStatusKind.MissingRequirements, FormulaDeploymentClassifier.Classify(healthy.Metric, draft).Kind);
+        }
+
         Assert.Throws<AuthoringWorkspaceException>(() => new PlanCompiler().Save(draft, Path.Combine(_root, "board.TapPlan")));
     }
 

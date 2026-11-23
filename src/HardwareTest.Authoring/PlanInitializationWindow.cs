@@ -218,8 +218,12 @@ public sealed partial class PlanInitializationWindow : Window
         EnsureSession();
         var result = _vm.ReviewPlanInitialization(Request());
         _review.Text = (_guided ? "Preview the generated instrument identity and safe shutdown below. Save creates an editable draft; use the editor preview and Save/check guidance to finish.\n" : "") + result.Review + "\n" + string.Join("\n", result.Issues.Select(issue => issue.Message)) + "\n" + result.NextAction;
-        if (_guided) _review.Text += "\nInstrument identity: " + string.Join(", ", result.Draft.Setup.OfType<IdentitySetup>().Select(check => check.InstrumentSlot))
+        if (_guided)
+        {
+            _review.Text += "\nInstrument identity: " + string.Join(", ", result.Draft.Setup.OfType<IdentitySetup>().Select(check => check.InstrumentSlot))
             + "\nSafe shutdown: " + (result.Draft.Cleanup.IncludeSafeShutdown ? string.Join(", ", result.Draft.Cleanup.InstrumentSlots) : "disabled");
+        }
+
         _error.Text = "";
     }
 

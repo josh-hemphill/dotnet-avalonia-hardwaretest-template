@@ -18,10 +18,7 @@ public sealed class TimingStripView : UserControl
     public static readonly StyledProperty<double> DurationSecProperty =
         AvaloniaProperty.Register<TimingStripView, double>(nameof(DurationSec));
 
-    static TimingStripView()
-    {
-        AffectsRender<TimingStripView>(EventsProperty, SpansProperty, DurationSecProperty);
-    }
+    static TimingStripView() => AffectsRender<TimingStripView>(EventsProperty, SpansProperty, DurationSecProperty);
 
     public TimingStripView()
     {

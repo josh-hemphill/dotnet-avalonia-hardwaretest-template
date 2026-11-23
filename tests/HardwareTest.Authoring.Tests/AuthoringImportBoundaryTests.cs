@@ -93,10 +93,16 @@ public sealed class AuthoringImportBoundaryTests : IDisposable
     public void All_ordinary_prepare_entrypoints_reject_unready_environment_without_mutating_selected_bytes(string entrypoint, string invalid)
     {
         var root = AuthoringBuildSnapshotTests.Workspace(); var workspace = AuthoringWorkspaceLoader.Load(root); var home = AuthoringBuildSnapshotTests.Home(workspace);
-        if (invalid == "version") workspace.Manifest.Dependencies.Single(p => p.Package == "OpenTAP").Version = "99.0.0";
+        if (invalid == "version")
+        {
+            workspace.Manifest.Dependencies.Single(p => p.Package == "OpenTAP").Version = "99.0.0";
+        }
         else { workspace.Manifest.Dependencies.Add(new() { Package = "Still missing", Version = "1.0.0" }); File.Delete(Path.Combine(home.Root, "tap.dll")); }
         AuthoringWorkspaceLoader.SaveManifest(root, workspace.Manifest); var before = Snapshot(home.Root);
-        if (entrypoint == "public") Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        if (entrypoint == "public")
+        {
+            Assert.Throws<AuthoringWorkspaceException>(() => new OpenTapHomeBootstrapper().Bootstrap(workspace, new() { HomeDirectory = home.Root, Offline = true }));
+        }
         else if (entrypoint == "vm")
         {
             var vm = new AuthoringWorkspaceViewModel(); vm.Open(root); vm.OpenTapHomeOverride = home.Root;

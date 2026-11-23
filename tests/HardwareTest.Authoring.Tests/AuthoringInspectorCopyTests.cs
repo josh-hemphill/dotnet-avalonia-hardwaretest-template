@@ -53,8 +53,5 @@ public sealed class AuthoringInspectorCopyTests
     }
 
     [Fact]
-    public void Sample_count_label_is_spaced()
-    {
-        Assert.Equal("Sample count", AuthoringInspectorCopy.PresentSetting("SampleCount").Label);
-    }
+    public void Sample_count_label_is_spaced() => Assert.Equal("Sample count", AuthoringInspectorCopy.PresentSetting("SampleCount").Label);
 }

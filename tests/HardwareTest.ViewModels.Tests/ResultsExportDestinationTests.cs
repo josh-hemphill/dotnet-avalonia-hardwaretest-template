@@ -248,7 +248,10 @@ public sealed class ResultsExportDestinationTests
                 Assert.Contains("no longer available", vm.Status, StringComparison.Ordinal);
                 Assert.False(Directory.Exists(fixture.SecondRoot));
             }
-            else fixture.AssertPackage(fixture.SecondRoot);
+            else
+            {
+                fixture.AssertPackage(fixture.SecondRoot);
+            }
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }

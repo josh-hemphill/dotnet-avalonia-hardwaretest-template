@@ -381,14 +381,20 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
         var dependency = Path.Combine(directory, "HardwareTest.Core.dll");
         var external = Path.Combine(_root, "external.dll");
         File.WriteAllText(external, "readable external file");
-        if (defect == "name-only") File.WriteAllText(metadata, $"<Package Name=\"{adapter.RequiredPackage}\"/>");
+        if (defect == "name-only")
+        {
+            File.WriteAllText(metadata, $"<Package Name=\"{adapter.RequiredPackage}\"/>");
+        }
         else if (defect == "undeclared-required-payload")
         {
             var xml = XDocument.Load(metadata);
             xml.Descendants().Single(element => (string?)element.Attribute("Path") == adapter.AssemblyFile).Remove();
             xml.Save(metadata);
         }
-        else if (defect == "empty") File.WriteAllBytes(dependency, []);
+        else if (defect == "empty")
+        {
+            File.WriteAllBytes(dependency, []);
+        }
         else if (defect == "traversal")
         {
             var xml = XDocument.Load(metadata);
@@ -477,7 +483,10 @@ public sealed class TypedInstrumentAdapterTests : IDisposable
             Assert.Contains("outside", availability.Reason!);
             Assert.Throws<AuthoringWorkspaceException>(() => AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
         }
-        else Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+        else
+        {
+            Assert.IsType<MockDmmInstrument>(AuthoringInstrumentCatalog.Create(new("MOCK", MockType, "MOCK::0"), home));
+        }
     }
 
     [Fact]

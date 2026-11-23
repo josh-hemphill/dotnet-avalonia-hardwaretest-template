@@ -27,7 +27,11 @@ public static partial class OfflineBenchBundle
         var extension = Path.GetExtension(path);
         if (new[] { ".dll", ".so", ".dylib", ".json", ".xml", ".config", ".txt", ".md", ".pdb", ".png", ".ico", ".jpg", ".jpeg", ".svg", ".html", ".css", ".wasm" }.Contains(extension, StringComparer.OrdinalIgnoreCase)
             || Path.GetFileName(path).Contains(".so.", StringComparison.OrdinalIgnoreCase)
-            || Path.GetFileName(path).Equals("LICENSE", StringComparison.OrdinalIgnoreCase)) return 0;
+            || Path.GetFileName(path).Equals("LICENSE", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
         if (mode == 0) mode = (UnixFileMode)0x1A4;
         return mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
     }

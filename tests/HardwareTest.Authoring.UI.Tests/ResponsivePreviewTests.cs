@@ -17,9 +17,13 @@ public sealed class ResponsivePreviewTests
     public static IEnumerable<object[]> PreviewCases()
     {
         foreach (var (width, height, font, scale) in new[] { (960, 600, 14, 1d), (1280, 800, 14, 1d), (960, 600, 20, 1.5), (1280, 800, 20, 1.5) })
+        {
             foreach (var role in new[] { "timeseries", "scalar", "timing" })
+            {
                 foreach (var busy in new[] { false, true })
                     yield return [width, height, font, scale, role, busy];
+            }
+        }
     }
 
     [AvaloniaTheory]

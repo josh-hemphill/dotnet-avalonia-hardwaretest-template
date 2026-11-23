@@ -58,7 +58,10 @@ public static class FormulaDeploymentClassifier
         var state = draft.AuthoringState.Clone();
         foreach (var node in AuthoringDependencyIndex.Build(draft).Nodes.Where(node =>
             identity is { } id ? node.NodeId == id : string.Equals(node.ProducedChannel, metric.ChannelKey, StringComparison.OrdinalIgnoreCase)))
+        {
             state.FormulaIntent.Remove(node.NodeId);
+        }
+
         return AuthoringFormulaDeployment.Project(draft with { AuthoringState = state });
     }
 
@@ -95,7 +98,10 @@ public static class AuthoringFormulaDeployment
         var state = draft.AuthoringState.Clone();
         foreach (var key in state.IncompleteNumericText.Keys.Where(key =>
             Guid.TryParse(key.Split('/')[0], out var id) && excluded.Contains(id)).ToArray())
+        {
             state.IncompleteNumericText.Remove(key);
+        }
+
         return draft with { Measure = ProjectNodes(draft.Measure, excluded), AuthoringState = state };
     }
 

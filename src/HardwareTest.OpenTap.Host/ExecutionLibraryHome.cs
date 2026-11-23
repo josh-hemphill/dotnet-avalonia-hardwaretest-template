@@ -58,7 +58,10 @@ internal static class ExecutionLibraryHome
                         throw new InvalidOperationException("Instrument Components execution cannot use obsolete package-directory library DLLs. Import or repair the selected package to keep library DLLs only in the installed home root.");
                     if (string.Equals(package?.Trim(), PublishedInstrumentComponents.PackageName, StringComparison.OrdinalIgnoreCase)
                         && !entry.Equals(Path.Combine(root, "Packages", PublishedInstrumentComponents.PackageName, "package.xml"), StringComparison.Ordinal))
+                    {
                         throw new InvalidOperationException("Instrument Components execution cannot use noncanonical or duplicate installed package identities.");
+                    }
+
                     if (Directory.Exists(entry)) Scan(entry, depth + 1);
                 }
             }
@@ -81,7 +84,9 @@ internal static class ExecutionLibraryHome
         if (string.Equals(package?.Trim(), StandaloneVisaPackage.PackageName, StringComparison.OrdinalIgnoreCase)
             && (package != StandaloneVisaPackage.PackageName
                 || !entry.Equals(Path.Combine(root, "Packages", StandaloneVisaPackage.PackageName, "package.xml"), StringComparison.Ordinal)))
+        {
             throw new IOException("Standalone VISA package metadata must use its canonical identity and Packages/HardwareTest Standalone VISA/package.xml location.");
+        }
     }
 
     private static string? ReadPackageIdentity(string path)
@@ -113,7 +118,9 @@ internal static class ExecutionLibraryHome
         var resolved = Path.TrimEndingDirectorySeparator(ResolvePath(path));
         if (!Path.GetFullPath(path).StartsWith(prefix, comparison)
             || !(resolved.Equals(boundary, comparison) || resolved.StartsWith(prefix, comparison)))
+        {
             throw new IOException("Selected execution home path resolves outside its root: " + path);
+        }
     }
 
     private static string ResolvePath(string path)

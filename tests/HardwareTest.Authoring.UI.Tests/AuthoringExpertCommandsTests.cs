@@ -171,7 +171,11 @@ public sealed class AuthoringExpertCommandsTests
         var pending = new TaskCompletionSource<UnsavedChangesChoice>(); fixture.Interaction.Pending = pending;
         var opening = fixture.Window!.ReopenWorkspaceAsync();
         if (replace) { fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true); fixture.ViewModel.DisplayName = "replacement edit"; }
-        else fixture.Window.Hide();
+        else
+        {
+            fixture.Window.Hide();
+        }
+
         var selected = fixture.ViewModel.SelectedProgram;
         pending.SetResult(choice);
         Assert.False(await opening);
@@ -191,7 +195,11 @@ public sealed class AuthoringExpertCommandsTests
         var pending = new TaskCompletionSource<UnsavedChangesChoice>(); fixture.Interaction.Pending = pending;
         fixture.Window!.Close();
         if (replace) { fixture.ViewModel.CommitOpen(fixture.ViewModel.PrepareOpen(fixture.WorkspaceRoot), discardUnsavedChanges: true); fixture.ViewModel.DisplayName = "replacement close"; }
-        else fixture.Window.Hide();
+        else
+        {
+            fixture.Window.Hide();
+        }
+
         var closed = false; fixture.Window.Closed += (_, _) => closed = true;
         pending.SetResult(choice); AuthoringUiFixture.Drain();
         Assert.False(closed); Assert.True(fixture.ViewModel.HasUnsavedChanges);

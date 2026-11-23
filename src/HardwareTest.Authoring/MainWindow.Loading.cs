@@ -7,7 +7,11 @@ public partial class MainWindow
     private async void OnPlanSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (sender is not ComboBox { SelectedItem: AuthoringProgramRow row } picker ||
-            string.Equals(row.PlanId, _viewModel.SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase)) return;
+            string.Equals(row.PlanId, _viewModel.SelectedProgram?.PlanId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
         await SelectProgramAsync(row.PlanId);
         // Failed or rejected transitions must keep the picker aligned with the
         // draft still shown in the task workspace.

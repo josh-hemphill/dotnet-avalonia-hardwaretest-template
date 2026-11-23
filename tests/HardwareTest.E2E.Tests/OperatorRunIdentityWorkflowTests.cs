@@ -80,7 +80,10 @@ public sealed class OperatorRunIdentityWorkflowTests
             foreach (var value in new[] { record.RunId, record.PlanId, record.PlanName, record.SessionId, record.DutSerial,
                          record.DutPartNumber, record.DutRevision, record.OperatorName, record.ExecutionScopeText,
                          record.StartedAt.ToString("O", CultureInfo.InvariantCulture), record.CompletedAt.Value.ToString("O", CultureInfo.InvariantCulture) })
+            {
                 Assert.Contains(value!, full.Text!, StringComparison.Ordinal);
+            }
+
             var popup = TopLevel.GetTopLevel(full)!;
             CaptureIfEnabled(window, $"results-full-run-identity-{suffix}", popup, $"results-full-run-identity-popup-{suffix}");
             popup.KeyPress(Key.A, RawInputModifiers.Control, PhysicalKey.A, null);

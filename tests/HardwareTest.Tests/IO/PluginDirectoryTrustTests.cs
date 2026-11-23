@@ -34,8 +34,5 @@ public sealed class PluginDirectoryTrustTests
     }
 
     [Fact]
-    public void Empty_data_directory_rejects_without_debug()
-    {
-        Assert.False(PluginDirectoryTrust.Allows("", Path.GetTempPath(), engineerDebug: false));
-    }
+    public void Empty_data_directory_rejects_without_debug() => Assert.False(PluginDirectoryTrust.Allows("", Path.GetTempPath(), engineerDebug: false));
 }

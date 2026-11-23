@@ -11,7 +11,10 @@ internal static class AuthoringPackageDownloads
     {
         if (!Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
             || !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+        {
             throw new AuthoringWorkspaceException("Use an HTTPS package repository URL without credentials, a query or a fragment. Manual download and offline import remain available.");
+        }
+
         return uri;
     }
 
@@ -51,7 +54,10 @@ internal static class AuthoringPackageDownloads
             if (!package.Name.Equals(requirement.Package, StringComparison.OrdinalIgnoreCase)
                 || !VersionSpecifier.Parse(requirement.Version).IsCompatible(package.Version)
                 || !package.IsPlatformCompatible(ArchitectureHelper.HostArchitecture, HostOS))
+            {
                 throw new AuthoringWorkspaceException($"Downloaded archive does not match '{requirement.Package}' {requirement.Version} for this platform.");
+            }
+
             var dependencies = package.Dependencies.Select(d => new AuthoringPackageDependency { Package = d.Name, Version = d.Version.ToString() }).ToArray();
             requirements.AddRange(dependencies);
             // The importer validates every known constraint against the actual archive bytes.

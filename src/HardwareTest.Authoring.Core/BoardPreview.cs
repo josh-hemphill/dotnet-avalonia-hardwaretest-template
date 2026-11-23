@@ -17,7 +17,10 @@ public static partial class BoardPreviewBuilder
             {
                 foreach (var child in FlattenSections(section.Children)) yield return child;
             }
-            else yield return node;
+            else
+            {
+                yield return node;
+            }
         }
     }
 
@@ -61,7 +64,10 @@ public static partial class BoardPreviewBuilder
                             groups.AddRange(RunDatasetBinder.SeriesForProducer(recording, metric.ChannelKey, node.NodeId));
                             if (groups.Count == 0) throw new AuthoringWorkspaceException($"Missing recording channel '{metric.ChannelKey}' for this acquisition.");
                         }
-                        else groups.Add(Example(metric));
+                        else
+                        {
+                            groups.Add(Example(metric));
+                        }
                     }
                     else
                     {

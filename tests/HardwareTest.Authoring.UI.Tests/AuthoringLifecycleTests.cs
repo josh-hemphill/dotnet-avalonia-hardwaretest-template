@@ -353,7 +353,10 @@ public sealed class AuthoringLifecycleTests
         AuthoringUiFixture.Drain();
         var dialog = Assert.Single(fixture.Window.OwnedWindows);
         Assert.True(Assert.Single(dialog.GetVisualDescendants().OfType<Button>(), b => Equals(b.Content, "Cancel")).IsDefault);
-        if (key == Key.None) dialog.Close();
+        if (key == Key.None)
+        {
+            dialog.Close();
+        }
         else { dialog.KeyPress(key, RawInputModifiers.None, key == Key.Enter ? PhysicalKey.Enter : PhysicalKey.Escape, null); }
         AuthoringUiFixture.Drain();
         Assert.Empty(fixture.Window.OwnedWindows);

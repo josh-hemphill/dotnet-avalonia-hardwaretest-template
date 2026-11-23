@@ -75,8 +75,12 @@ public sealed class FileSuiteRunStore : ISuiteRunStore
         // Validate the whole batch before saving any child.
         foreach (var child in candidate.PlanRuns)
         {
-            if (child.IsSchemaReadOnly) throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
+            if (child.IsSchemaReadOnly)
+            {
+                throw new SchemaReadOnlyException(DocumentSchemaGate.Evaluate(
                 SchemaDocumentTypes.TestRunRecord, child.StoredSchemaVersion, SchemaVersions.TestRunRecord, child.AppVersion));
+            }
+
             DocumentSchemaGate.RequireWritable(SchemaDocumentTypes.TestRunRecord, child.SchemaVersion, SchemaVersions.TestRunRecord,
                 Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"), child.AppVersion);
             await CurrentDocumentFile.ValidateWriteDestinationAsync(Path.Combine(_runStore.GetRunDirectory(child.RunId), "run.json"),

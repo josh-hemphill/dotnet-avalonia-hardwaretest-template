@@ -58,9 +58,13 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
         {
             using var document = JsonDocument.Parse(File.ReadAllBytes(Path.Combine(fixture, "src", project, "packages.lock.json")));
             foreach (var framework in document.RootElement.GetProperty("dependencies").EnumerateObject())
+            {
                 foreach (var package in framework.Value.EnumerateObject())
+                {
                     if (package.Value.TryGetProperty("resolved", out var version))
                         identities.Add(package.Name.ToLowerInvariant() + "/" + version.GetString()!.ToLowerInvariant());
+                }
+            }
         }
         if (changed == "package")
         {
@@ -113,9 +117,13 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
     private static void CopyInferredFrameworkPackages(string source, string target)
     {
         foreach (var directory in Directory.GetDirectories(source))
+        {
             if (new[] { "microsoft.netcore.app.", "microsoft.aspnetcore.app.", "microsoft.windowsdesktop.app." }
                 .Any(family => Path.GetFileName(directory).StartsWith(family, StringComparison.OrdinalIgnoreCase)))
+            {
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
+            }
+        }
     }
 
     [Theory]
@@ -164,7 +172,9 @@ public sealed class AuthoringBuildShellGraphTests : IDisposable
         Directory.CreateDirectory(target);
         foreach (var file in Directory.GetFiles(source)) File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
         foreach (var directory in Directory.GetDirectories(source))
+        {
             if (!excludeBuild || Path.GetFileName(directory) is not ("bin" or "obj" or ".git"))
                 CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)), excludeBuild);
+        }
     }
 }
