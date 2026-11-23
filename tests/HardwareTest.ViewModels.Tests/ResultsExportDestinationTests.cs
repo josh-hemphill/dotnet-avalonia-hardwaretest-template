@@ -160,6 +160,7 @@ public sealed class ResultsExportDestinationTests
         if (removed) fixture.SecondPresent = false;
 
         await vm.CaptureAttestationCommand.ExecuteAsync();
+        await WaitForReportVerificationAsync(vm);
 
         Assert.False(vm.ShowAttestationPrompt);
         Assert.True(vm.HasAttestation);
@@ -239,6 +240,7 @@ public sealed class ResultsExportDestinationTests
             Assert.Equal(fixture.FirstRoot, vm.SelectedExportTarget?.RootPath);
             Assert.Contains(vm.ExportTargets, target => target.RootPath == fixture.ReplacementRoot);
             await vm.CaptureAttestationCommand.ExecuteAsync();
+            await WaitForReportVerificationAsync(vm);
             Assert.False(vm.ShowAttestationPrompt);
             Assert.False(Directory.Exists(fixture.FirstRoot));
             Assert.False(Directory.Exists(fixture.ReplacementRoot));
@@ -251,6 +253,16 @@ public sealed class ResultsExportDestinationTests
             else fixture.AssertPackage(fixture.SecondRoot);
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+    }
+
+    private static async Task WaitForReportVerificationAsync(ResultsViewModel vm)
+    {
+        // Verification can still hold PDF and sidecar handles after the UI command completes.
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        while (vm.ReportItems.Any(item => item.VerificationText.StartsWith("Verifying ·", StringComparison.Ordinal)))
+        {
+            await Task.Delay(10, timeout.Token);
+        }
     }
 
     private sealed class ExportFixture : IDisposable
@@ -343,12 +355,7 @@ public sealed class ResultsExportDestinationTests
             await vm.OpenRunByIdAsync(_run.RunId);
             Assert.Single(vm.Runs);
             Assert.Equal(_run.RunId, vm.OpenedRun?.RunId);
-            // Detail loading starts background PDF verification. Wait for its final
-            // labels before tests mutate evidence or dispose the fixture: Windows
-            // cannot delete a PDF while the verifier holds its read handle.
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-            while (vm.ReportItems.Any(item => item.VerificationText.StartsWith("Verifying ·", StringComparison.Ordinal)))
-                await Task.Delay(10, timeout.Token);
+            await WaitForReportVerificationAsync(vm);
             return vm;
         }
 
