@@ -11,9 +11,12 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
         ("groundLeak", "mA"), ("voltage", "V"), ("setpointError", "V"),
     ];
 
+    internal override (string Id, string Unit)[] OptionalCriteria => [("crossRailLeak", "mA")];
+
     internal override void Validate(ProcedureTables tables, CaseTable row)
     {
-        RequireRoutes(tables, row, "V", "mA");
+        RequireRoutes(tables, row, row.Criteria.Any(band => band.Id == "crossRailLeak")
+            ? ["V", "mA", "mA"] : ["V", "mA"]);
         RequireLevels(row, 1, 1);
     }
 
@@ -23,11 +26,13 @@ public sealed class RailBringUpStep : FixtureMeasurementStep
         var nominal = row.Levels[0];
         // The simulator models a low-current preflight followed by enabling this rail and routing it to the DMM.
         evidence.Evaluate("groundLeak", routes[1].Nominal, "mA");
+        if (routes.Length == 3)
+            evidence.Evaluate("crossRailLeak", routes[2].Nominal, "mA");
         if (evidence.Passed)
             fixture.EnableSupply();
         var samples = Enumerable.Range(0, 5).Select(i => fixture.SupplyEnabled && evidence.Passed
             ? routes[0].Nominal + (i - 2) * 0.002 : 0).ToArray();
-        evidence.Trace(routes[0].Id, "V", samples, 2, DateTimeOffset.UtcNow);
+        evidence.Trace(routes[0].Id, "V", samples, 2, CompleteSimulatedCapture((samples.Length - 1) * 2));
         evidence.Evaluate("voltage", samples.Average(), "V");
         evidence.Evaluate("setpointError", samples.Average() - nominal, "V");
     }
@@ -55,7 +60,7 @@ public sealed class HarnessResistanceStep : FixtureMeasurementStep
             throw new InvalidOperationException("Disable simulated supplies before resistance checks.");
         var route = fixture.ActiveRoutes[0];
         var samples = Enumerable.Range(0, (int)row.Levels[0]).Select(i => route.Nominal + 0.003 * Math.Sin(i)).ToArray();
-        evidence.Trace(route.Id, "ohm", samples, row.Levels[1], DateTimeOffset.UtcNow);
+        evidence.Trace(route.Id, "ohm", samples, row.Levels[1], CompleteSimulatedCapture((samples.Length - 1) * row.Levels[1]));
         evidence.Evaluate("minResistance", samples.Min(), "ohm");
         evidence.Evaluate("maxResistance", samples.Max(), "ohm");
         evidence.Evaluate("consecutiveDelta", samples.Zip(samples.Skip(1), (a, b) => Math.Abs(a - b)).Max(), "ohm");
@@ -105,7 +110,7 @@ public sealed class DutSignalsStep : FixtureMeasurementStep
     {
         var routes = fixture.ActiveRoutes;
         var waveform = Enumerable.Range(0, 40).Select(i => routes[i % 10 < 5 ? 0 : 1].Nominal).ToArray();
-        evidence.Trace("clock", "V", waveform, row.Levels[0], DateTimeOffset.UtcNow);
+        evidence.Trace("clock", "V", waveform, row.Levels[0], CompleteSimulatedCapture((waveform.Length - 1) * row.Levels[0]));
         evidence.Evaluate("low", waveform.Min(), "V");
         evidence.Evaluate("high", waveform.Max(), "V");
         var rising = Enumerable.Range(1, waveform.Length - 1).Where(i => waveform[i] > waveform[i - 1]).ToArray();

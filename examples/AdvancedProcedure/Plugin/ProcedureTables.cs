@@ -4,8 +4,8 @@ using System.Text.Json.Serialization;
 
 namespace HardwareTest.Examples.AdvancedProcedure;
 
-internal sealed record Route(string Id, string Path, string Unit, double Nominal);
-internal sealed record Calibration(string Route, double ImpedanceOhms, double CorrectionDb);
+internal sealed record Route(string Id, string Path, string Unit, double Nominal, double[]? CounterReadings = null);
+internal sealed record Calibration(string Route, double ImpedanceOhms, double CorrectionDb, double? SimulatedVoltageScale = null);
 internal sealed record Band(string Id, string Unit, double Low, double High, string? DisplayName = null);
 internal sealed record ReferenceTrace(string Id, double[] Values);
 internal sealed record CaseTable(string Id, string[] Routes, double[] Levels, string? Reference, Band[] Criteria);
@@ -51,7 +51,8 @@ public sealed class ProcedureTables
         foreach (var calibration in station.Calibrations ?? throw new InvalidDataException("Missing station.json calibrations."))
         {
             Require(_routes.ContainsKey(calibration.Route) && Positive(calibration.ImpedanceOhms)
-                && double.IsFinite(calibration.CorrectionDb) && calibrationKeys.Add((calibration.Route, calibration.ImpedanceOhms)),
+                && double.IsFinite(calibration.CorrectionDb) && Positive(calibration.SimulatedVoltageScale ?? 1)
+                && calibrationKeys.Add((calibration.Route, calibration.ImpedanceOhms)),
                 $"Invalid or duplicate calibration for {calibration.Route} at {calibration.ImpedanceOhms} ohms.");
         }
 
@@ -114,8 +115,10 @@ public sealed class ProcedureTables
             foreach (var route in Routes(row))
             {
                 writer.WriteLine(FormattableString.Invariant($"  {route.Id}  {route.Path}  nominal {route.Nominal:G} {route.Unit}"));
+                if (route.CounterReadings is { } readings)
+                    writer.WriteLine($"    recorded counter readings [{FormatNumbers(readings)}]");
                 foreach (var calibration in _station.Calibrations.Where(item => item.Route == route.Id))
-                    writer.WriteLine(FormattableString.Invariant($"    {calibration.ImpedanceOhms:G} Ω  {calibration.CorrectionDb:G} dB correction"));
+                    writer.WriteLine(DescribeCalibration(calibration));
             }
             foreach (var band in row.Criteria)
                 writer.WriteLine(FormattableString.Invariant($"  {band.Id}  [{band.Low:G}, {band.High:G}] {band.Unit}"));
@@ -134,16 +137,18 @@ public sealed class ProcedureTables
         => $"{row.Id} / {string.Join("; ", Routes(row).Select(route => FormattableString.Invariant($"{route.Id} = {route.Path} ({route.Nominal:G} {route.Unit})")))}"
            + $" / stimuli [{FormatNumbers(row.Levels)}]"
            + (row.Reference is null ? string.Empty : $" / reference {row.Reference}")
-           + string.Concat(_station.Calibrations.Where(item => row.Routes.Contains(item.Route)).Select(item =>
-               FormattableString.Invariant($" / {item.Route} at {item.ImpedanceOhms:G} Ω correction {item.CorrectionDb:G} dB")));
+           + string.Concat(_station.Calibrations.Where(item => row.Routes.Contains(item.Route)).Select(item => $" / {DescribeCalibration(item)}"));
+
+    private static string DescribeCalibration(Calibration row)
+        => FormattableString.Invariant($"{row.Route} at {row.ImpedanceOhms:G} Ω correction {row.CorrectionDb:G} dB / simulated voltage scale {row.SimulatedVoltageScale ?? 1:G}");
 
     internal string FileHashes() => $"station.json {_stationHash}; tests.json {_testHash}";
 
     internal double[] Reference(CaseTable row)
         => row.Reference is { } id ? _references[id].Values : throw new InvalidDataException($"Case '{row.Id}' needs a reference.");
 
-    internal double CorrectionDb(Route route, double impedance)
-        => _station.Calibrations.SingleOrDefault(row => row.Route == route.Id && row.ImpedanceOhms == impedance)?.CorrectionDb
+    internal Calibration CalibrationFor(Route route, double impedance)
+        => _station.Calibrations.SingleOrDefault(row => row.Route == route.Id && row.ImpedanceOhms == impedance)
            ?? throw new InvalidDataException(FormattableString.Invariant($"No calibration for '{route.Id}' at {impedance:G} Ω."));
 
     internal static void Require(bool condition, string message)

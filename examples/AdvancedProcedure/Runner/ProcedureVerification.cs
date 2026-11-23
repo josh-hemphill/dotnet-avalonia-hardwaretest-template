@@ -6,7 +6,7 @@ using HardwareTest.OpenTap.Host;
 using HardwareTest.OpenTap.Host.Worker;
 using HardwareTest.OpenTap.Plugins.Basic;
 
-internal static class ProcedureVerification
+internal static partial class ProcedureVerification
 {
     public static async Task RunAsync(string appDirectory, string dataDirectory)
     {
@@ -81,6 +81,8 @@ internal static class ProcedureVerification
             .Select(mark => mark.Label).SequenceEqual(new[] { "Loopback", "Terminated", "Crossed" }),
             "The next run did not reset configuration state.");
         await VerifyGatesAndBoundsAsync(worker, programPath, full, settings, timeout.Token);
+        if (rows.Any(row => row.MetricKey == "pulse-decoder.decodedWord"))
+            await VerifyMeasurementEvidenceAsync(worker, programPath, full, settings, timeout.Token);
         await SaveReportsAsync(full, settings, timeout.Token);
         Console.WriteLine($"Worker verified {rows.Length} evaluated rows and {full.Samples.Count - rows.Length} captured samples.");
     }
@@ -94,7 +96,9 @@ internal static class ProcedureVerification
         {
             DataDirectory = Path.GetFullPath(dataDirectory),
             OpenTapPluginDirectories = [Path.GetFullPath(Path.Combine(dataDirectory, "plugins", "AdvancedProcedure"))],
-            UseMockVisa = true, ExportOpenTapResults = true, CrashEnabled = false,
+            UseMockVisa = true,
+            ExportOpenTapResults = true,
+            CrashEnabled = false,
         };
         using var worker = new OpenTapWorkerClient(settings, executablePath: workerPath);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60));

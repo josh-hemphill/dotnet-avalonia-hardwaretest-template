@@ -9,14 +9,16 @@ public abstract class FixtureMeasurementStep : RuntimeAwareTestStep, IEvaluatedR
     public string CaseId { get; set; } = string.Empty;
 
     internal abstract (string Id, string Unit)[] Criteria { get; }
+    internal virtual (string Id, string Unit)[] OptionalCriteria => [];
 
     internal void Validate(ProcedureTables tables)
     {
         var row = tables.Case(CaseId);
-        var expected = Criteria.ToDictionary(criterion => criterion.Id, criterion => criterion.Unit);
-        ProcedureTables.Require(row.Criteria.Length == expected.Count && row.Criteria.All(band =>
-            expected.TryGetValue(band.Id, out var unit) && unit == band.Unit),
-            $"Case '{row.Id}' must declare these criteria and units: {string.Join(", ", Criteria.Select(item => $"{item.Id} ({item.Unit})"))}.");
+        var required = Criteria;
+        var supported = required.Concat(OptionalCriteria).ToDictionary(criterion => criterion.Id, criterion => criterion.Unit);
+        ProcedureTables.Require(required.All(criterion => row.Criteria.Any(band => band.Id == criterion.Id))
+            && row.Criteria.All(band => supported.TryGetValue(band.Id, out var unit) && unit == band.Unit),
+            $"Case '{row.Id}' must declare these criteria and units: {string.Join(", ", required.Select(item => $"{item.Id} ({item.Unit})"))}.");
         Validate(tables, row);
     }
 
@@ -51,6 +53,13 @@ public abstract class FixtureMeasurementStep : RuntimeAwareTestStep, IEvaluatedR
         return routes;
     }
 
+    internal static DateTimeOffset CompleteSimulatedCapture(double durationMs)
+    {
+        var end = DateTimeOffset.UtcNow.AddMilliseconds(durationMs);
+        TapThread.Sleep(TimeSpan.FromMilliseconds(Math.Ceiling(durationMs)));
+        return end;
+    }
+
     internal static void RequireLevels(CaseTable row, int min, int? max = null)
         => ProcedureTables.Require(row.Levels.Length >= min && (max is null || row.Levels.Length <= max),
             $"Case '{row.Id}' needs {min} to {max?.ToString() ?? "any"} stimulus values.");
@@ -76,6 +85,12 @@ internal sealed class MeasurementEvidence(CaseTable row)
         ProcedureTables.Require(_keys.Add(key), $"Case '{row.Id}' emitted duplicate metric '{key}'.");
         _evaluations.Add(new(key, band, value, value >= band.Low && value <= band.High,
             FixtureProcedureStep.Timestamp(DateTimeOffset.UtcNow)));
+    }
+
+    public void EvaluateOptional(string criterion, double value, string unit, string? coordinate = null)
+    {
+        if (row.Criteria.Any(band => band.Id == criterion))
+            Evaluate(criterion, value, unit, coordinate);
     }
 
     public void Trace(string coordinate, string unit, double[] values, double intervalMs, DateTimeOffset lastSample)

@@ -28,16 +28,21 @@ public sealed partial class FixtureProcedureStep : IProcedureAuthoring
         Step<FixtureShutdownStep>("Safe shutdown", [], []),
         Measurement<RailBringUpStep>("Rail bring-up"), Measurement<HarnessResistanceStep>("Harness resistance"),
         Measurement<DutCommunicationsStep>("DUT serial commands"), Measurement<DutSignalsStep>("DUT signal checks"),
-        Measurement<DifferentialProfileStep>("Differential profile", new("CaptureSamples", "Samples per capture channel", Integer, DefaultValue: "96")), Measurement<ClampAndSensorStep>("Clamp and sensor"),
+        Measurement<DifferentialProfileStep>("Differential profile",
+            new("CaptureSamples", "Samples per capture channel", Integer, DefaultValue: "96"),
+            new("ResponseTimeConstantMs", "Simulated response time constant (ms)", Number, DefaultValue: "1")), Measurement<ClampAndSensorStep>("Clamp and sensor"),
         Measurement<ReciprocalAcStep>("Reciprocal AC"), Measurement<CounterTriggerStep>("Counter triggers"),
-        Measurement<DecodePulseWidthStep>("Decode pulse width"), Measurement<ConfigurationMeasurementStep>("Configuration measurement")
+        Measurement<DecodePulseWidthStep>("Decode pulse width",
+            new ProcedureField("FirstRiseSamples", "Simulated first rise (samples)", Integer, DefaultValue: "1")), Measurement<ConfigurationMeasurementStep>("Configuration measurement")
     ],
     [
         new($"{TableDirectory}/station.json", "Station profile",
         [
-            new("routes", "Switch routes", ["id"], [new("id", "Route ID"), new("path", "Switch path"), new("unit", "Unit"), new("nominal", "Simulated nominal", Number)]),
+            new("routes", "Switch routes", ["id"], [new("id", "Route ID"), new("path", "Switch path"), new("unit", "Unit"), new("nominal", "Simulated nominal", Number),
+                new("counterReadings", "Recorded counter readings", NumberList, Optional: true)]),
             new("calibrations", "Approved corrections", ["route", "impedanceOhms"],
-                [new("route", "Route", ReferenceTable: "routes"), new("impedanceOhms", "Impedance (Ω)", Number), new("correctionDb", "Correction (dB)", Number)])
+                [new("route", "Route", ReferenceTable: "routes"), new("impedanceOhms", "Impedance (Ω)", Number), new("correctionDb", "Correction (dB)", Number),
+                 new("simulatedVoltageScale", "Simulated voltage scale", Number, Optional: true)])
         ], [new("stationId", "Station ID"), new("revision", "Route revision"), new("calibrationRevision", "Calibration revision")]),
         new($"{TableDirectory}/tests.json", "Test configuration",
         [
@@ -64,9 +69,8 @@ public sealed partial class FixtureProcedureStep : IProcedureAuthoring
             _ => null
         };
 
-    private static ProcedureStepEditor Measurement<T>(string label, ProcedureField? setting = null)
-        => Step<T>(label, setting is null ? [new("CaseId", "Test case", ReferenceTable: "cases")]
-            : [new("CaseId", "Test case", ReferenceTable: "cases"), setting], [], true);
+    private static ProcedureStepEditor Measurement<T>(string label, params ProcedureField[] settings)
+        => Step<T>(label, [new("CaseId", "Test case", ReferenceTable: "cases"), .. settings], [], true);
     private static ProcedureStepEditor Step<T>(string label, ProcedureField[] fields, string[] children, bool allowAdd = false, bool preview = false, bool isHandoff = false)
         => new(StepTypeId<T>(), label, fields, children, allowAdd, preview, isHandoff);
     private static string StepTypeId<T>() => typeof(T).FullName!;
