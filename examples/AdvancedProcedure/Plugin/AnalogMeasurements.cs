@@ -45,8 +45,6 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
         var reference = fixture.Tables.Reference(row);
         var loadedValues = new double[row.Levels.Length];
         var errors = new double[row.Levels.Length];
-        var simulatedDurationMs = row.Levels.Length * (TrackingSamples * TrackingIntervalMs + CaptureSamples * WaveformIntervalMs);
-        var nextStimulus = DateTimeOffset.UtcNow.AddMilliseconds(-simulatedDurationMs);
         for (var i = 0; i < row.Levels.Length; i++)
         {
             WaitIfPaused();
@@ -59,15 +57,15 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
             var settled = Array.FindIndex(tracking, 3, sample => Math.Abs(target - sample) <= target * 0.01);
             ProcedureTables.Require(settled > 0, $"No settling trigger at {coordinate}.");
             var settlingTime = settled * TrackingIntervalMs;
-            var trigger = nextStimulus.AddMilliseconds(settlingTime);
+            var nSamples = CaptureSamples;
+            var waveformDurationMs = nSamples * WaveformIntervalMs;
+            var capturedAt = CompleteSimulatedCapture(settlingTime + waveformDurationMs);
+            var trigger = capturedAt.AddMilliseconds(-waveformDurationMs);
             evidence.Trace($"{coordinate}.tracking", "V", tracking[..(settled + 1)], TrackingIntervalMs, trigger);
             evidence.Evaluate("settlingTime", settlingTime, "ms", coordinate);
             evidence.EvaluateOptional("settlingRate", (tracking[settled] - tracking[0]) / settlingTime, "V/ms", coordinate);
             evidence.EvaluateOptional("driveVoltage", target, "V", coordinate);
 
-            var nSamples = CaptureSamples;
-            var capturedAt = trigger.AddMilliseconds(nSamples * WaveformIntervalMs);
-            nextStimulus = capturedAt.AddMilliseconds(TrackingIntervalMs);
             var positive = Waveforms.Sine(target / 2, nSamples, 3);
             var negative = Waveforms.Sine(-level * routes[1].Nominal / 2, nSamples, 3);
             var differential = positive.Zip(negative, (p, n) => p - n).ToArray();
@@ -83,7 +81,7 @@ public sealed class DifferentialProfileStep : FixtureMeasurementStep
             errors[i] = reference[i] - loadedRms;
             var fundamental = Waveforms.SpectralMagnitude(loaded, 3);
             var harmonic = Waveforms.SpectralMagnitude(loaded, 6);
-            evidence.Evaluate("unloadedGain", unloaded / level, "ratio", coordinate);
+            evidence.Evaluate("unloadedGain", unloaded / target, "ratio", coordinate);
             evidence.Evaluate("loadedStrength", loadedRms / unloaded, "ratio", coordinate);
             evidence.EvaluateOptional("unloadedVrms", unloaded, "VRMS", coordinate);
             evidence.EvaluateOptional("loadedVrms", loadedRms, "VRMS", coordinate);
@@ -143,7 +141,7 @@ public sealed class ClampAndSensorStep : FixtureMeasurementStep
             }).ToArray();
             var command = Enumerable.Range(0, data.Length)
                 .Select(i => i * dt >= commandStart && i * dt < commandStart + 10 ? 1.0 : 0).ToArray();
-            var capturedAt = DateTimeOffset.UtcNow;
+            var capturedAt = CompleteSimulatedCapture((data.Length - 1) * dt);
             evidence.Trace(coordinate, "A", data, dt, capturedAt);
             evidence.Trace($"{coordinate}.loadCommand", "check", command, dt, capturedAt);
             var onset = Array.FindIndex(data, sample => sample > nominal + 0.1);
@@ -207,15 +205,17 @@ public sealed class ReciprocalAcStep : FixtureMeasurementStep
                 TapThread.ThrowIfAborted();
                 var target = ladder[i];
                 var coord = $"{impedanceId}.step-{i + 1}";
+                const int sampleCount = 64;
+                const double intervalMs = 0.025;
                 var measured = new double[routes.Length];
-                var captured = DateTimeOffset.UtcNow;
+                var captured = CompleteSimulatedCapture((sampleCount - 1) * intervalMs);
                 for (var path = 0; path < routes.Length; path++)
                 {
                     var route = routes[path];
                     var calibration = fixture.Tables.CalibrationFor(route, impedance);
                     var measuredVrms = route.Nominal * (calibration.SimulatedVoltageScale ?? 1) * Math.Pow(10, -target / 20);
-                    var signal = Waveforms.Sine(measuredVrms * Math.Sqrt(2), 64, 4, path * 0.12);
-                    evidence.Trace($"{coord}.{route.Id}", "V", signal, 0.025, captured);
+                    var signal = Waveforms.Sine(measuredVrms * Math.Sqrt(2), sampleCount, 4, path * 0.12);
+                    evidence.Trace($"{coord}.{route.Id}", "V", signal, intervalMs, captured);
                     var vrms = Waveforms.Rms(signal);
                     measured[path] = -20 * Math.Log10(vrms / referenceVrms) + calibration.CorrectionDb;
                     evidence.Evaluate("vrms", vrms, "VRMS", $"{coord}.{route.Id}");

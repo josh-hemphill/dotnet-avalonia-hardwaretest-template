@@ -32,7 +32,7 @@ public sealed class CounterTriggerStep : FixtureMeasurementStep
     {
         var route = fixture.ActiveRoutes[0];
         var counts = route.CounterReadings ?? SimulateIdealCounter(route.Nominal, row.Levels);
-        evidence.Trace("accumulated", "count", counts, 1, DateTimeOffset.UtcNow);
+        evidence.Trace("accumulated", "count", counts, 1, CompleteSimulatedCapture(counts.Length - 1));
         for (var i = 0; i < row.Levels.Length; i++)
         {
             var observed = counts[i + 1] - counts[i];
@@ -105,7 +105,7 @@ public sealed class DecodePulseWidthStep : FixtureMeasurementStep
             signal[i] = voltage + 0.02 * Math.Sin(i);
         }
 
-        var capturedAt = DateTimeOffset.UtcNow;
+        var capturedAt = CompleteSimulatedCapture((samples - 1) * dt);
         evidence.Trace(routes[0].Id, "V", generatorA, dt, capturedAt);
         evidence.Trace(routes[1].Id, "V", generatorB, dt, capturedAt);
         evidence.Trace(routes[2].Id, "V", signal, dt, capturedAt);

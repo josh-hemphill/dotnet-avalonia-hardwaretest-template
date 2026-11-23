@@ -53,6 +53,13 @@ public abstract class FixtureMeasurementStep : RuntimeAwareTestStep, IEvaluatedR
         return routes;
     }
 
+    internal static DateTimeOffset CompleteSimulatedCapture(double durationMs)
+    {
+        var end = DateTimeOffset.UtcNow.AddMilliseconds(durationMs);
+        TapThread.Sleep(TimeSpan.FromMilliseconds(Math.Ceiling(durationMs)));
+        return end;
+    }
+
     internal static void RequireLevels(CaseTable row, int min, int? max = null)
         => ProcedureTables.Require(row.Levels.Length >= min && (max is null || row.Levels.Length <= max),
             $"Case '{row.Id}' needs {min} to {max?.ToString() ?? "any"} stimulus values.");

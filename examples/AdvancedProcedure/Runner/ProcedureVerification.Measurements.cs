@@ -10,6 +10,7 @@ internal static partial class ProcedureVerification
     private static async Task VerifyMeasurementEvidenceAsync(OpenTapWorkerClient worker, string sourcePlan,
         OpenTapRunSummary baseline, AppSettings settings, CancellationToken cancellationToken)
     {
+        Check(CapturesFallWithinTheirExecution(baseline), "A capture predates its route selection or exceeds its run.");
         Check(Measurement(baseline, "diff-response.step-1.settlingTime").Value == 5
             && CaptureBeginsAfterSettling(baseline), "Nominal waveform acquisition preceded the settling trigger.");
         Check(Measurement(baseline, "ac-reciprocal.50ohm.step-1.ac-ab.vrms").Value
@@ -68,7 +69,8 @@ internal static partial class ProcedureVerification
             var choices = new[] { "Crossed", "Terminated", "Loopback" };
             var mixed = await RespondAsync(worker, choices, false, cancellationToken);
 
-            Check(mixed.Result == RunResult.Failed && CaptureBeginsAfterSettling(mixed)
+            Check(mixed.Result == RunResult.Failed && CapturesFallWithinTheirExecution(mixed)
+                && CaptureBeginsAfterSettling(mixed)
                 && Measurement(mixed, "diff-response.step-1.settlingTime").Value == 6,
                 "The slower simulated response did not move the settling trigger.");
             Check(mixed.Samples.Where(row => row.MetricKey.StartsWith("diff-response.", StringComparison.Ordinal)
@@ -110,6 +112,15 @@ internal static partial class ProcedureVerification
 
     private static StoredSample Measurement(OpenTapRunSummary run, string metricKey)
         => run.Samples.Single(row => row.MetricKey == metricKey);
+
+    private static bool CapturesFallWithinTheirExecution(OpenTapRunSummary run)
+    {
+        var routes = run.Events.Where(mark => mark.Name == "case.route" && mark.StepRunId.HasValue)
+            .ToDictionary(mark => mark.StepRunId!.Value, mark => mark.Timestamp);
+        return run.Samples.Where(row => row.SampleIndex.HasValue)
+            .All(row => row.StepRunId is { } id && routes.TryGetValue(id, out var selected)
+                && row.Timestamp >= selected && row.Timestamp >= run.StartedAt && row.Timestamp <= run.CompletedAt);
+    }
 
     private static bool CaptureBeginsAfterSettling(OpenTapRunSummary run)
     {
