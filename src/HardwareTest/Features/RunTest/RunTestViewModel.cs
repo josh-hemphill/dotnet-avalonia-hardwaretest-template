@@ -126,10 +126,6 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
             {
                 SyncHistoryBannerToShell(HistoryBanner);
             }
-            else if (e.PropertyName == nameof(HasBanner) && !HasBanner)
-            {
-                ClearRunBannerFromShell();
-            }
         };
         RefreshStorageHealth();
     }

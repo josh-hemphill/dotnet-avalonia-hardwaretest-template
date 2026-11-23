@@ -343,7 +343,7 @@ public partial class MainWindowViewModel : ReactiveObject
         RunTest.SessionPanel.TouchActivity();
         if (item.Id == ShellNavigationPolicy.Results)
         {
-            ShellNotification.Clear(ShellNotificationViewModel.SourceRun);
+            RunTest.ClearRunCompletionNotice();
             _ = Results.LoadRunsAsync();
         }
         else if (item.Id == ShellNavigationPolicy.Inspect)
