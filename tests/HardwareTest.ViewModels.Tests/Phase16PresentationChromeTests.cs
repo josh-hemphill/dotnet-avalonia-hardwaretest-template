@@ -55,7 +55,7 @@ public sealed class Phase16PresentationChromeTests
     }
 
     [Fact]
-    public void Out_of_band_gauge_sets_chart_attention()
+    public void Out_of_band_gauge_without_a_series_does_not_offer_an_unrelated_chart()
     {
         var live = new LivePresentationViewModel();
         var acquire = Leaf("Acquire", "Suite/Acquire");
@@ -75,9 +75,9 @@ public sealed class Phase16PresentationChromeTests
             mean);
 
         Assert.Contains(live.PresentationTiles, t => t.IsOutOfBand);
-        Assert.True(live.HasChartData);
-        Assert.True(live.HasChartAttention);
-        Assert.Contains("Out of band", live.FocusTrendTip, StringComparison.OrdinalIgnoreCase);
+        Assert.False(live.HasChartData);
+        Assert.False(live.HasChartAttention);
+        Assert.Empty(live.FocusTrendTip);
     }
 
     [Fact]
@@ -92,6 +92,21 @@ public sealed class Phase16PresentationChromeTests
         Assert.Equal(2, live.AvailableSeries.Count);
         Assert.Contains(live.AvailableSeries, s => s.Key.MetricKey == "VDC");
         Assert.Contains(live.AvailableSeries, s => s.Key.MetricKey == "IDC");
+
+        live.CompareMetrics = true;
+        var comparison = Assert.IsType<LiveSeriesSnapshot>(Assert.Single(live.AvailableSeries, series => series.Comparison is not null).Comparison);
+        Assert.Equal("VDC", comparison.Key.MetricKey);
+        Assert.Equal(1.0, comparison.Ys[0]);
+        Assert.Equal("IDC", live.SelectedSeries?.Key.MetricKey);
+
+        live.RefreshChrome(Leaf("No waveform"));
+        Assert.False(live.HasChartData);
+        Assert.False(live.ShowComparisonCharts);
+        Assert.Empty(live.AvailableSeries);
+
+        live.RefreshChrome(step);
+        Assert.True(live.ShowComparisonCharts);
+        Assert.Single(live.AvailableSeries, series => series.Comparison is not null);
     }
 
     [Fact]
@@ -130,8 +145,7 @@ public sealed class Phase16PresentationChromeTests
         live.ApplySample(Timeseries("VDC", 1.3, t0.AddSeconds(3)), acquire.Path, null, mean);
         live.ApplySample(Timeseries("VDC", 1.4, t0.AddSeconds(4)), mean.Path, null, mean);
         Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
-        Assert.Equal(2, live.AvailableSeries.Count);
-        Assert.Same(live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean"), live.SelectedSeries);
+        Assert.Same(Assert.Single(live.AvailableSeries), live.SelectedSeries);
     }
 
     [Fact]
@@ -142,18 +156,18 @@ public sealed class Phase16PresentationChromeTests
         var mean = Leaf("Mean", "Suite/Mean");
         var t0 = DateTimeOffset.UtcNow;
         live.ApplySample(Timeseries("VDC", 1.0, t0), acquire.Path, null, acquire);
-        live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), mean.Path, null, mean);
-        var acquireItem = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Acquire");
+        live.ApplySample(Timeseries("IDC", 0.2, t0.AddSeconds(1)), acquire.Path, null, acquire);
+        var acquireItem = live.AvailableSeries.First(s => s.Key.MetricKey == "VDC");
         live.SelectSeriesCommand.Execute(acquireItem).Subscribe();
 
         Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
 
-        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(2)), mean.Path, null, mean);
-        Assert.Equal("Suite/Acquire", live.SelectedSeries?.Key.StepPath);
+        live.ApplySample(Timeseries("VDC", 1.5, t0.AddSeconds(2)), mean.Path, null, acquire);
+        Assert.Equal("VDC", live.SelectedSeries?.Key.MetricKey);
 
-        live.SelectedSeries = live.AvailableSeries.First(s => s.Key.StepPath == "Suite/Mean");
+        live.SelectedSeries = live.AvailableSeries.First(s => s.Key.MetricKey == "IDC");
         live.ApplySample(Timeseries("VDC", 1.6, t0.AddSeconds(3)), acquire.Path, null, acquire);
-        Assert.Equal("Suite/Mean", live.SelectedSeries?.Key.StepPath);
+        Assert.Equal("IDC", live.SelectedSeries?.Key.MetricKey);
     }
 
     [Fact]

@@ -85,6 +85,17 @@ public sealed class OperatorPersonaJourneyTests
             main.NavigateToPageId("RunTest");
             Settle(window);
             OperatorWorkflowUiTests.Click(Named<Button>(window, "Clear current run and iterations"));
+            var clear = Assert.Single(window.OwnedWindows, dialog => dialog.Title == "Clear run display?");
+            Assert.Equal(departingId, run.LastRunId);
+            var keep = clear.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Keep display"));
+            Assert.True(keep.IsFocused);
+            OperatorWorkflowUiTests.Click(keep);
+            await E2EHarness.PumpUiAsync();
+            Assert.Equal(departingId, run.LastRunId);
+            OperatorWorkflowUiTests.Click(Named<Button>(window, "Clear current run and iterations"));
+            clear = Assert.Single(window.OwnedWindows, dialog => dialog.Title == "Clear run display?");
+            OperatorWorkflowUiTests.Click(clear.GetVisualDescendants().OfType<Button>().Single(button => Equals(button.Content, "Clear display")));
+            await E2EHarness.WaitUntilAsync(() => run.LastRunId is null);
             Assert.Null(run.LastRunId);
             Assert.Equal(departingSessionId, run.Session.SessionId);
             Assert.Equal("HANDOFF-DEPARTING", run.Session.DutSerial);

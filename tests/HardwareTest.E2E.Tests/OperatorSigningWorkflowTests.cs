@@ -92,10 +92,10 @@ public sealed class OperatorSigningWorkflowTests
             OperatorWorkflowUiTests.Click(exportButton);
             await E2EHarness.PumpUiAsync();
             Assert.True(results.ShowAttestationPrompt);
-            var sign = ByName<Button>(view, "Tap or insert badge");
+            var sign = ByName<Button>(view, "Sign and continue");
             Assert.True(sign.IsFocused);
             Assert.False(view.FindControl<Grid>("ResultsLayout")!.IsEffectivelyEnabled);
-            foreach (var name in new[] { "Tap or insert badge", "Record presence without signing", "Cancel report signing" })
+            foreach (var name in new[] { "Sign and continue", "Record presence without signing", "Cancel report signing" })
                 OperatorWorkflowUiTests.Inside(ByName<Button>(view, name), window);
             Tab(window);
             Assert.True(ByName<Button>(view, "Record presence without signing").IsFocused);
@@ -112,7 +112,7 @@ public sealed class OperatorSigningWorkflowTests
             Assert.Empty((await store.LoadAsync(run.RunId))!.Attestations);
 
             OperatorWorkflowUiTests.Click(exportButton);
-            OperatorWorkflowUiTests.Click(ByName<Button>(view, "Tap or insert badge"));
+            OperatorWorkflowUiTests.Click(ByName<Button>(view, "Sign and continue"));
             await E2EHarness.WaitUntilAsync(() => results.ShowAttestationPin && !results.IsCapturingAttestation);
             var pin = ByName<TextBox>(view, "Badge PIN");
             Assert.True(pin.IsFocused);

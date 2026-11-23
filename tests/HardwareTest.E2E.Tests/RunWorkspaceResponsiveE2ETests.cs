@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -33,6 +35,9 @@ public sealed class RunWorkspaceResponsiveE2ETests
         Assert.False(run.SessionPanel.SessionBlocked);
         Assert.True(run.Workspace.UserWantsOverview);
         var stepList = window.GetVisualDescendants().OfType<ListBox>().Single(list => list.Name == "StepList");
+        var presenter = Assert.Single(stepList.GetVisualDescendants().OfType<ScrollContentPresenter>(),
+            control => control.Name == "PART_ContentPresenter");
+        Assert.True(presenter.Margin.Right >= 6);
         var row = stepList.GetVisualDescendants().OfType<ListBoxItem>()
             .First(item => item.DataContext is StepListItemViewModel { IsHeader: false });
         var rowModel = Assert.IsType<StepListItemViewModel>(row.DataContext);
@@ -67,6 +72,15 @@ public sealed class RunWorkspaceResponsiveE2ETests
         await E2EHarness.PumpUiAsync();
         Assert.True(run.Workspace.UserWantsOverview);
         Assert.False(run.IsCompactLayout);
+        Assert.True(run.Workspace.ShowOverviewSidebar);
+        var toggle = Assert.Single(window.GetVisualDescendants().OfType<ToggleButton>(),
+            button => button.IsEffectivelyVisible && AutomationProperties.GetName(button) == "Hide overview sidebar");
+        Assert.DoesNotContain("workspace-tab", toggle.Classes);
+        OperatorWorkflowUiTests.Click(toggle);
+        Assert.False(run.Workspace.ShowOverviewSidebar);
+        Assert.Equal("Show overview sidebar", AutomationProperties.GetName(toggle));
+        Assert.True(run.Workspace.IsStepsSelected);
+        OperatorWorkflowUiTests.Click(toggle);
         Assert.True(run.Workspace.ShowOverviewSidebar);
         window.Width = 900; window.Height = 600;
         await E2EHarness.PumpUiAsync();

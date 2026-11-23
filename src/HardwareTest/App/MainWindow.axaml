@@ -31,7 +31,7 @@
 
     <ui:FANavigationView.PaneFooter>
       <!-- Keep 48px icon targets; the compact pane also leaves room for intact action captions. -->
-      <StackPanel Margin="0,8,0,12" Spacing="6" HorizontalAlignment="Stretch">
+      <StackPanel Margin="4,8,4,12" Spacing="6" HorizontalAlignment="Stretch">
         <TextBlock Text="{Binding ControlStatus}"
                    FontSize="{x:Static shell:OperatorTouchDensity.OperationalFontSize}"
                    Margin="12,0"

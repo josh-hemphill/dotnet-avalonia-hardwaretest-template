@@ -55,7 +55,7 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     public bool ShowDetails => ShowWorkspace(RunWorkspace.Details);
     public bool ShowChart => ShowWorkspace(RunWorkspace.Chart);
     public bool CanOpenDetails => _hasStepSelection();
-    public bool CanOpenChart => _hasChartData() || Selected.Equals(RunWorkspace.Chart);
+    public bool CanOpenChart => _hasChartData();
     public bool CanReturnToSteps => ShowDetails || ShowChart;
     public bool IsStepsSelected => Selected.Equals(RunWorkspace.Steps);
     public bool IsDetailsSelected => Selected.Equals(RunWorkspace.Details);
@@ -66,9 +66,11 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
 
     /// Hierarchy exists and the board is wide enough for a 200px rail.
     public bool CanOfferOverview => _hasHierarchy() && !_isCompactLayout();
+    public bool ShowOverviewToggle => CanOfferOverview && ShowModeSwitcher && !ShowInteraction;
+    public string OverviewToggleLabel => UserWantsOverview ? "Hide overview sidebar" : "Show overview sidebar";
 
     /// Overview rail beside the tab content. Hidden during prompts so the waiting row stays on screen.
-    public bool ShowOverviewSidebar => CanOfferOverview && UserWantsOverview && ShowModeSwitcher && !ShowInteraction;
+    public bool ShowOverviewSidebar => ShowOverviewToggle && UserWantsOverview;
 
     /// Stage chips in the Steps tab when the overview rail is off. Hidden during prompts for the same reason.
     public bool ShowInlineStageChips =>
@@ -80,6 +82,12 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
     /// "Show this step" can land on the waiting row.
     public void Refresh()
     {
+        if (IsChartSelected && !CanOpenChart)
+        {
+            SetSelected(CanOpenDetails ? RunWorkspace.Details : RunWorkspace.Steps);
+            return;
+        }
+
         this.RaisePropertyChanged(nameof(ShowPreparation));
         this.RaisePropertyChanged(nameof(ShowInteraction));
         this.RaisePropertyChanged(nameof(ShowModeSwitcher));
@@ -94,6 +102,8 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         this.RaisePropertyChanged(nameof(IsChartSelected));
         this.RaisePropertyChanged(nameof(UserWantsOverview));
         this.RaisePropertyChanged(nameof(CanOfferOverview));
+        this.RaisePropertyChanged(nameof(ShowOverviewToggle));
+        this.RaisePropertyChanged(nameof(OverviewToggleLabel));
         this.RaisePropertyChanged(nameof(ShowOverviewSidebar));
         this.RaisePropertyChanged(nameof(ShowInlineStageChips));
     }
@@ -112,10 +122,10 @@ public sealed class RunWorkspaceViewModel : ReactiveObject
         SetSelected(RunWorkspace.Details);
     }
 
-    /// Opens Chart when timeseries data exists or Chart is already selected.
+    /// Opens Chart when the selected step has timeseries data.
     public void OpenChart()
     {
-        if (!_hasChartData() && !Selected.Equals(RunWorkspace.Chart))
+        if (!CanOpenChart)
         {
             return;
         }

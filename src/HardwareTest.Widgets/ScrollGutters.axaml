@@ -1,0 +1,14 @@
+<Styles xmlns="https://github.com/avaloniaui">
+  <Style Selector="ScrollViewer /template/ ScrollContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="0,0,8,6" />
+  </Style>
+  <Style Selector="ScrollViewer[HorizontalScrollBarVisibility=Disabled] /template/ ScrollContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="0,0,8,0" />
+  </Style>
+  <Style Selector="ScrollViewer[VerticalScrollBarVisibility=Disabled] /template/ ScrollContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="0,0,0,6" />
+  </Style>
+  <Style Selector="ScrollViewer[HorizontalScrollBarVisibility=Disabled][VerticalScrollBarVisibility=Disabled] /template/ ScrollContentPresenter#PART_ContentPresenter, TextBox /template/ ScrollViewer /template/ ScrollContentPresenter#PART_ContentPresenter">
+    <Setter Property="Margin" Value="0" />
+  </Style>
+</Styles>

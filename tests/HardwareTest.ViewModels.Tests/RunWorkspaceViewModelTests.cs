@@ -129,7 +129,7 @@ public sealed class RunWorkspaceViewModelTests
     }
 
     [Fact]
-    public void OpenChart_requires_data_unless_already_on_chart()
+    public void Chart_hides_and_returns_to_steps_when_the_selection_has_no_data()
     {
         var hasChart = false;
         var workspace = Create(() => false, () => false, () => hasChart, () => false);
@@ -143,8 +143,8 @@ public sealed class RunWorkspaceViewModelTests
 
         hasChart = false;
         workspace.Refresh();
-        Assert.True(workspace.CanOpenChart);
-        Assert.True(workspace.IsChartSelected);
+        Assert.False(workspace.CanOpenChart);
+        Assert.True(workspace.IsStepsSelected);
     }
 
     [Fact]
@@ -191,11 +191,13 @@ public sealed class RunWorkspaceViewModelTests
             isCompactLayout: () => compact);
 
         Assert.True(workspace.CanOfferOverview);
+        Assert.Equal("Hide overview sidebar", workspace.OverviewToggleLabel);
         Assert.True(workspace.ShowOverviewSidebar);
         Assert.False(workspace.ShowInlineStageChips);
 
         workspace.ToggleOverview();
         Assert.False(workspace.UserWantsOverview);
+        Assert.Equal("Show overview sidebar", workspace.OverviewToggleLabel);
         Assert.False(workspace.ShowOverviewSidebar);
         Assert.True(workspace.ShowInlineStageChips);
 

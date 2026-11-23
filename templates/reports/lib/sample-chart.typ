@@ -58,6 +58,31 @@
   seen
 }
 
+// A scalar, verdict, or timing mark can share a channel name with a waveform.
+#let plotted-series(run, max-count: 4) = {
+  let groups = (:)
+  for sample in sample-rows(run) {
+    let role = sample-field(sample, "displayRole", "DisplayRole")
+    let value = sample-field(sample, "value", "Value")
+    if role != none and lower(str(role).trim()) not in ("", "timeseries") { continue }
+    if type(value) not in (int, float) { continue }
+    let metric = sample-field(sample, "metricKey", "MetricKey")
+    if metric == none or str(metric).trim() == "" {
+      metric = sample-field(sample, "channel", "Channel")
+    }
+    if metric == none or str(metric).trim() == "" { continue }
+    let step = sample-field(sample, "stepPath", "StepPath")
+    let unit = sample-field(sample, "unit", "Unit")
+    let key = repr((step, metric, unit))
+    if key not in groups {
+      groups.insert(key, (metric: metric, step: step, unit: unit, values: ()))
+    }
+    groups.at(key).values.push(float(value))
+  }
+  let series = groups.values().filter(group => group.values.len() > 1)
+  series.slice(0, calc.min(max-count, series.len()))
+}
+
 #let line-chart(points, title: "", width: 420pt, height: 150pt) = {
   if points.len() == 0 {
     return none

@@ -89,6 +89,46 @@ public sealed class TypstReportServiceTests
         Assert.Contains("channel", chartLib, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData(ReportKinds.Status)]
+    [InlineData(ReportKinds.Certification)]
+    public async Task Reports_plot_only_series_with_waveform_data(string kind)
+    {
+        using var temp = new TempDataDirectory();
+        var run = CreateRun();
+        run.Samples =
+        [
+            new() { Channel = "RESISTANCE-SCALAR", DisplayRole = "passband", Value = 1 },
+            new() { Channel = "RESISTANCE-SCALAR", DisplayRole = "passband", Value = 2 },
+            new() { Channel = "ONE-POINT", DisplayRole = "timeseries", Value = 1 },
+        ];
+        using var reports = new TypstReportService(new FileRunStore(temp.RunsDirectory), new AppSettings { EmbedPlotsInReport = true });
+
+        var scalarOnly = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, kind));
+        Assert.DoesNotContain("Plots", ReadText(scalarOnly), StringComparison.Ordinal);
+
+        run.Samples.AddRange(
+        [
+            new() { Channel = "Shared", MetricKey = "Measured voltage", StepPath = "Section/Voltage", Unit = "V", Value = 3 },
+            new() { Channel = "Shared", MetricKey = "Measured voltage", StepPath = "Section/Voltage", Unit = "V", Value = 4 },
+            new() { Channel = "Shared", MetricKey = "Measured current", StepPath = "Section/Current", Unit = "A", Value = 1 },
+            new() { Channel = "Shared", MetricKey = "Measured current", StepPath = "Section/Current", Unit = "A", Value = 2 },
+        ]);
+        var plotted = ReadText(await CompileOrSkipAsync(() => reports.CompileReportAsync(run, kind)));
+        Assert.Contains("Plots", plotted, StringComparison.Ordinal);
+        Assert.Contains("Measured voltage (V)", plotted, StringComparison.Ordinal);
+        Assert.Contains("Measured current (A)", plotted, StringComparison.Ordinal);
+        Assert.DoesNotContain("RESISTANCE-SCALAR", plotted, StringComparison.Ordinal);
+        Assert.DoesNotContain("ONE-POINT", plotted, StringComparison.Ordinal);
+
+        static string ReadText(byte[] bytes)
+        {
+            using var pdf = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
+            return string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages())
+                .Select(page => PdfTextExtractor.GetTextFromPage(pdf.GetPage(page))));
+        }
+    }
+
     [Fact]
     public void SamplePlotExporter_still_writes_png_when_called_directly()
     {
