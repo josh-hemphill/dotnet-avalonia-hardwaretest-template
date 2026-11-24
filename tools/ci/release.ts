@@ -70,25 +70,34 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
   const notices = join(payload, "licenses");
   await fs.mkdir(notices);
   await fs.copyFile(join(root, "licenses", "AGPL-3.0.txt"), join(notices, "AGPL-3.0.txt"));
-  const graph = await json<{ libraries: Record<string, unknown> }>(join(payload, "HardwareTest.deps.json"));
+  const graph = await json<{ libraries: Record<string, { type: string }> }>(join(payload, "HardwareTest.deps.json"));
   const packages = process.env.NUGET_PACKAGES ?? join(homedir(), ".nuget", "packages");
-  const packagesWithNotices = Object.keys(graph.libraries)
-    .filter((library) => /^(itext(?:[.-][^/]+)?|bouncycastle\.cryptography)\//i.test(library));
-  const iTextVersion = packagesWithNotices.find((library) => library.startsWith("itext/"))?.split("/")[1];
-  const bouncyVersion = packagesWithNotices.find((library) => /^bouncycastle\.cryptography\//i.test(library))?.split("/")[1];
+  const bundledPackages = Object.entries(graph.libraries)
+    .filter(([, library]) => library.type === "package")
+    .map(([name]) => name);
+  const iTextVersion = bundledPackages.find((library) => library.startsWith("itext/"))?.split("/")[1];
+  const bouncyVersion = bundledPackages.find((library) => /^bouncycastle\.cryptography\//i.test(library))?.split("/")[1];
   if (!iTextVersion || !bouncyVersion
     || ![iTextVersion, bouncyVersion].every((version) => /^\d+\.\d+\.\d+$/.test(version))) {
     throw new Error("The release needs versioned iText and Bouncy Castle source and notice references.");
   }
-  for (const library of packagesWithNotices) {
+  for (const library of bundledPackages) {
     const [name, version] = library.toLowerCase().split("/");
     const directory = join(packages, name, version);
-    for (const file of await fs.readdir(directory, { withFileTypes: true })) {
-      if (file.isFile() && /^(license|notice|copying)/i.test(file.name)) {
+    const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error) => {
+      if (error.code === "ENOENT") return [];
+      throw error;
+    });
+    for (const file of entries) {
+      if (file.isFile() && /^(license|notice|copying|third.party.notices)/i.test(file.name)) {
         await fs.copyFile(join(directory, file.name), join(notices, `${name}-${file.name}`));
       }
     }
   }
+  const ivi = bundledPackages.find((library) => /^ivifoundation\.visa\//i.test(library));
+  if (!ivi) throw new Error("The release needs the bundled IVI Foundation VISA agreement.");
+  await fs.copyFile(join(packages, ...ivi.toLowerCase().split("/"), "license", "license.txt"),
+    join(notices, "ivifoundation.visa-agreement.txt"));
   await fs.writeFile(join(payload, "SOURCE.md"), [
     "# Source and redistribution",
     "",
@@ -96,7 +105,7 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
     `iText and its Bouncy Castle adapter source: https://github.com/itext/itext-dotnet/tree/${iTextVersion}`,
     `Bouncy Castle .NET source: https://github.com/bcgit/bc-csharp/tree/release-${bouncyVersion}`,
     "",
-    "The combined application binaries in this archive are distributed under the GNU Affero General Public License v3. HardwareTest source carries its MIT notices.",
+    "HardwareTest source carries its MIT notices. The iText components are licensed under the GNU Affero General Public License v3. The archive includes the separate IVI Foundation VISA agreement.",
     "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the included notices and AGPL text.",
     "",
   ].join("\n"));
@@ -123,6 +132,9 @@ async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, a
   const version = await runCapture([operator, "--version"], { cwd: scratch });
   if (version.code !== 0 || version.stdout.trim() !== build.appVersion) {
     throw new Error("Extracted Operator reports a different build identity.");
+  }
+  for (const file of ["LICENSE", "SOURCE.md", "licenses/AGPL-3.0.txt", "licenses/ivifoundation.visa-agreement.txt"]) {
+    await fs.access(join(app, file));
   }
   await verifyPublishedRelease({ root: scratch, rid, configuration: "Release" });
 

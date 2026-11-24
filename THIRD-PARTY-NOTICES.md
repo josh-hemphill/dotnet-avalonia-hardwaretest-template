@@ -6,3 +6,5 @@ This project references **iText for .NET** and its Bouncy Castle adapter to crea
 - GNU AGPL v3 text: <https://www.gnu.org/licenses/agpl-3.0.html>
 
 `Pkcs11Interop.X509Store` and OpenSC retain their respective upstream licenses. Review all transitive package notices as part of a product release.
+
+`IviFoundation.Visa` includes a separate IVI Foundation license agreement. It requires recipients to agree to its terms, and limits nonmembers to object code and headers necessary to use it. Release archives include the agreement from the restored package. Review distribution of the combined application under both this agreement and iText’s terms before publishing binaries.
