@@ -1,0 +1,13 @@
+# HardwareTest Releases
+
+Download the platform archive and test-set starter from [GitHub Releases](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/releases). The Windows x64 ZIP and Linux x64 tarball each contain Operator at the root, Authoring in `authoring/`, the matching Worker and OpenTAP assets, and auxiliary CLI tooling in `tooling/`. Verify the archive against `SHA256SUMS.txt`. Use Windows ZIP extraction or `tar -xf <archive>` on Linux, and keep the extracted app tree together. The auxiliary CLI publishes are framework-dependent. The self-contained desktop app builds still require their OS and instrument middleware prerequisites.
+
+The starter ZIP contains a sample Authoring workspace, the exact release and archive hashes, and a GitHub Actions job that validates and packs the workspace against that release. Extract the starter into a new test-set repository. Follow its README for the mock run and production handoff. Packaging uses the .NET SDK pinned in the starter. For table-backed procedures, use the full program TapPackage or qualified staging that preserves the assets relative to their plan.
+
+## Maintainer release workflow
+
+1. Run **HardwareTest release** on the default branch with a new tag that matches the binary version prefix. Use `v0.1.0-preview.1` for the first preview, or the matching stable version without a suffix. Supported preview suffixes are `-alpha.N`, `-beta.N`, `-rc.N`, and `-preview.N`.
+2. The native jobs publish, extract and verify both archives. The checks cover executable presence and Linux permissions, the matching build identity, shipped OpenTAP assets, starter bootstrap and strict validation, program packing, and a table-backed mock run using the extracted Worker. The workflow assembles both platforms only after the checks pass and adds the starter and SHA-256 manifest.
+3. Review the draft and its exact source commit, asset names, digests, and source and license notices. Publish the draft from GitHub Releases after confirming redistribution requirements. The bundle includes the iText AGPL text, package notices, and source links. See [third-party notices](../THIRD-PARTY-NOTICES.md).
+
+The release workflow also verifies packaging on relevant pull requests. Only a manual run on the default branch can create a release draft. Existing release tags are preserved. Retain approved app and test-set releases together for upgrades and rollback.
