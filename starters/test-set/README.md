@@ -11,7 +11,7 @@ Find this starter and the matching app archive in [HardwareTest Releases](https:
 1. Open the starter's `workspace/` in Authoring. Go to **Environment → Prepare environment**, then **Validate saved plans**. Preview the sample or edit its threshold and **Save and check draft**.
 2. With the Operator idle, use **Build → Prepare bench files** and select the extracted Operator's `Programs/` folder. Keep the generated files together and reload programs in Operator.
 3. Use a separate station data directory with Mock VISA enabled. On Linux from the app folder, run `HARDWARETEST_USE_MOCK_VISA=true ./HardwareTest --data-directory /absolute/path/to/station-data`. On Windows PowerShell set `$env:HARDWARETEST_USE_MOCK_VISA = "true"` before launching `HardwareTest.exe --data-directory C:\path\to\station-data`.
-4. Select **Sample Hardware Suite**, confirm the demo DUT and technician, and run the program. Open Results and export evidence for that run.
+4. Select **Starter Voltage Test (Demo)**, confirm the demo DUT and technician, and run the program. Open Results and export evidence for that run.
 
 Create your own plan or edit the sample in Authoring. Give your test-set package a distinct name and version before shipping it. Commit the workspace source and the assets its plans read. Keep generated output and production station data outside the test-set source.
 

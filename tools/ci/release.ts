@@ -43,21 +43,25 @@ async function hashFile(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-const sampleInputs = [
-  "authoring.json",
-  "authoring.schema.json",
-  "authoring-draft.schema.json",
-  "program.schema.json",
-  "sample.TapPlan",
-  "sample.program.json",
-  "template.program.json",
-];
-
 async function stageSample(root: string, workspace: string): Promise<void> {
+  const plans = join(root, "plans", "opentap");
   await fs.mkdir(workspace, { recursive: true });
-  for (const file of sampleInputs) {
-    await fs.copyFile(join(root, "plans", "opentap", file), join(workspace, file));
+  for (const file of ["authoring.schema.json", "authoring-draft.schema.json", "program.schema.json"]) {
+    await fs.copyFile(join(plans, file), join(workspace, file));
   }
+  // A distinct id keeps the product plan visible beside the built-in sample.
+  await fs.copyFile(join(plans, "sample.TapPlan"), join(workspace, "starter-voltage.TapPlan"));
+  const sidecar = await json<Record<string, unknown>>(join(plans, "sample.program.json"));
+  await writeJson(join(workspace, "starter-voltage.program.json"), {
+    ...sidecar,
+    displayName: "Starter Voltage Test (Demo)",
+  });
+  const manifest = await json<{ package: Record<string, unknown> }>(join(plans, "authoring.json"));
+  await writeJson(join(workspace, "authoring.json"), {
+    ...manifest,
+    displayName: "Starter Test Set",
+    package: { ...manifest.package, name: "HardwareTest Starter Test Set", os: "Windows,Linux" },
+  });
 }
 
 async function stageNotices(root: string, payload: string, build: Build): Promise<void> {
@@ -92,7 +96,7 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
     `iText and its Bouncy Castle adapter source: https://github.com/itext/itext-dotnet/tree/${iTextVersion}`,
     `Bouncy Castle .NET source: https://github.com/bcgit/bc-csharp/tree/release-${bouncyVersion}`,
     "",
-    "HardwareTest source carries its MIT notices. This combined distribution includes iText under the GNU Affero General Public License v3.",
+    "The combined application binaries in this archive are distributed under the GNU Affero General Public License v3. HardwareTest source carries its MIT notices.",
     "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the included notices and AGPL text.",
     "",
   ].join("\n"));

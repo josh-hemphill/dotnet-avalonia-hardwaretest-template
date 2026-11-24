@@ -129,7 +129,7 @@ jobs:
 
           Source and build instructions: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA
 
-          Application archives include source references, the HardwareTest MIT notices, and the bundled iText AGPL notices.
+          The combined application binaries are distributed under AGPL-3.0. Application archives include the exact source references, HardwareTest MIT notices, and third-party notices.
           NOTES
           gh release create "$RELEASE_TAG" ./* --draft --target "$GITHUB_SHA" "${flags[@]}" \
             --title "HardwareTest $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
