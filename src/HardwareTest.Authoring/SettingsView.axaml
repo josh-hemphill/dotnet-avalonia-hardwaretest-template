@@ -31,6 +31,13 @@
           <TextBox Text="{Binding LastWorkspacePath, Mode=OneWay}" IsReadOnly="True" AutomationProperties.Name="Last workspace" AutomationProperties.LabeledBy="{Binding #LastWorkspaceLabel}" ToolTip.Tip="Remembered when you open a workspace. Offered on the welcome page; never auto-opened."/>
         </StackPanel>
       </Border>
+      <Border Classes="surface taskSection">
+        <StackPanel Spacing="12">
+          <TextBlock Text="Software license" Classes="sectionTitle" TextWrapping="Wrap" AutomationProperties.HeadingLevel="3"/>
+          <TextBlock Text="Copyright © 2026 josh-hemphill. HardwareTest comes with no warranty. You may redistribute it under the GNU Affero General Public License v3. See LICENSE in the application archive." TextWrapping="Wrap"/>
+          <HyperlinkButton Content="Read the GNU AGPL v3" NavigateUri="https://www.gnu.org/licenses/agpl-3.0.html" HorizontalAlignment="Left"/>
+        </StackPanel>
+      </Border>
     </StackPanel>
   </ScrollViewer>
 </UserControl>

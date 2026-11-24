@@ -27,6 +27,10 @@ export function archiveName(tag: string, rid: ReleaseRid): string {
   return `hardwaretest-${tag}-${rid}.${rid === "win-x64" ? "zip" : "tar.gz"}`;
 }
 
+function sourceArchiveName(tag: string): string {
+  return `hardwaretest-${tag}-source.tar.gz`;
+}
+
 async function json<T>(file: string): Promise<T> {
   return JSON.parse(await fs.readFile(file, "utf8"));
 }
@@ -69,20 +73,27 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
   await fs.copyFile(join(root, "THIRD-PARTY-NOTICES.md"), join(payload, "THIRD-PARTY-NOTICES.md"));
   const notices = join(payload, "licenses");
   await fs.mkdir(notices);
-  await fs.copyFile(join(root, "licenses", "AGPL-3.0.txt"), join(notices, "AGPL-3.0.txt"));
+  await fs.copyFile(join(root, "licenses", "MIT-previous.txt"), join(notices, "MIT-previous.txt"));
   const graph = await json<{ libraries: Record<string, { type: string }> }>(join(payload, "HardwareTest.deps.json"));
   const packages = process.env.NUGET_PACKAGES ?? join(homedir(), ".nuget", "packages");
   const bundledPackages = Object.entries(graph.libraries)
     .filter(([, library]) => library.type === "package")
-    .map(([name]) => name);
-  const iTextVersion = bundledPackages.find((library) => library.startsWith("itext/"))?.split("/")[1];
-  const bouncyVersion = bundledPackages.find((library) => /^bouncycastle\.cryptography\//i.test(library))?.split("/")[1];
-  if (!iTextVersion || !bouncyVersion
-    || ![iTextVersion, bouncyVersion].every((version) => /^\d+\.\d+\.\d+$/.test(version))) {
-    throw new Error("The release needs versioned iText and Bouncy Castle source and notice references.");
+    .map(([name]) => name.toLowerCase());
+  function bundledVersion(name: string): string {
+    const matching = bundledPackages.filter((library) => library.startsWith(`${name}/`));
+    const version = matching[0]?.split("/")[1];
+    if (matching.length !== 1 || !version || !/^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/.test(version)) {
+      throw new Error(`Expected exactly one version of ${name} in the release.`);
+    }
+    return version;
   }
+  const iTextVersion = bundledVersion("itext");
+  const bouncyVersion = bundledVersion("bouncycastle.cryptography");
+  const openTapVersion = bundledVersion("opentap");
+  const instrumentVersion = bundledVersion("instrumentcomponents.abstractions");
+  const iviVersion = bundledVersion("ivifoundation.visa");
   for (const library of bundledPackages) {
-    const [name, version] = library.toLowerCase().split("/");
+    const [name, version] = library.split("/");
     const directory = join(packages, name, version);
     const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error) => {
       if (error.code === "ENOENT") return [];
@@ -94,19 +105,20 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
       }
     }
   }
-  const ivi = bundledPackages.find((library) => /^ivifoundation\.visa\//i.test(library));
-  if (!ivi) throw new Error("The release needs the bundled IVI Foundation VISA agreement.");
-  await fs.copyFile(join(packages, ...ivi.toLowerCase().split("/"), "license", "license.txt"),
+  await fs.copyFile(join(packages, "ivifoundation.visa", iviVersion, "license", "license.txt"),
     join(notices, "ivifoundation.visa-agreement.txt"));
   await fs.writeFile(join(payload, "SOURCE.md"), [
     "# Source and redistribution",
     "",
-    `HardwareTest source and build instructions: https://github.com/${build.repository}/tree/${build.commit}`,
-    `iText and its Bouncy Castle adapter source: https://github.com/itext/itext-dotnet/tree/${iTextVersion}`,
-    `Bouncy Castle .NET source: https://github.com/bcgit/bc-csharp/tree/release-${bouncyVersion}`,
+    `HardwareTest source and build instructions are in \`${sourceArchiveName(build.tag)}\` on the same [release page](https://github.com/${build.repository}/releases/tag/${build.tag}). The archive matches [commit ${build.commit}](https://github.com/${build.repository}/tree/${build.commit}).`,
     "",
-    "HardwareTest source carries its MIT notices. The iText components are licensed under the GNU Affero General Public License v3. The archive includes the separate IVI Foundation VISA agreement.",
-    "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the included notices and AGPL text.",
+    `- [iText ${iTextVersion} and its Bouncy Castle adapter](https://github.com/itext/itext-dotnet/tree/${iTextVersion})`,
+    `- [Bouncy Castle .NET ${bouncyVersion}](https://github.com/bcgit/bc-csharp/tree/release-${bouncyVersion})`,
+    `- [OpenTAP ${openTapVersion}](https://github.com/opentap/opentap/tree/v${openTapVersion})`,
+    `- [Instrument Components ${instrumentVersion}](https://github.com/josh-hemphill/instrument-components/tree/v${instrumentVersion})`,
+    "",
+    "HardwareTest and the linked iText build are licensed under the GNU Affero General Public License v3. The app archives include LICENSE, THIRD-PARTY-NOTICES.md, and the historical MIT notice.",
+    `The app archives include [IVI Foundation VISA ${iviVersion}](https://www.nuget.org/packages/IviFoundation.Visa/${iviVersion}/License) under its separate agreement in licenses/ivifoundation.visa-agreement.txt.`,
     "",
   ].join("\n"));
 }
@@ -133,7 +145,7 @@ async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, a
   if (version.code !== 0 || version.stdout.trim() !== build.appVersion) {
     throw new Error("Extracted Operator reports a different build identity.");
   }
-  for (const file of ["LICENSE", "SOURCE.md", "licenses/AGPL-3.0.txt", "licenses/ivifoundation.visa-agreement.txt"]) {
+  for (const file of ["LICENSE", "SOURCE.md", "licenses/MIT-previous.txt", "licenses/ivifoundation.visa-agreement.txt"]) {
     await fs.access(join(app, file));
   }
   await verifyPublishedRelease({ root: scratch, rid, configuration: "Release" });
@@ -202,6 +214,7 @@ async function bundle(rid: ReleaseRid, directory: string, requestedTag?: string)
     await verifyExtracted(root, scratch, rid, archive, build);
     await fs.mkdir(directory, { recursive: true });
     await fs.copyFile(archive, join(directory, file));
+    await fs.copyFile(join(payload, "SOURCE.md"), join(directory, "SOURCE.md"));
     await writeJson(join(directory, "native-manifest.json"), {
       ...build,
       asset: { rid, file, sha256: await hashFile(archive) },
@@ -237,6 +250,12 @@ async function collect(directory: string, output: string, tag: string): Promise<
   const manifests = await Promise.all(releaseRids.map((rid) =>
     json<NativeManifest>(join(directory, `release-${rid}`, "native-manifest.json"))));
   const release = combineManifests(manifests, tag || manifests[0].tag, commit, repository);
+  const sourceIndexes = await Promise.all(releaseRids.map((rid) =>
+    fs.readFile(join(directory, `release-${rid}`, "SOURCE.md"), "utf8")));
+  const [sourceIndex] = sourceIndexes;
+  if (sourceIndexes.some((index) => index !== sourceIndex)) {
+    throw new Error("Release platforms disagree on the versioned source references.");
+  }
 
   await fs.mkdir(output, { recursive: true });
   for (const asset of release.assets) {
@@ -245,16 +264,21 @@ async function collect(directory: string, output: string, tag: string): Promise<
     await fs.copyFile(path, join(output, asset.file));
   }
   await writeJson(join(output, "release.json"), release);
+  await fs.writeFile(join(output, "SOURCE.md"), sourceIndex);
+  const source = sourceArchiveName(release.tag);
+  await run(["git", "archive", "--format=tar.gz", `--prefix=hardwaretest-${release.tag}/`,
+    `--output=${join(output, source)}`, release.commit], { cwd: root });
   const scratch = await fs.mkdtemp(join(tmpdir(), "hardwaretest-starter-"));
   try {
     await fs.cp(join(root, "starters", "test-set"), scratch, { recursive: true });
     await fs.copyFile(join(root, "global.json"), join(scratch, "global.json"));
     await fs.copyFile(join(root, "LICENSE"), join(scratch, "LICENSE"));
+    await fs.copyFile(join(root, "licenses", "MIT-previous.txt"), join(scratch, "MIT-previous.txt"));
     await stageSample(root, join(scratch, "workspace"));
     await writeJson(join(scratch, "hardwaretest-release.json"), release);
     const starter = join(output, `hardwaretest-testset-starter-${release.tag}.zip`);
     await run(["zip", "-q", "-r", starter, "."], { cwd: scratch });
-    const files = [...release.assets.map(({ file }) => file), basename(starter), "release.json"];
+    const files = [...release.assets.map(({ file }) => file), basename(starter), source, "SOURCE.md", "release.json"];
     const checksums = await Promise.all(files.map(async (file) => `${await hashFile(join(output, file))}  ${file}`));
     await fs.writeFile(join(output, "SHA256SUMS.txt"), checksums.join("\n") + "\n");
   } finally {

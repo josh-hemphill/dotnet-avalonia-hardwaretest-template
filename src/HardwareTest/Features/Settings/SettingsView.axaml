@@ -209,6 +209,8 @@
               <TextBlock Text="Hardware interlock" VerticalAlignment="Center" TextWrapping="Wrap"/>
               <TextBlock Grid.Column="1" Text="{Binding SafetyInterlockStatus}" VerticalAlignment="Center" TextWrapping="Wrap"/>
             </Grid>
+            <TextBlock Text="Copyright © 2026 josh-hemphill. HardwareTest comes with no warranty. You may redistribute it under the GNU Affero General Public License v3. See LICENSE in the application archive." TextWrapping="Wrap"/>
+            <HyperlinkButton Content="Read the GNU AGPL v3" NavigateUri="https://www.gnu.org/licenses/agpl-3.0.html" IsVisible="{Binding AllowOsFolderBrowse}" HorizontalAlignment="Left"/>
             <Button Content="Open crashes folder" Command="{Binding OpenCrashesFolderCommand}" IsVisible="{Binding AllowOsFolderBrowse}" HorizontalAlignment="Left" Classes="operator"/>
           </StackPanel>
         </Expander>
