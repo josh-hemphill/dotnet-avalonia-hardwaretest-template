@@ -15,6 +15,8 @@ Find this starter and the matching app archive in [HardwareTest Releases](https:
 
 Create your own plan or edit the sample in Authoring. Give your test-set package a distinct name and version before shipping it. Commit the workspace source and the assets its plans read. Keep generated output and production station data outside the test-set source.
 
+The HardwareTest files in this starter are provided under [AGPL-3.0-only](LICENSE). Keep the included license and copyright notices when redistributing those files.
+
 ## Build and deploy
 
 The included Linux GitHub Actions workflow downloads the pinned app archive, checks its digest and build identity, prepares an isolated OpenTAP home, validates saved plans, and creates a program `.TapPackage`. Run the same operations with Authoring's `--bootstrap`, `--validate --strict`, and `--pack` CLI. Packing uses the .NET SDK pinned in `global.json`.

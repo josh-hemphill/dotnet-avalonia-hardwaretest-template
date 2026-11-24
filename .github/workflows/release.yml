@@ -6,7 +6,9 @@ on:
       - '.github/workflows/release.yml'
       - 'tools/ci/release*.ts'
       - 'starters/test-set/**'
+      - 'LICENSE'
       - 'licenses/**'
+      - 'THIRD-PARTY-NOTICES.md'
   workflow_dispatch:
     inputs:
       tag:
@@ -123,13 +125,15 @@ jobs:
           flags=()
           if [[ "$RELEASE_TAG" == *-* ]]; then flags+=(--prerelease); fi
           cat > "$RUNNER_TEMP/release-notes.md" <<NOTES
+          **IVI Foundation VISA license.** By downloading either application archive, you agree to the [IVI Foundation VISA terms](https://www.ivifoundation.org/Shared-Components/IviEula.html) for the included VISA component. The exact package agreement is linked in SOURCE.md and included in each application archive.
+
           Matched Authoring and Operator builds for Windows x64 and Linux x64, with a starter test-set repository.
 
           Verify downloads with \`SHA256SUMS.txt\`. See the starter README for the path from a sample workspace to a checked program package.
 
-          Source and build instructions: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA
+          HardwareTest and the linked iText build are offered under the GNU Affero General Public License v3. Download \`hardwaretest-$RELEASE_TAG-source.tar.gz\` from Assets for the [matching source and build instructions](https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA). \`SOURCE.md\` links to the exact upstream source versions.
 
-          Application archives include source references, HardwareTest MIT notices, iText AGPL terms, and the IVI Foundation VISA agreement.
+          Application archives include the AGPL text, the historical MIT notice, and third-party license notices.
           NOTES
           gh release create "$RELEASE_TAG" ./* --draft --target "$GITHUB_SHA" "${flags[@]}" \
             --title "HardwareTest $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

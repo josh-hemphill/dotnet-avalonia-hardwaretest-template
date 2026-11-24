@@ -2,7 +2,7 @@
 
 Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA discovery**, **ScottPlot live plots**, and **Typst PDF reports**. Self-contained (non-NativeAOT) publishes target sealed Linux appliance images.
 
-**License:** [MIT](LICENSE). Distributed applications that include the AGPL iText dependency must also comply with iText's AGPL terms; see [third-party notices](THIRD-PARTY-NOTICES.md).
+**License:** HardwareTest is licensed under the [GNU Affero General Public License v3.0 only](LICENSE). Copyright © 2026 josh-hemphill. The [original MIT notice](licenses/MIT-previous.txt) is preserved for previously distributed code. See the [third-party notices](THIRD-PARTY-NOTICES.md) for bundled dependencies.
 
 ## Install or start a test set
 
