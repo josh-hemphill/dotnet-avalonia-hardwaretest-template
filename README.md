@@ -4,6 +4,10 @@ Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA d
 
 **License:** [MIT](LICENSE). Distributed applications that include the AGPL iText dependency must also comply with iText's AGPL terms; see [third-party notices](THIRD-PARTY-NOTICES.md).
 
+## Install or start a test set
+
+Get a matching Authoring and Operator build and the test-set starter from [GitHub Releases](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/releases). See [release and adoption instructions](docs/releases.md) for verification, workspace setup, and packaging.
+
 ## Layout
 
 ```

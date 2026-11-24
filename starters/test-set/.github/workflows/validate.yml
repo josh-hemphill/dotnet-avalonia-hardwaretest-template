@@ -1,0 +1,50 @@
+name: Validate test set
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Download and verify the pinned HardwareTest release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository=$(jq -er .repository hardwaretest-release.json)
+          tag=$(jq -er .tag hardwaretest-release.json)
+          app_version=$(jq -er .appVersion hardwaretest-release.json)
+          archive=$(jq -er '.assets[] | select(.rid == "linux-x64") | .file' hardwaretest-release.json)
+          digest=$(jq -er '.assets[] | select(.rid == "linux-x64") | .sha256' hardwaretest-release.json)
+          [[ "$repository" =~ ^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$ ]]
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc|preview)\.[0-9]+)?$ ]]
+          [[ "$archive" == "hardwaretest-$tag-linux-x64.tar.gz" && "$digest" =~ ^[a-f0-9]{64}$ ]]
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/$archive" \
+            "https://github.com/$repository/releases/download/$tag/$archive"
+          printf '%s  %s\n' "$digest" "$RUNNER_TEMP/$archive" | sha256sum -c -
+          mkdir "$RUNNER_TEMP/hardwaretest"
+          tar -xf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP/hardwaretest"
+          [[ "$("$RUNNER_TEMP/hardwaretest/HardwareTest" --version)" == "$app_version" ]]
+      - name: Prepare, validate, and pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          author="$RUNNER_TEMP/hardwaretest/authoring/HardwareTest.Authoring"
+          home="$RUNNER_TEMP/authoring-home"
+          "$author" --bootstrap "$PWD/workspace" --offline --opentap-home "$home"
+          "$author" --validate "$PWD/workspace" --strict --opentap-home "$home"
+          "$author" --pack "$PWD/workspace" --out "$PWD/dist" --opentap-home "$home"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: program-pack
+          path: dist/
+          if-no-files-found: error
