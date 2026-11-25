@@ -129,7 +129,11 @@ jobs:
 
           Source and build instructions: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA
 
-          Application archives include source references, HardwareTest MIT notices, the miPDFlib Apache-2.0 license and notice, and the IVI Foundation VISA agreement.
+          ## Third-party terms
+
+          Read the [IVI Foundation VISA agreement](https://www.nuget.org/packages/IviFoundation.Visa/8.0.2/License) before downloading an application archive. Download and use the archive only if you agree to those terms for its IVI VISA components.
+
+          Each application archive includes HardwareTest's MIT license, the IVI agreement, and a versioned dependency notice index in licenses/DEPENDENCIES.md.
           NOTES
           gh release create "$RELEASE_TAG" ./* --draft --target "$GITHUB_SHA" "${flags[@]}" \
             --title "HardwareTest $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

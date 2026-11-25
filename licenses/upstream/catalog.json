@@ -1,0 +1,417 @@
+{
+  "avalonia.controls.colorpicker/12.1.0": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/a21b9f573172f705a944dcc8aad7f036b9986f39",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.controls.datagrid/12.1.0": {
+    "source": "https://github.com/AvaloniaUI/Avalonia.Controls.DataGrid/tree/50da2ce0dfd85d526152569729d3951a4d1c080b",
+    "files": [
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.desktop/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.fonts.inter/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md",
+      "files/inter/Inter-OFL.txt"
+    ]
+  },
+  "avalonia.freedesktop.atspi/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.freedesktop/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.harfbuzz/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.native/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.remote.protocol/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.skia/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.themes.fluent/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.win32/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia.x11/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "avalonia/12.1.2": {
+    "source": "https://github.com/AvaloniaUI/Avalonia/tree/d3c867a9e2de379249b03dbeb3495bd7f076a81a",
+    "files": [
+      "files/avalonia-12.1.0/NOTICE.md",
+      "files/avalonia-12.1.0/licence.md"
+    ]
+  },
+  "bblanchon.pdfium.linux/152.0.7961": {
+    "source": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/7961",
+    "files": [
+      "files/pdfium-linux/pdfium-binaries-LICENSE.txt",
+      "files/pdfium-linux/abseil.txt",
+      "files/pdfium-linux/agg23.txt",
+      "files/pdfium-linux/fast_float.txt",
+      "files/pdfium-linux/freetype.txt",
+      "files/pdfium-linux/icu.txt",
+      "files/pdfium-linux/lcms.txt",
+      "files/pdfium-linux/libjpeg_turbo.ijg",
+      "files/pdfium-linux/libjpeg_turbo.md",
+      "files/pdfium-linux/libopenjpeg.txt",
+      "files/pdfium-linux/libpng.txt",
+      "files/pdfium-linux/libtiff.txt",
+      "files/pdfium-linux/llvm-libc.txt",
+      "files/pdfium-linux/pdfium.txt",
+      "files/pdfium-linux/simdutf.txt",
+      "files/pdfium-linux/zlib.txt",
+      "files/pdfium/Apache-2.0.txt"
+    ]
+  },
+  "bblanchon.pdfium.win32/152.0.7961": {
+    "source": "https://github.com/bblanchon/pdfium-binaries/releases/tag/chromium/7961",
+    "files": [
+      "files/pdfium-win/pdfium-binaries-LICENSE.txt",
+      "files/pdfium-win/abseil.txt",
+      "files/pdfium-linux/agg23.txt",
+      "files/pdfium-win/fast_float.txt",
+      "files/pdfium-linux/freetype.txt",
+      "files/pdfium-win/icu.txt",
+      "files/pdfium-linux/lcms.txt",
+      "files/pdfium-win/libjpeg_turbo.ijg",
+      "files/pdfium-win/libjpeg_turbo.md",
+      "files/pdfium-linux/libopenjpeg.txt",
+      "files/pdfium-win/libpng.txt",
+      "files/pdfium-linux/libtiff.txt",
+      "files/pdfium-win/llvm-libc.txt",
+      "files/pdfium-linux/pdfium.txt",
+      "files/pdfium-win/simdutf.txt",
+      "files/pdfium-linux/zlib.txt",
+      "files/pdfium/Apache-2.0.txt"
+    ]
+  },
+  "fluentavaloniaui/3.1.0": {
+    "source": "https://github.com/amwx/FluentAvalonia/tree/215ee0481e8b0e6d396cbe2a0f33dc791c5646ab",
+    "files": [
+      "files/fluentavalonia/LICENSE"
+    ]
+  },
+  "instrumentcomponents.abstractions/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components/tree/4105d6659ad46b163ca9f252cc250b01fc5e0ba8",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.drivers.keithley/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components-keithley/tree/e0617b615e86579305105dd89f617021e18cf293",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.drivers.keysight/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components-keysight/tree/90db0399d50abd881412a5322817e431c76a83e1",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.drivers.rigol/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components-rigol/tree/1bf11321443dcf424de90673a549af182500f09d",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.drivers.siglent/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components-siglent/tree/52f0199d4ae22af9c2723e36535e45873ac7b3d8",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.drivers.tektronix/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components-tektronix/tree/f95512e8e04ec3cb43eb40a3a48994c4add62e84",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.runtime/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components/tree/4105d6659ad46b163ca9f252cc250b01fc5e0ba8",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "instrumentcomponents.scpi/0.3.0-alpha.1": {
+    "source": "https://github.com/josh-hemphill/instrument-components/tree/4105d6659ad46b163ca9f252cc250b01fc5e0ba8",
+    "files": [
+      "files/instrument-components/LICENSE-MIT"
+    ]
+  },
+  "ivifoundation.visa/8.0.2": {
+    "source": "https://www.nuget.org/packages/IviFoundation.Visa/8.0.2/License",
+    "packageFiles": [
+      "license/license.txt"
+    ]
+  },
+  "messagepack.annotations/2.5.303": {
+    "source": "https://github.com/MessagePack-CSharp/MessagePack-CSharp/tree/7fd78bbf3476e03beae8b0f7a521125525a8a64a",
+    "files": [
+      "files/messagepack-csharp/LICENSE"
+    ]
+  },
+  "messagepack/2.5.303": {
+    "source": "https://github.com/MessagePack-CSharp/MessagePack-CSharp/tree/7fd78bbf3476e03beae8b0f7a521125525a8a64a",
+    "files": [
+      "files/messagepack-csharp/LICENSE"
+    ]
+  },
+  "microcom.runtime/0.11.6": {
+    "source": "https://github.com/kekekeks/MicroCom/tree/76785efcafd91b5902fd19dd11145f6dd655b7b4",
+    "files": [
+      "files/microcom/LICENSE"
+    ]
+  },
+  "microsoft.net.stringtools/18.4.0": {
+    "source": "https://github.com/dotnet/msbuild/tree/6e61e96acff3f3bd97740401540053cc2d49b189",
+    "files": [
+      "files/msbuild/LICENSE"
+    ]
+  },
+  "mipdflib/1.5.2": {
+    "source": "https://github.com/Mibuw/miPDFlib/tree/v1.5.2"
+  },
+  "opentap/9.35.0": {
+    "source": "https://github.com/opentap/opentap/tree/a6e39207ce45aef2567f28ac45f40ff63fd414de",
+    "files": [
+      "files/opentap/LICENSE.txt"
+    ]
+  },
+  "parlot/1.5.9": {
+    "source": "https://github.com/sebastienros/parlot/tree/3ac3ee07a645ccb773c1bed4142a50502cc99524",
+    "files": [
+      "files/parlot/LICENSE"
+    ]
+  },
+  "pdftoimage/5.4.0": {
+    "source": "https://github.com/sungaila/PDFtoImage/tree/5948628cb2cf7d070c7fd28b1b4496db39e3afcd",
+    "files": [
+      "files/pdftoimage/LICENSE"
+    ]
+  },
+  "polytype/1.3.1": {
+    "source": "https://github.com/eiriktsarpalis/PolyType/tree/a887f0b4e39438bbde1713ca18acb11d81b03512",
+    "files": [
+      "files/polytype/LICENSE"
+    ]
+  },
+  "reactiveui.avalonia/12.1.2": {
+    "source": "https://github.com/reactiveui/ReactiveUI.Avalonia/tree/d207663b098cdbac9ee7bfd214f1221083766c3a",
+    "files": [
+      "files/reactiveui.avalonia/LICENSE"
+    ]
+  },
+  "reactiveui.binding/7.3.0": {
+    "source": "https://github.com/reactiveui/ReactiveUI.Binding.SourceGenerators/tree/0761cd7922c59de2c1c3d54701f7d48c9775046c",
+    "files": [
+      "files/reactiveui.binding.sourcegenerators/LICENSE"
+    ]
+  },
+  "reactiveui.core/24.2.0": {
+    "source": "https://github.com/reactiveui/reactiveui/tree/d2c79cf324b1d3f6172b0fcc3bd54bbf18f27151",
+    "files": [
+      "files/reactiveui/LICENSE"
+    ]
+  },
+  "reactiveui.disposables/8.1.0": {
+    "source": "https://github.com/reactiveui/Primitives/tree/14054d581bfff1b1a29476147450e8993100bffc",
+    "files": [
+      "files/reactiveui-primitives-8.1.0/LICENSE"
+    ]
+  },
+  "reactiveui.primitives.avalonia/7.4.0": {
+    "source": "https://github.com/reactiveui/Primitives/tree/f2f2c894edf508882f901d6099394d0d4078d4c2",
+    "files": [
+      "files/reactiveui-primitives-8.1.0/LICENSE"
+    ]
+  },
+  "reactiveui.primitives.core/8.1.0": {
+    "source": "https://github.com/reactiveui/Primitives/tree/14054d581bfff1b1a29476147450e8993100bffc",
+    "files": [
+      "files/reactiveui-primitives-8.1.0/LICENSE"
+    ]
+  },
+  "reactiveui.primitives/8.1.0": {
+    "source": "https://github.com/reactiveui/Primitives/tree/14054d581bfff1b1a29476147450e8993100bffc",
+    "files": [
+      "files/reactiveui-primitives-8.1.0/LICENSE"
+    ]
+  },
+  "reactiveui/24.2.0": {
+    "source": "https://github.com/reactiveui/reactiveui/tree/d2c79cf324b1d3f6172b0fcc3bd54bbf18f27151",
+    "files": [
+      "files/reactiveui/LICENSE"
+    ]
+  },
+  "scottplot.avalonia/5.1.59": {
+    "source": "https://github.com/ScottPlot/ScottPlot/tree/fc81e78241e532daa97b47049b399dff81e80054",
+    "files": [
+      "files/scottplot/LICENSE"
+    ]
+  },
+  "scottplot/5.1.59": {
+    "source": "https://github.com/ScottPlot/ScottPlot/tree/fc81e78241e532daa97b47049b399dff81e80054",
+    "files": [
+      "files/scottplot/LICENSE"
+    ]
+  },
+  "serilog.enrichers.environment/3.0.1": {
+    "source": "https://github.com/serilog/serilog-enrichers-environment/tree/00a37b9d83d810c3bb62f17e23d795ef28baa2c3",
+    "files": [
+      "files/serilog-enrichers-environment/LICENSE"
+    ]
+  },
+  "serilog.enrichers.thread/4.0.0": {
+    "source": "https://github.com/serilog/serilog-enrichers-thread/tree/a6c1b7b56e9e11af8b1ce47273ed4beb38fcbf24",
+    "files": [
+      "files/serilog-enrichers-environment/LICENSE"
+    ]
+  },
+  "serilog.sinks.console/6.1.1": {
+    "source": "https://github.com/serilog/serilog-sinks-console/tree/b3cb1f042f5636161b831fa8816d70d865a5eec4",
+    "files": [
+      "files/serilog-enrichers-environment/LICENSE"
+    ]
+  },
+  "serilog.sinks.eventlog/4.0.0": {
+    "source": "https://github.com/serilog/serilog-sinks-eventlog/tree/5eb6e0bb096d87eff060bd94126da9e3dcc04454",
+    "files": [
+      "files/serilog-sinks-eventlog/LICENSE"
+    ]
+  },
+  "serilog.sinks.file/7.0.0": {
+    "source": "https://github.com/serilog/serilog-sinks-file/tree/23c732a8658a0df2a5434fe69b0011800b14f0da",
+    "files": [
+      "files/serilog-enrichers-environment/LICENSE"
+    ]
+  },
+  "serilog.sinks.periodicbatching/5.0.0": {
+    "source": "https://github.com/serilog/serilog-sinks-periodicbatching/tree/649fc9a10d3339e7cdcc2cb8982d757310b310ce",
+    "files": [
+      "files/serilog-enrichers-environment/LICENSE"
+    ]
+  },
+  "serilog.sinks.syslogmessages/4.1.0": {
+    "source": "https://github.com/IonxSolutions/serilog-sinks-syslog/tree/2bdbad72cfd73d677338b73e7d15282fc38f1b1b",
+    "files": [
+      "files/serilog-sinks-syslog/LICENSE"
+    ]
+  },
+  "serilog/4.4.0": {
+    "source": "https://github.com/serilog/serilog/tree/497f80fda4f9e8f98b9c13ba34b1f0530f8c4449",
+    "files": [
+      "files/serilog/LICENSE"
+    ]
+  },
+  "serilogtracing/2.4.0": {
+    "source": "https://github.com/serilog-tracing/serilog-tracing/tree/7847092e205579c95059c8e22bb6f8fa8cf98fbe",
+    "files": [
+      "files/serilog-tracing/LICENSE"
+    ]
+  },
+  "splat.builder/21.0.0": {
+    "source": "https://github.com/reactiveui/splat/tree/8cfe76a7b7023f4c1be72113a20cff2b7d77ee96",
+    "files": [
+      "files/splat/LICENSE"
+    ]
+  },
+  "splat.core/21.0.0": {
+    "source": "https://github.com/reactiveui/splat/tree/8cfe76a7b7023f4c1be72113a20cff2b7d77ee96",
+    "files": [
+      "files/splat/LICENSE"
+    ]
+  },
+  "splat.logging/21.0.0": {
+    "source": "https://github.com/reactiveui/splat/tree/8cfe76a7b7023f4c1be72113a20cff2b7d77ee96",
+    "files": [
+      "files/splat/LICENSE"
+    ]
+  },
+  "splat/21.0.0": {
+    "source": "https://github.com/reactiveui/splat/tree/8cfe76a7b7023f4c1be72113a20cff2b7d77ee96",
+    "files": [
+      "files/splat/LICENSE"
+    ]
+  },
+  "system.commandline/2.0.12": {
+    "source": "https://github.com/dotnet/dotnet/tree/95017c711e6afc1085133d440e42b4bd78155701/src/command-line-api",
+    "files": [
+      "files/system.commandline/LICENSE.md"
+    ]
+  },
+  "system.reactive/7.0.0": {
+    "source": "https://github.com/dotnet/reactive/tree/cf59bed2247fdd8f8c3c6fe05c328934518c0c96",
+    "files": [
+      "files/reactiveui/LICENSE"
+    ]
+  },
+  "tmds.dbus.protocol/0.94.1": {
+    "source": "https://github.com/tmds/Tmds.DBus/tree/b4a7fed0b878f74cb54f7cca84d2889af4e596ba",
+    "files": [
+      "files/tmds.dbus/COPYING"
+    ]
+  },
+  "typstinterop/2.1.0": {
+    "source": "https://github.com/KanarekLife/TypstInterop/tree/ccb713327096e1e74e18f34bcefb9cb16cf304b8",
+    "files": [
+      "files/typstinterop/LICENSE"
+    ]
+  }
+}
