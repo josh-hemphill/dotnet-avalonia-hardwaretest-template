@@ -7,7 +7,7 @@
              x:Class="HardwareTest.Features.RunTest.RunChartWorkspaceView"
              x:DataType="vm:RunTestViewModel">
   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8" AutomationProperties.Name="Live chart workspace">
-    <Grid x:Name="ChartControls" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+    <Grid x:Name="ChartControls" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10">
       <Button Content="Back to steps" Command="{Binding Workspace.OpenStepsCommand}" Classes="operator"
               VerticalAlignment="Bottom" AutomationProperties.Name="Back to steps"/>
       <StackPanel Grid.Column="1" Spacing="4">
@@ -36,27 +36,55 @@
           </StackPanel>
         </ScrollViewer></Flyout></Button.Flyout>
       </Button>
+      <CheckBox Grid.Row="1" Grid.Column="1"
+                Content="Compare metrics"
+                IsVisible="{Binding Live.CanCompareMetrics}"
+                IsChecked="{Binding Live.CompareMetrics, Mode=TwoWay}" />
     </Grid>
-    <Panel Grid.Row="1">
-      <DockPanel>
-        <widgetsPres:TimingStripView DockPanel.Dock="Bottom"
-                                     Margin="0,6,0,0"
-                                     Events="{Binding Live.Events}"
-                                     Spans="{Binding Live.PlotOutOfBandSpans}"
-                                     DurationSec="{Binding Live.PlotDurationSec}"
-                                     IsVisible="{Binding Live.HasTimingStrip}" />
-        <Panel>
-          <widgets:MeasurementPlotView x:Name="Plot"
-                                       MinHeight="0"
-                                       VerticalAlignment="Stretch" />
-          <TextBlock Text="{Binding Live.ChartEmptyText}"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     Opacity="0.7"
-                     IsVisible="{Binding Live.ChartEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-        </Panel>
-      </DockPanel>
-    </Panel>
+    <ScrollViewer Grid.Row="1" Classes.comparison="{Binding Live.ShowComparisonCharts}"
+                  HorizontalScrollBarVisibility="Disabled">
+      <ScrollViewer.Styles>
+        <Style Selector="ScrollViewer">
+          <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+        </Style>
+        <Style Selector="ScrollViewer.comparison">
+          <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        </Style>
+        <Style Selector="ScrollViewer.comparison DockPanel.primary-chart">
+          <Setter Property="MinHeight" Value="220" />
+        </Style>
+      </ScrollViewer.Styles>
+      <Grid RowDefinitions="*,Auto">
+        <DockPanel Classes="primary-chart">
+          <widgetsPres:TimingStripView DockPanel.Dock="Bottom"
+                                       Margin="0,6,0,0"
+                                       Events="{Binding Live.Events}"
+                                       Spans="{Binding Live.PlotOutOfBandSpans}"
+                                       DurationSec="{Binding Live.PlotDurationSec}"
+                                       IsVisible="{Binding Live.HasTimingStrip}" />
+          <Panel>
+            <widgets:MeasurementPlotView x:Name="Plot"
+                                         MinHeight="0"
+                                         VerticalAlignment="Stretch" />
+            <TextBlock Text="{Binding Live.ChartEmptyText}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Opacity="0.7"
+                       IsVisible="{Binding Live.ChartEmptyText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </Panel>
+        </DockPanel>
+        <ItemsControl Grid.Row="1" ItemsSource="{Binding Live.AvailableSeries}"
+                      IsVisible="{Binding Live.ShowComparisonCharts}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:LiveSeriesItemViewModel">
+              <vm:LiveComparisonPlot Snapshot="{Binding Comparison}"
+                                     IsVisible="{Binding Comparison, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                     AutomationProperties.Name="{Binding DisplayName}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </Grid>
+    </ScrollViewer>
     <WrapPanel x:Name="ChartReadout" Grid.Row="2">
       <TextBlock Text="{Binding Live.ChartValueText}" FontWeight="SemiBold" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"/>
       <TextBlock Text="{Binding Live.ChartElapsedText}" FontWeight="SemiBold" MaxWidth="240" TextWrapping="Wrap" Margin="0,0,16,4"

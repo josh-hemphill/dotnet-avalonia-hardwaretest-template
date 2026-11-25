@@ -45,20 +45,21 @@
                           Command="{Binding Workspace.OpenDetailsCommand}"
                           IsEnabled="{Binding Workspace.CanOpenDetails}"
                           AutomationProperties.Name="Details" />
-              <ToggleButton Content="Chart"
+              <ToggleButton x:Name="ChartWorkspaceTab" Content="Chart"
                           Classes="workspace-tab"
                           IsChecked="{Binding Workspace.IsChartSelected, Mode=OneWay}"
                           Command="{Binding Workspace.OpenChartCommand}"
-                          IsEnabled="{Binding Workspace.CanOpenChart}"
+                          IsVisible="{Binding Workspace.CanOpenChart}"
                           AutomationProperties.Name="Chart" />
             </StackPanel>
             <ToggleButton Grid.Column="1"
-                          Content="Overview"
-                          Classes="workspace-tab"
+                          Content="{Binding Workspace.OverviewToggleLabel}"
+                          Classes="operator"
+                          Margin="12,0,0,4"
                           IsChecked="{Binding Workspace.UserWantsOverview, Mode=OneWay}"
                           Command="{Binding Workspace.ToggleOverviewCommand}"
-                          IsVisible="{Binding Workspace.CanOfferOverview}"
-                          AutomationProperties.Name="Overview" />
+                          IsVisible="{Binding Workspace.ShowOverviewToggle}"
+                          AutomationProperties.Name="{Binding Workspace.OverviewToggleLabel}" />
           </Grid>
         </Border>
         <Panel>

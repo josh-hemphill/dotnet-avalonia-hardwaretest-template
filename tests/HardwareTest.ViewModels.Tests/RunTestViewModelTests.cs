@@ -618,6 +618,7 @@ public sealed class RunTestViewModelTests
         vm.UiScheduler = action => action();
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-NOPRES");
+        vm.StepTree.SelectedStep = Flatten(vm.StepTree.Hierarchy).First(step => step.Name == "Acquire VDC");
         await vm.Run.RunCommand.ExecuteAsync();
         await Task.Delay(80);
 
@@ -627,7 +628,7 @@ public sealed class RunTestViewModelTests
     }
 
     [Fact]
-    public async Task Step_selection_preserves_chart_availability_without_opening_chart()
+    public async Task Only_the_step_with_waveform_data_offers_its_chart()
     {
         var vm = CreateVm(settings: new AppSettings { PlotRefreshHz = 60 });
         vm.UiScheduler = action => action();
@@ -647,9 +648,6 @@ public sealed class RunTestViewModelTests
         }
 
         await Task.Delay(50);
-        Assert.True(vm.Live.HasPlotData);
-        Assert.True(vm.Live.HasChartData);
-        Assert.True(vm.Workspace.CanOpenChart);
         Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
 
         vm.StepTree.SelectedStep = vm.StepTree.Hierarchy[0];
@@ -659,6 +657,7 @@ public sealed class RunTestViewModelTests
             s.Children.Count == 0 && s.Path.Contains("Identity", StringComparison.OrdinalIgnoreCase));
         vm.StepTree.SelectedStep = identity;
         Assert.Equal(RunWorkspace.Steps, vm.Workspace.Selected);
+        Assert.False(vm.Workspace.CanOpenChart);
 
         var acquire = Flatten(vm.StepTree.Hierarchy).First(s =>
             string.Equals(s.Path, acquirePath, StringComparison.OrdinalIgnoreCase));
@@ -667,6 +666,9 @@ public sealed class RunTestViewModelTests
         Assert.True(vm.Live.HasChartData);
         vm.Workspace.OpenChart();
         Assert.True(vm.Workspace.ShowChart);
+        vm.StepTree.SelectedStep = identity;
+        Assert.False(vm.Workspace.CanOpenChart);
+        Assert.True(vm.Workspace.ShowDetails);
     }
 
     [Fact]
@@ -1737,6 +1739,7 @@ public sealed class RunTestViewModelTests
         vm.UiScheduler = action => action();
         await vm.ProgramSelection.RefreshProgramsCommand.ExecuteAsync();
         await ConfirmReadyAsync(vm, "SN-CHART");
+        vm.StepTree.SelectedStep = Flatten(vm.StepTree.Hierarchy).First(step => step.Name == "Acquire VDC");
         vm.IngestProgress(new OpenTapProgress
         {
             Message = "Acquire",

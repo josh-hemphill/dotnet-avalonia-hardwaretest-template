@@ -7,6 +7,8 @@ internal static class ReportCaptureGate
 {
     private static readonly ConditionalWeakTable<IReportAttestationService, SemaphoreSlim> Gates = new();
     public const string WaitingMessage = "A previous badge operation is still finishing. Close its prompt, then try again.";
+    public const string BadgeInstructions =
+        "Keep your smart card inserted and choose Sign. If no card is present, insert or tap your badge.";
 
     public static IDisposable? TryEnter(IReportAttestationService service)
     {

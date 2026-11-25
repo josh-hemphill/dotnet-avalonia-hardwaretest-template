@@ -76,7 +76,7 @@ public partial class ReportPreviewViewModel
                     ShowSigningPrompt = true;
                     ShowSigningPin = false;
                     SignButtonLabel = action == ActionKind.Sign ? "Sign report" : "Sign and continue";
-                    SigningPromptStatus = "Tap or insert a badge to sign this report.";
+                    SigningPromptStatus = ReportCaptureGate.BadgeInstructions;
                     Status = action == ActionKind.Sign ? "Sign this working report." : "Sign this report to continue the requested action.";
                 }).ConfigureAwait(false);
                 return;
@@ -150,6 +150,7 @@ public partial class ReportPreviewViewModel
                     || cancellation.IsCancellationRequested) return;
                 operation = new SigningOperation(pendingAction, cancellation.Token,
                     ShowSigningPin ? SigningPin : null, _capturedCredential);
+                SigningPromptStatus = presence ? "Recording badge presence…" : "Reading the badge and preparing to sign…";
             }
         }).ConfigureAwait(false);
         if (operation is null) return;

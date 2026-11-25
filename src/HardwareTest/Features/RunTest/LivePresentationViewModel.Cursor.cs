@@ -51,7 +51,7 @@ public partial class LivePresentationViewModel
         _cursorX = null;
         HasCursor = false;
         FollowLive = true;
-        PublishSelectedSnapshot(_lastSelectedStep);
+        PublishSelectedSnapshot();
     }
 
     private void EnsureCursorCommand()

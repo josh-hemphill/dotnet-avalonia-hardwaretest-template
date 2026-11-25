@@ -555,9 +555,15 @@ public sealed class ReportActionTests : IDisposable
         { UiScheduler = action => action(), PreviewRenderer = _ => [] };
         await vm.LoadFromPathAsync(first.Reports[0].PdfPath);
         await vm.SignCommand.ExecuteAsync();
+        Assert.Contains("Keep your smart card inserted", vm.SigningPromptStatus, StringComparison.Ordinal);
         var oldAttempt = vm.SignAndContinueCommand.ExecuteAsync();
         await delayed.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        vm.CancelPendingAction();
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.IsLoadingReport);
+        await vm.CancelSigningCommand.ExecuteAsync();
+        Assert.False(vm.IsLoadingReport);
+        Assert.False(vm.ShowSigningPrompt);
+        Assert.Equal("Report signing cancelled.", vm.Status);
         await vm.LoadFromPathAsync(second.Reports[0].PdfPath);
         await vm.SignCommand.ExecuteAsync();
         await vm.UsePresenceCommand.ExecuteAsync();

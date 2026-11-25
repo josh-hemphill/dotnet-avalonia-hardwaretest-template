@@ -1,5 +1,6 @@
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -35,6 +36,13 @@ public sealed class TaskBasedWorkspaceTests
             AuthoringUiFixture.Click(card);
             Assert.NotEqual(8, routes.SelectedIndex);
             ResponsiveShellTests.Inside(fixture.Control<ComboBox>("Selected test plan"), window);
+            if (name == "Sequence")
+            {
+                var sequence = fixture.Control<ListBox>("Program sequence");
+                var presenter = Assert.Single(sequence.GetVisualDescendants().OfType<ScrollContentPresenter>(),
+                    control => control.Name == "PART_ContentPresenter");
+                Assert.True(presenter.Margin.Right >= 6);
+            }
             fixture.NavigateTask(8);
         }
         Assert.False(fixture.ViewModel.HasUnsavedChanges);

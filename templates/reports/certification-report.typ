@@ -1,4 +1,4 @@
-#import "lib/sample-chart.typ": channel-names, samples-for, line-chart, evaluated-results
+#import "lib/sample-chart.typ": plotted-series, line-chart, evaluated-results
 
 = Certification Report
 #v(0.5em)
@@ -63,18 +63,14 @@
 
 #if sys.inputs.includePlots == "true" [
   #let run = json("run.json")
-  #let channels = channel-names(run, max-count: 4)
-  #if channels.len() > 0 [
-    == Measurements
-    #for ch in channels [
-      #let pts = samples-for(run, ch)
-      #if pts.len() > 0 [
-        #figure(
-          line-chart(pts, title: ch),
-          caption: [Channel #ch],
-        )
-        #v(0.5em)
-      ]
+  #let series = plotted-series(run)
+  #if series.len() > 0 [
+    == Plots
+    #for plot in series [
+      #let label = if plot.unit == none or plot.unit == "" { plot.metric } else { plot.metric + " (" + plot.unit + ")" }
+      #let caption = if plot.step == none or plot.step == "" { label } else { label + " · " + plot.step }
+      #figure(line-chart(plot.values.enumerate(), title: label), caption: caption)
+      #v(0.5em)
     ]
   ]
 ]

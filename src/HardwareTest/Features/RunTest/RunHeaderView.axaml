@@ -60,7 +60,7 @@
                 AutomationProperties.Name="View saved result"
                 ToolTip.Tip="Open the saved record for the last run." />
         <Button Content="Clear display"
-                Command="{Binding ClearRunCommand}"
+                Click="OnClearDisplayClick"
                 IsEnabled="{Binding CanClearRun}"
                 Classes="operator"
                 ToolTip.Tip="Clear displayed results, iterations and attempts. Keep the DUT, program and saved Results."

@@ -19,7 +19,17 @@ public partial class ResultsViewModel
     private TestRunRecord? _pendingAttestationRun;
     private CancellationTokenSource? _pendingAttestationCancellation;
     private long _pendingAttestationVersion;
-    public void CancelPendingReportAction() => DismissAttestationPrompt();
+    public void CancelPendingReportAction()
+    {
+        if (ShowAttestationPrompt)
+        {
+            CancelAttestation();
+        }
+        else
+        {
+            DismissAttestationPrompt();
+        }
+    }
 
     [Reactive] private bool _showAttestationPrompt;
     [Reactive] private bool _showAttestationPin;
@@ -71,9 +81,7 @@ public partial class ResultsViewModel
         AttestationPin = string.Empty;
         AllowPresenceFallback = _settings?.AllowPresenceInLieuOfSigning == true;
         ShowAttestationPrompt = true;
-        AttestationPromptStatus = AllowPresenceFallback
-            ? "Tap or insert a badge to sign. Presence is only a site-policy fallback."
-            : "Tap or insert a badge to sign this report.";
+        AttestationPromptStatus = ReportCaptureGate.BadgeInstructions;
         Status = "Certify this report before export or print.";
         return false;
     }
@@ -92,6 +100,12 @@ public partial class ResultsViewModel
         _pendingAttestationKind = null;
         _pendingPrintPath = null;
         AttestationPromptStatus = string.Empty;
+    }
+
+    private void CancelAttestation()
+    {
+        DismissAttestationPrompt();
+        Status = "Report signing cancelled.";
     }
 
     private Task CaptureAttestationAsync() => CompleteAttestationAsync(skipSigning: false);
@@ -133,7 +147,7 @@ public partial class ResultsViewModel
         }
         else
         {
-            AttestationPromptStatus = "Waiting for chip or tap…";
+            AttestationPromptStatus = "Reading the badge and preparing to sign…";
         }
         try
         {

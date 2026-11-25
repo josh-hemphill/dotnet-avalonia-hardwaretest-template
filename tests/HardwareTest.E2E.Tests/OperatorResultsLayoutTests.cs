@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -126,10 +127,16 @@ public sealed class OperatorResultsLayoutTests
         run.SessionPanel.DutRevisionInput = "B"; run.SessionPanel.OperatorInput = "Chart operator";
         await run.SessionPanel.ConfirmSessionCommand.ExecuteAsync();
         Assert.False(run.SessionPanel.SessionBlocked);
+        await E2EHarness.WaitUntilAsync(() => window.GetVisualDescendants().OfType<RunTestView>()
+            .Any(view => view.IsEffectivelyVisible));
+        var board = Assert.Single(window.GetVisualDescendants().OfType<RunTestView>(), view => view.IsEffectivelyVisible);
+        var chartTab = Assert.IsType<ToggleButton>(board.FindControl<ToggleButton>("ChartWorkspaceTab"));
+        Assert.False(chartTab.IsEffectivelyVisible);
         run.Live.ApplySample(new MeasurementSampleEvent("VDC", 0, 5, DateTimeOffset.UtcNow, DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
         run.Live.ApplySample(new MeasurementSampleEvent("VDC", 1, 5.1, DateTimeOffset.UtcNow.AddSeconds(1), DisplayRole: "timeseries", Unit: "V"), "Review/Voltage", null, null);
         run.Workspace.Refresh(); run.Workspace.OpenChart();
         await E2EHarness.PumpUiAsync();
+        Assert.True(chartTab.IsEffectivelyVisible);
         var chart = window.GetVisualDescendants().OfType<RunChartWorkspaceView>().Single(control => control.IsEffectivelyVisible);
         Inside(ByName<ComboBox>(chart, "Metric"), window);
         Inside(ByName<Button>(chart, "Back to steps"), window);
@@ -145,6 +152,16 @@ public sealed class OperatorResultsLayoutTests
         Assert.True(ByName<Button>(menu, "Reset chart view").IsEffectivelyVisible);
         popup.Hide();
         Assert.Equal(2, run.Live.PlotYsLength);
+        run.Live.ApplySample(new MeasurementSampleEvent("IDC", 0, 0.4, DateTimeOffset.UtcNow,
+            DisplayRole: "timeseries", Unit: "A"), "Review/Voltage", null, null);
+        var compare = chart.GetVisualDescendants().OfType<CheckBox>().Single(box => Equals(box.Content, "Compare metrics"));
+        Assert.True(compare.IsEffectivelyVisible);
+        OperatorWorkflowUiTests.Click(compare);
+        await E2EHarness.PumpUiAsync();
+        var comparison = Assert.Single(chart.GetVisualDescendants().OfType<LiveComparisonPlot>(), item => item.IsEffectivelyVisible);
+        Assert.Equal("V", comparison.Snapshot?.Unit);
+        Assert.Equal(2, comparison.Snapshot?.Length);
+        Assert.Equal("A", run.Live.PlotYLabel);
         Assert.False(run.IsRunning);
     }
 

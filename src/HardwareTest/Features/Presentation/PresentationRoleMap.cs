@@ -71,7 +71,8 @@ public static class PresentationRoleMap
         IEnumerable<StoredSample> samples)
     {
         var groups = samples
-            .GroupBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(s => s.StepPath ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .SelectMany(step => step.GroupBy(s => s.EffectiveMetricKey, StringComparer.OrdinalIgnoreCase))
             .ToArray();
 
         var tiles = new List<PresentationTileViewModel>();
@@ -92,7 +93,9 @@ public static class PresentationRoleMap
             if (kind is null)
             {
                 // No role: treat multi-point as timeseries, single as text skip for widgets.
-                kind = ordered.Length > 1 ? PresentationTileKind.Timeseries : null;
+                kind = string.IsNullOrWhiteSpace(last.DisplayRole) && ordered.Length > 1
+                    ? PresentationTileKind.Timeseries
+                    : null;
             }
 
             if (kind is null)
@@ -102,12 +105,21 @@ public static class PresentationRoleMap
 
             if (kind == PresentationTileKind.Timeseries)
             {
+                ordered = ordered.Where(s => double.IsFinite(s.Value)
+                    && (TryMapRole(s.DisplayRole) == PresentationTileKind.Timeseries
+                        || string.IsNullOrWhiteSpace(s.DisplayRole))).ToArray();
+                if (ordered.Length < 2)
+                {
+                    continue;
+                }
+
                 if (timeseriesCount >= MaxResultsTimeseriesCharts)
                 {
                     continue;
                 }
 
                 timeseriesCount++;
+                last = ordered[^1];
             }
 
             var tile = new PresentationTileViewModel(

@@ -1,4 +1,6 @@
 using System.Globalization;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 
 namespace HardwareTest.Features.RunTest;
 
@@ -179,7 +181,7 @@ public sealed record LiveSeriesSnapshot(
 }
 
 /// One selectable series in the Chart workspace toolbar.
-public sealed class LiveSeriesItemViewModel
+public sealed partial class LiveSeriesItemViewModel : ReactiveObject
 {
     public LiveSeriesItemViewModel(LiveSeriesKey key, string? unit, bool isOutOfBand)
     {
@@ -193,4 +195,5 @@ public sealed class LiveSeriesItemViewModel
     public string DisplayName { get; }
     public string Unit { get; }
     public bool IsOutOfBand { get; }
+    [Reactive] private LiveSeriesSnapshot? _comparison;
 }

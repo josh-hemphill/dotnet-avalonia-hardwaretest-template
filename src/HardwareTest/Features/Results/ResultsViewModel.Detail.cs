@@ -377,6 +377,7 @@ public partial class ResultsViewModel
         if (run.Reports.Count > 0)
         {
             foreach (var artifact in run.Reports
+                         .Where(a => !string.IsNullOrWhiteSpace(a.PdfPath))
                          .OrderBy(a => a.Kind, StringComparer.OrdinalIgnoreCase)
                          .ThenBy(a => ReportArtifactRoles.IsIssued(a.Role) ? 1 : 0))
             {

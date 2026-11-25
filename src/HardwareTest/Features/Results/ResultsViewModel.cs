@@ -125,7 +125,7 @@ public partial class ResultsViewModel : ReactiveObject
         ExportPackageCommand = ReactiveCommand.CreateFromTask(ExportPackageAsync);
         CaptureAttestationCommand = ReactiveCommand.CreateFromTask(CaptureAttestationAsync);
         UsePresenceAttestationCommand = ReactiveCommand.CreateFromTask(UsePresenceAttestationAsync);
-        CancelAttestationCommand = ReactiveCommand.Create(DismissAttestationPrompt);
+        CancelAttestationCommand = ReactiveCommand.Create(CancelAttestation);
         ClearFiltersCommand = ReactiveCommand.Create(ResetFilters);
         CloseDetailCommand = ReactiveCommand.Create(() =>
         {

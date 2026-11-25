@@ -227,7 +227,7 @@ public sealed class MeasurementPlotView : UserControl
         scatter.LegendText = _legendText;
         scatter.Color = PlotTheme.SeriesColor;
         scatter.LineWidth = 2;
-        scatter.MarkerSize = 0;
+        scatter.MarkerSize = _ys.Length == 1 ? 7 : 0;
     }
 
     private void AddEventTicks()

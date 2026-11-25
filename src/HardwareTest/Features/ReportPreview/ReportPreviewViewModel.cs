@@ -72,7 +72,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         OpenInViewerCommand = ReactiveCommand.CreateFromTask(() => RequestActionAsync(ActionKind.Open));
         SignAndContinueCommand = ReactiveCommand.CreateFromTask(() => CompleteSigningAsync(false));
         UsePresenceCommand = ReactiveCommand.CreateFromTask(() => CompleteSigningAsync(true));
-        CancelSigningCommand = ReactiveCommand.Create(CancelPendingAction);
+        CancelSigningCommand = ReactiveCommand.Create(CancelSigning);
         CancelPrintCommand = ReactiveCommand.Create(CancelPrint);
         NavigateToResultsCommand = ReactiveCommand.Create(
             () => NavigateToResultsRequested?.Invoke(this, EventArgs.Empty));
@@ -104,10 +104,11 @@ public partial class ReportPreviewViewModel : ReactiveObject
     [Reactive] private string? _pdfPath;
     [Reactive] private string _status = string.Empty;
     [Reactive] private bool _isBusy;
+    [Reactive] private bool _isLoadingReport;
     [Reactive] private bool _isPrinting;
     [Reactive] private string _printStatus = string.Empty;
 
-    public bool ShowEmptyState => Pages.Count == 0 && !IsBusy;
+    public bool ShowEmptyState => Pages.Count == 0 && !IsLoadingReport;
 
     private Task RunOnUiAsync(Action action) => UiDispatch.RunAsync(action, UiScheduler);
 
@@ -126,6 +127,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
                 selection = new LoadedSelection(resetVersion.Value, _selectionCancellation.Token);
             }
             IsBusy = true;
+            IsLoadingReport = true;
             PdfPath = path;
             ReportSummary = "Loading report…";
             Status = "Loading report…";
@@ -204,8 +206,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
             }
             await RunOnUiAsync(() =>
             {
-                if (version == _selectionVersion) IsBusy = _actionInProgress;
-                this.RaisePropertyChanged(nameof(ShowEmptyState));
+                FinishLoadingReport(version);
             }).ConfigureAwait(false);
         }
         lock (_selectionLock)
@@ -263,11 +264,25 @@ public partial class ReportPreviewViewModel : ReactiveObject
             {
                 if (version == _selectionVersion) _selectionLoading = false;
             }
-            await RunOnUiAsync(() => { if (version == _selectionVersion) IsBusy = _actionInProgress; }).ConfigureAwait(false);
+            await RunOnUiAsync(() => FinishLoadingReport(version)).ConfigureAwait(false);
         }
     }
 
     public void CancelPendingAction() => ResetSelection(null);
+
+    private void CancelSigning() => ResetSelection(null, signingCancelled: true);
+
+    private void FinishLoadingReport(long version)
+    {
+        if (version != _selectionVersion)
+        {
+            return;
+        }
+
+        IsLoadingReport = false;
+        IsBusy = _actionInProgress;
+        this.RaisePropertyChanged(nameof(ShowEmptyState));
+    }
 
     private void CancelPrint()
     {
@@ -290,7 +305,7 @@ public partial class ReportPreviewViewModel : ReactiveObject
         }, UiScheduler);
     }
 
-    private long? ResetSelection(long? expectedVersion, bool loading = false)
+    private long? ResetSelection(long? expectedVersion, bool loading = false, bool signingCancelled = false)
     {
         long version;
         CancellationTokenSource? printCancellation;
@@ -311,10 +326,18 @@ public partial class ReportPreviewViewModel : ReactiveObject
         UiDispatch.Post(() =>
         {
             if (version != _selectionVersion) return;
-            IsBusy = loading || _actionInProgress;
+            IsLoadingReport = loading && _selectionLoading;
+            IsBusy = IsLoadingReport || _actionInProgress;
             ShowSigningPrompt = false;
             ShowSigningPin = false;
+            SigningPromptStatus = string.Empty;
             SigningPin = string.Empty;
+            if (signingCancelled)
+            {
+                Status = "Report signing cancelled.";
+            }
+
+            this.RaisePropertyChanged(nameof(ShowEmptyState));
         }, UiScheduler);
         return version;
     }

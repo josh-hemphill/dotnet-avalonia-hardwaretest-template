@@ -15,8 +15,8 @@
       <Button Content="Print…" ToolTip.Tip="Send a copy to the printer; printing to PDF creates a new document" AutomationProperties.Name="Print report" Command="{Binding PrintCommand}"
               IsEnabled="{Binding !IsBusy}" Classes="operator" Margin="0,0,8,8" />
       <Button Content="Cancel print" AutomationProperties.Name="Cancel report print" Command="{Binding CancelPrintCommand}" IsVisible="{Binding IsPrinting}" Classes="operator" Margin="0,0,8,8" />
-      <TextBlock Text="Loading…"
-                 IsVisible="{Binding IsBusy}"
+      <TextBlock Text="Loading report…"
+                 IsVisible="{Binding IsLoadingReport}"
                  VerticalAlignment="Center"
                  Opacity="0.8"
                  FontWeight="SemiBold" />
@@ -32,7 +32,7 @@
       <Border IsVisible="{Binding ShowSigningPrompt}" Padding="12" BorderThickness="1"
               BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}">
         <StackPanel Spacing="8">
-          <TextBlock Text="{Binding SigningPromptStatus}" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding SigningPromptStatus}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
           <TextBox IsVisible="{Binding ShowSigningPin}" Text="{Binding SigningPin}" PasswordChar="*"
                    PlaceholderText="Badge PIN" AutomationProperties.Name="Report signing badge PIN" MaxWidth="220" HorizontalAlignment="Left" />
           <WrapPanel>

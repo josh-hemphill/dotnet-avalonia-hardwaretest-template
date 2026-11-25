@@ -23,6 +23,7 @@
       </ResourceDictionary.ThemeDictionaries>
     </ResourceDictionary>
   </Styles.Resources>
+  <StyleInclude Source="avares://HardwareTest.Widgets/ScrollGutters.axaml" />
   <Style Selector="Border.surface">
     <Setter Property="Background" Value="{DynamicResource AuthoringSurface}"/>
     <Setter Property="BorderBrush" Value="{DynamicResource AuthoringLine}"/>

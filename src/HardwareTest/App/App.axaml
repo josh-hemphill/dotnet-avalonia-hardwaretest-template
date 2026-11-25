@@ -22,6 +22,7 @@
   <Application.Styles>
     <FluentTheme />
     <sty:FluentAvaloniaTheme UseSystemFontOnWindows="False" />
+    <StyleInclude Source="avares://HardwareTest.Widgets/ScrollGutters.axaml" />
     <Style Selector=":is(TemplatedControl)">
       <Setter Property="FontFamily" Value="avares://Avalonia.Fonts.Inter/Assets#Inter" />
     </Style>

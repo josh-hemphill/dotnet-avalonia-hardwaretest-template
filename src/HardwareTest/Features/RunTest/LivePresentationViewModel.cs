@@ -15,7 +15,6 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     private readonly Dictionary<LiveSeriesKey, LiveSeriesBuffer> _series = [];
     private readonly List<LiveSeriesKey> _seriesOrder = [];
-    private readonly HashSet<string> _stepsWithSamples = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<PresentationTileViewModel> _gaugeTiles = [];
     private readonly HashSet<LiveSeriesKey> _announcedOutOfBand = [];
     private HierarchyStepViewModel? _lastSelectedStep;
@@ -49,6 +48,7 @@ public partial class LivePresentationViewModel : ReactiveObject
     [Reactive] private bool _hasPlotData;
     [Reactive] private bool _hasChartData;
     [Reactive] private bool _hasChartAttention;
+    [Reactive] private bool _compareMetrics;
     [Reactive] private bool _offerOpenChart;
     [Reactive] private bool _hasPresentationTiles;
     [Reactive] private bool _followLive = true;
@@ -64,6 +64,9 @@ public partial class LivePresentationViewModel : ReactiveObject
     [Reactive] private ChartTimeWindow _selectedTimeWindow = ChartTimeWindow.ThirtySeconds;
     [Reactive] private double? _plotLimitLow;
     [Reactive] private double? _plotLimitHigh;
+
+    public bool CanCompareMetrics => AvailableSeries.Count > 1;
+    public bool ShowComparisonCharts => CompareMetrics && CanCompareMetrics;
 
     /// Clears every live artifact so a new run does not inherit the previous run's feed.
     public void ResetForRun()
@@ -83,7 +86,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         ResetCursorState();
         _lastSelectedStep = null;
         _manualSeries = null;
-        _stepsWithSamples.Clear();
+        CompareMetrics = false;
         _gaugeTiles.Clear();
         _series.Clear();
         _seriesOrder.Clear();
@@ -94,6 +97,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         {
             PresentationTiles.Clear();
             AvailableSeries.Clear();
+            RaiseComparisonAvailability();
             HasPresentationTiles = false;
             SelectedSeries = null;
         }
@@ -111,7 +115,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// Routes one sample to the plot and/or gauge tiles. Returns true when the plot published a frame.
+    /// Routes one sample to the plot buffer or gauge tiles. Returns true when it buffered a plot sample.
     public bool ApplySample(
         MeasurementSampleEvent sample,
         string? sampleStepPath,
@@ -119,30 +123,14 @@ public partial class LivePresentationViewModel : ReactiveObject
         HierarchyStepViewModel? selectedStep)
     {
         var plotted = false;
-        if (PresentationRoleMap.IsTimeseriesPlotSample(sample))
+        if (PresentationRoleMap.IsTimeseriesPlotSample(sample) && double.IsFinite(sample.Value))
         {
             var path = sampleStepPath ?? fallbackStepPath ?? string.Empty;
             var key = new LiveSeriesKey(path, sample.EffectiveMetricKey);
             var buffer = GetOrCreateSeries(key);
-            buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit, sample.ElapsedMs);
-            if (!string.IsNullOrWhiteSpace(path))
-            {
-                _stepsWithSamples.Add(path);
-            }
-
-            HasPlotData = true;
-            HasChartData = true;
+            var elapsed = sample.ElapsedMs is { } ms && double.IsFinite(ms) ? ms : (double?)null;
+            buffer.Append(sample.Value, sample.Timestamp, sample.LimitLow, sample.LimitHigh, sample.Unit, elapsed);
             plotted = true;
-            BeginSeriesSync();
-            try
-            {
-                RefreshSeriesList();
-                PublishSelectedSnapshot(selectedStep);
-            }
-            finally
-            {
-                EndSeriesSync();
-            }
         }
 
         if (PresentationRoleMap.IsRunGaugeSample(sample))
@@ -180,17 +168,29 @@ public partial class LivePresentationViewModel : ReactiveObject
     /// Recomputes chart availability and attention from selection and out-of-band gauges.
     public void RefreshChrome(HierarchyStepViewModel? selectedStep)
     {
-        _lastSelectedStep = selectedStep;
-        HasChartData = _series.Values.Any(s => s.Count > 0);
-        OfferOpenChart = HasChartData;
-        if (HasChartData)
+        if (!string.Equals(_lastSelectedStep?.Path, selectedStep?.Path, StringComparison.OrdinalIgnoreCase))
         {
-            PublishSelectedSnapshot(selectedStep);
+            _manualSeries = null;
         }
+
+        _lastSelectedStep = selectedStep;
+        BeginSeriesSync();
+        try
+        {
+            RefreshSeriesList();
+            PublishSelectedSnapshot();
+        }
+        finally
+        {
+            EndSeriesSync();
+        }
+
+        HasChartData = AvailableSeries.Count > 0;
+        OfferOpenChart = HasChartData;
 
         var attention = HasChartData
             && (PresentationTiles.Any(t => t.IsOutOfBand)
-                || _series.Values.Any(s => s.IsOutOfBand)
+                || AvailableSeries.Any(s => _series[s.Key].IsOutOfBand)
                 || ChartBandText.Contains("Out of band", StringComparison.OrdinalIgnoreCase));
         if (attention)
         {
@@ -210,14 +210,14 @@ public partial class LivePresentationViewModel : ReactiveObject
 
     private void SelectSeries(LiveSeriesItemViewModel? item)
     {
-        if (item is null)
+        if (item is null || !AvailableSeries.Contains(item))
         {
             return;
         }
 
         _manualSeries = item.Key;
         SelectedSeries = item;
-        PublishSelectedSnapshot(_lastSelectedStep);
+        PublishSelectedSnapshot();
     }
 
     private void SelectTimeWindow(ChartTimeWindow window) => SelectedTimeWindow = window;
@@ -232,7 +232,14 @@ public partial class LivePresentationViewModel : ReactiveObject
 
         if (e.PropertyName == nameof(SelectedTimeWindow))
         {
-            PublishSelectedSnapshot(_lastSelectedStep);
+            PublishSelectedSnapshot();
+            return;
+        }
+
+        if (e.PropertyName == nameof(CompareMetrics))
+        {
+            RaiseComparisonAvailability();
+            RefreshComparisonCharts(SelectedSeries?.Key);
             return;
         }
 
@@ -240,13 +247,13 @@ public partial class LivePresentationViewModel : ReactiveObject
         {
             _cursorX = null;
             HasCursor = false;
-            PublishSelectedSnapshot(_lastSelectedStep);
+            PublishSelectedSnapshot();
         }
     }
 
     private void OnUserSelectedSeries(LiveSeriesItemViewModel? item)
     {
-        if (IsSyncingSeries || item is null)
+        if (IsSyncingSeries || item is null || !AvailableSeries.Contains(item))
         {
             return;
         }
@@ -255,7 +262,7 @@ public partial class LivePresentationViewModel : ReactiveObject
         _manualSeries = item.Key;
         if (!alreadyLocked)
         {
-            PublishSelectedSnapshot(_lastSelectedStep);
+            PublishSelectedSnapshot();
         }
     }
 
@@ -305,7 +312,8 @@ public partial class LivePresentationViewModel : ReactiveObject
         var desired = new List<LiveSeriesKey>();
         foreach (var key in _seriesOrder)
         {
-            if (!_series.TryGetValue(key, out var buffer) || buffer.Count == 0)
+            if (_lastSelectedStep is { } selected
+                && !string.Equals(selected.Path, key.StepPath, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -323,6 +331,23 @@ public partial class LivePresentationViewModel : ReactiveObject
         {
             var buffer = _series[key];
             AvailableSeries.Add(new LiveSeriesItemViewModel(key, buffer.Unit, buffer.IsOutOfBand));
+        }
+        RaiseComparisonAvailability();
+    }
+
+    private void RaiseComparisonAvailability()
+    {
+        this.RaisePropertyChanged(nameof(CanCompareMetrics));
+        this.RaisePropertyChanged(nameof(ShowComparisonCharts));
+    }
+
+    private void RefreshComparisonCharts(LiveSeriesKey? primary)
+    {
+        foreach (var series in AvailableSeries)
+        {
+            series.Comparison = ShowComparisonCharts && series.Key != primary
+                ? _series[series.Key].Snapshot(SelectedTimeWindow.Duration)
+                : null;
         }
     }
 
@@ -346,11 +371,21 @@ public partial class LivePresentationViewModel : ReactiveObject
         return true;
     }
 
-    private void PublishSelectedSnapshot(HierarchyStepViewModel? selectedStep)
+    private void PublishSelectedSnapshot()
     {
-        var key = ResolveSelectedKey(selectedStep);
-        if (key is null || !_series.TryGetValue(key.Value, out var buffer))
+        var item = _manualSeries is { } manual
+            ? AvailableSeries.FirstOrDefault(series => series.Key.Equals(manual))
+            : null;
+        item ??= AvailableSeries.LastOrDefault();
+        if (item is null)
         {
+            if (!HasPlotData)
+            {
+                return;
+            }
+
+            HasPlotData = false;
+            SelectedSeries = null;
             PlotYsLength = 0;
             ChartValueText = "—";
             ChartBandText = "No limits";
@@ -366,12 +401,14 @@ public partial class LivePresentationViewModel : ReactiveObject
             return;
         }
 
+        var key = item.Key;
+        var buffer = _series[key];
         var snapshot = buffer.Snapshot(SelectedTimeWindow.Duration);
         CopyPlotBuffer(PlotXs, snapshot.Xs, snapshot.Length);
         CopyPlotBuffer(PlotYs, snapshot.Ys, snapshot.Length);
         PlotYsLength = snapshot.Length;
-        PlotLegendText = key.Value.MetricKey;
-        PlotTitle = key.Value.DisplayName;
+        PlotLegendText = key.MetricKey;
+        PlotTitle = key.DisplayName;
         PlotYLabel = string.IsNullOrWhiteSpace(snapshot.Unit) ? "Value" : snapshot.Unit!;
         PlotLimitLow = snapshot.LimitLow;
         PlotLimitHigh = snapshot.LimitHigh;
@@ -380,14 +417,14 @@ public partial class LivePresentationViewModel : ReactiveObject
         ChartAgeText = FormatAge(snapshot.LatestTimestamp);
         RefreshTimingChrome(snapshot);
         ChartEmptyText = snapshot.Length == 0 ? "No samples in this window." : string.Empty;
+        HasPlotData = snapshot.Length > 0;
         ResnapCursorAfterPublish();
-        if (SelectedSeries is null || !SelectedSeries.Key.Equals(key.Value))
+        if (!ReferenceEquals(SelectedSeries, item))
         {
             BeginSeriesSync();
             try
             {
-                SelectedSeries = AvailableSeries.FirstOrDefault(s => s.Key.Equals(key.Value))
-                    ?? new LiveSeriesItemViewModel(key.Value, snapshot.Unit, snapshot.IsOutOfBand);
+                SelectedSeries = item;
             }
             finally
             {
@@ -395,6 +432,7 @@ public partial class LivePresentationViewModel : ReactiveObject
             }
         }
 
+        RefreshComparisonCharts(key);
         PlotDataChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -403,40 +441,6 @@ public partial class LivePresentationViewModel : ReactiveObject
     private void BeginSeriesSync() => _seriesSyncDepth++;
 
     private void EndSeriesSync() => _seriesSyncDepth--;
-
-    private LiveSeriesKey? ResolveSelectedKey(HierarchyStepViewModel? selectedStep)
-    {
-        if (_manualSeries is { } manual && _series.ContainsKey(manual))
-        {
-            return manual;
-        }
-
-        var path = selectedStep?.Path;
-        if (!string.IsNullOrWhiteSpace(path))
-        {
-            for (var i = _seriesOrder.Count - 1; i >= 0; i--)
-            {
-                var key = _seriesOrder[i];
-                if (string.Equals(key.StepPath, path, StringComparison.OrdinalIgnoreCase)
-                    && _series.TryGetValue(key, out var buf)
-                    && buf.Count > 0)
-                {
-                    return key;
-                }
-            }
-        }
-
-        for (var i = _seriesOrder.Count - 1; i >= 0; i--)
-        {
-            var key = _seriesOrder[i];
-            if (_series.TryGetValue(key, out var buf) && buf.Count > 0)
-            {
-                return key;
-            }
-        }
-
-        return null;
-    }
 
     private static void CopyPlotBuffer(double[] target, double[] source, int length)
     {

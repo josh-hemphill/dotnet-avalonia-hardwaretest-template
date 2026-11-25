@@ -274,18 +274,21 @@ public partial class RunTestViewModel : ReactiveObject, IRunBoardHost
                 RaiseStartGates();
             }
 
-            if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep)
-                || StepTree.SelectedStep is not { } step)
+            if (args.PropertyName != nameof(StepTreeViewModel.SelectedStep))
             {
+                return;
+            }
+
+            if (StepTree.SelectedStep is not { } step)
+            {
+                Live.RefreshPlotVisibility(null);
+                Live.RefreshPresentationTiles(null);
                 return;
             }
 
             StationOverrides.DebugStepEnabled = step.Enabled;
             OpenSelectedDetail(revealDetail: false);
             StationOverrides.RefreshParameterFields();
-            Live.RefreshPlotVisibility(step);
-            Live.RefreshPresentationTiles(step.Path);
-            RefreshHero();
         };
 
         Interaction.PropertyChanged += (_, args) =>
