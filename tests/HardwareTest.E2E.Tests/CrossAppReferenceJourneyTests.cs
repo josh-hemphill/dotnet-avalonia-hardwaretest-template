@@ -13,9 +13,9 @@ using HardwareTest.Core.Serialization;
 using HardwareTest.Features;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
+using Microsoft.Extensions.DependencyInjection;
 using MiPdf;
 using MiPdf.Text;
-using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace HardwareTest.E2E.Tests;
