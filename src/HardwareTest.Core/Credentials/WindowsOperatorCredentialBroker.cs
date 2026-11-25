@@ -202,9 +202,14 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
         => Execute(credential, cancellationToken, () =>
         {
             Exception? failure = null;
-            var external = new WindowsExternalSignature(_rsa ? "RSA" : "ECDSA", _digest == HashAlgorithmName.SHA384 ? "SHA-384" : "SHA-256", message =>
-            { try { return SignMessage(message, cancellationToken); } catch (Exception ex) { failure = ex; throw; } });
-            if (!ITextPadesSignature.TrySign(pdf, _certificate, external, credential.DisplayName, signingTime ?? _clock.UtcNow, out var signed, out var cms, out var error))
+            byte[] SignDigest(byte[] hash)
+            {
+                try { return SignHash(hash, cancellationToken); }
+                catch (Exception ex) { failure = ex; throw; }
+            }
+
+            if (!PadesSignature.TrySign(pdf, _certificate, _digest, SignDigest, credential.DisplayName,
+                signingTime ?? _clock.UtcNow, out var signed, out var cms, out var error))
             {
                 if (failure is OperationCanceledException) cancellationToken.ThrowIfCancellationRequested();
                 return failure is null ? CredentialSignResult.Failed(error ?? "PDF signing failed.") : WindowsOperatorCredentialBroker.MapFailure(failure, "signing");
@@ -222,12 +227,4 @@ internal sealed class PreparedWindowsSession : IPreparedCredentialSession, IEmbe
         try { cleanup.GetAwaiter().GetResult(); }
         finally { try { _worker.Dispose(); } finally { _gate.Release(); } }
     }
-}
-
-internal sealed class WindowsExternalSignature(string algorithm, string digest, Func<byte[], byte[]> sign) : iText.Signatures.IExternalSignature
-{
-    public string GetDigestAlgorithmName() => digest;
-    public string GetSignatureAlgorithmName() => algorithm;
-    public iText.Signatures.ISignatureMechanismParams? GetSignatureMechanismParameters() => null;
-    public byte[] Sign(byte[] message) => sign(message);
 }

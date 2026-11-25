@@ -555,7 +555,7 @@ file sealed class RevisionPdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSig
         string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        Assert.True(ITextPadesSignature.TrySign(pdf, _signer.Certificate, _signer.PrivateKey,
+        Assert.True(SoftwareSigningCertificate.TrySign(pdf, _signer.Certificate, _signer.PrivateKey,
             credential.DisplayName, signingTime ?? DateTimeOffset.UtcNow,
             out var signed, out var cms, out var error), error);
         return Task.FromResult(CredentialSignResult.SignedPdfDocument(signed, cms, SigningAlgorithm!,

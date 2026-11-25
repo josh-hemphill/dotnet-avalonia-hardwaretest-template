@@ -13,9 +13,9 @@ using HardwareTest.Core.Serialization;
 using HardwareTest.Features;
 using HardwareTest.Features.RunTest;
 using HardwareTest.OpenTap.Host;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
 using Microsoft.Extensions.DependencyInjection;
+using MiPdf;
+using MiPdf.Text;
 using Xunit;
 
 namespace HardwareTest.E2E.Tests;
@@ -431,7 +431,7 @@ public sealed class CrossAppReferenceJourneyTests
     }
     private static string PdfText(byte[] bytes)
     {
-        using var pdf = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
-        return string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages()).Select(page => PdfTextExtractor.GetTextFromPage(pdf.GetPage(page))));
+        using var pdf = PdfDocument.Open(bytes);
+        return PdfTextExtractor.ExtractText(pdf);
     }
 }

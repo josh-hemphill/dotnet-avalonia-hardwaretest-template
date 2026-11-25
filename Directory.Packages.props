@@ -2,7 +2,6 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <AvaloniaVersion>12.1.2</AvaloniaVersion>
-    <ITextVersion>9.7.0</ITextVersion>
     <MicrosoftExtensionsVersion>10.0.12</MicrosoftExtensionsVersion>
     <InstrumentComponentsVersion>[0.3.0-alpha.1]</InstrumentComponentsVersion>
     <OpenTapVersion>9.35.0</OpenTapVersion>
@@ -33,8 +32,7 @@
     <PackageVersion Include="InstrumentComponents.Visa" Version="$(InstrumentComponentsVersion)" />
     <PackageVersion Include="InstrumentComponents.OpenTap.Visa" Version="$(InstrumentComponentsVersion)" />
     <PackageVersion Include="IviFoundation.Visa" Version="8.0.2" />
-    <PackageVersion Include="itext" Version="$(ITextVersion)" />
-    <PackageVersion Include="itext.bouncy-castle-adapter" Version="$(ITextVersion)" />
+    <PackageVersion Include="miPDFlib" Version="1.5.2" />
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.Configuration.Binder" Version="$(MicrosoftExtensionsVersion)" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="$(MicrosoftExtensionsVersion)" />
@@ -67,7 +65,7 @@
     <PackageVersion Include="System.CommandLine" Version="2.0.12" />
     <PackageVersion Include="System.IO.Ports" Version="10.0.0" />
     <PackageVersion Include="System.Reactive" Version="7.0.0" />
-    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+    <PackageVersion Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <PackageVersion Include="TypstInterop" Version="2.1.0" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
     <PackageVersion Include="xunit.v3" Version="$(XunitVersion)" />

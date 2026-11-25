@@ -249,7 +249,7 @@ public sealed class ReportAttestationServiceTests
         var stamped = await File.ReadAllBytesAsync(issuedPath!);
         Assert.NotEqual(originalCertBytes, stamped);
         Assert.Contains(SoftwarePdfBroker.DisplayName, Encoding.UTF8.GetString(stamped), StringComparison.Ordinal);
-        Assert.True(ITextPadesSignature.TryVerify(stamped, broker.Credential.Thumbprint, out var verifyError), verifyError);
+        Assert.True(PadesSignature.TryVerify(stamped, broker.Credential.Thumbprint, out var verifyError), verifyError);
         var sidecar = await File.ReadAllTextAsync(signed.Attestation.SidecarPath!);
         Assert.Contains("certificateBase64", sidecar, StringComparison.Ordinal);
     }
@@ -1150,7 +1150,7 @@ internal sealed class UnavailableEmbeddedBroker : IOperatorCredentialBroker, IEm
 }
 
 
-/// Physical embedded signing fixture: software key, production iText, no card/APDU I/O.
+/// Uses a software key with the production PDF signer to exercise physical attestation.
 file sealed class SoftwarePdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSigningBroker, IDisposable
 {
     public const string Pin = "123456";
@@ -1244,7 +1244,7 @@ file sealed class SoftwarePdfBroker : IOperatorCredentialBroker, IEmbeddedPdfSig
             return Task.FromResult(CredentialSignResult.Failed("Incorrect PIN; 2 retries remain.", 2));
         var actualCertificate = Mode == "different-signer" ? _otherCertificate : _certificate;
         var actualKey = Mode == "different-signer" ? _otherKey : _key;
-        Assert.True(ITextPadesSignature.TrySign(pdf, actualCertificate, actualKey, DisplayName,
+        Assert.True(SoftwareSigningCertificate.TrySign(pdf, actualCertificate, actualKey, DisplayName,
             signingTime ?? Credential.CapturedAt, out var signedPdf, out var cms, out var error), error);
         var returnedCredential = Mode switch
         {
