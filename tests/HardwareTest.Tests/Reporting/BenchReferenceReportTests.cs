@@ -3,8 +3,8 @@ using HardwareTest.Core.Reporting;
 using HardwareTest.Core.Runs;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Fixtures;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
+using MiPdf;
+using MiPdf.Text;
 using Xunit;
 
 namespace HardwareTest.Tests.Reporting;
@@ -114,7 +114,7 @@ public sealed class BenchReferenceReportTests
 
     private static string Text(byte[] bytes)
     {
-        using var pdf = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
-        return string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages()).Select(page => PdfTextExtractor.GetTextFromPage(pdf.GetPage(page))));
+        using var pdf = PdfDocument.Open(bytes);
+        return PdfTextExtractor.ExtractText(pdf);
     }
 }

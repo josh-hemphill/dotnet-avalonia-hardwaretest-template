@@ -219,22 +219,28 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
         public bool CanSignPdf => true;
         private bool Rsa => _certificate.GetKeyAlgorithm() == "1.2.840.113549.1.1.1";
         private bool Sha384 { get { using var ec = _certificate.GetECDsaPublicKey(); return ec?.KeySize >= 384; } }
+        private HashAlgorithmName Digest => Sha384 ? HashAlgorithmName.SHA384 : HashAlgorithmName.SHA256;
         public string? SigningAlgorithm => Rsa ? AttestationAlgorithm.PivRsaPkcs1Sha256 : Sha384 ? AttestationAlgorithm.PivEcdsaSha384 : AttestationAlgorithm.PivEcdsaSha256;
         public string StatusText => "Selected signing session prepared.";
         public Task<CredentialCaptureResult> WaitForPresenceAsync(TimeSpan timeout, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        private byte[] Sign(byte[] message, string? pin, CancellationToken ct)
+        private byte[] SignMessage(byte[] message, string? pin, CancellationToken ct)
+        {
+            var hash = Sha384 ? SHA384.HashData(message) : SHA256.HashData(message);
+            var raw = SignHash(hash, pin, ct);
+            return Rsa ? raw : EcdsaSignatureEncoding.ToDer(raw);
+        }
+
+        private byte[] SignHash(byte[] hash, string? pin, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             byte[]? keyPin = _token.ProtectedAuthenticationPath || !_token.AlwaysAuthenticate || pin is null ? null : Encoding.UTF8.GetBytes(pin);
             try
             {
-                var hash = Sha384 && !Rsa ? SHA384.HashData(message) : SHA256.HashData(message);
                 byte[] data = Rsa ? Convert.FromHexString("3031300D060960864801650304020105000420").Concat(hash).ToArray() : hash;
                 var raw = _token.Sign(Rsa ? CKM.CKM_RSA_PKCS : CKM.CKM_ECDSA, data, keyPin);
                 ct.ThrowIfCancellationRequested();
                 ValidateSignatureLength(raw);
-                if (Rsa) return raw;
-                return EcdsaSignatureEncoding.ToDer(raw);
+                return raw;
             }
             finally { if (keyPin is not null) CryptographicOperations.ZeroMemory(keyPin); }
         }
@@ -258,17 +264,19 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             }
         }
         public Task<CredentialSignResult> TrySignPayloadAsync(byte[] payload, OperatorCredential credential, string? pin = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(Execute(credential, cancellationToken, () => CredentialSignResult.Signed(Sign(payload, pin, cancellationToken), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential)));
+            => Task.FromResult(Execute(credential, cancellationToken, () => CredentialSignResult.Signed(SignMessage(payload, pin, cancellationToken), SigningAlgorithm!, _certificate.RawData, _certificate.Thumbprint, _credential)));
         public Task<CredentialSignResult> TrySignPdfAsync(byte[] pdf, OperatorCredential credential, string? pin = null, DateTimeOffset? signingTime = null, CancellationToken cancellationToken = default)
             => Task.FromResult(Execute(credential, cancellationToken, () =>
             {
                 Exception? callbackFailure = null;
-                var external = new ExternalSignature(Rsa ? "RSA" : "ECDSA", !Rsa && Sha384 ? "SHA-384" : "SHA-256", bytes =>
+                byte[] SignDigest(byte[] hash)
                 {
-                    try { return Sign(bytes, pin, cancellationToken); }
+                    try { return SignHash(hash, pin, cancellationToken); }
                     catch (Exception ex) { callbackFailure = ex; throw; }
-                });
-                if (!ITextPadesSignature.TrySign(pdf, _certificate, external, credential.DisplayName, signingTime ?? _clock.UtcNow, out var signed, out var cms, out var error))
+                }
+
+                if (!PadesSignature.TrySign(pdf, _certificate, Digest, SignDigest, credential.DisplayName,
+                    signingTime ?? _clock.UtcNow, out var signed, out var cms, out var error))
                 {
                     if (callbackFailure is OperationCanceledException) cancellationToken.ThrowIfCancellationRequested();
                     return callbackFailure is null ? CredentialSignResult.Failed(error ?? "PDF signing failed.") : MapFailure(callbackFailure, "signing");
@@ -290,14 +298,6 @@ public sealed class Pkcs11OperatorCredentialBroker : IOperatorCredentialBroker, 
             }
         }
     }
-    private sealed class ExternalSignature(string algorithm, string digest, Func<byte[], byte[]> sign) : iText.Signatures.IExternalSignature
-    {
-        public string GetDigestAlgorithmName() => digest;
-        public string GetSignatureAlgorithmName() => algorithm;
-        public iText.Signatures.ISignatureMechanismParams? GetSignatureMechanismParameters() => null;
-        public byte[] Sign(byte[] message) => sign(message);
-    }
-
 }
 
 internal sealed record Pkcs11Certificate(byte[] Der, byte[] Id);

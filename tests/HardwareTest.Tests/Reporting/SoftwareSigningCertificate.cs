@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using HardwareTest.Core.Reporting;
 
 namespace HardwareTest.Tests.Reporting;
 
@@ -31,6 +32,19 @@ internal sealed class SoftwareSigningCertificate : IDisposable
         };
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
         return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+    }
+
+    internal static bool TrySign(
+        byte[] pdf, X509Certificate2 certificate, AsymmetricAlgorithm key, string displayName, DateTimeOffset signingTime,
+        out byte[] signedPdf, out byte[] cms, out string? error)
+    {
+        var digest = key is ECDsa { KeySize: >= 384 } ? HashAlgorithmName.SHA384 : HashAlgorithmName.SHA256;
+        return PadesSignature.TrySign(pdf, certificate, digest, hash => key switch
+        {
+            RSA rsa => rsa.SignHash(hash, digest, RSASignaturePadding.Pkcs1),
+            ECDsa ec => ec.SignHash(hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation),
+            _ => throw new NotSupportedException("Expected an RSA or ECDSA key."),
+        }, displayName, signingTime, out signedPdf, out cms, out error);
     }
 
     public void Dispose()

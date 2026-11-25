@@ -24,7 +24,7 @@ public interface IOperatorCredentialBroker : IOperatorCredentialPresenceBroker
     /// Algorithm id written on signed sidecars when the broker uses a fixed algorithm.
     string? SigningAlgorithm { get; }
 
-    /// True when the active physical broker signs complete PDFs through iText.
+    /// True when the active physical broker certifies complete PDFs with an embedded PAdES signature.
     bool CanSignPdf => false;
 
     /// Selects and authenticates a signer retained through report compilation and issuance.

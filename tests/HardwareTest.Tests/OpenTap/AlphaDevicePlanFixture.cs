@@ -61,8 +61,8 @@ internal static class AlphaDevicePlanFixture
 
     internal static string ReadPdfText(string path)
     {
-        using var pdf = new iText.Kernel.Pdf.PdfDocument(new iText.Kernel.Pdf.PdfReader(path));
-        return string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages()).Select(index => iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor.GetTextFromPage(pdf.GetPage(index))));
+        using var pdf = MiPdf.PdfDocument.Open(path);
+        return MiPdf.Text.PdfTextExtractor.ExtractText(pdf);
     }
 
     internal sealed class QualifiedDmmBroker(bool overload) : IVisaBroker

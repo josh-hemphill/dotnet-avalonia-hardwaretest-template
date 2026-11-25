@@ -76,7 +76,7 @@ public sealed class CredentialCaptureResult
 public sealed class CredentialSignResult
 {
     public byte[]? Signature { get; init; }
-    /// Complete PDF after iText has embedded the PAdES signature.
+    /// Complete PDF with the embedded PAdES signature.
     public byte[]? SignedPdf { get; init; }
     public string? Algorithm { get; init; }
     public byte[]? CertificateDer { get; init; }

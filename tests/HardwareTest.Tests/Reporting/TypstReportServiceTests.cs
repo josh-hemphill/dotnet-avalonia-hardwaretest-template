@@ -5,8 +5,8 @@ using HardwareTest.Core.Runs;
 using HardwareTest.Core.Serialization;
 using HardwareTest.Core.Settings;
 using HardwareTest.Tests.Fixtures;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
+using MiPdf;
+using MiPdf.Text;
 using Xunit;
 
 namespace HardwareTest.Tests.Reporting;
@@ -32,9 +32,8 @@ public sealed class TypstReportServiceTests
 
         var bytes = await CompileOrSkipAsync(() => reports.CompileReportAsync(run, kind));
 
-        using var pdf = new PdfDocument(new PdfReader(new MemoryStream(bytes)));
-        var text = string.Join("\n", Enumerable.Range(1, pdf.GetNumberOfPages())
-            .Select(page => PdfTextExtractor.GetTextFromPage(pdf.GetPage(page))));
+        using var pdf = PdfDocument.Open(bytes);
+        var text = PdfTextExtractor.ExtractText(pdf);
         Assert.Contains(expected, text, StringComparison.Ordinal);
         if (kind == ReportKinds.Certification && scope != RunExecutionScopes.FullSuite)
             Assert.DoesNotContain("CERTIFIED PASS", text, StringComparison.Ordinal);

@@ -115,7 +115,7 @@ public sealed class PreparedPkcs11Tests
         using var session = prepared.Session;
         var result = await ((IEmbeddedPdfSigningBroker)session!).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential, "1234");
         Assert.True(result.Succeeded, result.Error); Assert.Equal(1, selected.SignCount);
-        Assert.True(ITextPadesSignature.TryVerify(result.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
+        Assert.True(PadesSignature.TryVerify(result.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
     }
 
     [Fact]
@@ -203,7 +203,7 @@ public sealed class PreparedPkcs11Tests
         var pdf = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), selected.Credential);
         Assert.True(pdf.Succeeded, pdf.Error); Assert.Equal(1, selected.SignCount);
         Assert.Equal(AttestationAlgorithm.PivEcdsaSha256, pdf.Algorithm);
-        Assert.True(ITextPadesSignature.TryVerify(pdf.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
+        Assert.True(PadesSignature.TryVerify(pdf.SignedPdf!, selected.Credential.Thumbprint, out var error), error);
     }
 
     [Theory]
@@ -282,8 +282,18 @@ public sealed class PreparedPkcs11Tests
             Assert.True(Bound); BeforeSign?.Invoke(); SignCount++; LastContextPin = contextPin; if (AlwaysAuthenticate) ContextSignCount++;
             if (SignFailure is { } code) throw new Pkcs11Exception("C_Sign", code);
             if (SignatureOverride is { } signature) return signature;
-            return _rsa is not null ? _rsa.SignHash(data[^32..], HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)
-                : _ec!.SignHash(data, ReturnDerSignature ? DSASignatureFormat.Rfc3279DerSequence : DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+            if (_rsa is not null)
+            {
+                var digestInfoPrefix = Convert.FromHexString("3031300D060960864801650304020105000420");
+                Assert.Equal(CKM.CKM_RSA_PKCS, mechanism);
+                Assert.Equal(digestInfoPrefix.Length + 32, data.Length);
+                Assert.True(data.AsSpan().StartsWith(digestInfoPrefix));
+                return _rsa.SignHash(data.AsSpan(digestInfoPrefix.Length), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            }
+
+            Assert.Equal(CKM.CKM_ECDSA, mechanism);
+            Assert.Equal(_ec!.KeySize / 8, data.Length);
+            return _ec.SignHash(data, ReturnDerSignature ? DSASignatureFormat.Rfc3279DerSequence : DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         }
         public void Dispose() { Closed = true; if (DisposeFailure && _throwOnDispose) { _throwOnDispose = false; throw new IOException("Synthetic cleanup failure."); } }
         private bool _throwOnDispose = true;

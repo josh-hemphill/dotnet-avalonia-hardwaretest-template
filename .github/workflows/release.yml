@@ -129,7 +129,7 @@ jobs:
 
           Source and build instructions: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA
 
-          Application archives include source references, HardwareTest MIT notices, iText AGPL terms, and the IVI Foundation VISA agreement.
+          Application archives include source references, HardwareTest MIT notices, the miPDFlib Apache-2.0 license and notice, and the IVI Foundation VISA agreement.
           NOTES
           gh release create "$RELEASE_TAG" ./* --draft --target "$GITHUB_SHA" "${flags[@]}" \
             --title "HardwareTest $RELEASE_TAG" --notes-file "$RUNNER_TEMP/release-notes.md"

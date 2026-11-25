@@ -69,17 +69,16 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
   await fs.copyFile(join(root, "THIRD-PARTY-NOTICES.md"), join(payload, "THIRD-PARTY-NOTICES.md"));
   const notices = join(payload, "licenses");
   await fs.mkdir(notices);
-  await fs.copyFile(join(root, "licenses", "AGPL-3.0.txt"), join(notices, "AGPL-3.0.txt"));
+  await fs.copyFile(join(root, "licenses", "Apache-2.0.txt"), join(notices, "Apache-2.0.txt"));
   const graph = await json<{ libraries: Record<string, { type: string }> }>(join(payload, "HardwareTest.deps.json"));
   const packages = process.env.NUGET_PACKAGES ?? join(homedir(), ".nuget", "packages");
   const bundledPackages = Object.entries(graph.libraries)
     .filter(([, library]) => library.type === "package")
     .map(([name]) => name);
-  const iTextVersion = bundledPackages.find((library) => library.startsWith("itext/"))?.split("/")[1];
-  const bouncyVersion = bundledPackages.find((library) => /^bouncycastle\.cryptography\//i.test(library))?.split("/")[1];
-  if (!iTextVersion || !bouncyVersion
-    || ![iTextVersion, bouncyVersion].every((version) => /^\d+\.\d+\.\d+$/.test(version))) {
-    throw new Error("The release needs versioned iText and Bouncy Castle source and notice references.");
+  const miPdf = bundledPackages.find((library) => /^mipdflib\//i.test(library));
+  const miPdfVersion = miPdf?.split("/")[1];
+  if (!miPdfVersion || !/^\d+\.\d+\.\d+$/.test(miPdfVersion)) {
+    throw new Error("The release needs the versioned miPDFlib package and its notice.");
   }
   for (const library of bundledPackages) {
     const [name, version] = library.toLowerCase().split("/");
@@ -94,6 +93,7 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
       }
     }
   }
+  await fs.access(join(notices, "mipdflib-NOTICE"));
   const ivi = bundledPackages.find((library) => /^ivifoundation\.visa\//i.test(library));
   if (!ivi) throw new Error("The release needs the bundled IVI Foundation VISA agreement.");
   await fs.copyFile(join(packages, ...ivi.toLowerCase().split("/"), "license", "license.txt"),
@@ -102,11 +102,10 @@ async function stageNotices(root: string, payload: string, build: Build): Promis
     "# Source and redistribution",
     "",
     `HardwareTest source and build instructions: https://github.com/${build.repository}/tree/${build.commit}`,
-    `iText and its Bouncy Castle adapter source: https://github.com/itext/itext-dotnet/tree/${iTextVersion}`,
-    `Bouncy Castle .NET source: https://github.com/bcgit/bc-csharp/tree/release-${bouncyVersion}`,
+    `miPDFlib source: https://github.com/Mibuw/miPDFlib/tree/v${miPdfVersion}`,
     "",
-    "HardwareTest source carries its MIT notices. The iText components are licensed under the GNU Affero General Public License v3. The archive includes the separate IVI Foundation VISA agreement.",
-    "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the included notices and AGPL text.",
+    "HardwareTest is licensed under MIT and miPDFlib under Apache-2.0. The archive includes the separate IVI Foundation VISA agreement.",
+    "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the license texts and package notices.",
     "",
   ].join("\n"));
 }
@@ -133,7 +132,10 @@ async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, a
   if (version.code !== 0 || version.stdout.trim() !== build.appVersion) {
     throw new Error("Extracted Operator reports a different build identity.");
   }
-  for (const file of ["LICENSE", "SOURCE.md", "licenses/AGPL-3.0.txt", "licenses/ivifoundation.visa-agreement.txt"]) {
+  for (const file of [
+    "LICENSE", "SOURCE.md", "THIRD-PARTY-NOTICES.md", "licenses/Apache-2.0.txt",
+    "licenses/mipdflib-NOTICE", "licenses/ivifoundation.visa-agreement.txt",
+  ]) {
     await fs.access(join(app, file));
   }
   await verifyPublishedRelease({ root: scratch, rid, configuration: "Release" });

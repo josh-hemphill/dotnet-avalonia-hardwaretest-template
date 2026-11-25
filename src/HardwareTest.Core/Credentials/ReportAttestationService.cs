@@ -318,7 +318,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             return false;
         }
-        return ITextPadesSignature.TryVerify(sign.SignedPdf, captured.Thumbprint, out error);
+        return PadesSignature.TryVerify(sign.SignedPdf, captured.Thumbprint, out error);
     }
 
     private async Task<ReportAttestationResult> PublishAsync(
@@ -554,7 +554,7 @@ public sealed class ReportAttestationService : IReportAttestationService
         {
             var pdf = File.ReadAllBytes(pdfPath);
             return string.Equals(attestation.SignatureFormat, AttestationSignatureFormat.PadesBasic, StringComparison.Ordinal)
-                && ITextPadesSignature.TryVerify(pdf, attestation.Thumbprint, out _);
+                && PadesSignature.TryVerify(pdf, attestation.Thumbprint, out _);
         }
         catch (IOException)
         {

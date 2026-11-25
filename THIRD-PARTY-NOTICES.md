@@ -1,10 +1,7 @@
 # Third-party notices
 
-This project references **iText for .NET** and its Bouncy Castle adapter to create embedded PAdES signatures. The selected NuGet packages are used under the **GNU Affero General Public License v3 (AGPL-3.0)**. Distributing or offering a combined application that includes these packages requires compliance with those terms unless you obtain a commercial iText license.
-
-- iText licensing: <https://itextpdf.com/how-buy/legal/agpl-gnu-affero-general-public-license>
-- GNU AGPL v3 text: <https://www.gnu.org/licenses/agpl-3.0.html>
+HardwareTest uses [miPDFlib](https://github.com/Mibuw/miPDFlib) under the Apache License 2.0 to create and verify embedded PAdES signatures. Application archives include the [Apache-2.0 license](licenses/Apache-2.0.txt) and miPDFlib's upstream NOTICE, including bundled attributions.
 
 `Pkcs11Interop.X509Store` and OpenSC retain their respective upstream licenses. Review all transitive package notices as part of a product release.
 
-`IviFoundation.Visa` includes a separate IVI Foundation license agreement. It requires recipients to agree to its terms, and limits nonmembers to object code and headers necessary to use it. Release archives include the agreement from the restored package. Review distribution of the combined application under both this agreement and iText’s terms before publishing binaries.
+`IviFoundation.Visa` includes a separate IVI Foundation license agreement. It requires recipients to agree to its terms, and limits nonmembers to object code and headers necessary to use it. Release archives include the agreement from the restored package.

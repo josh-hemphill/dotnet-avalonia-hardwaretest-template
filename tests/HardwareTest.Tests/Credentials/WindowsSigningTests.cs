@@ -27,7 +27,7 @@ public sealed class WindowsSigningTests
         Assert.Equal((nint)1234, fixture.Native.Owner); Assert.Equal(fixture.Source.LastContext, fixture.Native.Context);
         var pdfResult = await ((IEmbeddedPdfSigningBroker)session).TrySignPdfAsync(PdfTestFixture.CreateMinimalPdf(), fixture.Credential);
         Assert.True(pdfResult.Succeeded, pdfResult.Error); Assert.Equal(1, fixture.Native.SignCount);
-        Assert.True(ITextPadesSignature.TryVerify(pdfResult.SignedPdf!, fixture.Credential.Thumbprint, out var error), error);
+        Assert.True(PadesSignature.TryVerify(pdfResult.SignedPdf!, fixture.Credential.Thumbprint, out var error), error);
         session.Dispose(); Assert.Equal(1, fixture.Native.ReleaseCount); Assert.Equal(1, fixture.Native.UninitializeCount);
         Assert.Single(fixture.Native.ThreadIds.Distinct());
     }
@@ -53,7 +53,7 @@ public sealed class WindowsSigningTests
         var revision = Assert.Single(run.Reports, r => ReportArtifactRoles.IsIssued(r.Role));
         Assert.Equal(result.Attestation!.RevisionId, revision.RevisionId);
         Assert.True(service.HasValidAttestationForPdf(run, ReportKinds.Certification, revision.PdfPath));
-        Assert.True(ITextPadesSignature.TryVerify(await File.ReadAllBytesAsync(revision.PdfPath), fixture.Credential.Thumbprint, out var error), error);
+        Assert.True(PadesSignature.TryVerify(await File.ReadAllBytesAsync(revision.PdfPath), fixture.Credential.Thumbprint, out var error), error);
         await File.AppendAllTextAsync(revision.PdfPath, "unsigned trailing bytes");
         Assert.False(service.HasValidAttestationForPdf(run, ReportKinds.Certification, revision.PdfPath));
     }
@@ -246,6 +246,8 @@ public sealed class WindowsSigningTests
             Record(); SignCount++; SignedSpec = key.KeySpec; BeforeSign?.Invoke();
             if (SignFailure is { } code) throw new WindowsSigningNativeException(code, "signing");
             if (Malformed) return new byte[signatureSize - 1];
+            Assert.Equal(rsa is not null, isRsa);
+            Assert.Equal(isRsa ? 32 : ec!.KeySize / 8, hash.Length);
             var signature = isRsa ? rsa!.SignHash(hash, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1) : ec!.SignHash(hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
             Assert.Equal(signatureSize, signature.Length); return signature;
         }

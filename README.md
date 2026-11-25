@@ -2,7 +2,7 @@
 
 Avalonia 12 desktop shell for **OpenTAP-sequenced hardware tests**, **IVI VISA discovery**, **ScottPlot live plots**, and **Typst PDF reports**. Self-contained (non-NativeAOT) publishes target sealed Linux appliance images.
 
-**License:** [MIT](LICENSE). Distributed applications that include the AGPL iText dependency must also comply with iText's AGPL terms; see [third-party notices](THIRD-PARTY-NOTICES.md).
+**License:** [MIT](LICENSE). See [third-party notices](THIRD-PARTY-NOTICES.md) for bundled dependency licenses.
 
 ## Install or start a test set
 
