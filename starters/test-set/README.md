@@ -4,7 +4,7 @@ Keep the test workspace, procedure tables, and optional DUT plugin source in thi
 
 ## Get the matching apps
 
-Find this starter and the matching app archive in [HardwareTest Releases](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/releases). Choose Windows x64 or Linux x64. Compare the archive SHA-256 with the corresponding entry in `hardwaretest-release.json` before extracting it. On Linux use `tar -xf` to preserve executable permissions. Keep the extracted app tree together. Operator is at its root and Authoring is in `authoring/`.
+Find this starter and the matching app archive in [HardwareTest Releases](https://github.com/josh-hemphill/dotnet-avalonia-hardwaretest-template/releases). Choose Windows x64 or Linux x64. Review and agree to the [IVI Foundation VISA terms](https://www.nuget.org/packages/IviFoundation.Visa/8.0.2/License) before downloading or running the workflow that downloads an application archive. Compare the archive SHA-256 with the corresponding entry in `hardwaretest-release.json` before extracting it. On Linux use `tar -xf` to preserve executable permissions. Keep the extracted app tree together. Operator is at its root and Authoring is in `authoring/`.
 
 ## Run your first test
 

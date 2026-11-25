@@ -6,6 +6,7 @@ import { basename, join, resolve } from "node:path";
 import { verifyPublishedRelease } from "./lib/instrument_artifacts.ts";
 import { publishDir, repoRoot } from "./lib/paths.ts";
 import { isNativeRid } from "./lib/rid.ts";
+import { stagePublishedNotices } from "./release-notices.ts";
 import { run, runCapture } from "./lib/run.ts";
 
 export const releaseRids = ["win-x64", "linux-x64"] as const;
@@ -64,57 +65,40 @@ async function stageSample(root: string, workspace: string): Promise<void> {
   });
 }
 
-async function stageNotices(root: string, payload: string, build: Build): Promise<void> {
+async function stageNotices(root: string, payload: string, build: Build): Promise<string[]> {
   await fs.copyFile(join(root, "LICENSE"), join(payload, "LICENSE"));
   await fs.copyFile(join(root, "THIRD-PARTY-NOTICES.md"), join(payload, "THIRD-PARTY-NOTICES.md"));
   const notices = join(payload, "licenses");
   await fs.mkdir(notices);
   await fs.copyFile(join(root, "licenses", "Apache-2.0.txt"), join(notices, "Apache-2.0.txt"));
-  const graph = await json<{ libraries: Record<string, { type: string }> }>(join(payload, "HardwareTest.deps.json"));
   const packages = process.env.NUGET_PACKAGES ?? join(homedir(), ".nuget", "packages");
-  const bundledPackages = Object.entries(graph.libraries)
-    .filter(([, library]) => library.type === "package")
-    .map(([name]) => name);
-  const miPdf = bundledPackages.find((library) => /^mipdflib\//i.test(library));
-  const miPdfVersion = miPdf?.split("/")[1];
-  if (!miPdfVersion || !/^\d+\.\d+\.\d+$/.test(miPdfVersion)) {
-    throw new Error("The release needs the versioned miPDFlib package and its notice.");
-  }
-  for (const library of bundledPackages) {
-    const [name, version] = library.toLowerCase().split("/");
-    const directory = join(packages, name, version);
-    const entries = await fs.readdir(directory, { withFileTypes: true }).catch((error) => {
-      if (error.code === "ENOENT") return [];
-      throw error;
-    });
-    for (const file of entries) {
-      if (file.isFile() && /^(license|notice|copying|third.party.notices)/i.test(file.name)) {
-        await fs.copyFile(join(directory, file.name), join(notices, `${name}-${file.name}`));
-      }
-    }
-  }
-  await fs.access(join(notices, "mipdflib-NOTICE"));
-  const ivi = bundledPackages.find((library) => /^ivifoundation\.visa\//i.test(library));
-  if (!ivi) throw new Error("The release needs the bundled IVI Foundation VISA agreement.");
-  await fs.copyFile(join(packages, ...ivi.toLowerCase().split("/"), "license", "license.txt"),
-    join(notices, "ivifoundation.visa-agreement.txt"));
+  const published = await stagePublishedNotices(payload, packages, join(root, "licenses", "upstream"));
+  const miPdf = published.packages.find((identity) => identity.startsWith("mipdflib/"));
+  const ivi = published.packages.find((identity) => identity.startsWith("ivifoundation.visa/"));
+  if (!miPdf || !ivi) throw new Error("The release needs the miPDFlib notice and IVI Foundation VISA agreement.");
+  await fs.access(join(notices, "packages", miPdf, "NOTICE"));
+  await fs.copyFile(join(packages, ivi, "license", "license.txt"), join(notices, "ivifoundation.visa-agreement.txt"));
   await fs.writeFile(join(payload, "SOURCE.md"), [
     "# Source and redistribution",
     "",
     `HardwareTest source and build instructions: https://github.com/${build.repository}/tree/${build.commit}`,
-    `miPDFlib source: https://github.com/Mibuw/miPDFlib/tree/v${miPdfVersion}`,
+    `miPDFlib source: https://github.com/Mibuw/miPDFlib/tree/v${miPdf.split("/")[1]}`,
     "",
     "HardwareTest is licensed under MIT and miPDFlib under Apache-2.0. The archive includes the separate IVI Foundation VISA agreement.",
-    "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/ for the license texts and package notices.",
+    "See LICENSE, THIRD-PARTY-NOTICES.md, and licenses/DEPENDENCIES.md for license texts, package notices, and available upstream sources.",
     "",
   ].join("\n"));
+  return [
+    "LICENSE", "SOURCE.md", "THIRD-PARTY-NOTICES.md", "licenses/Apache-2.0.txt",
+    "licenses/ivifoundation.visa-agreement.txt", ...published.files,
+  ];
 }
 
 function tarExecutable(rid: ReleaseRid): string {
   return rid === "win-x64" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
 }
 
-async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, archive: string, build: Build): Promise<void> {
+async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, archive: string, build: Build, noticeFiles: string[]): Promise<void> {
   const app = publishDir(rid, scratch);
   await fs.mkdir(app, { recursive: true });
   await run([tarExecutable(rid), "-xf", archive, "-C", app]);
@@ -132,10 +116,7 @@ async function verifyExtracted(root: string, scratch: string, rid: ReleaseRid, a
   if (version.code !== 0 || version.stdout.trim() !== build.appVersion) {
     throw new Error("Extracted Operator reports a different build identity.");
   }
-  for (const file of [
-    "LICENSE", "SOURCE.md", "THIRD-PARTY-NOTICES.md", "licenses/Apache-2.0.txt",
-    "licenses/mipdflib-NOTICE", "licenses/ivifoundation.visa-agreement.txt",
-  ]) {
+  for (const file of noticeFiles) {
     await fs.access(join(app, file));
   }
   await verifyPublishedRelease({ root: scratch, rid, configuration: "Release" });
@@ -197,11 +178,11 @@ async function bundle(rid: ReleaseRid, directory: string, requestedTag?: string)
     const payload = join(scratch, "payload");
     const archive = join(scratch, file);
     await fs.cp(publish, payload, { recursive: true });
-    await stageNotices(root, payload, build);
+    const noticeFiles = await stageNotices(root, payload, build);
     await writeJson(join(payload, "release.json"), { ...build, rid });
     const create = rid === "win-x64" ? ["-a", "-cf"] : ["-czf"];
     await run([tarExecutable(rid), ...create, archive, "-C", payload, "."]);
-    await verifyExtracted(root, scratch, rid, archive, build);
+    await verifyExtracted(root, scratch, rid, archive, build, noticeFiles);
     await fs.mkdir(directory, { recursive: true });
     await fs.copyFile(archive, join(directory, file));
     await writeJson(join(directory, "native-manifest.json"), {
